@@ -6,7 +6,6 @@ import json
 import math
 from pathlib import Path
 import runpy
-import subprocess
 
 demo = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))
 Capture = demo["Capture"]
@@ -20,21 +19,6 @@ def require(value, message):
 
 def different(first, second):
     return any(abs((first >> shift & 255) - (second >> shift & 255)) >= 24 for shift in (0, 8, 16))
-
-
-def verify_ended_notice(image, path, notice, sx, sy):
-    require(notice["title"] == "Ended" and notice["action"] == "New Shell", "Missing the mounted final shell notice")
-    (x, y), (w, h) = notice["frameInWindow"]
-    require(all(math.isfinite(n) for n in (x, y, w, h)), "Invalid Ended geometry")
-    left, top = round(x * sx), round(y * sy)
-    right, bottom = round((x + w) * sx), round((y + h) * sy)
-    require(0 <= left < right <= image.width and 0 <= top < bottom <= image.height, "Ended panel outside the window")
-    # Only the measured opaque panel may cover terminal paper. Its labels must be visible inside that rectangle.
-    checker = Path(__file__).with_name("check-pane-capture.swift")
-    proof = subprocess.run(["xcrun", "swift", str(checker), str(path), "--crop", str(left), str(top),
-                            str(right - left), str(bottom - top), "Ended", "New Shell"], capture_output=True, text=True)
-    require(proof.returncode == 0, f"Ended panel at pixels {(left, top, right, bottom)}: {proof.stderr.strip()}")
-    return left, top, right, bottom
 
 
 def grid_edges(image, state):
@@ -96,22 +80,20 @@ def compare_grids(before, before_state, after, after_state, block_cursor=None):
     return f"all {total} grid RGB pixels match" + (f", visible block cursor at {tuple(block_cursor)}" if block_cursor else "")
 
 
-def check(image, state, require_keyboard=False, path=None):
+def check(image, state, require_keyboard=False):
     phone = state.get("keyboard")
     if require_keyboard or (phone is not None and phone["keyboardHeight"] > 90):
         keyboard(image, phone)
 
-    xs, ys, sx, sy = grid_edges(image, state)
+    xs, ys, _, _ = grid_edges(image, state)
     rows, columns = state["rows"], state["columns"]
     mask = state["inkMask"]
     require(len(mask) == rows and all(len(line) == columns and set(line) <= {"0", "1"} for line in mask),
             "Invalid expected ink mask")
 
-    panel = None
-    if notice := state.get("endedNotice"):
+    if state.get("ended"):
         require(phone is None or (phone["accessoryHeight"] == 0 and phone["keyboardHeight"] < 90),
                 "The software keyboard is still on screen at exit")
-        panel = verify_ended_notice(image, path, notice, sx, sy)
 
     selection = state.get("selection")
     require(state.get("copiedText") is None or selection is not None, "Missing native copy selection")
@@ -138,13 +120,7 @@ def check(image, state, require_keyboard=False, path=None):
             colors = Counter()
             for py in range(top, bottom):
                 start = py * image.width
-                if panel and panel[1] <= py < panel[3] and panel[0] < right and left < panel[2]:
-                    require(expected[col] == "0" and not selected_start <= row * columns + col <= selected_end,
-                            f"Ended panel covers transcript ink or selection at row {row}, column {col}")
-                    colors.update(image.pixels[start + left:start + max(left, panel[0])])
-                    colors.update(image.pixels[start + min(right, panel[2]):start + right])
-                else:
-                    colors.update(image.pixels[start + left:start + right])
+                colors.update(image.pixels[start + left:start + right])
             if not colors:
                 continue
             paper, _ = colors.most_common(1)[0]
@@ -172,7 +148,7 @@ def check(image, state, require_keyboard=False, path=None):
     require(missing <= max(1, want * 0.10) and extra <= max(2, want * 0.10) and not row_errors,
             f"Glyph occupancy differs: {missing} missing, {extra} unexpected, {want} expected; " + "; ".join(row_errors[:4]))
     result = f"{want - missing}/{want} glyph cells, {extra} unexpected, {count - selection_missing}/{count} selected cells"
-    return result + (", visible Ended and New Shell" if panel else "")
+    return result
 
 
 def main():
@@ -196,7 +172,7 @@ def main():
             other = json.loads(other_checkpoint.read_bytes())
             result = compare_grids(image, state, Capture(other_image, other["appearance"]), other, args.block_cursor)
         else:
-            result = check(image, state, args.require_keyboard, args.image)
+            result = check(image, state, args.require_keyboard)
     except ValueError as error:
         parser.exit(1, f"{state['name']}: {error}\n")
     print(f"{state['name']}: {result}")

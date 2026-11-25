@@ -51,7 +51,7 @@ import ThrushCore
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
     package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
-    /// The terminal surface and its session status notices.
+    /// The terminal surface for this session.
     public var body: some View { Presentation(pane: self) }
 
     // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
@@ -86,34 +86,22 @@ import ThrushCore
         private var epoch: UInt64 = 0
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
-        private var noticeTimer: Task<Void, Never>?
-        private var phase = Phase.initial
+        private var spinnerDelay: Task<Void, Never>?
+        private var phase = Phase.initial {
+            didSet { if phase != oldValue { updateSpinner() } }
+        }
         private var hasScreen = false
         private var size: Terminal.Size?
-        private var scheduledNotice: PaneNotice?
-        private var notice: PaneNotice?
-        private var readingNotice = false
-        private var replacementSawInput = false
-        private var replacement: PaneNotice?
-        private var replacementRemaining = Duration.zero
-        private var replacementVisibleSince: ContinuousClock.Instant?
-        private var replacementTimer: Task<Void, Never>?
         private var deliveredExit = false
         private var finishingExitStamp: UInt64?
 
         fileprivate func bind(_ container: TerminalPaneContainer) {
             self.container = container
             container.onVisibility = { [weak self] in self?.updateActivity() }
-            container.onAction = { [weak self] in self?.activateButton() }
-            container.onNoticeReadChange = { [weak self] reading in
-                self?.readingNotice = reading
-                self?.dismissReplacementIfReady()
-            }
             container.terminal.onGridSizeChange = { [weak self] in self?.resize($0) }
             container.terminal.onThemeChange = { [weak self] theme in
                 guard let self else { return }
                 pane?.onResolvedTheme?(theme)
-                self.container?.show(notice)
                 perform { session, _ in await session.setTheme(theme) }
             }
             container.terminal.onInput = { [weak self] in self?.input($0) }
@@ -126,10 +114,8 @@ import ThrushCore
                 phase = .initial
                 hasScreen = false
                 deliveredExit = false
-                clearReplacement()
                 view?.setInputAvailability(.blocked, dismissKeyboard: false)
                 view?.reset()
-                show(nil)
             }
             pane = next
             guard let view else { return }
@@ -159,7 +145,7 @@ import ThrushCore
             if drawingVisible != visible {
                 drawingVisible = visible
                 view?.setDrawingVisible(visible)
-                if visible { resumeReplacementTimer() } else { pauseReplacementTimer() }
+                updateSpinner()
             }
             if !active {
                 active = true
@@ -181,14 +167,12 @@ import ThrushCore
             epoch &+= 1
             reader?.cancel()
             reader = nil
-            noticeTimer?.cancel()
-            noticeTimer = nil
-            scheduledNotice = nil
             size = nil
-            pauseReplacementTimer()
             let previouslyActive = active
             active = false
             drawingVisible = false
+            updateSpinner()
+            view?.onDisplacedTap = nil
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
             view?.setRenderingActive(false)
             if previouslyActive, let session = pane?.session {
@@ -223,7 +207,7 @@ import ThrushCore
                 guard let self else { return }
                 let screen = try await session.resize(to: measured, needsScreen: reader != nil && phase == .live)
                 guard epoch == stamp else { return }
-                if reader == nil, phase != .displaced, phase != .exited {
+                if reader == nil {
                     await start(session, userInitiated: false, stamp: stamp)
                 } else if phase == .live, let screen {
                     view?.display(screen)
@@ -232,27 +216,30 @@ import ThrushCore
         }
 
         private func input(_ input: Terminal.Input) {
-            guard active, phase == .live || phase == .reconnecting else { return }
-            // Pointer coordinates describe the currently displayed generation. Only committed
-            // text, paste and keys are meaningful for an attachment that may be restored.
-            if case .pointer = input, phase == .reconnecting { return }
+            guard active else { return }
+            if phase == .displaced {
+                switch input {
+                case .text, .paste, .key: reclaim()
+                default: return
+                }
+            }
+            guard phase == .live || phase == .reconnecting else { return }
+            // A pointer position belongs to the screen that was under the pointer.
+            if case .pointer = input, phase != .live { return }
             let onWrite = pane?.onWriteStarted
             perform { session, _ in
                 if let onWrite { try await session.send(input) { onWrite(CACurrentMediaTime()) } }
                 else { try await session.send(input) }
             }
-            if case .replacement = notice, case .pointer = input { return }
-            if case .replacement = notice {
-                replacementSawInput = true
-                dismissReplacementIfReady()
-            }
         }
 
-        private func activateButton() {
-            guard active, phase == .displaced || phase == .exited else { return }
-            phase = .connecting
-            delay(.connecting(retainingTranscript: hasScreen))
+        private func reclaim() {
+            guard active, phase == .displaced else { return }
+            phase = .reconnecting
+            view?.onDisplacedTap = nil
             perform { [weak self] session, stamp in
+                // Let the read that reported displacement finish before starting another.
+                await self?.reader?.value
                 await self?.start(session, userInitiated: true, stamp: stamp)
             }
         }
@@ -270,9 +257,8 @@ import ThrushCore
                 await apply(status, stamp: stamp)
                 return
             }
-            phase = .connecting
-            view.setInputAvailability(.blocked, dismissKeyboard: false)
-            delay(.connecting(retainingTranscript: hasScreen))
+            phase = hasScreen ? .reconnecting : .connecting
+            view.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
 
             // Only the read operation survives the wait. The app can release the pane and its session.
             reader = Task { [weak self, read = session.readUpdate] in
@@ -293,9 +279,11 @@ import ThrushCore
         private func apply(_ update: TerminalSession.Update, stamp: UInt64) async -> Bool {
             switch update {
             case .fresh(let screen):
-                openedShell(screen)
-            case .replacedShell(let screen, let discardedInput):
-                openedShell(screen, discardedOnReplacement: discardedInput)
+                view?.reset()
+                view?.display(screen)
+                hasScreen = true
+                becomeLive()
+                pane?.onReady?(false)
             case .awaitingReplay:
                 pane?.onReady?(true)
             case .screen(let screen):
@@ -314,25 +302,16 @@ import ThrushCore
             case .reconnecting:
                 phase = .reconnecting
                 view?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
-                delay(hasScreen ? .reconnecting : .connecting(retainingTranscript: false))
             case .displaced:
-                blockInput(.displaced)
+                phase = .displaced
+                view?.setInputAvailability(.holdingKeys, dismissKeyboard: false)
+                view?.onDisplacedTap = { [weak self] in self?.reclaim() }
                 return false
-            case .ended(let final, let canRestart):
-                await finishExit(final, canRestart: canRestart, stamp: stamp)
+            case .ended(let final):
+                await finishExit(final, stamp: stamp)
                 return false
             }
             return true
-        }
-
-        private func openedShell(_ screen: Terminal.Snapshot, discardedOnReplacement: Bool? = nil) {
-            deliveredExit = false
-            clearReplacement()
-            view?.reset()
-            view?.display(screen)
-            becomeLive()
-            if let discardedOnReplacement { announceReplacement(discarded: discardedOnReplacement) }
-            pane?.onReady?(false)
         }
 
         private func handleError(stamp: UInt64) async {
@@ -341,9 +320,11 @@ import ThrushCore
             await apply(status, stamp: stamp)
         }
 
-        private func finishExit(_ final: Terminal.Snapshot, canRestart: Bool, stamp: UInt64) async {
+        private func finishExit(_ final: Terminal.Snapshot, stamp: UInt64) async {
             guard epoch == stamp, active, !deliveredExit, finishingExitStamp != stamp else { return }
             finishingExitStamp = stamp
+            phase = .exited
+            view?.onDisplacedTap = nil
             defer { if finishingExitStamp == stamp { finishingExitStamp = nil } }
             // Present the final bytes at the pre-dismissal keyboard size, including synchronized output.
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
@@ -351,81 +332,27 @@ import ThrushCore
             guard epoch == stamp, active, !deliveredExit else { return }
             deliveredExit = true
             hasScreen = true
-            blockInput(.exited, notice: canRestart ? .exited : .closed)
+            view?.setInputAvailability(.blocked, dismissKeyboard: true)
         }
 
         private func becomeLive() {
             phase = .live
             view?.setInputAvailability(.live, dismissKeyboard: false)
-            show(replacement)
+            view?.onDisplacedTap = nil
         }
 
-        private func blockInput(_ state: Phase, notice: PaneNotice? = nil) {
-            phase = state
-            clearReplacement()
-            view?.setInputAvailability(.blocked, dismissKeyboard: true)
-            show(notice ?? (state == .displaced ? .displaced : .exited))
-        }
-
-        private func show(_ next: PaneNotice?) {
-            noticeTimer?.cancel()
-            noticeTimer = nil
-            scheduledNotice = nil
-            if notice != next { pauseReplacementTimer() }
-            notice = next
-            container?.show(next)
-            resumeReplacementTimer()
-        }
-
-        private func delay(_ next: PaneNotice) {
-            if notice == next || scheduledNotice == next { return }
-            show(nil)
-            scheduledNotice = next
-            noticeTimer = Task { [weak self] in
+        private func updateSpinner() {
+            guard drawingVisible, phase == .connecting || phase == .reconnecting else {
+                spinnerDelay?.cancel()
+                spinnerDelay = nil
+                view?.setWaiting(false)
+                return
+            }
+            // Most attachments finish before an indicator would be useful.
+            guard spinnerDelay == nil else { return }
+            spinnerDelay = Task { [weak self] in
                 do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
-                self?.show(next)
-            }
-        }
-
-        private func announceReplacement(discarded: Bool) {
-            clearReplacement()
-            replacement = .replacement(discardedInput: discarded)
-            replacementRemaining = .seconds(3)
-            show(replacement)
-        }
-
-        private func clearReplacement() {
-            pauseReplacementTimer()
-            replacementSawInput = false
-            replacement = nil
-        }
-
-        private func pauseReplacementTimer() {
-            if let since = replacementVisibleSince {
-                replacementRemaining = max(.zero, replacementRemaining - since.duration(to: .now))
-            }
-            replacementVisibleSince = nil
-            replacementTimer?.cancel()
-            replacementTimer = nil
-        }
-
-        private func resumeReplacementTimer() {
-            guard drawingVisible, let replacement, notice == replacement, replacementRemaining > .zero,
-                  replacementVisibleSince == nil else { return }
-            replacementVisibleSince = .now
-            let remaining = replacementRemaining
-            replacementTimer = Task { [weak self] in
-                do { try await Task.sleep(for: remaining) } catch { return }
-                self?.replacementVisibleSince = nil
-                self?.replacementRemaining = .zero
-                self?.dismissReplacementIfReady()
-            }
-        }
-
-        private func dismissReplacementIfReady() {
-            if let replacement, notice == replacement, replacementRemaining == .zero, replacementSawInput, !readingNotice {
-                clearReplacement()
-                show(nil)
+                self?.view?.setWaiting(true)
             }
         }
     }

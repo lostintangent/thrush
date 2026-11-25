@@ -1,26 +1,9 @@
 #if os(iOS)
-import SwiftUI
 import Thrush
 import UIKit
 
 /// The integration host uses only the public pane. Its capture reads the mounted UIKit views.
-struct PhoneToolbarProof: View {
-    let session: TerminalSession
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            TerminalPane(session)
-                .ignoresSafeArea()
-                .navigationTitle(session.title.isEmpty ? "Terminal" : session.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Close") { dismiss() }
-                    }
-                }
-        }
-    }
-
+@MainActor enum PhoneToolbarProof {
     private static func first(in root: UIView, matching test: (UIView) -> Bool) -> UIView? {
         if test(root) { return root }
         for child in root.subviews {

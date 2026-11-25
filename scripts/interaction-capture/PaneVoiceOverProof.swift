@@ -21,7 +21,7 @@ import XCTest
     private func launch(_ scene: String) throws -> URL {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
         let endpoint = try XCTUnwrap(URL(string: address))
-        app.launchArguments = ["--endpoint", address, "--scene", "notice-" + scene, "--hide-keyboard",
+        app.launchArguments = ["--endpoint", address, "--scene", scene, "--hide-keyboard",
                                "--capture-state", "--capture-accessibility"]
         app.launch()
         return endpoint
@@ -77,7 +77,7 @@ import XCTest
     }
 
     func testTranscriptKeepsVoiceOverFocusThroughReconnect() async throws {
-        let endpoint = try launch("reconnecting")
+        let endpoint = try launch("spinner-reconnecting")
         let row = app.staticTexts["Test run passed."]
         XCTAssertTrue(row.waitForExistence(timeout: 20), app.debugDescription)
         let focused: Result<String, Error>
@@ -87,38 +87,12 @@ import XCTest
         interrupt.httpMethod = "POST"
         let (_, response) = try await URLSession.shared.data(for: interrupt)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
-        let status = app.descendants(matching: .any).matching(identifier: "terminal.status").firstMatch
-        XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
+        let spinner = app.descendants(matching: .any)["terminal.cursorSpinner"]
+        XCTAssertTrue(spinner.waitForExistence(timeout: 10), app.debugDescription)
         try await Task.sleep(for: .seconds(2))
-        print("VOICEOVER reconnect announcement checkpoint; mounted label=\(status.label)")
+        XCTAssertTrue(row.exists)
         let beforeInterruption = try focused.get()
         XCTAssertEqual(try reader.currentSpeech().utterance, beforeInterruption)
-        print("VOICEOVER retained transcript: \(beforeInterruption)")
-        print("VOICEOVER reconnect status: \(try await read(status, expecting: "Reconnecting"))")
-    }
-
-    func testTakeoverButtonSpeech() async throws {
-        try await checkNotice(scene: "displaced", title: "Open in another window", label: "Use shell in this window")
-    }
-
-    func testExitButtonSpeech() async throws {
-        try await checkNotice(scene: "ended", title: "Ended", label: "New Shell")
-    }
-
-    private func checkNotice(scene: String, title: String, label: String) async throws {
-        _ = try launch(scene)
-        let button = app.buttons["terminal.status.action"]
-        XCTAssertTrue(button.waitForExistence(timeout: 18), app.debugDescription)
-        XCTAssertEqual(button.label, label)
-        XCTAssertGreaterThanOrEqual(button.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(button.frame.height, 44)
-        let visibleLine = app.staticTexts["Test run passed."]
-        print("VOICEOVER \(scene) AX transcript exists=\(visibleLine.exists)")
-        let status = app.descendants(matching: .any).matching(identifier: "terminal.status").firstMatch
-        XCTAssertTrue(status.exists, app.debugDescription)
-        let heading = try await read(status, expecting: title)
-        let next = try reader.moveForward().utterance
-        XCTAssertTrue(next.localizedCaseInsensitiveContains(label), "Speech after \(heading): \(next)")
-        print("VOICEOVER \(scene): \(heading) / \(next)")
+        print("VOICEOVER retained terminal line: \(beforeInterruption)")
     }
 }

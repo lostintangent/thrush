@@ -4,8 +4,6 @@
 Pass the spinner's native frame plus 2 pt of padding on each side. The outermost
 pixel ring supplies the local background. Within the spoke ring, use the strongest
 adjacent pair's lower WCAG contrast to avoid counting a single antialiased outlier.
-For the archived inactive 1440×972 Slate Dark window, Connecting is 619,498,40,40
-and Reconnecting is 20,886,40,40. Use the native frame for other window sizes.
 """
 import argparse
 from collections import Counter
@@ -20,9 +18,13 @@ def luminance(rgb):
 
 
 def measure(frame, region):
-    x, y, width, height = region
     # Reuse the capture checker's ColorSync conversion for both Slate appearances.
     capture = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))["Capture"](frame, "dark")
+    return measure_pixels(capture, region)
+
+
+def measure_pixels(capture, region):
+    x, y, width, height = region
     if min(x, y) < 0 or min(width, height) < 5 or x + width > capture.width or y + height > capture.height:
         raise ValueError(f"Spinner region {region} falls outside the {capture.width}×{capture.height} frame or is too small.")
     pixels = capture.crop((x, y, x + width - 1, y + height - 1))
@@ -46,6 +48,8 @@ def measure(frame, region):
             if neighbor in ratios and min(ratio, ratios[neighbor]) > best:
                 sample = (col, row) if ratio <= ratios[neighbor] else neighbor
                 best = ratios[sample]
+    if best == 0:
+        raise ValueError("No adjacent spinner spoke pixels were found.")
     col, row = sample
     return best, (x + col, y + row), pixels[row * width + col], background
 

@@ -35,7 +35,7 @@ func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
     let host = try #require(window.contentView)
     host.layoutSubtreeIfNeeded()
 
-    let container = try #require(terminal.superview?.superview as? TerminalPaneContainer)
+    let container = try #require(terminal.superview as? TerminalPaneContainer)
     let paneFrame = container.convert(container.bounds, to: nil)
     let safe = window.contentLayoutRect
     if fullSizeToolbar {
@@ -54,18 +54,5 @@ func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
     let firstCell = input.convert(terminal.cellRect(row: 0, column: 0), to: nil)
     #expect(!firstCell.isEmpty && safe.contains(firstCell))
 
-    container.show(.connecting(retainingTranscript: false))
-    host.layoutSubtreeIfNeeded()
-    let centered = try #require(container.mountedNoticeView)
-    let connecting = centered.convert(centered.bounds, to: nil)
-    #expect(abs(connecting.midX - safe.midX) <= 0.5)
-    #expect(abs(connecting.midY - safe.midY) <= 0.5)
-
-    container.show(.displaced)
-    host.layoutSubtreeIfNeeded()
-    let strip = try #require(container.mountedNoticeView)
-    let status = strip.convert(strip.bounds, to: nil)
-    #expect(status.minX == paneFrame.minX && status.maxX == paneFrame.maxX && status.minY == safe.minY)
-    #expect(terminal.convert(terminal.bounds, to: nil) == safe)
 }
 #endif

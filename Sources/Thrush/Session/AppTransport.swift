@@ -23,7 +23,7 @@ final class AppTransport {
         var isReading = false
     }
 
-    func show(in session: isolated SessionActor, userInitiated: Bool) -> Bool {
+    func show(in session: isolated SessionActor) -> Bool {
         if subscription == nil, session.state == .active || session.state == .connecting || session.state == .closing {
             subscription = Subscription()
             if session.state == .active {
@@ -31,7 +31,7 @@ final class AppTransport {
                 return false
             }
         }
-        guard session.beginOpening(userInitiated: userInitiated) else { return false }
+        guard session.beginOpening() else { return false }
         subscription?.changes.continuation.finish()
         subscription = Subscription()
         session.state = .connecting
@@ -156,28 +156,18 @@ final class AppTransport {
             try await next.value
             guard session.lifetime == stamp else { throw CancellationError() }
         } catch {
-            if session.lifetime == stamp { await end(in: session, mayRestart: true) }
+            if session.lifetime == stamp { await close(in: session) }
             throw error
         }
     }
 
-    func release(in session: isolated SessionActor) async {
-        if session.state != .ended { await close(in: session) }
-    }
-
     func close(in session: isolated SessionActor) async {
-        await end(in: session, mayRestart: false)
-    }
-
-    fileprivate func end(in session: isolated SessionActor, mayRestart: Bool) async {
         if session.state == .ended || session.state == .closing {
-            if !mayRestart { session.exitedNaturally = false }
             await closing?.value
             return
         }
         // Invalidate queued writes before waking a blocked read or write.
         session.lifetime &+= 1
-        session.exitedNaturally = mayRestart
         session.state = .closing
         reader?.cancel()
         reader = nil
@@ -217,6 +207,6 @@ extension SessionActor {
 
     fileprivate func appTransportEnded(stamp: UInt64) async {
         guard lifetime == stamp, case .app(let app) = transport else { return }
-        await app.end(in: self, mayRestart: true)
+        await app.close(in: self)
     }
 }

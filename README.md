@@ -17,7 +17,7 @@ Add the package and link the `Thrush` product to your app target. Thrush needs m
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
-Keep one `TerminalSession` per tab in a main-actor model that outlives the view. Each session owns a terminal and talks to one shell. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
+Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. Each session owns a terminal and talks to one shell. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
 
 ```swift
 import Thrush
@@ -29,15 +29,9 @@ let session = TerminalSession { size in
 TerminalPane(session)
 ```
 
-The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and handles focus, selection, copying and scrolling through history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. The pane shows a native notice when the shell needs attention.
+The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and handles focus, selection, copying and scrolling through history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background.
 
-| State | What the pane shows |
-| --- | --- |
-| Opening | **Connecting**, after 200 ms |
-| A lost socket retries | **Reconnecting**, with the previous screen and history available and typing held for the same shell |
-| The shell was replaced | **Previous shell ended**, with the new shell ready |
-| Another window took the shell | **Open in another window**, with **Use Here** |
-| The shell exited | **Ended**, with **New Shell** |
+On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the pane keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes.
 
 An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row of Esc, Ctrl, Tab and arrow keys above the keyboard. Each argument after the session is optional.
 
@@ -53,7 +47,18 @@ TerminalPane(
 
 To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
-SwiftUI observes `session.title` and `session.hasEnded` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(session.title.isEmpty ? "Terminal" : session.title)`. The session ends when the shell exits or the app calls `try await session.close()`. On shell exit, the pane keeps its last screen and offers **New Shell**. An app that closes ended tabs can observe `session.hasEnded` with `.onChange`. [Pane states and behavior](docs/design/pane-states.md)
+SwiftUI observes `session.title` and `session.hasEnded` directly. On `main`, a shell that exits, is closed by the app, or is replaced during a reconnect leaves its final screen and history readable. Both sample apps keep that screen until the user chooses **New Shell** in the app’s toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Pane lifecycle](docs/design/pane-states.md)
+
+```swift
+TerminalPane(model.tab.session)
+    .toolbar {
+        if model.tab.session.hasEnded {
+            Button("New Shell", action: model.newShell)
+        }
+    }
+```
+
+The tab model’s `newShell()` replaces the finished tab with a new one. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/app-consumer/Sources/AppConsumer/AppConsumer.swift)
 
 ### WebSocket transport
 
@@ -86,7 +91,7 @@ let session = TerminalSession(openTransport: { size in
 TerminalPane(session)
 ```
 
-The factory opens a shell at the pane’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the pane hidden. Showing it again displays the current screen. EOF or a transport error leaves the final screen visible with the **Ended** notice. **New Shell** calls the factory for a fresh shell. Calling `session.close()` ends the session permanently. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
+The factory opens a shell at the pane’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the pane hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
 
 ## Try the sample apps
 
@@ -122,7 +127,7 @@ The timings come from one contended M1 Max, so they show headroom rather than a 
 
 ## Develop
 
-[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover Slate, glass and the pane states.
+[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover Slate, glass and the pane lifecycle.
 
 ## License
 

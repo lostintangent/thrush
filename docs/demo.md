@@ -1,6 +1,6 @@
 # Run the Thrush demo
 
-Start a real shell server from the repository root and leave it running. The Mac app and iPhone Simulator share the loopback address it prints. Each app gets an interactive shell in a private working directory.
+Start a real shell server from the repository root and leave it running. The Mac app and iPhone Simulator share the loopback address it prints. Each app gets an interactive shell in a private working directory. When the shell exits, its final screen stays available for reading and copying. Choose **New Shell** in the app’s toolbar to start another.
 
 ```sh
 swift run ThrushServer
@@ -54,13 +54,13 @@ gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f o
 
 Run `gh workflow run headless.yml --ref main -f scene=render-benchmark` for the packaged simulator render benchmark alone.
 
-Pass `-f scene=notices -f appearance=dark` to capture Connecting, Reconnecting, Previous shell ended, Open in another window and Ended in one simulator. The suite leaves the keyboard down for opening, replacement, takeover and exit. Before interrupting the live shell for Reconnecting, it verifies the software keyboard and terminal keys are visible. The peer opens real terminal WebSockets, waits for a cursor-position reply before interrupting an active shell, attaches a second client for takeover and sends the server exit message for Ended. Each PNG has a JSON sidecar with the native notice, its frame and its action. Vision checks the visible copy in the captured pixels. A capture with terminal output also requires a completed GPU frame. Use `notice-connecting`, `notice-reconnecting`, `notice-replacement`, `notice-displaced` or `notice-ended` for an individual capture.
+Pass `-f scene=cursor-spinners -f appearance=dark` to the hosted iPhone workflow for the opening and reconnect captures. Repeat with `light` for the other appearance. Each pair brackets a controlled WebSocket handshake or interruption in the same app process. The checker measures spoke contrast at the expected cursor cell and compares every grid pixel outside that cell against the live capture. For the Mac matrix, run `gh workflow run window-lifecycle.yml --ref main -f spinner_matrix=true`. It captures each appearance with the window active and inactive. A separate pair of shell attachments verifies the Mac titlebar action appears on exit, starts another shell and leaves the terminal grid in place. [Pane lifecycle checks](design/pane-states.md)
 
 Pass `-f scene=text-blink` to check blinking and concealed text in the styles scene. The simulator opens the scene in both appearances, first with motion and then with Reduce Motion, and takes a jittered burst of screenshots each time. `scripts/check-text-blink.py` requires blinking rows to alternate between fully shown and fully hidden while every other row holds still, Reduce Motion frames to match the shown text, and concealed text to leave its cells blank. The artifact keeps a shown, hidden and Reduce Motion still for each appearance. On a disposable Mac runner, `gh workflow run window-lifecycle.yml --ref main -f text_blink=true` runs the packaged Mac render benchmark, then the same captures and checks in a real window.
 
-Pass `-f scene=toolbar-proof -f appearance=dark` to capture Connecting and takeover in a real iPhone navigation stack with a title and Close button. Each frame has the measured window, navigation bar, pane, first cell and notice geometry.
+Pass `-f scene=toolbar-proof` to check the initial spinner and the first prompt inside the same safe-area grid. The app owns the navigation title and Close button.
 
-Pass `-f scene=notice-reconnect-motion` to record typing on the English software keyboard through an interrupted socket and a resumed replay. The UI test taps `git` on the live shell, taps ` status` during the outage, and waits for the complete remote echo. The movie and `reconnect-view.json` show the live, reconnecting and resumed keyboard geometry. The peer records the exact bytes received before and after replay in `reconnect-wire.json`.
+Pass `-f scene=reconnect-typing` to record held input with the iPhone software keyboard. The test types `git` in the live shell, interrupts its WebSocket and types ` status` during the outage. After replay the shell should echo the full `git status` command. Compare the bytes before and after replay and check that the keyboard kept its position.
 
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and accessory measurements for the PTY recorder.
 
@@ -78,7 +78,7 @@ python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output 
 
 ## Embed the pane
 
-Keep one `TerminalSession` for each terminal tab and pass it to `TerminalPane(session)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the palette and routes native input through the session. The pane shows the final screen on exit. With the WebSocket transport it also presents reconnect and takeover notices. SwiftUI can read `session.title` for the tab title and observe `session.hasEnded` when the shell exits or the app calls `try await session.close()`. The user can still read and copy the final screen and history. Both native sample apps embed this pane.
+Keep a `TerminalSession` for each shell and pass it to `TerminalPane(session)` from SwiftUI. Supply `isActive: selected` when a tab stays in the view hierarchy while another is selected. The pane measures its grid, applies the palette and routes input. SwiftUI can read `session.title` for the tab title and observe `session.hasEnded` when the shell exits, a reconnect finds a replacement shell or the app calls `try await session.close()`. The user can still read and copy the last screen and history. The app decides when to remove that pane or present another `TerminalSession`. Both sample apps offer **New Shell** in their toolbar after the session ends. Choosing it presents another session and removes the toolbar action.
 
 Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, pass `showsKeyRow: false` to hide the key row above the keyboard.
 
@@ -110,4 +110,4 @@ The **M4 iPhone interaction proof** Actions workflow runs the same native tests 
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions
 ```
 
-Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The test asks VoiceOver to read a control in Settings, then a known terminal line and the pane actions. It saves the spoken responses in `voiceover.log` and the app’s focus and announcement events in JSON. On the hosted iOS 27.2 simulator, Settings and Thrush both returned `No speech available`. Use the physical iPhone TestFlight pass to hear the line, confirm the reading position survives a reconnect and count the reconnect announcements. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45577502508)
+Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The VoiceOver check saves spoken responses in `voiceover.log`. On the hosted iOS 27.2 simulator, Settings and Thrush both returned `No speech available`. On a physical iPhone, verify that VoiceOver can read a terminal line and that reconnect leaves its reading position in place without announcing the shell state. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45577502508)

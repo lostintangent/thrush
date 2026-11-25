@@ -47,7 +47,6 @@ struct InBandReplayCheck {
               try await repair.value == .replay else { throw Failure("Expected exactly one replay event") }
         let restored = await session.snapshot()
         guard await session.state == .active, !(await session.awaitingReplay),
-              !(await session.replacedPreviousShell), !(await session.discardedHeldInputOnLastReady),
               restored.palette == palette, restored.size == resized,
               restored.history.map(\.text) == ["oldest", "newer"], restored.rows.map(\.text) == ["one", "two", "three"],
               restored.cursorRow == 2, restored.cursorColumn == 5,
