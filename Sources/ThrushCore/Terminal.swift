@@ -194,7 +194,13 @@ public struct Terminal: Sendable {
         } else {
             var decoder = scanner
             let written = screen.writeRun(startingWith: (first, ColumnWidth.of(first)), style: style,
-                                          joinsPrevious: &hasCombiningBase) {
+                                          joinsPrevious: &hasCombiningBase) { appending in
+                // Printable ASCII continues a run that appends cells, so mixed text stays in one run.
+                // Overwriting cells, the run ends instead and ASCII takes the vector path.
+                if appending, index < bytes.count, TextScanner.isPrintableASCII(bytes[index]) {
+                    index += 1
+                    return (Unicode.Scalar(bytes[index - 1]), 1)
+                }
                 guard let scalar = decoder.nextNonASCII(in: bytes, index: &index) else { return nil }
                 if scalar.value < 0xa0 {
                     control = scalar

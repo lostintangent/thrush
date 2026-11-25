@@ -534,16 +534,17 @@ extension Terminal {
             active.column += max(1, width)
         }
 
-        /// Writes non-ASCII scalars with autowrap on and insert mode off.
+        /// Writes a run that starts with a non-ASCII scalar, with autowrap on and insert mode off. `next` learns
+        /// whether the run is appending cells, since only an appending run continues with printable ASCII.
         mutating func writeRun(startingWith first: SizedScalar, style: Style, joinsPrevious: inout Bool,
-                               next: () -> SizedScalar?) -> UInt64 {
+                               next: (_ appending: Bool) -> SizedScalar?) -> UInt64 {
             var count: UInt64 = 0
             var pending: SizedScalar? = first
             while let glyph = pending {
                 let index = active.index(of: row)
                 let limit = min(size.columns, active.rows[index].storageColumns)
                 if glyph.width > 0, column + glyph.width <= limit, column >= active.rows[index].length {
-                    let n = active.rows[index].appendRun(&pending, at: column, limit: limit, style: style, next: next)
+                    let n = active.rows[index].appendRun(&pending, at: column, limit: limit, style: style) { next(true) }
                     active.column = active.rows[index].length
                     revision &+= n
                     active.rows[index].generation = revision
@@ -553,7 +554,7 @@ extension Terminal {
                     write(glyph.scalar, width: glyph.width, style: style, wraparound: true, insert: false, joinsPrevious: joinsPrevious)
                     joinsPrevious = glyph.width > 0 || joinsPrevious
                     count &+= 1
-                    pending = next()
+                    pending = next(false)
                 }
             }
             return count
