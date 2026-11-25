@@ -93,6 +93,47 @@ private let escape = "\u{1b}["
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func dimInkMaintainsContrastOnCodexComposerBackgrounds() async throws {
+    let host = try await OffscreenTerminal()
+    // Foreground and composer background bytes from the two Slate appearances.
+    // Expected glyph interiors use 70% foreground and 30% background in the UNORM target.
+    let cases: [(TerminalTheme, String, UInt32, UInt32, UInt32)] = [
+        (.slateDark, "47;56;64", 0x2f3840, 0xe3eaf0, 0xadb5bb),
+        (.slateLight, "240;242;243", 0xf0f2f3, 0x233442, 0x616d77),
+    ]
+    func channels(_ color: UInt32) -> [Int] {
+        [Int(color >> 16), Int(color >> 8 & 255), Int(color & 255)]
+    }
+    func luminance(_ color: UInt32) -> Double {
+        let linear = channels(color).map {
+            let value = Double($0) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    }
+    for (theme, sgrBackground, background, foreground, expectedDim) in cases {
+        var terminal = Terminal(size: .init(columns: 8, rows: 2))
+        _ = terminal.receive((escape + "?25l" + escape + "48;2;" + sgrBackground + "mH").utf8)
+        let normal = try host.draw(terminal.snapshot(), theme: theme)
+        // Locate a fully covered stem in the undimmed H, then sample the same pixel.
+        let stem = try #require((Probe.top..<(Probe.top + Probe.height)).compactMap { y in
+            (Probe.edges[0]..<Probe.edges[1]).first { normal[$0, y] == foreground }.map { ($0, y) }
+        }.first)
+        _ = terminal.receive((escape + "H" + escape + "2mH").utf8)
+        let dim = try host.draw(terminal.snapshot(), theme: theme)
+        let ink = dim[stem.0, stem.1]
+        let fill = dim[Probe.edges[0], Probe.top]
+        #expect(fill == background)
+        // Fixed-function blend precision can shift a channel by one code value.
+        #expect(zip(channels(ink), channels(expectedDim)).allSatisfy { abs($0 - $1) <= 1 })
+        let a = luminance(ink), b = luminance(fill)
+        let contrast = (max(a, b) + 0.05) / (min(a, b) + 0.05)
+        #expect(contrast >= 4.5, "Measured ink \(channels(ink)) on \(channels(fill))")
+    }
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
 func livePaletteChangesRecolorCachedRows() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 3))
     // The first row includes direct RGB and a color-cube index. The next two rows

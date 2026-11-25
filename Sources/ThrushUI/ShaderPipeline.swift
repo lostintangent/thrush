@@ -32,7 +32,7 @@ vertex Raster terminalVertex(uint corner [[vertex_id]], uint instance [[instance
     out.uv = q.uv.xy + q.uv.zw * unit;
     uint c = q.paint.x;
     out.ink = (c & 0x80000000) ? float4((c >> 16) & 255, (c >> 8) & 255, c & 255, 255) / 255.0 : palette[c];
-    out.ink.a *= q.paint.z ? 0.65 : 1.0;
+    out.ink.a *= q.paint.z ? 0.70 : 1.0;
     out.material = q.paint.y;
     return out;
 }
