@@ -34,6 +34,7 @@ struct TextScanner: Sendable {
 
     var isComplete: Bool { remaining == 0 }
 
+    @inline(__always)
     mutating func decode(_ byte: UInt8) -> Unicode.Scalar? {
         if remaining > 0 && !nextRange.contains(byte) { self = Self() }
         if remaining > 0 {

@@ -14,9 +14,10 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 ## Layers
 
 ```
-bytes ─▶ TextScanner ── printable ASCII runs ─▶ Screen.writeASCII
-           ├─────────── Unicode scalars ─────▶ Screen.write
-           └─────────── controls ────────────▶ EscapeParser ─▶ Terminal.apply
+bytes ─┬─ printable ASCII in ground state ─▶ TextScanner ─▶ Screen.writeASCII
+       ├─ ASCII controls ──────────────────▶ EscapeParser ─▶ Terminal.apply
+       └─ UTF-8 ─▶ TextScanner ─┬─ printable scalar ──────▶ Screen.write
+                                └─ control or payload ────▶ EscapeParser
 ```
 
 | Layer | Knows | Doesn't know |
@@ -30,7 +31,7 @@ Input runs the other way through one key table that maps each `Terminal.Input.Ke
 
 ## Following one chunk
 
-A shell that prints a green prompt sends these 16 bytes:
+A shell that prints a green prompt sends these 17 bytes.
 
 ```
 ESC [ 3 2 m ~ / s r c ESC [ 0 m ␠ $ ␠
@@ -38,9 +39,9 @@ ESC [ 3 2 m ~ / s r c ESC [ 0 m ␠ $ ␠
 
 Here is how ThrushCore turns them into cells.
 
-1. **The chunk arrives.** The host calls `Terminal.receive(_:)` with a `Span` over the bytes. The loop checks the first byte. ESC isn't printable, so it takes the slow path through `consume`.
-2. **The scanner decodes a scalar.** `TextScanner.decode` returns U+001B. A multibyte character would take several calls, and a chunk that ends halfway through one carries the partial scalar into the next call.
-3. **The parser frames the sequence.** `EscapeParser.consume` looks up its current state and the scalar in the transition table. ESC moves it from the ground state to escape, and `[` moves it to the start of a control sequence and clears the parameters. `3` and `2` accumulate `32` in `ControlParameters`, and `m` is the final byte. That transition returns `.csi` with an identifier packing the final byte and any prefix and intermediates. Nothing has been copied or allocated.
+1. **The chunk arrives.** The host calls `Terminal.receive(_:)` with a `Span` over the bytes. The first byte is ESC. The framer can read it directly because every ASCII byte is already a complete code point.
+2. **The parser enters a control sequence.** ESC followed by `[` introduces CSI, the control sequence introducer. The parser clears its previous header. A chunk can end immediately after ESC, after `[`, or between digits. In each case, the parser retains what it needs for the next read.
+3. **The parser collects the header.** The next bytes are ASCII digits. `ControlParameters` accumulates `3` and `2` as the value 32. The next byte, `m`, ends the header. The state table returns to ground and produces `.csi` with an identifier that packs the final byte and any prefix and intermediates. The parameters stay in the parser’s fixed storage.
 4. **Dispatch names it.** `TerminalControlFunction(action)` maps the identifier to `.control(.graphicRendition)`, the function the specs call SGR.
 5. **`apply` runs it.** The `graphicRendition` case calls `style.applySGR(parser.parameters)`. It reads `32` in place and sets the foreground to palette color 2, green. Nothing visible changed, so the frame generation stays the same.
 6. **Text takes the fast path.** Back in `receive`, `~` is printable ASCII, the parser is in the ground state and no scalar is half decoded. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.

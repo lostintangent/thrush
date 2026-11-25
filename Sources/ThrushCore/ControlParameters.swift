@@ -43,6 +43,7 @@ struct ControlParameters: Sendable {
     }
 
     /// Accepts the parameter bytes 0x30–0x3B after the framer has consumed any prefix.
+    @inline(__always)
     mutating func append(_ byte: UInt8) {
         guard destination != .discardRemainder else { return }
         switch byte {

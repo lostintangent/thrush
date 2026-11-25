@@ -90,6 +90,10 @@ public struct Terminal: Sendable {
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
                 hasCombiningBase = true
                 generation &+= 1
+            } else if byte == EscapeParser.escape, scanner.isComplete {
+                hasCombiningBase = false
+                let action = parser.consumeEscape(in: bytes, index: &index)
+                dispatch(action, replies: &replies)
             } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
@@ -124,7 +128,16 @@ public struct Terminal: Sendable {
         screen.snapshot(generation: generation, modes: modes, palette: palette)
     }
 
+    @inline(__always)
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
+        if byte < 0x80, !parser.isGround || !TextScanner.isPrintableASCII(byte) {
+            // An ASCII control also terminates any incomplete UTF-8 character.
+            if !scanner.isComplete { scanner = TextScanner() }
+            if byte != TextScanner.delete.value { hasCombiningBase = false }
+            let action = parser.consume(ascii: byte)
+            dispatch(action, replies: &replies)
+            return
+        }
         guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { return }
         if parser.isGround, TextScanner.isPrintable(scalar) {
             let width = ColumnWidth.of(scalar)
@@ -134,7 +147,13 @@ public struct Terminal: Sendable {
             return
         }
         if scalar != TextScanner.delete { hasCombiningBase = false }
-        if let action = parser.consume(scalar), let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
+        let action = parser.consume(scalar)
+        dispatch(action, replies: &replies)
+    }
+
+    @inline(__always)
+    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
+        if let action, let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
         if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
             apply(function, replies: &replies)
         }

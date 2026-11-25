@@ -40,3 +40,28 @@ func firstBytesAtEachCheckpoint(chunkLimit: Int) throws {
         #expect(rows == expectedRows, "Screen at split \(split)")
     }
 }
+
+@Test func cursorAndTitleControlsCanCrossContiguousAndSinglePassInput() {
+    func singlePass(_ bytes: [UInt8]) -> some Sequence<UInt8> {
+        sequence(state: bytes.makeIterator()) { $0.next() }
+    }
+    var terminal = Terminal(size: .init(columns: 12, rows: 3))
+
+    // The next ASCII digit ends an invalid UTF-8 prefix and still belongs to this CSI.
+    _ = terminal.receive("\u{1B}[2;".utf8)
+    _ = terminal.receive(singlePass([0xe2, 0x82]))
+    _ = terminal.receive("4HX".utf8)
+    _ = terminal.receive(singlePass([0x9b])) // Raw C1 is an invalid standalone UTF-8 byte.
+    _ = terminal.receive("ab".utf8)
+    _ = terminal.receive(singlePass([0xc2]))
+    let cursorQueryTail: [UInt8] = [0x9b, 0x36, 0x6e]
+    #expect(terminal.receive(cursorQueryTail) == Array("\u{1B}[2;7R".utf8))
+    #expect(terminal.text(inRow: 1) == "   Xab")
+
+    _ = terminal.receive("\u{1B}]2;old\u{07}\u{1B}]2;new".utf8)
+    _ = terminal.receive(singlePass([0xc2]))
+    #expect(terminal.title == "old")
+    let encodedSTSuffix: [UInt8] = [0x9c]
+    _ = terminal.receive(encodedSTSuffix)
+    #expect(terminal.title == "new")
+}

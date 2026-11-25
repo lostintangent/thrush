@@ -17,9 +17,11 @@ struct ControlIdentifier: Hashable, Sendable {
     }
 }
 
-/// Frames a Unicode scalar stream into VT controls. String payloads are forwarded
-/// as they arrive; the framer never accumulates their contents.
+/// Frames ASCII bytes and decoded Unicode scalars into VT controls.
+/// String payloads are forwarded as they arrive.
 struct EscapeParser: Sendable {
+    static let escape: UInt8 = 0x1b
+
     enum Action {
         case printable, execute(UInt8)
         case esc(ControlIdentifier), csi(ControlIdentifier)
@@ -67,10 +69,53 @@ struct EscapeParser: Sendable {
         }
     }
 
+    /// Starting at ESC, consume ASCII until one action is ready or ordinary input can resume.
+    mutating func consumeEscape(in bytes: Span<UInt8>, index: inout Int) -> Action? {
+        // The 7-bit CSI introducer enters the same header state as its C1 form.
+        if isGround, bytes.count - index >= 2, bytes[index + 1] == UInt8(ascii: "[") {
+            state = Tag(.csiEntry)
+            beginHeader()
+            index += 2
+        }
+        while index < bytes.count {
+            let byte = bytes[index]
+            guard byte < 0x80 else { break }
+            let code = UInt32(byte)
+            let transition = Self.transition(from: state, scalar: code)
+            if transition.operation.matches(.parameter) {
+                state = transition.nextState
+                // All parameter bytes continue in the same CSI or DCS parameter state.
+                repeat {
+                    parameters.append(bytes[index])
+                    index += 1
+                } while index < bytes.count && (UInt8(ascii: "0")...UInt8(ascii: ";")).contains(bytes[index])
+            } else {
+                index += 1
+                if let action = advance(transition, code: code) { return action }
+            }
+            if isGround || discardsASCII { break }
+        }
+        return nil
+    }
+
+    private mutating func beginHeader() {
+        collected = 0
+        parameters.reset()
+    }
+
+    @inline(__always)
+    mutating func consume(ascii byte: UInt8) -> Action? {
+        let code = UInt32(byte)
+        return advance(Self.transition(from: state, scalar: code), code: code)
+    }
+
     @inline(__always)
     mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
-        let code = scalar.value
-        let transition = Self.transition(from: state, scalar: code)
+        advance(Self.transition(from: state, scalar: scalar.value), code: scalar.value)
+    }
+
+    @inline(__always)
+    private mutating func advance(_ transition: Transition, code: UInt32) -> Action? {
         state = transition.nextState
         // Operations that use a byte are reachable only for single-byte code points.
         let byte = UInt8(truncatingIfNeeded: code)
@@ -81,8 +126,7 @@ struct EscapeParser: Sendable {
         case .beginEscape:
             collected = 0
         case .beginHeader, .cancelAndBeginHeader:
-            collected = 0
-            parameters.reset()
+            beginHeader()
             if transition.operation.matches(.cancelAndBeginHeader) { return .stringEnd(success: false) }
         case .collect:
             collected = collected << 8 | code
@@ -102,7 +146,7 @@ struct EscapeParser: Sendable {
                 state = Tag(.invalidOSC)
             }
         case .startOSC: return .oscStart(oscIdentifier)
-        case .put: return .stringPut(scalar)
+        case .put: return .stringPut(Unicode.Scalar(code)!)
         case .finish, .cancel:
             collected = 0
             return .stringEnd(success: transition.operation.matches(.finish))
