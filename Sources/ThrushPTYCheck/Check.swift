@@ -72,6 +72,10 @@ struct PTYCheck {
 
     static func main() async throws {
         let args = CommandLine.arguments
+        if args.dropFirst().first == "reader" {
+            try await ReaderComparison.run(args)
+            return
+        }
         guard args.count == 5 || args.count == 6, let endpoint = URL(string: args[1]),
               endpoint.scheme == "http", endpoint.host == "127.0.0.1", UUID(uuidString: args[2]) != nil,
               ["paced", "live", "limited", "suspended", "lifecycle"].contains(args[3]) else {
