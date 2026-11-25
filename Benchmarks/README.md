@@ -9,3 +9,17 @@ The operation table uses a monotonic clock and nearest-rank percentiles. Receive
 The separate burst measurement makes every recorded chunk available at once. It times ordered receive and key encoding until the input queue drains, with final row and byte checks after the timer stops. The one-second peak counts bytes at the fixture’s recorded timestamps in a sliding one-second window. This small scripted recording establishes a baseline for the first operations. Compare timing across repeated runs on the same machine and power state.
 
 A table entry of `sub-tick` means both clock reads returned the same timestamp. The JSON preserves that measured interval as zero.
+
+## Recorded Mac baseline
+
+Five consecutive Release runs measured clean revision `174bc3770612` on an Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
+
+| Run | Receive (MiB/s) | 8-byte prompt p95 (ns) | 4-byte cursor query p95 (ns) | 75-byte burst drain p95 (ns) |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 9.48 | 834 | 542 | 7,500 |
+| 2 | 9.67 | 833 | 500 | 7,417 |
+| 3 | 9.26 | 875 | 542 | 7,542 |
+| 4 | 7.01 | 916 | 584 | 8,167 |
+| 5 (saved) | 9.41 | 834 | 542 | 7,500 |
+
+Every run applied all 150,000 input bytes and produced 36,000 query-reply bytes and 18,000 key bytes. The burst counters describe the 75 fixture bytes available to the synchronous runner at once and the zero remaining when it finished. The JSON also records clock percentiles for each chunk, row read and Up encoding.
