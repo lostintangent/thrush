@@ -7,7 +7,9 @@ import math
 from pathlib import Path
 import runpy
 
-Capture = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))["Capture"]
+demo = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))
+Capture = demo["Capture"]
+keyboard = demo["keyboard"]
 
 
 def require(value, message):
@@ -19,7 +21,11 @@ def different(first, second):
     return any(abs((first >> shift & 255) - (second >> shift & 255)) >= 24 for shift in (0, 8, 16))
 
 
-def check(image, state):
+def check(image, state, require_keyboard=False):
+    phone = state.get("keyboard")
+    if require_keyboard or (phone is not None and phone["keyboardHeight"] > 90):
+        keyboard(image, phone)
+
     rows, columns = state["rows"], state["columns"]
     mask = state["inkMask"]
     require(rows > 0 and columns > 1 and len(mask) == rows and
@@ -94,10 +100,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image", type=Path)
     parser.add_argument("checkpoint", type=Path)
+    parser.add_argument("--require-keyboard", action="store_true",
+                        help="require the iPhone software keyboard and accessory in the screenshot")
     args = parser.parse_args()
     state = json.loads(args.checkpoint.read_text())
     try:
-        result = check(Capture(args.image, state["appearance"]), state)
+        result = check(Capture(args.image, state["appearance"]), state, args.require_keyboard)
     except ValueError as error:
         parser.exit(1, f"{state['name']}: {error}\n")
     print(f"{state['name']}: {result}")

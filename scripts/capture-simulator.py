@@ -181,7 +181,8 @@ class Phone:
         self.state_path = install_and_locate_app(device, app) / "capture-state.json"
 
     def launch(self, scene, appearance, orientation, keyboard):
-        self.set_appearance(appearance)
+        if appearance is not None:
+            self.set_appearance(appearance)
         args = ["--endpoint", self.endpoint, "--scene", scene, "--capture-state"]
         if orientation == "landscape":
             args.append("--capture-landscape")
@@ -215,9 +216,11 @@ class Phone:
             return state if time.monotonic() - since >= 0.7 else False
 
         print("Waiting for the first native keyboard attachment", flush=True)
-        state = wait_for("the warm-up keyboard and accessory", ready, 100)
-        save_json(self.out / "keyboard-warmup.json", state)
-        sim("terminate", self.device, APP_ID, timeout=45)
+        try:
+            state = wait_for("the warm-up keyboard and accessory", ready, 100)
+            save_json(self.out / "keyboard-warmup.json", state)
+        finally:
+            sim("terminate", self.device, APP_ID, timeout=45, check=False)
 
     def interrupt_after_focus(self, pid, keyboard):
         def ready():
@@ -479,6 +482,17 @@ class Phone:
         if environment["commit"] != source["commit"]:
             raise RuntimeError("Benchmark and captured app report different source revisions.")
         print(result.stdout.strip(), flush=True)
+
+
+def prepare_workflow_phone(device, app, output):
+    # The first system keyboard can display a QuickPath introduction instead of its keys.
+    # Let it attach to a throwaway prompt before the recorded terminal opens.
+    warmup = output / "keyboard-warmup"
+    warmup.mkdir()
+    with peer(warmup) as endpoint, tempfile.TemporaryDirectory(dir=warmup) as scratch:
+        phone = Phone(device, endpoint, app, warmup, Path(scratch))
+        phone.warm_keyboard(None)
+        return phone.state_path.parent
 
 
 def main():

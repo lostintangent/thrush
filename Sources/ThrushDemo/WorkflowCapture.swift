@@ -12,9 +12,16 @@ import UIKit
 /// use the top-left of the captured window on both platforms and include the Mac title bar.
 @MainActor
 struct WorkflowCapture: Encodable {
+    struct Keyboard: Encodable {
+        let windowPoints, gridFrame: CGRect
+        let displayScale, keyboardHeight, accessoryHeight: CGFloat
+        let orientation: String
+    }
+
     struct Layout {
         let windowSize: [CGFloat]
         let gridInWindow: [CGFloat]
+        let keyboard: Keyboard?
 
         @MainActor init?(view: TerminalView, drawableGrid: CGRect) {
             guard let window = view.window, !view.bounds.isEmpty, !drawableGrid.isEmpty,
@@ -29,10 +36,19 @@ struct WorkflowCapture: Encodable {
             let windowHeight = window.frame.height
             windowSize = [window.frame.width, windowHeight]
             gridInWindow = [position.minX, windowHeight - position.maxY, position.width, position.height]
+            keyboard = nil
             #else
+            guard let root = window.rootViewController?.viewIfLoaded, let scene = window.windowScene,
+                  !root.bounds.isEmpty else { return nil }
             let position = view.convert(grid, to: window)
             windowSize = [window.bounds.width, window.bounds.height]
             gridInWindow = [position.minX, position.minY, position.width, position.height]
+            let accessory = view.subviews.first(where: \.isFirstResponder)?.inputAccessoryView
+            keyboard = Keyboard(windowPoints: root.bounds, gridFrame: view.convert(view.bounds, to: root),
+                                displayScale: view.traitCollection.displayScale,
+                                keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
+                                accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0,
+                                orientation: scene.effectiveGeometry.interfaceOrientation.isLandscape ? "landscape" : "portrait")
             #endif
         }
     }
@@ -41,6 +57,7 @@ struct WorkflowCapture: Encodable {
     let eventIndex, columns, rows: Int
     let appearance: String
     let windowSize, gridInWindow: [CGFloat]
+    let keyboard: Keyboard?
     let inkMask: [String]
     let selection: [Int]?
     let copiedText: String?
@@ -53,6 +70,7 @@ struct WorkflowCapture: Encodable {
         appearance = view.resolvedTheme == .slateLight ? "light" : "dark"
         windowSize = layout.windowSize
         gridInWindow = layout.gridInWindow
+        keyboard = layout.keyboard
         selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
         copiedText = copied
         inkMask = snapshot.rows.map { row in

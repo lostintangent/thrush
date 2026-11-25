@@ -130,7 +130,7 @@ def peer_origins(peer, log):
     raise RuntimeError(f"peer did not publish its socket and driver origins; see {log}")
 
 
-def collect_capture(marker, output, platform, target):
+def collect_capture(marker, output, platform, target, *, require_keyboard=False):
     request = json.loads(marker.read_bytes())
     index = request["eventIndex"]
     if (type(index) is not int or index < 0 or marker.stem != f"capture-{index:03d}"
@@ -157,7 +157,10 @@ def collect_capture(marker, output, platform, target):
                                    stdout=log, stderr=subprocess.STDOUT, timeout=10)
                 else:
                     raw.replace(image)
-                subprocess.run([sys.executable, "scripts/check-workflow-capture.py", str(image), str(marker)],
+                verify = [sys.executable, "scripts/check-workflow-capture.py", str(image), str(marker)]
+                if require_keyboard:
+                    verify.append("--require-keyboard")
+                subprocess.run(verify,
                                check=True, stdout=log, stderr=subprocess.STDOUT, timeout=15)
                 break
             except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -185,7 +188,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             raise RuntimeError(failure.read_text(errors="replace").strip() or str(failure))
         for marker in sorted(driver.glob("capture-*.json")):
             if marker not in completed_captures:
-                collect_capture(marker, output, platform, target)
+                collect_capture(marker, output, platform, target, require_keyboard=verify_fixture and platform == "simulator")
                 completed_captures.add(marker)
                 deadline = time.monotonic() + 90
         report = driver / "workflow-report.json"
@@ -278,7 +281,7 @@ def main():
             if device:
                 if not disposable:
                     ensure_demo_idle(device)
-                documents = capture["install_and_locate_app"](device, app)
+                documents = capture["prepare_workflow_phone"](device, app, output)
             for name in args.workflows:
                 print(f"Checking {name} in {output / name}", flush=True)
                 try:
