@@ -1,3 +1,4 @@
+import Foundation
 import ThrushCore
 
 /// The terminal's palette and the colors used to draw its cursor and selection.
@@ -70,12 +71,40 @@ enum Paint {
         }
     }
 
-    static func table(_ theme: TerminalTheme) -> [SIMD4<Float>] {
-        var colors = (0...255).map { theme.palette[index: UInt8($0)].vector }
-        colors += [theme.palette.foreground, theme.palette.background, theme.cursor, theme.cursorInk,
-                   theme.selection, theme.selectionInk].map(\.vector)
+    /// The program's colors replace the theme's where it set them. Selection stays on the theme.
+    static func table(_ theme: TerminalTheme, _ program: Terminal.ProgramColors) -> [SIMD4<Float>] {
+        func color(_ slot: Terminal.ColorSlot) -> Terminal.RGB {
+            program.resolve(slot, palette: theme.palette, cursor: theme.cursor)
+        }
+        let foreground = color(.foreground), background = color(.background)
+        // The theme's ink suits only the theme's cursor. Under a program's, keep the glyph readable.
+        let cursorInk = program[.cursor].map {
+            $0.contrast(with: foreground) > $0.contrast(with: background) ? foreground : background
+        } ?? theme.cursorInk
+        var colors = (0...255).map { color(.indexed(UInt8($0))).vector }
+        colors += [foreground, background, color(.cursor), cursorInk, theme.selection, theme.selectionInk].map(\.vector)
         return colors
     }
+}
+
+extension Terminal.RGB {
+    /// WCAG relative luminance.
+    var luminance: Double {
+        func linear(_ component: UInt8) -> Double {
+            let value = Double(component) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
+
+    /// WCAG contrast ratio, from 1 to 21.
+    func contrast(with other: Terminal.RGB) -> Double {
+        let (a, b) = (luminance, other.luminance)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+
+    /// Whether white text contrasts more than black on this color.
+    var isDark: Bool { contrast(with: .init(red: 255, green: 255, blue: 255)) > contrast(with: .init(red: 0, green: 0, blue: 0)) }
 }
 
 // Opaque backing for native chrome when Reduce Transparency is enabled.

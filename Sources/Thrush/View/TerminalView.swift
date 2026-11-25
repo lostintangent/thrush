@@ -109,6 +109,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     package var onThemeChange: ((TerminalTheme) -> Void)?
     /// Reports that the input gained or lost first responder. Read ``hasInputFocus`` for the result.
     var onInputFocusChange: (() -> Void)?
+    /// Reports a change to the background the view draws, from the theme or the program.
+    var onBackgroundChange: (() -> Void)?
     /// The measured size in cells, or `nil` until the view lays out nonempty bounds.
     package private(set) var gridSize: Terminal.Size?
     /// The theme the view currently draws, including any explicit override.
@@ -174,7 +176,17 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     }()
     private(set) var metrics: GridMetrics?
     var transcript = TerminalTranscript()
-    package private(set) var snapshot: Terminal.Snapshot?
+    package private(set) var snapshot: Terminal.Snapshot? {
+        didSet {
+            let colors = snapshot?.programColors ?? .init()
+            guard colors != programColors else { return }
+            let background = color(.background)
+            programColors = colors
+            if color(.background) != background { backgroundChanged() }
+        }
+    }
+    /// The colors the displayed program set over the theme.
+    private(set) var programColors = Terminal.ProgramColors()
     enum InputAvailability {
         case live, holdingKeys, blocked
     }
@@ -311,7 +323,13 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     /// Updates the terminal grid to fit the view's bounds.
     package override func layoutSubviews() { super.layoutSubviews(); updateGeometry() }
     /// Updates rendering and grid geometry when the view moves into or out of a window.
-    package override func didMoveToWindow() { super.didMoveToWindow(); updateAttachment() }
+    package override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // A program can ask for the background as soon as the pane shows, so adopt the window's appearance
+        // now rather than at the next layout.
+        if window != nil { updateTraitsIfNeeded() }
+        updateAttachment()
+    }
     #endif
 
     private func updateAttachment() {
@@ -332,15 +350,26 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #endif
         let next = theme ?? (isDark ? .slateDark : .slateLight)
         guard next != resolvedTheme else { return }
+        let background = color(.background)
         resolvedTheme = next
-        applyClearColor()
         onThemeChange?(next)
+        if color(.background) != background { backgroundChanged() }
         refreshInteraction()
         invalidateFrame()
     }
 
+    /// The color the view draws for a slot: the program's when it set one, otherwise the theme's.
+    func color(_ slot: Terminal.ColorSlot) -> Terminal.RGB {
+        programColors.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
+    }
+
+    private func backgroundChanged() {
+        applyClearColor()
+        onBackgroundChange?()
+    }
+
     private func applyClearColor() {
-        let c = resolvedTheme.palette.background.vector
+        let c = color(.background).vector
         let background = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
         #if os(macOS)
         let alpha = effectiveOpacity
@@ -551,7 +580,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #if os(macOS)
         macInput.refresh()
         #else
-        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme)
+        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme,
+                               ink: color(.foreground), paper: color(.background))
         phoneTranscript.synchronize()
         #endif
         onViewportInteractionChange?()

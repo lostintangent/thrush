@@ -270,12 +270,11 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
             addSubview(field)
             preview = field
         }
-        let theme = terminal.resolvedTheme
-        field.backgroundColor = NSColor(terminal: theme.palette.background)
+        field.backgroundColor = NSColor(terminal: terminal.color(.background))
         let text = NSMutableAttributedString(attributedString: marked)
         let full = NSRange(location: 0, length: text.length)
         let font = NSFont.monospacedSystemFont(ofSize: terminal.fontSize ?? 14, weight: .regular)
-        text.addAttributes([.font: font, .foregroundColor: NSColor(terminal: theme.palette.foreground)], range: full)
+        text.addAttributes([.font: font, .foregroundColor: NSColor(terminal: terminal.color(.foreground))], range: full)
         text.enumerateAttribute(.underlineStyle, in: full) { value, range, _ in
             if value == nil { text.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range) }
         }

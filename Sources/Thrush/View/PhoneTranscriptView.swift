@@ -117,6 +117,8 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             reducedTransparency = UIAccessibility.isReduceTransparencyEnabled
             styleLatest()
         }
+        let indicator: UIScrollView.IndicatorStyle = terminal.color(.background).isDark ? .white : .black
+        if scroll.indicatorStyle != indicator { scroll.indicatorStyle = indicator }
         selectionControls.update()
         layoutLatest()
         reading.invalidate()
@@ -141,7 +143,6 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         }
         latest.overrideUserInterfaceStyle = theme == .slateDark ? .dark : theme == .slateLight ? .light : .unspecified
         latest.configuration = config
-        scroll.indicatorStyle = theme.palette.background.red < 128 ? .white : .black
     }
 
     func layoutLatest() {

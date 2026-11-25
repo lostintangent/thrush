@@ -49,6 +49,7 @@ import ThrushCore
     package var onOutput: ((UInt64, CFTimeInterval) -> Void)?
     package var onReady: ((Bool) -> Void)?
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
+    package var onCanvasChange: ((ColorScheme) -> Void)?
     package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
     /// The terminal surface and its session status notices.
@@ -64,6 +65,9 @@ import ThrushCore
             NativePane(pane: pane, owner: coordinator)
                 .onAppear { coordinator.setPresented(true) }
                 .onDisappear { coordinator.setPresented(false) }
+                #if os(iOS)
+                .toolbarColorScheme(coordinator.barScheme, for: .navigationBar)
+                #endif
         }
     }
 
@@ -79,6 +83,10 @@ import ThrushCore
         }
         private weak var container: TerminalPaneContainer?
         private var view: TerminalView? { container?.terminal }
+        #if os(iOS)
+        /// A navigation bar over the pane takes the scheme of the background it draws, so its title stays readable.
+        @Published private(set) var barScheme: ColorScheme?
+        #endif
         private var pane: TerminalPane?
         private var active = false
         private var reportedFocus = false
@@ -106,6 +114,16 @@ import ThrushCore
             self.container = container
             container.onVisibility = { [weak self] in self?.updateActivity() }
             container.onAction = { [weak self] in self?.activateButton() }
+            container.onCanvasChange = { [weak self] in
+                // Layout reports the schemes, and SwiftUI can't observe a change during its own update.
+                Task { @MainActor in
+                    guard let self, let container = self.container else { return }
+                    #if os(iOS)
+                    self.barScheme = container.barScheme
+                    #endif
+                    if let canvas = container.canvasScheme { self.pane?.onCanvasChange?(canvas) }
+                }
+            }
             container.onNoticeReadChange = { [weak self] reading in
                 self?.readingNotice = reading
                 self?.dismissReplacementIfReady()

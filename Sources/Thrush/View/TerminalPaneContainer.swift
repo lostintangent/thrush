@@ -257,6 +257,17 @@ private typealias NoticeHost = UIView & UIContentView
     #endif
     var onAction: (() -> Void)?
     var onNoticeReadChange: ((Bool) -> Void)?
+    /// The scheme of the background the pane draws.
+    private(set) var canvasScheme: ColorScheme?
+    #if os(iOS)
+    /// The scheme that keeps a navigation bar over the pane readable, or nil when none overlaps it.
+    private(set) var barScheme: ColorScheme?
+    #else
+    /// A Mac toolbar's title follows the window's appearance, so an opposite canvas stops beneath it.
+    private let toolbarCover = PaneNativeView()
+    var toolbarCoverColor: CGColor? { toolbarCover.isHidden ? nil : toolbarCover.layer?.backgroundColor }
+    #endif
+    var onCanvasChange: (() -> Void)?
 
     private let viewport = PaneNativeView()
     private let rowCover = PaneNativeView()
@@ -287,6 +298,8 @@ private typealias NoticeHost = UIView & UIContentView
         viewport.wantsLayer = true
         viewport.layer?.masksToBounds = true
         rowCover.wantsLayer = true
+        toolbarCover.wantsLayer = true
+        toolbarCover.isHidden = true
         backing.wantsLayer = true
         divider.wantsLayer = true
         let guide = safeAreaLayoutGuide
@@ -312,6 +325,16 @@ private typealias NoticeHost = UIView & UIContentView
         viewport.addSubview(terminal)
         for view in [viewport, rowCover, backing, divider, terminal] { view.translatesAutoresizingMaskIntoConstraints = false }
         backing.isHidden = true
+        #if os(macOS)
+        addSubview(toolbarCover)
+        toolbarCover.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            toolbarCover.topAnchor.constraint(equalTo: topAnchor),
+            toolbarCover.leadingAnchor.constraint(equalTo: leadingAnchor),
+            toolbarCover.trailingAnchor.constraint(equalTo: trailingAnchor),
+            toolbarCover.bottomAnchor.constraint(equalTo: guide.topAnchor),
+        ])
+        #endif
         gridTop = terminal.topAnchor.constraint(equalTo: guide.topAnchor)
         coveredHeight = rowCover.heightAnchor.constraint(equalToConstant: 0)
         dividerHeight = divider.heightAnchor.constraint(equalToConstant: 1)
@@ -339,6 +362,7 @@ private typealias NoticeHost = UIView & UIContentView
             dividerHeight,
         ])
         terminal.onViewportInteractionChange = { [weak self] in self?.keepReadingPositionVisible() }
+        terminal.onBackgroundChange = { [weak self] in self?.updateBacking() }
 
         let center = NotificationCenter.default
         #if os(macOS)
@@ -359,7 +383,7 @@ private typealias NoticeHost = UIView & UIContentView
         for name in notifications {
             center.addObserver(self, selector: #selector(lifecycleChanged(_:)), name: name, object: nil)
         }
-        updateBacking(terminal.resolvedTheme)
+        updateBacking()
     }
 
     required init?(coder: NSCoder) { nil }
@@ -410,7 +434,8 @@ private typealias NoticeHost = UIView & UIContentView
     }
     override func viewDidHide() { super.viewDidHide(); onVisibility?() }
     override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?() }
-    override func layout() { super.layout(); keepReadingPositionVisible() }
+    override func layout() { super.layout(); keepReadingPositionVisible(); updateSchemes() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateSchemes() }
     #else
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -441,7 +466,7 @@ private typealias NoticeHost = UIView & UIContentView
         onVisibility?()
     }
 
-    override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible() }
+    override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible(); updateSchemes() }
 
     // During willDeactivate / willEnterForeground the scene can still report the old state.
     func sceneLifecycleChanged(_ name: Notification.Name) {
@@ -470,18 +495,40 @@ private typealias NoticeHost = UIView & UIContentView
         #endif
     }
 
-    private func updateBacking(_ theme: TerminalTheme) {
+    /// The pane's frame follows the background the terminal draws. The status strip stays on the theme.
+    private func updateBacking() {
+        let theme = terminal.resolvedTheme
+        let background = terminal.color(.background).paneCGColor
         #if os(macOS)
-        rowCover.layer?.backgroundColor = theme.palette.background.paneCGColor
-        layer?.backgroundColor = theme.palette.background.paneCGColor
+        toolbarCover.layer?.backgroundColor = theme.palette.background.paneCGColor
+        rowCover.layer?.backgroundColor = background
+        layer?.backgroundColor = background
         backing.layer?.backgroundColor = theme.hostBacking.paneCGColor
         divider.layer?.backgroundColor = theme.separator.paneCGColor
         #else
-        rowCover.backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
-        backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
+        rowCover.backgroundColor = UIColor(cgColor: background)
+        backgroundColor = UIColor(cgColor: background)
         backing.backgroundColor = UIColor(cgColor: theme.hostBacking.paneCGColor)
         divider.backgroundColor = UIColor(cgColor: theme.separator.paneCGColor)
         #endif
+        updateSchemes()
+    }
+
+    private func updateSchemes() {
+        let background = terminal.color(.background)
+        let canvas: ColorScheme = background.isDark ? .dark : .light
+        #if os(macOS)
+        let window = (self.window?.effectiveAppearance ?? effectiveAppearance).bestMatch(from: [.aqua, .darkAqua])
+        toolbarCover.isHidden = safeAreaInsets.top == 0 || background.isDark == (window == .darkAqua)
+            || background == terminal.resolvedTheme.palette.background
+        guard canvas != canvasScheme else { return }
+        canvasScheme = canvas
+        #else
+        let bar = safeAreaInsets.top > 0 ? canvas : nil
+        guard canvas != canvasScheme || bar != barScheme else { return }
+        (canvasScheme, barScheme) = (canvas, bar)
+        #endif
+        onCanvasChange?()
     }
 
     func show(_ next: PaneNotice?) {
@@ -495,7 +542,7 @@ private typealias NoticeHost = UIView & UIContentView
             accessibilityFocus = false
             speaking = nil
         }
-        updateBacking(theme)
+        updateBacking()
         refreshMessage()
         if changed, let next { announce(next) }
         updateReading()
