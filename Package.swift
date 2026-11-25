@@ -15,9 +15,10 @@ let package = Package(
         .target(name: "ThrushConnection", dependencies: ["Thrush"]),
         .target(
             name: "ThrushFixtures",
+            dependencies: ["Thrush"],
             path: "Fixtures",
             exclude: ["reference"],
-            resources: [.copy("first-bytes.json")]
+            resources: [.copy("first-bytes.json"), .copy("replays")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["Thrush", "ThrushFixtures"]),
         .executableTarget(
