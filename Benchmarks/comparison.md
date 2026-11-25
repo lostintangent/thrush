@@ -12,7 +12,7 @@ The runner needs Node and Bun. It installs the [pinned reference](../Fixtures/re
 ## Where Thrush stands
 
 - **Thrush led libghostty-vt in 14 of 36 conditions.** It led in every SGR condition by 1.41–1.54× and every Vim condition by 1.14–1.53×. At 240 × 60 it also led on dense ASCII by 1.11–1.13×, cursor addressing by 1.20–1.24× and scrolling by 1.08–1.09×. [Screens](#screens)
-- **The widest gaps are at 80 × 24.** Thrush ran at 0.58–0.59× of libghostty-vt on wide text, 0.58–0.59× on the scroll region and 0.59× on the shell recording. On dense ASCII libghostty-vt ran at 1,012 MiB/s on both grids, while Thrush ran at 857 MiB/s at 80 × 24 and 1,174 MiB/s at 240 × 60, where the same text wraps into fewer lines. Each line still costs Thrush more than it costs libghostty-vt. [Closing the gap](#closing-the-gap)
+- **The widest gaps are at 80 × 24.** Thrush ran at 0.58–0.59× of libghostty-vt on wide text, 0.58–0.59× on the scroll region and 0.59× on the shell recording. On dense ASCII libghostty-vt ran at 1,012 MiB/s on both grids, while Thrush ran at 857 MiB/s at 80 × 24 and 1,174 MiB/s at 240 × 60, where the same text wraps into fewer lines. Each line still costs Thrush more than it costs libghostty-vt. [Where Thrush loses time](#where-thrush-loses-time)
 - **Thrush ran faster than both @xterm/headless runtimes in every condition**, by 2.37–12.43×.
 - **Screen checks.** Thrush matched the Node reference in 36 of 36 conditions. The Bun runtime matched it in 36 of 36, and libghostty-vt matched it in 32 of 36. [Screens](#screens)
 - **Allocations.** At 4 KiB, Thrush recorded 21 to 21,497 allocations per workload and libghostty-vt recorded 0 to 1,330. [Allocations](#allocations)
@@ -176,44 +176,26 @@ Allocation counts for one pass at 4 KiB chunks. The terminal starts each pass wi
 | scroll | 1,035 | 1,071 | 2 | 9 |
 | region | 21 | 21 | 0 | 0 |
 
-A row allocates its cells once, on its first write. A line feed, an erase or a region scroll clears a row in place, so once the screen and 1,000 rows of history fill, steady output stops allocating. Dense ASCII, wide text and scrolling settle at 1,035 allocations at 80 × 24, one for each row the screen and history hold plus a few for the terminal itself. Cursor addressing and the scroll region stay on the screen and allocate 24 and 21 times. A row's style list allocates when the row's first non-default style arrives and again when it grows to the row's width, so per-cell SGR adds 2,048 allocations while its 1 MiB fills the first 1,024 rows. Vim and Codex add style lists the same way. The shell recording allocates 21,271 times, close to one for each of the 18,634 lines that carry a combining accent, because clearing a row releases its cluster table. [Step 3](#closing-the-gap) keeps it.
+A row allocates its cells once, on its first write. A line feed, an erase or a region scroll clears a row in place, so once the screen and 1,000 rows of history fill, steady output stops allocating. Dense ASCII, wide text and scrolling settle at 1,035 allocations at 80 × 24, one for each row the screen and history hold plus a few for the terminal itself. Cursor addressing and the scroll region stay on the screen and allocate 24 and 21 times. A row's style list allocates when the row's first non-default style arrives and again when it grows to the row's width, so per-cell SGR adds 2,048 allocations while its 1 MiB fills the first 1,024 rows. Vim and Codex add style lists the same way. The shell recording allocates 21,271 times, close to one for each of the 18,634 lines that carry a combining accent, because clearing a row releases its cluster table. [Where Thrush loses time](#where-thrush-loses-time)
 
-## Closing the gap
+## Where Thrush loses time
 
-Seven changes close the rest of the gap without making the code harder to learn from. Each lands on its own with the comparison, ThrushBench and the conformance harness run before and after, and none may slow another workload. Steps 1 to 5 were prototyped on the build that introduced 8-byte cells, and their gains below are cycle ratios against the prototype before each change. Steps 6 and 7 are sized from the profile and the gap that remains.
+At 80 × 24 in 4 KiB chunks Thrush trails libghostty-vt on seven of the nine workloads. The profile and the code trace each gap to one or two costs. The [performance plan](../docs/plan.md#closing-the-libghostty-vt-gap) turns each cost into a change.
 
-| Workload | Thrush ÷ libghostty-vt | Prototype of steps 1–5 | Where Thrush loses time | Steps |
-| --- | ---: | ---: | --- | --- |
-| shell | 0.59× | 0.96× | Cluster tables and switches between ASCII and non-ASCII runs | 3, 4, 6 |
-| vim | 1.14× | 1.15× | Leads. Clearing rows and control parameters | 1, 7 |
-| codex | 0.87× | 0.89× | Parsing and dispatch, 55% of samples | 7 |
-| ascii | 0.85× | 1.07× | Clearing each recycled row and scanning to each line ending | 1, 2 |
-| sgr | 1.41× | 1.31× | Leads | 7 keeps its path |
-| wide | 0.58× | 0.86× | Decoding and handing over one scalar per call, and switching runs | 4, 6 |
-| cursor | 0.95× | 1.00× | Parsing and dispatch, 34%, and scanning | 1, 2, 7 |
-| scroll | 0.76× | 1.04× | Scanning to each line ending and clearing each recycled row | 1, 2 |
-| region | 0.59× | 0.99× | Rotating 56-byte row values, 35% | 5, then 1 and 2 |
+| Workload | Thrush ÷ libghostty-vt | Where Thrush loses time |
+| --- | ---: | --- |
+| shell | 0.59× | Cluster tables and switching runs |
+| codex | 0.87× | Reading control parameters twice |
+| ascii | 0.85× | Clearing recycled rows and finding line endings |
+| wide | 0.58× | Decoding one scalar per call and switching runs |
+| cursor | 0.95× | Reading control parameters twice, finding line endings and clearing rows |
+| scroll | 0.76× | Finding line endings and clearing recycled rows |
+| region | 0.59× | Rotating row values |
 
-Both ratios are for 80 × 24 in 4 KiB chunks. The prototype builds steps 1 to 5 and the start of step 6 on an earlier revision with the same storage, and it ran head to head with libghostty-vt for seven rounds alongside the measured build, which repeated this report's ratios within 0.06. The prototype predates the current SGR parameter decoding, which is why it trails on SGR. Steps 6 and 7 take on what it leaves. To lead, wide text needs about 1.16× more, Codex about 1.12× and the shell recording about 1.04×.
-
-| Step | Change | Files | Prototype gain |
-| --- | --- | --- | --- |
-| 1 | Clear a row by resetting its length | `Cell.swift`, `Screen.swift` | ascii 1.19×, scroll 1.20×, region 1.12×, cursor 1.06×, the others 1.01–1.03× |
-| 2 | Find the end of printable ASCII inside the vector block | `TextScanner.swift` | scroll 1.19×, ascii 1.06×, cursor 1.05×, region 1.05× |
-| 3 | Keep each row's cluster table | `Cell.swift` | shell 1.26× from keeping it, then 1.12× from one lookup per mark |
-| 4 | Carry ASCII inside non-ASCII runs and append a run at once | `Terminal.swift`, `Cell.swift` | wide 1.24× and shell 1.19× from carrying ASCII, then wide 1.11× from the single append |
-| 5 | Rotate scroll regions through a row order | `Screen.swift`, `ScreenResize.swift` | region 1.44× |
-| 6 | Decode a non-ASCII run before storing it | `TextScanner.swift`, `Terminal.swift`, `Screen.swift` | Not prototyped. Wide text needs about 1.16× |
-| 7 | Read a control sequence's parameters in one pass | `EscapeParser.swift`, `ControlParameters.swift`, `Terminal.swift` | Cursor addressing 1.08× in a first prototype. Codex needs about 1.12× |
-
-1. **Clear a row by resetting its length.** A recycled row is cleared with `Array.removeAll(keepingCapacity:)`, which runs the general `replaceSubrange` path on every line feed, 7% of samples on scrolling. Once a row is written, it can keep its full-width storage and a length that counts the cells in use. Clearing sets the length to zero, and a write blanks only the gap between the old length and its first column. Cells past the length are never read, so they need no clearing.
-2. **Find the end of printable ASCII inside the vector block.** `TextScanner.endOfASCII` checks 16 bytes at a time, but in the block that holds the line ending it walks one byte at a time. Short lines end inside their first block, so the scan takes 22% of samples on scrolling and 19% on dense ASCII. Turning the block's range check into a bit mask and counting its trailing zeros lands on the line ending directly.
-3. **Keep each row's cluster table.** The shell recording puts a combining accent on 18,634 lines. Clearing a row releases its `[Int: String]` cluster table, so the next accent on that row allocates a new table and grows it again. Hashing, allocation and freeing take about 19% of shell samples. Keeping the table's capacity when a row clears, rebuilding it only when a cleared range holds a cluster and appending a mark with one dictionary lookup removes most of that.
-4. **Carry ASCII inside non-ASCII runs and append a run at once.** The wide workload alternates runs of about five CJK or emoji scalars with ASCII runs of about four bytes, mostly single spaces. Each switch ends a run and starts the next, so the style and the row's write position are found again. Letting printable ASCII continue a non-ASCII run removes the switches. Appending the run's cells through one output span replaces a uniqueness check and an append for every cell.
-5. **Rotate scroll regions through a row order.** Scrolling a region rotates the 56-byte `Row` values between its margins, and the memory move and `Array.rotate` take 35% of samples on the scroll region. libghostty-vt moves 8-byte row offsets instead. A buffer that keeps an order of row slots rotates one integer per row, and the common one-row scroll shifts them with one overlapping copy. The order alone measured 1.29× on the scroll region, and the one-row shift brought it to 1.44×. Full-screen scrolling keeps its circular index.
-6. **Decode a non-ASCII run before storing it.** On wide text the per-scalar closure in `Terminal.writeNonASCII` takes 27% of samples and `Screen.writeRun` 21%. For every scalar the closure decodes it, looks up its width and returns it to the run through a call that isn't inlined. libghostty-vt decodes a whole printable run to UTF-32 and then fills the row. Decoding a run's scalars and widths into a small fixed buffer and storing them in one pass replaces the per-scalar call with two tight loops.
-7. **Read a control sequence's parameters in one pass.** On Codex, parsing and dispatch take 55% of samples, and `EscapeParser.consumeEscape` alone 33%. The parser scans a complete header once to find its final byte. SGR then borrows those bytes, but every other final, such as cursor position or erase, sends them through `ControlParameters.append` again one byte at a time, switching on its destination for each digit. Reading each run of digits in a register, storing each field once and mapping the final byte straight to its function removes the second pass and the lookups in `TerminalControlFunction.init`. SGR keeps its borrowed path. A first prototype also sent SGR through the stored parameters, and it gained 1.08× on cursor addressing but lost 25% on SGR.
-
-### Where the tricks live
-
-The low-level techniques stay in three files that explain themselves. `Cell.swift` owns row storage, the cell layout, the style list and bulk writes. `TextScanner.swift` owns SIMD scanning and decoding. `EscapeParser.swift` owns the transition table. `Screen.swift` and `Terminal.swift` keep calling intention-revealing operations, and each step's change there should read as plainly as it does now.
+- **Clearing recycled rows.** A line feed recycles the row leaving the screen or history and clears it with `Array.removeAll(keepingCapacity:)`, which runs the general `replaceSubrange` path. That takes 7% of samples on scrolling, and the next write appends every cell again.
+- **Finding line endings.** `TextScanner.endOfASCII` checks 16 bytes at a time, but in the block that holds the line ending it walks one byte at a time. Short lines end inside their first block, so the scan takes 22% of samples on scrolling and 19% on dense ASCII.
+- **Cluster tables.** The shell recording puts a combining accent on 18,634 lines. Clearing a row releases its `[Int: String]` cluster table, so the next accent on that row allocates a new table and grows it again, and adding a mark looks its base up twice. Hashing, allocation and freeing take about 19% of shell samples.
+- **Switching runs.** The wide workload alternates runs of about five CJK or emoji scalars with ASCII runs of about four bytes, mostly single spaces, and the shell recording's accented paths mix them too. Each switch ends a run and starts the next, so the style and the row's write position are found again.
+- **Decoding one scalar per call.** On wide text the per-scalar closure in `Terminal.writeNonASCII` takes 27% of samples and `Screen.writeRun` 21%. For each scalar the closure decodes it and looks up its width, then hands it to the run through a call that isn't inlined, and the run appends its cell behind its own uniqueness check. libghostty-vt decodes a whole printable run to UTF-32 and then fills the row.
+- **Rotating row values.** Scrolling a region rotates the 56-byte `Row` values between its margins, and the memory move and `Array.rotate` take 35% of samples on the scroll region. libghostty-vt moves 8-byte row offsets instead.
+- **Reading control parameters twice.** Parsing and dispatch take 55% of samples on Codex and 34% on cursor addressing, with `EscapeParser.consumeEscape` alone at 33% on Codex. The parser scans a complete header once to find its final byte. SGR borrows those bytes, but every other final, such as cursor position or erase, sends them through `ControlParameters.append` again one byte at a time, switching on its destination for each digit.
