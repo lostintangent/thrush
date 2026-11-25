@@ -165,8 +165,8 @@ final class DemoSession {
                         view.selection = .init(anchorRow: 1, anchorColumn: 2, headRow: 1, headColumn: 2)
                     }
                     synchronizeSize()
-                case .output:
-                    await display(current, receivedAt: await current.lastReceiptTime)
+                case .output, .resynchronized:
+                    await display(current, receivedAt: await current.lastReceiptTime, reset: event == .resynchronized)
                     onFirstOutput?()
                     onFirstOutput = nil
                 case .reconnecting:
@@ -183,9 +183,10 @@ final class DemoSession {
         }
     }
 
-    private func display(_ current: TerminalConnection, receivedAt: TimeInterval? = nil) async {
+    private func display(_ current: TerminalConnection, receivedAt: TimeInterval? = nil, reset: Bool = false) async {
         let snapshot = await current.snapshot()
         guard connection === current else { return }
+        if reset { view.reset() }
         view.display(snapshot, receivedAt: receivedAt)
     }
 

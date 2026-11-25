@@ -10,6 +10,9 @@ public actor TerminalConnection {
         case reconnecting, displaced
         case ready(resumed: Bool)
         case output
+        /// The server replaced a stalled live stream with a serialized screen on the same socket.
+        /// Reset the view's row cache and display the new terminal in the same UI update.
+        case resynchronized
         case exit
     }
 
@@ -72,6 +75,7 @@ public actor TerminalConnection {
     /// restart after natural exit starts a new shell without reporting an unexpected replacement.
     public private(set) var replacedPreviousShell = false
     package private(set) var discardedHeldInputOnLastReady = false
+    package private(set) var isResynchronizing = false
     public private(set) var state = State.detached
     package private(set) var lastReceiptTime: CFTimeInterval?
     package private(set) var receivedBytes = 0
@@ -204,6 +208,13 @@ public actor TerminalConnection {
         }
 
         guard let current = socket, state != .closing else { throw ConnectionError.inactiveAttachment }
+        // An in-band ready and its following binary replay publish one complete generation.
+        while true {
+            if let event = try await receiveEvent(from: current, lifetime: stamp) { return event }
+        }
+    }
+
+    private func receiveEvent(from current: URLSessionWebSocketTask, lifetime stamp: UInt64) async throws -> Event? {
         let message: URLSessionWebSocketTask.Message
         do {
             message = try await current.receive()
@@ -227,18 +238,26 @@ public actor TerminalConnection {
                 }
                 lastReceiptTime = CACurrentMediaTime()
                 receivedBytes += bytes.count
+                let resynchronized = isResynchronizing
+                if resynchronized {
+                    // No actor suspension between resetting the parser and applying the checkpoint.
+                    // The old grid kept its negotiated size while the new checkpoint was in flight.
+                    terminal = Terminal(size: terminal.size, palette: terminal.palette)
+                    isResynchronizing = false
+                }
                 let reply = bytes.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
                 appliedBytes += bytes.count
                 onOutput?(bytes)
                 do {
                     if !reply.isEmpty && state != .closing { try await write(.data(Data(reply)), to: current) }
                     if state == .replaying { try await activate(current) }
+                    if resynchronized && state == .active { try await resizeIfNeeded(current) }
                 } catch {
                     // Output was already applied. Present it before reporting its reply's transport failure.
                     guard lifetime == stamp, pendingEvent != nil else { throw error }
                 }
                 guard lifetime == stamp else { throw CancellationError() }
-                return .output
+                return resynchronized ? .resynchronized : .output
 
             case .string(let json):
                 let control = try JSONDecoder().decode(ServerControl.self, from: Data(json.utf8))
@@ -260,6 +279,9 @@ public actor TerminalConnection {
                     }
                     guard lifetime == stamp else { throw CancellationError() }
                     return .ready(resumed: resumed)
+                case (.ready, .active) where control.resumed == true && !isResynchronizing:
+                    isResynchronizing = true
+                    return nil
                 case (.exit, .active), (.exit, .closing):
                     if state != .closing {
                         park(as: .ended)
@@ -334,7 +356,7 @@ public actor TerminalConnection {
     /// A size change during attach is sent after ready and any replay at the URL's original size.
     public func sendResize(to size: Terminal.Size) async throws {
         requestedSize = size
-        guard let current = socket, state == .active else { return }
+        guard let current = socket, state == .active, !isResynchronizing else { return }
         try await resizeIfNeeded(current)
     }
 
@@ -392,6 +414,7 @@ public actor TerminalConnection {
     }
 
     private func releaseSocket() {
+        isResynchronizing = false
         let current = socket
         socket = nil
         lastWrite = nil

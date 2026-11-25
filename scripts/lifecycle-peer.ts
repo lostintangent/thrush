@@ -13,8 +13,9 @@ type Attachment = {
     name: string;
     resumed: boolean;
     output: string[];
+    inBandReady?: boolean[];
     exchanges: Exchange[];
-    end: "detach" | "takeover" | "close" | "exit" | "lost";
+    end: "detach" | "takeover" | "close" | "exit" | "lost" | "protocol error";
 };
 
 // Recorded from Toy Box ScrollbackBuffer.replay(), xterm 6.0.0 + addon-serialize 0.14.0.
@@ -81,6 +82,17 @@ const attachments: Attachment[] = [
         name: "visible again", resumed: true, output: ["$ "],
         exchanges: [{ input: "back", observation: "Visible replay to new input" }], end: "exit",
     },
+    {
+        name: "slow reader", resumed: false, output: ["gone\r\nold 1\r\nold 2\r\nold 3\x1b[?1h\x1b]0;partial"], inBandReady: [true],
+        exchanges: [
+            { input: "\x1bOA", observation: "In-band ready to active Up" },
+            { input: { type: "resize", cols: 17, rows: 3 }, observation: "In-band replay to deferred resize" },
+            { input: "\x1b[A", observation: "Deferred resize to restored Up" },
+            { input: "\x1b[200~a\rb\x1b[201~", output: ["\r\nbye"], observation: "Restored Up to bracketed paste" },
+        ], end: "exit",
+    },
+    { name: "unexpected fresh marker", resumed: false, output: ["kept"], inBandReady: [false], exchanges: [], end: "protocol error" },
+    { name: "duplicate replay marker", resumed: false, output: ["kept"], inBandReady: [true, true], exchanges: [], end: "protocol error" },
 ];
 
 type State = { script: Attachment; received: number; acceptsInput: boolean; start: number };
@@ -101,6 +113,7 @@ const explicitlyClosed = Promise.withResolvers<void>();
 const allowFreshReady = Promise.withResolvers<void>();
 const originalLifecycleEnded = Promise.withResolvers<void>();
 const interruptedSocketClosed = Promise.withResolvers<void>();
+const inputDuringStall = Promise.withResolvers<void>();
 const finished = Promise.withResolvers<void>();
 const checkpoints = new Set<string>();
 const closedSockets = new Set<string>();
@@ -161,6 +174,17 @@ async function checkpoint(path: string) {
     case "/check/interrupted":
         await interruptedSocketClosed.promise;
         break;
+    case "/check/live-replay": {
+        await inputDuringStall.promise;
+        const socket = shell?.owner;
+        assert.equal(socket?.data.script.name, "slow reader");
+        assert.equal(socket.data.received, 1, "Input must stay active and resize must wait for the replay");
+        // Toy Box ScrollbackBuffer.replay() after a clear, five lines and bracketed paste mode.
+        // Queue the next live write immediately. No fresh socket or extra control separates them.
+        startInterval(socket);
+        output(socket, ["oldest\r\nnewer\r\none\r\ntwo\r\nthree\x1b[?2004h", "!"]);
+        break;
+    }
     default:
         assert.fail("Unknown checkpoint " + path);
     }
@@ -173,6 +197,7 @@ function output(socket: Socket, frames: string[]) {
 function shellExited(socket: Socket) {
     shell = undefined;
     assert(socket.sendText(JSON.stringify({ type: "exit" })) > 0);
+    if (socket.data.script.name === "slow reader") socket.close(1000);
 }
 
 function ready(socket: Socket) {
@@ -183,6 +208,11 @@ function ready(socket: Socket) {
     if (script.name === "reclaimed") return; // The host resizes while awaiting this replay.
     output(socket, script.output);
     socket.data.acceptsInput = true;
+    for (const resumed of script.inBandReady ?? []) {
+        startInterval(socket);
+        assert(socket.sendText(JSON.stringify({ type: "ready", resumed })) > 0);
+    }
+    if (script.end === "protocol error") shell = undefined;
     if (script.end === "exit" && script.exchanges.length === 0) shellExited(socket);
 }
 
@@ -257,6 +287,7 @@ const server = Bun.serve({
                 }
                 startInterval(socket);
                 if (exchange.output) output(socket, exchange.output);
+                if (state.script.name === "slow reader" && state.received === 1) inputDuringStall.resolve();
                 if (typeof exchange.input !== "string" && exchange.input.type === "close") {
                     shell = undefined;
                     socket.close(1000);
@@ -314,13 +345,13 @@ try {
         deadline.promise,
     ]);
     assert.equal(attachmentCount, attachments.length);
-    assert.equal(freshShells, 6);
+    assert.equal(freshShells, 9);
     assert.equal(takeovers, 2);
-    assert.equal(checkpoints.size, 7);
+    assert.equal(checkpoints.size, 8);
     if (observe) {
         console.log(JSON.stringify({ bunVersion: Bun.version, attachmentCount, freshShells, takeovers, observations }));
     } else {
-        console.log("Lifecycle peer verified eleven attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, orphan expiry, explicit close and shell restart.");
+        console.log("Lifecycle peer verified fourteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, orphan expiry, explicit close and shell restart.");
     }
 } finally {
     clearTimeout(timeout);
