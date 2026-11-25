@@ -25,3 +25,17 @@ After the redraws, a selection spans the two wide glyphs while the view switches
 The JSON includes the commit and worktree state from app packaging, the device model, OS, toolchain, load average, core count, thermal and power state and grid dimensions. A simulator run measures a shared Mac's graphics stack. Use the Mac and physical iPhone for device timing baselines. Use five quiet passes to estimate variance before setting timing gates.
 
 For a capture of a running demo, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
+
+## First Mac measurement
+
+The Release bundle at `1f9f8c0` drew an 80 × 24 grid on an M1 Max running macOS 27.2.1. The display link measured 16.667 ms. The system's one-minute load was 495.06 on ten cores and its thermal state was fair. This single contended run records cache behavior and provisional timings. [Saved render samples](render-mac.json)
+
+| Operation | Frames | CPU p95, ms | GPU p95, ms | Glyph uploads | Maximum rows prepared |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold | 1 | 17.648 | 0.436 | 14 | 24 |
+| Cursor | 10 | 0.122 | 0.105 | 0 | 0 |
+| One row | 10 | 0.143 | 0.105 | 0 | 1 |
+| Scroll | 10 | 0.133 | 0.107 | 0 | 1 |
+| Full grid | 10 | 0.314 | 0.108 | 0 | 24 |
+
+All three theme switches reused every visible row and glyph. The foreground-idle observation lasted 1.040 s, the suspended-renderer observation 1.066 s and the hidden-window observation 1.215 s. Each recorded zero additional submissions. The Mac session was locked. Its drawable callbacks reported zero presentation timestamps on all 41 workload frames, so this run supplies no receipt-to-presentation latency. A foreground run on an unlocked display is still required for that measurement.
