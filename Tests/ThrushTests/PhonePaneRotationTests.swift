@@ -176,8 +176,9 @@ import UIKit
     #expect(abs(cursor.maxY - heldCursor.maxY) < cursor.height)
 }
 
-/// The turn grows the viewport toward a stale guide, then the destination guide shortens it
-/// without an animation. The viewport must keep presenting the held prompt.
+/// The turn grows the viewport toward a stale guide while the keyboard animates its height, then
+/// the destination guide shortens it without an animation. The viewport must keep presenting the
+/// held prompt.
 @MainActor @Test func viewportKeepsPresentingWhenTheGuideSettlesMidTurn() async throws {
     let host = RotationPane()
     host.window.isHidden = false
@@ -187,6 +188,17 @@ import UIKit
 
     let start = viewport.bounds.height
     host.pane.beginRotation()
+    // UIKit lists a later transaction's animations first, so the keyboard's comes after the turn.
+    for (key, from, to) in [("bounds.size", NSValue(cgSize: CGSize(width: 0, height: -20)), NSValue(cgSize: .zero)),
+                            ("position", NSValue(cgPoint: CGPoint(x: 0, y: -10)), NSValue(cgPoint: .zero))] {
+        let keyboard = CABasicAnimation(keyPath: key)
+        keyboard.isAdditive = true
+        keyboard.fromValue = from
+        keyboard.toValue = to
+        keyboard.duration = 1
+        viewport.layer.add(keyboard, forKey: "keyboard " + key)
+    }
+    try await Task.sleep(for: .milliseconds(20))
     UIView.animate(withDuration: 1) { host.resize(to: CGSize(width: 402, height: 768)) }
     try await Task.sleep(for: .milliseconds(200))
     let before = presentedHeight()

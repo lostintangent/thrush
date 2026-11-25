@@ -519,12 +519,17 @@ private typealias NoticeHost = UIView & UIContentView
     // present shorter than any frame it had and clip the terminal away. Instead, the change eases
     // in on the turn's own curve: an offset that starts at the full change and shrinks with the
     // part of the turn still ahead, so the viewport reaches its new frame as the turn ends.
+    // The keyboard can animate the viewport's height alongside the turn, but only the turn
+    // changes its width.
     private func easeViewportIntoTurn(from previous: CGRect, presented: CALayer) {
         let layer = viewport.layer
+        func turned(_ animation: CABasicAnimation) -> CGFloat {
+            guard animation.keyPath == "bounds.size", animation.isAdditive else { return 0 }
+            return (animation.fromValue as? NSValue)?.cgSizeValue.width ?? 0
+        }
         guard let turn = (layer.animationKeys() ?? []).compactMap({ layer.animation(forKey: $0) as? CABasicAnimation })
-                .last(where: { $0.keyPath == "bounds.size" && $0.isAdditive }),
-              let turned = (turn.fromValue as? NSValue)?.cgSizeValue, turned.width != 0 else { return }
-        let ahead = (presented.bounds.width - layer.bounds.width) / turned.width
+                .last(where: { turned($0) != 0 }) else { return }
+        let ahead = (presented.bounds.width - layer.bounds.width) / turned(turn)
         guard ahead > 0.05 else { return }
         for (key, shift) in [("bounds.size.height", previous.height - layer.bounds.height),
                              ("position.y", previous.midY - layer.position.y)] {
