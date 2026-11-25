@@ -103,7 +103,7 @@ Use the same colors for the corresponding SGR background indexes. ANSI black is 
 
 The Mac studies use active AppKit title bars captured on macOS 27.2.1. The iPhone keyboards and edit menus are layout studies of the English software keyboard with predictions off. The status glyphs and SF Symbols come from the system. The simulator reported a 402 × 874 pt scene. Keyboard heights and safe-area insets below are design inputs awaiting measurement in the running host. [Apple’s iPhone keyboard guide](https://support.apple.com/guide/iphone/type-with-the-onscreen-keyboard-iph3c50f96e/27/ios/27)
 
-Shell output, Vim content and compositing are design examples. When Toy Box embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, keyboard accessory and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors.
+Shell output, Vim content and compositing are design examples. When Toy Box embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, keyboard accessory and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. The glass study shows the proposed accessory and Latest button in both appearances and measures the cost in contrast of a translucent Mac grid. [Glass in Thrush](glass.md)
 
 | Moment | Behavior |
 | --- | --- |
