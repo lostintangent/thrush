@@ -8,6 +8,8 @@ For each shell, Vim and parser recording, the runner first checks every recorded
 
 The feeder offers the recording in one burst and requests up to 16 pending events or 8 KiB at a time. It drains that batch in order before requesting more. An oversized output chunk can span batches. The shell log fills the slot budget, and the split control-string recording fills the byte budget. Drain time covers queue management, parsing, resize, encoding and reply checks. These headless measurements exclude transport and viewport presentation.
 
+The runner also plays two recordings of Vim painting the same Swift file under Slate Dark and Slate Light. Each includes a desktop, portrait and landscape repaint, with indented source and Vim’s reverse-video status line. They joined the workload after the four-recording measurement below.
+
 Each resize records the requested and effective grids, active buffer, visible buffer’s history count before resizing, and p50/p95. The round trips start with a full shell history and repeat with Vim active. Budgets compare p95 with 8.333 ms (120 Hz). The two phone-sized grids exercise layout on the reference Mac. Physical phone timings require the device run. The CI check independently reconciles fixture hashes, byte counts, peak windows, effective sizes and queue bounds with the raw recordings.
 
 ## Milestone 1 profile

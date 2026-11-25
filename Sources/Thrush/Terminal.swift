@@ -156,6 +156,8 @@ public struct Terminal: Sendable {
         }
 
         switch final {
+        case 0x43: // CUF advances over unwritten cells when Vim draws an indented line.
+            screen.move(toRow: screen.row, column: screen.column + max(1, first))
         case 0x48: // CUP
             let column = parameters.count > 1 ? parameters[1] : 1
             screen.move(toRow: max(1, first) - 1, column: max(1, column) - 1)

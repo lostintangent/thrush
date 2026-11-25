@@ -153,8 +153,41 @@ function encodedInput(t, action) {
     default: throw Error('Unknown input ' + action.kind);
   }
 }
+// Verify each renderer handoff can start from a clean grid at the requested size.
+// Palette, stored cell styles, wrap flags and cursor come from the pinned emulator.
+async function verifyStyledPaints(recording, events, cells, lines) {
+  for (const [file, field] of [['Prompt.swift','sourceSHA256'], ['styled.vim','vimrcSHA256']]) {
+    const bytes = await readFile(new URL('../m3/' + file, import.meta.url));
+    assert.equal(sha256(bytes), recording[field], file + ' differs from the captured input');
+  }
+  assert.equal(recording.vimBackground, recording.name.slice('vim-swift-'.length));
+  assert.equal(recording.vimFiletype, 'swift');
+  assert.equal(recording.vimSyntax, 'swift');
+  assert.equal(recording.vimColorCount, 256);
+
+  const palette = events.find(e => e.palette).palette;
+  let chunks = [];
+  for (const event of events) {
+    if (event.bytes && (event.name === 'Paint Swift buffer' || event.name === 'Redraw after resize')) {
+      chunks.push(Buffer.from(event.bytes, 'base64'));
+    }
+    if (!event.name.startsWith('Styled Swift ')) continue;
+    const expected = event.checkpoint;
+    const clean = terminal(expected.columns, expected.rows);
+    applyPalette(clean, palette);
+    for (const chunk of chunks) await write(clean, chunk);
+    const painted = checkpoint(clean, cells, lines);
+    assert.deepEqual(painted.visible, expected.visible, event.name + ' independent paint');
+    assert.deepEqual([painted.cursorRow, painted.cursorColumn], [expected.cursorRow, expected.cursorColumn]);
+    clean.dispose();
+    chunks = [];
+  }
+}
+
 async function generate(name) {
-  const captureBytes = ['shell-edges','prompt-bom'].includes(name) ? null : await readFile(new URL(name+'.capture.json', import.meta.url));
+  const directory = name.startsWith('vim-swift-') ? '../m3/' : '';
+  const captureBytes = ['shell-edges','prompt-bom'].includes(name) ? null
+    : await readFile(new URL(directory + name + '.capture.json', import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
@@ -202,9 +235,10 @@ async function generate(name) {
     events.push(event);
   }
   if (name === 'shell-log') assert.equal(fullHistory.size, 0, 'Missing full-history checkpoint');
+  if (name.startsWith('vim-swift-')) await verifyStyledPaints(recording, events, cells, lines);
   t.dispose();
   const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : undefined,
-    columns:recording.columns,rows:recording.rows,cells:cells.values,lines:lines.values,events};
+    vimBackground:recording.vimBackground, columns:recording.columns,rows:recording.rows,cells:cells.values,lines:lines.values,events};
   // Keep each checkpoint or recorded read on its own line to make diffs reviewable.
   const { cells:cellList, lines:rowList, events:eventList, ...header } = json;
   const linesOf = array => array.map(value => JSON.stringify(value)).join(',\n');
@@ -214,7 +248,7 @@ async function generate(name) {
   await writeFile(new URL('../../replays/'+name+'.json',import.meta.url),data);
   console.log(name, events.length, sha256(data));
 }
-for (const name of ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom']) await generate(name);
+for (const name of ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light']) await generate(name);
 
 // Validate the benchmark's sustained, directly generated ASCII workload.
 const line = 'abcdefghij'.repeat(8).slice(0,78);

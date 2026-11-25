@@ -18,3 +18,5 @@ shasum -a 256 Fixtures/first-bytes.json
 Run `bun Fixtures/reference/generate-widths.mjs ../toy-box` to regenerate the core's Unicode 11 cell-width data. The generator queries the pinned provider for each code point and groups the observed zero- and double-width intervals. Thrush looks up these observations with its own Swift code.
 
 The numbered compiler log and the interactive Vim session retain their actual PTY bytes and resize events. Their reference generator replays them through the same pinned server emulator. [Shell and Vim recordings](m2/README.md)
+
+Two further captures open the same Swift source in Vim against Slate Dark and Slate Light. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](m3/README.md)

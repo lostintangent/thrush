@@ -4,7 +4,7 @@ import Thrush
 
 /// Development-only playback data and independent expected screens for the recorded workflows.
 package struct ReplayFixture: Sendable {
-    package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom"]
+    package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light"]
 
     package struct Grid: Decodable, Sendable {
         package let columns: Int
