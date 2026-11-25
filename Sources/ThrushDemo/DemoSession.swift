@@ -26,6 +26,7 @@ struct DemoOptions {
     let benchmarkURL: URL?
     let interactionURL: URL?
     let runsWorkflowDriver: Bool
+    let checksToolbar: Bool
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -33,6 +34,7 @@ struct DemoOptions {
                   !arguments[index + 1].hasPrefix("--") else { return nil }
             return arguments[index + 1]
         }
+        checksToolbar = arguments.contains("--toolbar-proof")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         let address = value(after: "--endpoint") ?? "http://127.0.0.1:9138"
         // An invalid user-provided address fails through the same visible connection error.
