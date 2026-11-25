@@ -1,0 +1,298 @@
+import Foundation
+import QuartzCore
+import Thrush
+import ThrushConnection
+import ThrushReplay
+import ThrushUI
+
+/// This development-only driver observes the tab's real connection and drives its native
+/// responder. The terminal protocol stays on the existing socket. A separate loopback HTTP
+/// listener holds each reference boundary until the pane, Metal, and capture runner have caught up.
+@MainActor
+final class PaneWorkflowDriver {
+    static let clientID = "thrush-native-workflow"
+
+    private struct Failure: Error, CustomStringConvertible {
+        let description: String
+        init(_ description: String) { self.description = description }
+    }
+    private enum Phase: String, Decodable {
+        case attaching, layout, playing, input, resize, detach, resume, useHere, newShell, checkpoint, close, completed, failed
+    }
+    private struct State: Decodable {
+        let phase: Phase
+        let eventIndex: Int
+        let name: String
+        let outputBytes: Int
+        let attachments: Int
+        let error: String?
+        let capture: Bool?
+    }
+    private struct Entry: Codable {
+        let name: String, eventIndex: Int
+        let columns: Int, rows: Int, receivedBytes: Int, appliedBytes: Int, attachments: Int
+        let generation: UInt64, acceptedGeneration: UInt64, renderedGeneration: UInt64
+        let synchronized: Bool, hasPresentationTime: Bool
+        let copiedText: String?
+    }
+    private struct Report: Encodable {
+        let workflow: String, sourceSHA256: String
+        let completed: Bool
+        let checkpoints: [Entry]
+    }
+
+    private let control: URL, output: URL
+    private let view: TerminalView
+    private let connection: TerminalConnection
+    private let setActive: (Bool) -> Void
+    private let activateAction: (String) -> Bool
+    private let http = URLSession(configuration: .ephemeral)
+    private var lastFrame: FrameMeasurement?
+    private var firstSubmission = -Double.infinity
+    private var entries: [Entry] = []
+    private var lastCheckpoint: ReplayFixture.Event?
+
+    private init(control: URL, output: URL, view: TerminalView, connection: TerminalConnection,
+                 setActive: @escaping (Bool) -> Void, activateAction: @escaping (String) -> Bool) {
+        self.control = control
+        self.output = output
+        self.view = view
+        self.connection = connection
+        self.setActive = setActive
+        self.activateAction = activateAction
+    }
+
+    static func startIfRequested(view: TerminalView, connection: TerminalConnection, setActive: @escaping (Bool) -> Void,
+                                 activateAction: @escaping (String) -> Bool) {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--workflow-driver"), i + 1 < args.count,
+              let j = args.firstIndex(of: "--workflow-output"), j + 1 < args.count else { return }
+        let folder = URL(fileURLWithPath: args[j + 1], isDirectory: true)
+        Task {
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                guard let url = URL(string: args[i + 1]), url.scheme == "http",
+                      ["127.0.0.1", "localhost", "[::1]"].contains(url.host ?? "") else {
+                    throw Failure("The fixture control listener must use a loopback HTTP address.")
+                }
+                let driver = PaneWorkflowDriver(control: url, output: folder, view: view,
+                                                connection: connection, setActive: setActive, activateAction: activateAction)
+                try await driver.run()
+            } catch {
+                let detail = String(describing: error) + "\n"
+                FileHandle.standardError.write(Data(detail.utf8))
+                try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    private func request(_ path: String, index: Int? = nil, post: Data? = nil) async throws -> (Int, Data) {
+        var url = control.appending(path: path)
+        var query = [URLQueryItem(name: "clientId", value: Self.clientID)]
+        if let index { query.append(.init(name: "eventIndex", value: String(index))) }
+        url.append(queryItems: query)
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        if let post {
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = post
+        }
+        let (data, response) = try await http.data(for: req)
+        guard let response = response as? HTTPURLResponse else { throw Failure("Missing HTTP response for " + path) }
+        return (response.statusCode, data)
+    }
+
+    private func get(_ path: String, index: Int? = nil) async throws -> Data {
+        let (status, data) = try await request(path, index: index)
+        guard status == 200 else { throw httpFailure(path, status, data) }
+        return data
+    }
+
+    private func httpFailure(_ path: String, _ status: Int, _ body: Data) -> Failure {
+        Failure("\(path) returned HTTP \(status): " + String(decoding: body.prefix(400), as: UTF8.self))
+    }
+
+    private func run() async throws {
+        let originalFrameHook = view.onFrame
+        view.onFrame = { [weak self] frame in
+            originalFrameHook?(frame)
+            guard let self, frame.submittedAt >= firstSubmission,
+                  frame.submittedAt >= (lastFrame?.submittedAt ?? -Double.infinity) else { return }
+            lastFrame = frame
+        }
+        defer {
+            view.onFrame = originalFrameHook
+            http.invalidateAndCancel()
+        }
+
+        var fixture = try ReplayFixture.decode(await get("fixture"))
+        var resizeCount = 0
+        var previous: (Phase, Int)?
+        var deadline = ContinuousClock.now.advanced(by: .seconds(45))
+        while true {
+            try Task.checkCancellation()
+            let state = try JSONDecoder().decode(State.self, from: await get("state"))
+            let current = (state.phase, state.eventIndex)
+            guard ContinuousClock.now < deadline else {
+                throw Failure("Timed out at \(state.phase.rawValue) \(state.eventIndex) \(state.name).")
+            }
+            if previous?.0 == current.0, previous?.1 == current.1 {
+                try await Task.sleep(for: .milliseconds(10))
+                continue
+            }
+            previous = current
+            deadline = .now.advanced(by: .seconds(45))
+            switch state.phase {
+            case .attaching, .playing:
+                break
+            case .layout:
+                try await NativeWorkflowActions.resize(.init(columns: fixture.columns, rows: fixture.rows), view: view)
+                try await confirmLayout(eventIndex: -1)
+                // The peer can select a source recorded at the settled handset geometry.
+                fixture = try ReplayFixture.decode(await get("fixture"))
+            case .useHere, .newShell:
+                let title = state.phase == .useHere ? "Use shell in this window" : "New Shell"
+                let until = ContinuousClock.now.advanced(by: .seconds(10))
+                while !activateAction(title) {
+                    guard ContinuousClock.now < until else { throw Failure("No enabled pane button named " + title) }
+                    try await Task.sleep(for: .milliseconds(25))
+                }
+            case .failed:
+                throw Failure(state.error ?? "The peer rejected the workflow.")
+            case .close:
+                try await connection.closeShell()
+            case .completed:
+                let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
+                guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
+                let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
+                try save(report, as: "workflow-report.json")
+                return
+            case .input, .resize, .detach, .resume, .checkpoint:
+                guard fixture.events.indices.contains(state.eventIndex) else { throw Failure("Invalid fixture event index.") }
+                let event = fixture.events[state.eventIndex]
+                guard event.name == state.name else { throw Failure("The pane and socket peer use different recordings.") }
+                switch state.phase {
+                case .input:
+                    guard let action = event.semanticInput else { throw Failure("Missing native action for \(event.name).") }
+                    try NativeWorkflowActions.input(action, view: view)
+                case .resize:
+                    guard let grid = event.resize else { throw Failure("Missing resize for \(event.name).") }
+                    resizeCount += 1
+                    let landscape = fixture.name == "vim-resume" && resizeCount == 2
+                    try await NativeWorkflowActions.resize(.init(columns: grid.columns, rows: grid.rows),
+                                                         view: view, landscape: landscape)
+                    try await confirmLayout(eventIndex: state.eventIndex)
+                case .detach:
+                    setActive(false)
+                case .resume:
+                    // Ignore an old command buffer completing after the new attachment starts.
+                    firstSubmission = CACurrentMediaTime()
+                    setActive(true)
+                case .checkpoint:
+                    let projected = try ReplayFixture.decode(await get("checkpoint", index: state.eventIndex))
+                    guard projected.events.count == 1, let expected = projected.events.first, expected.name == event.name else {
+                        throw Failure("The native xterm reference omitted \(event.name).")
+                    }
+                    let entry = try await inspect(expected, state: state)
+                    entries.append(entry)
+                    lastCheckpoint = expected
+                    if state.capture ?? shouldCapture(event.name) { try await capture(entry) }
+                    let (status, body) = try await request("ack", post: JSONEncoder().encode(entry))
+                    guard status == 204 else { throw httpFailure("ack", status, body) }
+                default: break
+                }
+            }
+        }
+    }
+
+    private func confirmLayout(eventIndex: Int) async throws {
+        var lastSize: Terminal.Size?
+        var since = ContinuousClock.now
+        let deadline = since.advanced(by: .seconds(12))
+        while ContinuousClock.now < deadline {
+            if let size = view.gridSize {
+                if lastSize != size { lastSize = size; since = .now }
+                if since.duration(to: .now) >= .milliseconds(350) {
+                    let geometry = ["eventIndex": eventIndex, "columns": size.columns, "rows": size.rows]
+                    let (status, data) = try await request("layout", post: JSONEncoder().encode(geometry))
+                    if status == 204 { return }
+                    if status != 409 { throw httpFailure("layout", status, data) }
+                }
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        throw Failure("The pane and its WebSocket did not settle on the same grid at event \(eventIndex).")
+    }
+
+    private func inspect(_ expected: ReplayFixture.Event, state: State) async throws -> Entry {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        var detail = "Waiting for the recorded output"
+        var copied: String?
+        var copiedAt: Double?
+        while ContinuousClock.now < deadline {
+            let applied = await connection.appliedBytes
+            let received = await connection.receivedBytes
+            if applied == state.outputBytes, received == state.outputBytes {
+                let snapshot = await connection.snapshot()
+                let accepted = view.snapshot
+                do {
+                    if let copy = expected.copy, copied == nil, accepted?.generation == snapshot.generation,
+                       lastFrame?.generation == snapshot.generation {
+                        copiedAt = CACurrentMediaTime()
+                        copied = try NativeWorkflowActions.copy(copy, view: view)
+                    }
+                    guard let accepted, let frame = lastFrame else { throw Failure("The pane has no rendered checkpoint yet.") }
+                    if let copiedAt, frame.submittedAt < copiedAt { throw Failure("Waiting for the native selection highlight.") }
+                    if expected.lifecycle?.resumed == true {
+                        // The connection resets its parser at ready(true). Keep the last
+                        // coherent native frame on screen until the serialized replay arrives.
+                        try expected.verify(snapshot)
+                        guard let previous = lastCheckpoint, accepted.generation == frame.generation else {
+                            throw Failure("The pane lost its pre-detach frame while waiting for replay.")
+                        }
+                        try previous.verify(accepted)
+                    } else {
+                        try WorkflowCheckpoint.verify(expected, snapshot: snapshot, nativePalette: view.resolvedTheme.palette,
+                                                      accepted: accepted, presentedGeneration: frame.generation, copiedText: copied)
+                    }
+                    return Entry(name: expected.name, eventIndex: state.eventIndex, columns: snapshot.size.columns,
+                                 rows: snapshot.size.rows, receivedBytes: received, appliedBytes: applied,
+                                 attachments: state.attachments, generation: snapshot.generation,
+                                 acceptedGeneration: accepted.generation, renderedGeneration: frame.generation,
+                                 synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: frame.presentedTime != nil,
+                                 copiedText: copied)
+                } catch { detail = String(describing: error) }
+            } else {
+                detail = "peer sent \(state.outputBytes), connection received \(received) and applied \(applied)"
+            }
+            try await Task.sleep(for: .milliseconds(8))
+        }
+        throw Failure("\(expected.name): \(detail)")
+    }
+
+    private func shouldCapture(_ name: String) -> Bool {
+        switch name {
+        case "Pasted build command", "Copy soft-wrapped compiler path", "Edited scratch file",
+             "Vim before detach", "Vim serialized replay", "Codex ready", "First three songbirds streamed",
+             "Received Codex answer", "Earlier transcript page", "Returned to shell": true
+        default: false
+        }
+    }
+
+    private func capture(_ entry: Entry) async throws {
+        let base = String(format: "capture-%03d", entry.eventIndex)
+        try save(entry, as: base + ".json")
+        let ack = output.appending(path: base + ".done")
+        let deadline = ContinuousClock.now.advanced(by: .seconds(35))
+        while !FileManager.default.fileExists(atPath: ack.path) {
+            guard ContinuousClock.now < deadline else { throw Failure("No native screenshot for " + entry.name) }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private func save(_ value: some Encodable, as name: String) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(value).write(to: output.appending(path: name), options: .atomic)
+    }
+}
