@@ -188,4 +188,13 @@ for sample in report["bulk"]:
     assert sample["bytesPerPass"] == len(bulk) and sample["chunkBytes"] == 4096
     assert sample["receivedBytes"] == sample["appliedBytes"] == sample["measuredPasses"] * len(bulk)
 
+if not archived:
+    transitions = report["shellTransitions"]
+    assert transitions["grid"] == {"columns": 80, "rows": 24} and transitions["measuredPasses"] == 25
+    assert transitions["promptFixtureSHA256"] == hashlib.sha256(fixtures["shell-workflow"]).hexdigest()
+    for name, before, after in [("startNewShell", 992, 1_000), ("prepareForReplay", 1_000, 992)]:
+        sample = transitions[name]
+        assert (sample["historyRowsBefore"], sample["historyRowsAfter"]) == (before, after), name
+        assert 0 < sample["timing"]["p50Nanoseconds"] <= sample["timing"]["p95Nanoseconds"], name
+
 print(f"Verified {len(replays)} recording hashes and byte counts, both queue bounds, and all bulk grids.")

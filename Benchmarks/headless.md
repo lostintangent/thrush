@@ -54,6 +54,12 @@ Each recording first passes an independent reference check for cells, attributes
 
 Receive throughput times `Terminal.receive` alone over 25 samples and reports the median. Each sample replays the recording on enough fresh terminals to apply at least 8 KiB, so even a 10-byte recording spans more than a thousand clock ticks. The clock stops while the terminals resize or change palette. For the hardware-key and pointer fixtures, the received bytes set terminal modes. The report times key and pointer encoding separately. Burst drain timing includes queue handling, parsing, input encoding, resizes and reply checks. The queue holds at most 16 events and 8 KiB of output at once. It drains in order and finishes empty on every replay. The JSON includes each recording’s peak byte rate, queue occupancy and operation timings. [Recording details](headless.json)
 
+## Starting a new shell and preparing a replay
+
+The current runner also measures two host actions at 80 × 24. The previous shell prints 1,016 numbered lines, leaving 992 in history and 24 on screen. Starting a new shell archives lines 17 through 1,016 in order. Its first PTY read is the bracketed-paste enable and `thrush$ ` prompt from the recorded `shell-workflow`. After eight rows from this shell have entered history, preparing for replay retains exactly lines 25 through 1,016 from the previous shell. Each action must leave a blank grid and a visible cursor at row zero, column zero. Applying the recorded prompt must place the cursor in column eight and enable bracketed paste.
+
+The table and generated JSON give p50 and p95 over 25 passes after one warmup. The timers cover only the two synchronous host calls. Preparing input, applying the prompt and checking every retained row happen outside the timers.
+
 ## Run the benchmark
 
 From the package root, run `swift run -c release ThrushBench`, then `python3 scripts/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json` and `.build/benchmarks/first-bytes.json`. With `--output trial.json`, the two files are `trial-headless.json` and `trial.json`. [First-bytes measurements](first-bytes.md)

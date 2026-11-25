@@ -8,10 +8,30 @@ extension Terminal {
         private var storage: [Row] = []
         private var head = 0
         package private(set) var evictedRows = 0
+        // Absolute index just past the last row that came from an earlier shell. Scrolling
+        // or ED 3 evicts those rows through the same ring as the current shell's rows.
+        private var previousShellEnd = 0
         static let limit = 1_000
         let capacity: Int
 
         init(capacity: Int = Self.limit) { self.capacity = capacity }
+
+        init(_ rows: some Collection<Row>, evictedRows: Int = 0) {
+            self.init()
+            storage = Array(rows)
+            self.evictedRows = evictedRows
+        }
+
+        var previousShellCount: Int { Swift.max(0, previousShellEnd - evictedRows) }
+
+        var currentShellCount: Int { count - previousShellCount }
+
+        func retainingPreviousShells() -> Self {
+            if previousShellCount == count { return self }
+            return Self(prefix(previousShellCount), evictedRows: evictedRows)
+        }
+
+        mutating func markPreviousShells() { previousShellEnd = evictedRows + count }
 
         package var startIndex: Int { 0 }
         package var endIndex: Int { storage.count }
@@ -53,6 +73,8 @@ extension Terminal {
         package private(set) var rows: [Row]
         package let history: History
         package let normalHistoryCount: Int
+        /// Rows that a taller viewport can pull from this shell's active history.
+        package var currentShellHistoryCount: Int { history.currentShellCount }
         package private(set) var cursorRow: Int
         package let cursorColumn: Int
         package private(set) var cursorVisible: Bool
@@ -87,7 +109,7 @@ extension Terminal {
 
     /// What DECSC and its equivalents save, and DECRC restores. Each buffer keeps its own.
     struct SavedCursor: Sendable {
-        var row = 0  // Absolute, including history, as in the reference buffer.
+        var row = 0  // Absolute within this shell, including its own history.
         var column = 0
         var style = Style()
         var characterSet = CharacterSet.ascii
@@ -257,9 +279,27 @@ extension Terminal {
         var scrollBottom: Int { active.scrollBottom }
         var isAlternate: Bool { active.alternate }
 
-        init(size: Size) {
-            active = Buffer(size: size)
+        init(size: Size, generation: UInt64 = 0) {
+            revision = generation
+            active = Buffer(size: size, generation: generation)
             alternateCapacity = size.rows
+        }
+
+        func startingShell(at size: Size, includingCurrentShell: Bool) -> Self {
+            let normal = normalWhileAlternate ?? active
+            var earlier = normal.history
+            if includingCurrentShell {
+                // Keep blank lines within the transcript and omit unused space below it.
+                let rows = normal.visible
+                if let last = rows.lastIndex(where: { $0.hasContent || $0.isWrapped }) {
+                    for var row in rows[...last] { earlier.append(&row) }
+                }
+            } else {
+                earlier = earlier.retainingPreviousShells()
+            }
+            var next = Self(size: size, generation: revision &+ 1)
+            next.active.prependPreviousShells(earlier, fromColumns: normal.size.columns, revision: &next.revision)
+            return next
         }
 
         func snapshot(generation: UInt64, modes: Modes, palette: Palette, programColors: ProgramColors) -> Snapshot {
@@ -298,13 +338,13 @@ extension Terminal {
 
         /// The column may be just past the right margin, so a restore can bring back a pending wrap.
         mutating func saveCursor(style: Style, characterSet: CharacterSet) {
-            active.saved = SavedCursor(row: active.history.count + row, column: column, style: style, characterSet: characterSet)
+            active.saved = SavedCursor(row: active.history.currentShellCount + row, column: column, style: style, characterSet: characterSet)
         }
 
         /// Without a save, the cursor returns home with the default style.
         mutating func restoreCursor() -> SavedCursor {
             let saved = active.saved
-            move(toRow: saved.row - active.history.count, column: saved.column)
+            move(toRow: saved.row - active.history.currentShellCount, column: saved.column)
             return saved
         }
 
@@ -320,7 +360,7 @@ extension Terminal {
 
         /// DECSTR returns a later restore to the top of the screen with the default style and ASCII.
         mutating func resetSavedCursor() {
-            active.saved = SavedCursor(row: active.history.count)
+            active.saved = SavedCursor(row: active.history.currentShellCount)
         }
 
         mutating func move(toRow row: Int, column: Int) {

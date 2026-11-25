@@ -10,6 +10,7 @@ struct HeadlessReport: Encodable {
     let environment: Environment
     let bulk: [BulkText]
     let recordings: [HeadlessReplay]
+    let shellTransitions: ShellTransitions
 
     init(environment: Environment) throws {
         self.environment = environment
@@ -26,6 +27,7 @@ struct HeadlessReport: Encodable {
               vim.resizes.filter(\.alternate).map(\.to) == destinations else {
             throw BenchmarkError("The resize workloads require full shell history and a Vim alternate-screen round trip.")
         }
+        shellTransitions = try ShellTransitions.measure()
     }
 
     func printTable() {
@@ -60,6 +62,13 @@ struct HeadlessReport: Encodable {
                                                     Double(resize.timing.p50Nanoseconds) / 1e6,
                                                     Double(resize.timing.p95Nanoseconds) / 1e6))
             }
+        }
+        print("\nShell transitions at \(shellTransitions.grid)   History before → after   p50 µs   p95 µs")
+        for (name, sample) in [("Start new shell", shellTransitions.startNewShell),
+                               ("Prepare for replay", shellTransitions.prepareForReplay)] {
+            print(name.padding(toLength: 23, withPad: " ", startingAt: 0)
+                  + String(format: "%9d → %-9d %8.3f %8.3f", sample.historyRowsBefore, sample.historyRowsAfter,
+                           Double(sample.timing.p50Nanoseconds) / 1e3, Double(sample.timing.p95Nanoseconds) / 1e3))
         }
     }
 
