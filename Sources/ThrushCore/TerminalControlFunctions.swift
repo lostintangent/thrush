@@ -4,6 +4,8 @@ enum TerminalControlFunction {
     enum C0: UInt8 {
         /// BS, 0x08.
         case backspace = 0x08
+        /// HT, 0x09.
+        case horizontalTab = 0x09
         /// LF, 0x0A.
         case lineFeed = 0x0a
         /// VT, 0x0B.
@@ -22,6 +24,8 @@ enum TerminalControlFunction {
     }
 
     enum CSI: UInt32 {
+        /// ICH, CSI Ps @.
+        case insertCharacters = 0x40
         /// CUU, CSI Ps A.
         case cursorUp = 0x41
         /// CUD, CSI Ps B.
@@ -36,6 +40,8 @@ enum TerminalControlFunction {
         case eraseInDisplay = 0x4a
         /// EL, CSI Ps K.
         case eraseInLine = 0x4b
+        /// DCH, CSI Ps P.
+        case deleteCharacters = 0x50
         /// DA1, CSI Ps c.
         case primaryDeviceAttributes = 0x63
         /// DA2, CSI > Ps c.
@@ -99,6 +105,7 @@ enum TerminalControlFunction {
 extension Terminal {
     enum EraseRange: Int {
         case toEnd = 0
+        case toCursor = 1
         case entire = 2
     }
 

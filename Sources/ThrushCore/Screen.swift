@@ -237,6 +237,11 @@ extension Terminal {
 
         mutating func backspace() { active.column = max(0, min(column, size.columns - 1) - 1) }
 
+        mutating func horizontalTab() {
+            guard column < size.columns else { return } // Keep a pending wrap until the next print.
+            active.column += min(8 - column % 8, size.columns - 1 - column)
+        }
+
         private mutating func wrap(style: Style) {
             active.column = 0
             active.advanceLine(wrapped: true, eraseStyle: style.eraseStyle, generation: revision)
@@ -284,34 +289,75 @@ extension Terminal {
             }
         }
 
+        mutating func insertBlanks(_ count: Int, style: Style) {
+            editCharacters(.insert, count: count, style: style)
+        }
+
+        mutating func deleteCharacters(_ count: Int, style: Style) {
+            editCharacters(.delete, count: count, style: style)
+        }
+
+        private mutating func editCharacters(_ edit: CharacterEdit, count: Int, style: Style) {
+            active.column = min(column, size.columns - 1)
+            revision &+= 1
+            let index = active.index(of: row)
+            active.rows[index].editCharacters(edit, at: column, count: count, style: style.eraseStyle)
+            active.rows[index].generation = revision
+        }
+
         mutating func eraseLine(_ range: EraseRange, style: Style) {
-            guard range == .toEnd else { return }  // The recorded editor clears from its cursor to the margin.
             active.column = min(column, size.columns)
             revision &+= 1
             let index = active.index(of: row)
-            active.rows[index].erase(min(column, size.columns)..<size.columns, style: style.eraseStyle)
-            if column == 0 { active.rows[index].isWrapped = false }
+            let columns: Range<Int>
+            let clearWrap: Bool
+            switch range {
+            case .toEnd:
+                columns = column..<size.columns
+                clearWrap = column == 0
+            case .toCursor:
+                // A pending wrap includes the first hidden column of a narrowed alternate row.
+                columns = 0..<min(column + 1, active.rows[index].storageColumns)
+                clearWrap = false
+            case .entire:
+                columns = 0..<size.columns
+                clearWrap = true
+            }
+            active.rows[index].erase(columns, style: style.eraseStyle)
+            if clearWrap { active.rows[index].isWrapped = false }
             active.rows[index].generation = revision
         }
 
         mutating func eraseDisplay(_ range: EraseRange, style: Style) {
-            let firstRow: Int
+            active.column = min(column, size.columns)
+            let rows: Range<Int>
             switch range {
             case .toEnd:
                 eraseLine(.toEnd, style: style)
-                firstRow = row + 1
+                rows = (row + 1)..<size.rows
+            case .toCursor:
+                eraseLine(.toCursor, style: style)
+                active.rows[active.index(of: row)].isWrapped = false
+                // An erased right margin breaks the next visible line’s soft wrap.
+                if column + 1 >= size.columns, row + 1 < size.rows {
+                    let next = active.index(of: row + 1)
+                    if active.rows[next].isWrapped {
+                        active.rows[next].isWrapped = false
+                        active.rows[next].generation = revision
+                    }
+                }
+                rows = 0..<row
             case .entire:
-                firstRow = 0
+                rows = 0..<size.rows
             }
-            active.column = min(column, size.columns)
             revision &+= 1
             let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            if firstRow == 0 && !isAlternate {
+            if range == .entire && !isAlternate {
                 active.rows = Array(repeating: blank, count: size.rows)
                 active.head = 0
                 return
             }
-            for row in firstRow..<size.rows {
+            for row in rows {
                 let index = active.index(of: row)
                 let width = active.rows[index].storageColumns
                 active.rows[index] = width == size.columns ? blank

@@ -2,6 +2,8 @@
 // stay in the cell. Only glyphs with combining marks need a separate string.
 
 extension Terminal {
+    enum CharacterEdit { case insert, delete }
+
     package enum Color: Equatable, Sendable {
         case `default`, indexed(UInt8), rgb(UInt8, UInt8, UInt8)
     }
@@ -123,15 +125,17 @@ extension Terminal {
             }
         }
 
-        /// An edit touching half of a wide glyph invalidates the other half as well.
+        private mutating func clearWideLead(before column: Int, style: Style) {
+            if column > 0, stored(at: column - 1).width == 2 {
+                cells[column - 1] = StoredCell(style: style)
+                if !clusters.isEmpty { clusters.removeValue(forKey: column - 1) }
+            }
+        }
+
         mutating func clearWideEdges(_ range: Range<Int>, style: Style) {
             guard !range.isEmpty else { return }
-            let start = range.lowerBound
+            clearWideLead(before: range.lowerBound, style: style)
             let end = range.upperBound
-            if start > 0, stored(at: start - 1).width == 2 {
-                cells[start - 1] = StoredCell(style: style)
-                if !clusters.isEmpty { clusters.removeValue(forKey: start - 1) }
-            }
             if end < cells.count, cells[end].glyph == StoredCell.continuation {
                 cells[end] = StoredCell(style: style)
             }
@@ -173,12 +177,44 @@ extension Terminal {
 
         mutating func erase(_ range: Range<Int>, style: Style) {
             guard !range.isEmpty else { return }
-            clearWideEdges(range, style: style)
+            clearWideLead(before: range.lowerBound, style: style)
+            let end = range.upperBound
+            if end < storageColumns, stored(at: end - 1).width == 2 {
+                fillWithBlanks(end..<(end + 1), style: style)
+            }
+            fillWithBlanks(range, style: style)
+        }
+
+        private mutating func fillWithBlanks(_ range: Range<Int>, style: Style) {
             discardClusters(in: range)
-            if style != Style() { ensureLength(range.upperBound) }
-            let end = min(cells.count, range.upperBound)
-            if range.lowerBound < end {
-                for column in range.lowerBound..<end { cells[column] = StoredCell(style: style) }
+            if style == Style(), range.upperBound >= cells.count {
+                // Unstored tail cells already have the default style.
+                if range.lowerBound < cells.count { cells.removeLast(cells.count - range.lowerBound) }
+                return
+            }
+            ensureLength(range.upperBound)
+            let blank = StoredCell(style: style)
+            for column in range { cells[column] = blank }
+        }
+
+        mutating func editCharacters(_ edit: CharacterEdit, at start: Int, count requested: Int, style: Style) {
+            // Editing shifts the entire stored row, including cells hidden by a narrower alternate viewport.
+            let count = min(requested, storageColumns - start)
+            clearWideLead(before: start, style: style)
+            switch edit {
+            case .insert:
+                copy(start..<(storageColumns - count), from: self, to: start + count)
+                fillWithBlanks(start..<(start + count), style: style)
+                if stored(at: storageColumns - 1).width == 2 {
+                    fillWithBlanks((storageColumns - 1)..<storageColumns, style: style)
+                }
+            case .delete:
+                copy((start + count)..<storageColumns, from: self, to: start)
+                fillWithBlanks((storageColumns - count)..<storageColumns, style: style)
+                // An orphaned continuation is empty. A standalone combining mark also has width zero.
+                if stored(at: start).glyph == StoredCell.continuation {
+                    fillWithBlanks(start..<(start + 1), style: style)
+                }
             }
         }
 

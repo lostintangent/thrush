@@ -1,15 +1,35 @@
 # Shell and Vim replay references
 
-The two `*.capture.json` files contain real reads, writes and window changes from disposable PTYs. Each read retains its byte boundary and its monotonic microsecond offset from session startup. The recorded shell is `/bin/bash --noprofile --norc -i` with `TERM=xterm-256color`, a temporary home, no history file, a fixed `thrush$ ` prompt and the `en_US.UTF-8` locale. The editor is the system Vim 9.1, patches 1–1752. Its complete configuration and initial scratch-file contents are in `capture.py`. Vim uses its ordinary xterm-256color probe sequences. The pinned server emulator processes each PTY read. Its parsed color requests use the pinned browser terminal’s color handler and ThemeService, and the recorder writes all automatic replies back to Vim in order. Each capture records the Vim and Clang compiler versions.
+The `*.capture.json` files contain real reads, writes and window changes from disposable PTYs. Each read retains its byte boundary and its monotonic microsecond offset from session startup. The shell-log and Vim recordings use `/bin/bash --noprofile --norc -i` with `TERM=xterm-256color`, a temporary home, no history file, a fixed `thrush$ ` prompt and the `en_US.UTF-8` locale. The editor is the system Vim 9.1, patches 1–1752. Its complete configuration and initial scratch-file contents are in `capture.py`. Vim uses its ordinary xterm-256color probe sequences. The pinned server emulator processes each PTY read. Its parsed color requests use the pinned browser terminal’s color handler and ThemeService, and the recorder writes all automatic replies back to Vim in order. The shell-log and Vim captures record the Vim and Clang compiler versions.
 
 - **shell-log** runs Clang on a scratch translation unit with 1,030 separate headers. The build logger numbers and colors each actual include trace. Header paths contain CJK, combining text and occasional longer components. The logger checks that the compiler visited the expected headers in order and produced a nonempty object. The shell starts with headers 0001–1030 on the 80 × 24 grid. It resizes to 40 × 32, then 80 × 14. At 80 × 14 it compiles another 640 headers (1031–1670) before resizing back to 80 × 24. It compiles a final 24 headers (1671–1694) before opening Vim and repeating the same resizes on the alternate screen.
 - **vim-edit** opens a two-line scratch file, enters Insert mode, pastes text containing a wide character and a combining mark, exits Insert mode, resizes, saves and returns to the shell. The recorder checks the saved file contents and the return of the original prompt before retaining the trace.
-- **shell-edges** is a scripted byte transcript for small-screen and split-input cases. It covers the two-column minimum, pending-wrap cursor reports, reflow next to wide cells, foreground and background colors, alternate-screen clipping, an interrupted UTF-8 scalar, a 16 KiB unknown OSC split at its terminator, mode-dependent arrows and bracketed paste.
+- **shell-edges** combines a scripted transcript with an interactive Bash display recording. It covers the two-column minimum, pending-wrap cursor reports, reflow next to wide cells, foreground and background colors, alternate-screen clipping, an interrupted UTF-8 scalar, a 16 KiB unknown OSC split at its terminator, mode-dependent arrows and bracketed paste.
 - **prompt-bom** starts a fresh 80 × 24 terminal with `EF BB BF`, the eight printable bytes of `thrush$ `, and a cursor query. The reference reports row 1, column 9.
 
 The reference generator checks that all three normal-screen resizes start with 1,000 history rows and that the shell again has 1,000 before Vim starts. The active normal history after each resize is 1,000, 496 and 990 rows respectively. On the alternate screen, active history remains empty. The saved normal buffer has 1,000, 1,000 and 497 rows before those alternate resizes. After returning to the shell it has 487 rows.
 
 At startup, each recorded Vim issues two cursor reports and a secondary device-attributes query. The live reference sends `ESC [ 2 ; 2 R`, `ESC [ 3 ; 1 R` and `ESC [ > 0 ; 276 ; 0 c` in sequence. Vim then requests the cursor-blink setting with `CSI ? 12 $ p` and receives `CSI ? 12 ; 2 $ y`. On the same startup read, OSC 11 and OSC 10 receive the default black background and white foreground, respectively. The pinned browser handler formats these as `rgb:0000/0000/0000` and `rgb:ffff/ffff/ffff`, terminated with ST. The server-only headless package omits color replies. The DCS termcap probes produced zero reply bytes. Vim saved the scratch file and returned to the prompt with these exchanges.
+
+The small shell replay also checks erasing from the beginning of a line or display through the cursor. It records each visible cell, including the erase background and the text after the cursor.
+
+## Bash line edits and formatted output
+
+The last part of `shell-edges` replays `bash-display.capture.json`. It was recorded on a 16 × 25 PTY with GNU Bash 5.3.9, `TERM=xterm-256color`, a fresh home and Readline’s Emacs bindings. On two fresh prompts the recorder types `abcdef` and presses Ctrl-B three times. Each Ctrl-B produces one backspace on the PTY. Bash then emits a delete-character sequence for Ctrl-D and an insert-character sequence followed by `X` for the typed insertion. Ctrl-C cancels each edited command.
+
+| Checkpoint | PTY output bytes | xterm visible row | Cursor (row, column), zero-based |
+| --- | --- | --- | --- |
+| Deleted middle character | `1B 5B 31 50` | `thrush$ abcef` | (0, 11) |
+| Inserted middle character | `1B 5B 31 40 58` | `thrush$ abcXdef` | (1, 12) |
+| Literal tab stop | `name`, `09`, `value` | `name    value` | (6, 13) |
+| Erased progress line | `progress...`, `0D 1B 5B 32 4B`, `Done` | `Done` | (12, 4) |
+
+Bash runs `printf 'name\tvalue'` and `printf 'progress...\r\033[2KDone'`. After each command, a silent `read -rsn1` waits for one input byte so xterm can record the line and cursor before Bash prints the next prompt. The replay’s `captureSHA256` identifies this raw Bash recording. Regenerate the four checkpoints offline from the committed bytes with the command below. Run the Python command first only to collect a new live recording.
+
+```sh
+python3 Fixtures/reference/m2/capture-display.py ../toy-box --bash /opt/homebrew/bin/bash
+NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box shell-edges
+```
 
 ## Reproduce the reference files
 
@@ -23,6 +43,15 @@ shasum -a 256 Fixtures/replays/*.json
 The generator reads the pinned server's emulator configuration, xterm-headless 6.0.0 and Unicode 11 addon 0.9.0. It feeds the output bytes into xterm in recorded order. It obtains replies via `onData`, encodes special keys with xterm's browser keyboard evaluator, and uses xterm's paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes. [Server emulator](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/src/features/terminal/model/emulator.ts) · [Pinned packages](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/bun.lock)
 
 To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture.py ../toy-box` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
+
+## Erasing through the cursor
+
+The `shell-edges` checkpoints “Erase the line through the cursor” and “Erase the display through the cursor” record independent cells, wrap flags and cursor positions from `@xterm/headless` 6.0.0. Two right-margin cases in its ED handler need a separate expectation.
+
+- In a fresh 3-column, 3-row normal screen, write `ABCDEFGHI` and then `CSI 1 J`. The cursor is waiting to wrap at zero-based column 3 on row 2. The reference clears the bottom row and tries to clear the wrap flag of a nonexistent next row. It throws a `TypeError` before it erases `ABC` and `DEF`. Moving to the last visible column with `CSI 3;3 H` before the erase produces the same exception. Thrush completes the visible erase in both cases. All three rows are blank with their wrap flags clear, the cursor stays in place, and subsequent output is processed normally.
+- In the same grid, write `ABCDEFGHIJKLMNOPQRSTU`, then `CSI 1;3 H` and `CSI 1 J`. Four rows have entered history, and the cursor is on the first visible row at its last column. The reference clears the wrap flag of absolute buffer row 1 (`DEF`) and leaves the next visible row (`PQR`) wrapped. Its lookup uses the viewport row number without adding the history offset. Thrush preserves the history rows and their wrap flags, blanks the first visible row, clears the wrap flag of `PQR` and leaves `STU` wrapped. The cursor stays at row 0, column 2.
+
+The focused row-editing tests check these two cases separately from ordinary ED1 and EL1, including a complete erase in the alternate screen and a partial erase of a wide character. [Shell row-editing tests](../../../Tests/ThrushCoreTests/ShellRowEditingTests.swift)
 
 ## Replay format
 

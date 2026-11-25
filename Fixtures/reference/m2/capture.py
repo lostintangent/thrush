@@ -36,7 +36,7 @@ def encoded(data):
     return base64.b64encode(data).decode("ascii")
 
 class Session:
-    def __init__(self, directory, checkout, columns=80, rows=24):
+    def __init__(self, directory, checkout, columns=80, rows=24, *, bash="/bin/bash", inputrc="/dev/null"):
         self.events = []
         self.start = time.monotonic_ns()
         self.pid, self.fd = pty.fork()
@@ -45,8 +45,8 @@ class Session:
             os.chdir(directory)
             env = dict(HOME=str(directory), PATH=f"{directory}/bin:/usr/bin:/bin",
                        TERM="xterm-256color", LC_ALL="en_US.UTF-8", PS1=PROMPT.decode(),
-                       HISTFILE="/dev/null", INPUTRC="/dev/null", BASH_SILENCE_DEPRECATION_WARNING="1")
-            os.execve("/bin/bash", ["bash", "--noprofile", "--norc", "-i"], env)
+                       HISTFILE="/dev/null", INPUTRC=str(inputrc), BASH_SILENCE_DEPRECATION_WARNING="1")
+            os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
 
         self.reference = subprocess.Popen(
             ["bun", ROOT / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
@@ -94,8 +94,11 @@ class Session:
             chunks.append(data)
         return b"".join(chunks)
 
-    def input(self, name, data, semantic="text", value=None, until=None):
-        self.record(name, input=encoded(data), action=dict(kind=semantic, value=data.decode() if value is None else value))
+    def input(self, name, data, semantic="text", value=None, until=None, *, modifiers=()):
+        action = dict(kind=semantic, value=data.decode() if value is None else value)
+        if modifiers:
+            action["modifiers"] = list(modifiers)
+        self.record(name, input=encoded(data), action=action)
         self.write(data)
         return self.read(name, until)
 

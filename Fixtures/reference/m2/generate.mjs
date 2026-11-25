@@ -12,7 +12,7 @@ const { bracketTextForPaste, prepareTextForTerminal } = await import(server.reso
 const utf8 = s => Buffer.from(s, 'utf8');
 const base64 = bytes => Buffer.from(bytes).toString('base64');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-function shellEdges() {
+async function shellEdges() {
   const events = [];
   const append = (name, fields) => events.push({name, offsetMicroseconds: events.length * 1000, ...fields});
   const output = (name, bytes, check = true) => append(name,{bytes:base64(bytes), checkpoint:check});
@@ -90,7 +90,20 @@ function shellEdges() {
   output('Reversed ANSI colors', osc(ansiQuery));
   output('Extended colors with reversed ANSI palette', osc('4;16;?;231;?;232;?;255;?'));
   output('SGR with indexed and RGB subparameters', utf8('\r\n\x1b[38:5:44;48:2::10:20:30;1mA\x1b[38:7:1;92;22mB\x1b[0m'));
-  return {name:'shell-edges', columns:1, rows:2, events};
+  resize(8, 3);
+  output('Erase the line through the cursor', utf8('\x1b[2J\x1b[Habove\r\nabcdef\x1b[2;3H\x1b[44m\x1b[1K\x1b[0m'));
+  output('Erase the display through the cursor', utf8('\x1b[3;1Huvwxyz\x1b[3;3H\x1b[41m\x1b[1J\x1b[0m'));
+  // Replay the recorded Readline session on a clean viewport at its actual PTY size.
+  const capture = await readFile(new URL('bash-display.capture.json', import.meta.url));
+  const display = JSON.parse(capture);
+  resize(display.columns, display.rows);
+  output('Clear viewport for Bash', utf8('\x1b[2J\x1b[H'));
+  const offset = events.at(-1).offsetMicroseconds;
+  for (const event of display.events) {
+    events.push({...event, offsetMicroseconds:offset + event.offsetMicroseconds,
+      observedReply:event.observedReply ?? ''});
+  }
+  return {name:'shell-edges', columns:1, rows:2, events, captureSHA256:sha256(capture)};
 }
 const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13,
   home:36,end:35,pageUp:33,pageDown:34,delete:46,'[':219,'\\':220,']':221};
@@ -152,7 +165,7 @@ async function generate(name) {
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
-    : name === 'pointer-input' ? pointerInput() : name === 'hardware-keys' ? hardwareKeys() : shellEdges();
+    : name === 'pointer-input' ? pointerInput() : name === 'hardware-keys' ? hardwareKeys() : await shellEdges();
   let t = terminal(recording.columns, recording.rows);
   let palette;
   const cells = new Pool(), lines = new Pool();
@@ -188,7 +201,9 @@ async function generate(name) {
     replies = [];
     if (event.bytes) await write(t, Buffer.from(event.bytes,'base64'));
     const reply = base64(Buffer.concat(replies));
-    if (captureBytes) assert.equal(reply, event.observedReply ?? '', event.name + ' live PTY reply');
+    if (captureBytes || event.observedReply !== undefined) {
+      assert.equal(reply, event.observedReply ?? '', event.name + ' live PTY reply');
+    }
     if (reply) event.reply = reply;
     delete event.observedReply;
     if (event.action) {
@@ -216,7 +231,7 @@ async function generate(name) {
   const vimReplay = name === 'vim-resume' ? {sourceCaptureSHA256:overlay.sourceCaptureSHA256,
     sourceReferenceRevision:overlay.sourceReferenceRevision, serializerSourceSHA256:overlay.serializerSourceSHA256,
     serializedSHA256:overlay.serializedSHA256} : undefined;
-  const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : undefined, vimReplay,
+  const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : recording.captureSHA256, vimReplay,
     vimBackground:recording.vimBackground, columns:recording.columns,rows:recording.rows,cells:cells.values,lines:lines.values,events};
   // Keep each checkpoint or recorded read on its own line to make diffs reviewable.
   const { cells:cellList, lines:rowList, events:eventList, ...header } = json;

@@ -137,6 +137,7 @@ public struct Terminal: Sendable {
     private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
         switch function {
         case .execute(.backspace): screen.backspace()
+        case .execute(.horizontalTab): screen.horizontalTab()
         case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed): screen.lineFeed(style: style)
         case .execute(.carriageReturn): screen.carriageReturn()
         case .escape(.applicationKeypad):
@@ -145,6 +146,7 @@ public struct Terminal: Sendable {
         case .escape(.numericKeypad):
             modes.applicationKeypad = false
             return
+        case .control(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
         case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
         case .control(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
         case .control(.cursorForward): screen.cursorForward(parser.parameters[0, default: 1])
@@ -155,6 +157,7 @@ public struct Terminal: Sendable {
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseDisplay(range, style: style) }
         case .control(.eraseInLine):
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
+        case .control(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
         case .control(.primaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: "\u{1b}[?1;2c".utf8) }
             return
