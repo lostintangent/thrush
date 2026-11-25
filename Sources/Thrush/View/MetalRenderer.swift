@@ -41,11 +41,14 @@ final class MetalRenderer {
         let buffer: any MTLCommandBuffer
         let rowsPrepared: Int
         let glyphUploads: Int
+        /// Whether the frame drew any blinking ink.
+        let blinks: Bool
     }
 
+    /// Encode one frame. Blinking ink takes `blinkOpacity`, so a blink reuses every cached row.
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
                 pass: MTLRenderPassDescriptor, viewport: CGSize, selection: TerminalView.Selection? = nil,
-                showsCursor: Bool = true) throws -> Prepared {
+                showsCursor: Bool = true, blinkOpacity: Float = 1) throws -> Prepared {
         if previousTheme != theme {
             let table = Paint.table(theme)
             colorTable = table.withUnsafeBytes { bytes in
@@ -59,6 +62,7 @@ final class MetalRenderer {
         let initialUploads = atlas.uploadCount
         let initialPage = atlas.pageGeneration
         var dirty = 0
+        var blinks = false
         var visible: [(Int, RowGeometry)] = []
         if let snapshot {
             if priorSize != snapshot.size || priorBase != snapshot.isAlternate { discardGeometry() }
@@ -88,6 +92,7 @@ final class MetalRenderer {
                 }
                 next[key] = geo
                 if geo.buffer != nil { visible.append((y, geo)) }
+                blinks = blinks || geo.blinks
             }
             cached = next
             if showsCursor, snapshot.cursorVisible, (0..<min(snapshot.rows.count, area.rows)).contains(snapshot.cursorRow) {
@@ -120,7 +125,7 @@ final class MetalRenderer {
         enc.setVertexBuffer(colorTable, offset: 0, index: 2)
         for (index, row) in visible {
             enc.setVertexBuffer(row.buffer, offset: 0, index: 0)
-            var params = SIMD4(Float(viewport.width), Float(viewport.height), metrics.y(index), 0)
+            var params = SIMD4(Float(viewport.width), Float(viewport.height), metrics.y(index), blinkOpacity)
             enc.setVertexBytes(&params, length: MemoryLayout.size(ofValue: params), index: 1)
             for batch in row.batches {
                 enc.setFragmentTexture(batch.texture, index: 0)
@@ -129,6 +134,6 @@ final class MetalRenderer {
             }
         }
         enc.endEncoding()
-        return Prepared(buffer: buffer, rowsPrepared: dirty, glyphUploads: atlas.uploadCount - initialUploads)
+        return Prepared(buffer: buffer, rowsPrepared: dirty, glyphUploads: atlas.uploadCount - initialUploads, blinks: blinks)
     }
 }

@@ -10,7 +10,7 @@ using namespace metal;
 struct Quad {
     float4 rect;
     float4 uv;
-    uint4 paint;  // color token, material (solid / mask / RGBA), dim, unused
+    uint4 paint;  // color token, material (solid / mask / RGBA), effects (1 dim, 2 blink), unused
 };
 
 struct Raster {
@@ -22,7 +22,7 @@ struct Raster {
 
 vertex Raster terminalVertex(uint corner [[vertex_id]], uint instance [[instance_id]],
                              const device Quad *quads [[buffer(0)]],
-                             constant float4 &viewport [[buffer(1)]],
+                             constant float4 &viewport [[buffer(1)]],  // drawable size, row top, blink opacity
                              constant float4 *palette [[buffer(2)]]) {
     float2 unit = float2(corner & 1, corner >> 1);
     Quad q = quads[instance];
@@ -32,7 +32,8 @@ vertex Raster terminalVertex(uint corner [[vertex_id]], uint instance [[instance
     out.uv = q.uv.xy + q.uv.zw * unit;
     uint c = q.paint.x;
     out.ink = (c & 0x80000000) ? float4((c >> 16) & 255, (c >> 8) & 255, c & 255, 255) / 255.0 : palette[c];
-    out.ink.a *= q.paint.z ? 0.70 : 1.0;
+    if (q.paint.z & 1) out.ink.a *= 0.70;
+    if (q.paint.z & 2) out.ink.a *= viewport.w;
     out.material = q.paint.y;
     return out;
 }

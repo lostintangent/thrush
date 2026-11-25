@@ -22,6 +22,7 @@ private struct Pixels {
     let bytes: [UInt8]
     let rowsPrepared: Int
     let uploads: Int
+    let blinks: Bool
 
     subscript(x: Int, y: Int) -> UInt32 {
         // The drawable's .bgra8Unorm layout.
@@ -51,7 +52,7 @@ private struct OffscreenTerminal {
     }
 
     func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme,
-              selection: TerminalView.Selection? = nil) throws -> Pixels {
+              selection: TerminalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
         view.theme = theme
         let width = Probe.canvasWidth
         let height = Probe.canvasHeight
@@ -67,7 +68,8 @@ private struct OffscreenTerminal {
         attachment.storeAction = .store
         attachment.clearColor = view.clearColor
         let frame = try renderer.encode(snapshot: snapshot, metrics: .init(scale: 2), theme: view.resolvedTheme,
-                                        pass: pass, viewport: CGSize(width: width, height: height), selection: selection)
+                                        pass: pass, viewport: CGSize(width: width, height: height), selection: selection,
+                                        blinkOpacity: blinkOpacity)
 
         let size = width * height * 4
         let memory = try #require(device.makeBuffer(length: size, options: .storageModeShared))
@@ -81,7 +83,8 @@ private struct OffscreenTerminal {
         frame.buffer.waitUntilCompleted()
         try #require(frame.buffer.status == .completed)
         return Pixels(bytes: Array(UnsafeBufferPointer(start: memory.contents().assumingMemoryBound(to: UInt8.self),
-                                                      count: size)), rowsPrepared: frame.rowsPrepared, uploads: frame.glyphUploads)
+                                                      count: size)), rowsPrepared: frame.rowsPrepared, uploads: frame.glyphUploads,
+                      blinks: frame.blinks)
     }
 }
 
@@ -250,6 +253,96 @@ func cursorShapeMovesWithItsSnapshot() async throws {
     // Submit the retained old snapshot after the newer one. Its H and block must return together.
     let retained = try host.draw(first, theme: theme)
     #expect(retained.bytes == block.bytes)
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func concealedTextKeepsItsCellsAndCopyButDrawsNoInk() async throws {
+    let host = try await OffscreenTerminal()
+    var theme = TerminalTheme.slateDark
+    theme.cursor = .init(red: 130, green: 32, blue: 48)
+    theme.cursorInk = .init(red: 255, green: 224, blue: 0)
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    // Concealed H on red, concealed underlined and struck H, a visible H, then the block cursor on a concealed H.
+    _ = terminal.receive((escape + "8;41mH" + escape + "49;4;9mH" + escape + "0mH" + escape + "8mH"
+                          + escape + "0m" + escape + "1;4H").utf8)
+    let snapshot = terminal.snapshot()
+    let shot = try host.draw(snapshot, theme: theme)
+    #expect(shot.colors(in: 0..<1) == [0xe28282])
+    #expect(shot.colors(in: 1..<2) == [0x131d27])
+    #expect(shot.colors(in: 2..<3).contains(0xe3eaf0))
+    #expect(shot.colors(in: 3..<4) == [0x822030])
+
+    let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 1)
+    let selected = try host.draw(snapshot, theme: theme, selection: selection)
+    #expect(selected.colors(in: 0..<2) == [0x466b85])
+    var transcript = TerminalTranscript()
+    transcript.display(snapshot)
+    #expect(transcript.text(in: selection) == "HH")
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func blinkingInkFadesOverSteadyCellsWithoutRebuildingRows() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    // A blinking underlined H on red, a steady H, then a blinking H under the block cursor.
+    _ = terminal.receive((escape + "5;4;41mH" + escape + "0mH" + escape + "5mH" + escape + "0m" + escape + "1;3H").utf8)
+    let snapshot = terminal.snapshot()
+    let underline = (x: Probe.edges[0] + 2, y: Probe.top + Probe.height - 1)
+    let shown = try host.draw(snapshot, theme: .slateDark)
+    #expect(shown.blinks)
+    #expect(shown.colors(in: 0..<1).contains(0xe3eaf0))
+    #expect(shown[underline.x, underline.y] == 0xe3eaf0)
+
+    let hidden = try host.draw(snapshot, theme: .slateDark, blinkOpacity: 0)
+    #expect(hidden.rowsPrepared == 0 && hidden.uploads == 0)
+    #expect(hidden.colors(in: 0..<1) == [0xe28282])
+    #expect(hidden.colors(in: 1..<2) == shown.colors(in: 1..<2))
+    // The cursor keeps the cell being edited legible.
+    #expect(hidden.colors(in: 2..<3) == shown.colors(in: 2..<3))
+
+    let half = try host.draw(snapshot, theme: .slateDark, blinkOpacity: 0.5)
+    let blend = half[underline.x, underline.y]
+    let channels = [blend >> 16, blend >> 8 & 255, blend & 255].map(Int.init)
+    #expect(zip(channels, [226, 182, 185]).allSatisfy { abs($0 - $1) <= 1 }, "Measured \(channels)")
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func onlyVisibleBlinkingInkAsksForBlinkFrames() async throws {
+    let host = try await OffscreenTerminal()
+    let cases = [("H", false), (escape + "5m ", false), (escape + "5;41m ", false), (escape + "5;8mH", false),
+                 (escape + "5;4m ", true), (escape + "5m🐦", true)]
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    for (bytes, blinks) in cases {
+        _ = terminal.receive((escape + "2J" + escape + "H" + bytes + escape + "0m").utf8)
+        #expect(try host.draw(terminal.snapshot(), theme: .slateDark).blinks == blinks, "\(bytes.debugDescription)")
+    }
+}
+
+@Test func blinkingTextHoldsSteadyBetweenTwoContinuousFades() {
+    // Sample two cycles at one millisecond, starting at an arbitrary media time.
+    let start = 86_400.123, step = 0.001
+    let samples = (0..<Int(2 * TextBlink.period / step)).map { start + Double($0) * step }
+    var previous = TextBlink.opacity(at: start - step)
+    var fading = 0, shown = 0, hidden = 0
+    for time in samples {
+        let opacity = TextBlink.opacity(at: time)
+        // No visible step between frames, even across a cycle boundary.
+        #expect(abs(opacity - previous) < 0.01, "Jump at \(time)")
+        previous = opacity
+        let next = TextBlink.nextFade(from: time)
+        if next == time {
+            fading += 1
+            continue
+        }
+        // Between fades the frame holds, so the view can sleep until `next`.
+        #expect(opacity == 0 || opacity == 1)
+        #expect(TextBlink.opacity(at: (time + next) / 2) == opacity && TextBlink.opacity(at: next - 1e-6) == opacity)
+        if opacity == 1 { shown += 1 } else { hidden += 1 }
+    }
+    #expect(abs(fading - 800) <= 2 && abs(shown - 1000) <= 2 && abs(hidden - 600) <= 2)
 }
 
 #if os(macOS)

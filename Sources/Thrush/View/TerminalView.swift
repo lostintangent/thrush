@@ -147,6 +147,16 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     /// Command-buffer completion can precede or outlive the drawable's presentation callback.
     package var onFrameCompleted: (@MainActor (FrameMeasurement) -> Void)?
     package private(set) var submissionCount = 0
+    /// Blinking text holds steady while this is true. It follows the system's Reduce Motion setting.
+    package var reducesMotion = false {
+        didSet {
+            guard oldValue != reducesMotion else { return }
+            textBlink.stop()
+            if showsBlinkingText { invalidateFrame() }
+        }
+    }
+    private lazy var textBlink = TextBlink { [weak self] in self?.invalidateFrame() }
+    private var showsBlinkingText = false
     private var renderer: MetalRenderer?
     private var preparingDeviceID: UInt64?
     private var prepareTask: Task<Void, Never>?
@@ -213,10 +223,11 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         colorPixelFormat = .bgra8Unorm
         #if os(macOS)
         wantsLayer = true
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(updateBackgroundCompositing),
-            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil
-        )
+        for action in [#selector(updateBackgroundCompositing), #selector(followReduceMotion)] {
+            NSWorkspace.shared.notificationCenter.addObserver(
+                self, selector: action, name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil
+            )
+        }
         layer?.isOpaque = isOpaque
         #else
         isOpaque = true
@@ -228,7 +239,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
         NotificationCenter.default.addObserver(self, selector: #selector(trimMemory),
                                                name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(followReduceMotion),
+                                               name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
         #endif
+        followReduceMotion()
         (layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         #if os(macOS)
         macInput.frame = bounds
@@ -268,6 +282,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
 
+    @objc private func followReduceMotion() {
+        #if os(macOS)
+        reducesMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        #else
+        reducesMotion = UIAccessibility.isReduceMotionEnabled
+        #endif
+    }
+
     @objc private func trimMemory() {
         renderer?.discardResources()
         releaseDrawables()
@@ -291,7 +313,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     #endif
 
     private func updateAttachment() {
-        if window == nil { finishFinalFrame() }
+        if window == nil {
+            finishFinalFrame()
+            textBlink.stop()
+        }
         synchronizedOutput.setActive(active && window != nil)
         updateGeometry()
         invalidateFrame()
@@ -477,7 +502,12 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         guard active != visible else { return }
         active = visible
         synchronizedOutput.setActive(visible && window != nil)
-        if visible { invalidateFrame() } else { releaseDrawables() }
+        if visible {
+            invalidateFrame()
+        } else {
+            textBlink.stop()
+            releaseDrawables()
+        }
     }
 
     /// Requests native keyboard focus for this viewport and returns whether it was granted.
@@ -568,7 +598,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput)
+                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput,
+                                            blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent
             if first { hasSubmittedContent = true }
@@ -633,6 +664,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             }
             frame.buffer.present(drawable)
             frame.buffer.commit()
+            showsBlinkingText = frame.blinks
+            textBlink.frameDrawn(blinking: frame.blinks && !reducesMotion, in: self)
         } catch {
             renderer.discardResources()
             NSLog("Thrush Metal frame failed: %@", String(describing: error))

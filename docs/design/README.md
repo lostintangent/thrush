@@ -88,7 +88,11 @@ A host can replace the palette and keep Slate's type and grid. The sample apps s
 
 Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
 
-Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Slate Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Slate Dark (`#ACB5BB` on `#2F3840`).
+Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Slate Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Slate Dark (`#ACB5BB` on `#2F3840`). Dim applies to the glyph and to its underline and strikethrough.
+
+SGR 5 blinking text fades its glyph, underline and strikethrough out and back in on a 1.2 s cycle: shown for 0.5 s, a 0.2 s ease out, hidden for 0.3 s and a 0.2 s ease in. That is 50 blinks a minute, slower than the 150 ECMA-48 allows for slow blink. Backgrounds, inverse paper, selection and the cursor hold still, and a block cursor keeps its glyph. Every pane follows one clock, so all blinking text fades together. With Reduce Motion, blinking text stays shown.
+
+SGR 8 concealed text keeps its cells, background, selection and cursor and draws no glyph, underline or strikethrough. Copy and VoiceOver still read its characters.
 
 ## Native surfaces and motion
 
@@ -103,7 +107,7 @@ Shell output and Vim content in the images are examples. When an app embeds the 
 | Read earlier output | Use native scrolling and deceleration in normal-screen history. Preserve the visible logical line when fresh bytes arrive. Show the system scroll indicator and a **Latest** button with a 44 pt minimum hit target while away from the live edge. Return to the bottom on activation. Hide the control at the live edge and while the alternate screen owns input. |
 | Open the keyboard | The native accessory shares the keyboard’s frame transition and system timing curve. Esc, Ctrl, Tab and four arrow buttons each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Show a filled accent capsule with a contrasting “Ctrl” label and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
 | Rotate or dismiss the keyboard | Let the system transition coordinator move the host and controls. Compute whole cells from the new usable bounds, apply each distinct size once and anchor the visible logical row or live prompt. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
-| Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. With blink disabled, a settled or backgrounded terminal requests zero further frames. Keep the first-echo presentation time independent of host transitions. |
+| Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. A settled or backgrounded terminal requests zero further frames. Visible blinking text requests frames only during its fades, at up to 60 Hz, and none while it is fully shown or hidden, while the view is hidden or suspended, or with Reduce Motion. Keep the first-echo presentation time independent of host transitions. |
 
 ## Rendering
 
