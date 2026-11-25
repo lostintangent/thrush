@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "browser/*": ["./node_modules/@xterm/xterm/src/browser/*"],
+      "common/*": ["./node_modules/@xterm/xterm/src/common/*"],
+      "vs/*": ["./node_modules/@xterm/xterm/src/vs/*"]
+    }
+  }
+}

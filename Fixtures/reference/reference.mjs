@@ -11,15 +11,7 @@ export { options, packages, reference } from './headless.mjs';
 const require = createRequire(import.meta.url);
 const sources = join(dirname(require.resolve('@xterm/xterm/package.json')), 'src');
 
-// The sources import one another from their own root, as in `common/Color`.
-Bun.plugin({
-  name: 'reference sources',
-  setup(build) {
-    build.onResolve({ filter: /^(browser|common|vs)\// }, ({ path, importer }) =>
-      importer.startsWith(sources) ? { path: require.resolve(join(sources, path)) } : undefined);
-  },
-});
-
+// The sources import one another from their own root, as in `common/Color`, which tsconfig.json maps.
 /** Imports one of the browser package's TypeScript sources, such as `common/input/Keyboard`. */
 export function source(path) {
   return import(join(sources, `${path}.ts`));
