@@ -154,6 +154,30 @@ class Phone:
             raise RuntimeError("Missing simulator application PID: " + result.stdout)
         return int(match.group(1))
 
+    def warm_keyboard(self, appearance):
+        # A fresh runtime can cover its first keyboard with the system QuickPath
+        # introduction. Give that first attachment its own process before recording.
+        pid = self.launch("prompt", appearance, "portrait", "visible")
+        observed = None
+        since = time.monotonic()
+
+        def ready():
+            nonlocal observed, since
+            state = self.state()
+            if (state.get("pid") != pid or state.get("keyboardHeight", 0) <= 90
+                    or state.get("accessoryHeight", 0) < 44):
+                observed = None
+                return False
+            geometry = (state["keyboardHeight"], state["accessoryHeight"], state["gridFrame"])
+            if observed != geometry:
+                observed, since = geometry, time.monotonic()
+            return state if time.monotonic() - since >= 0.7 else False
+
+        print("Waiting for the first native keyboard attachment", flush=True)
+        state = wait_for("the warm-up keyboard and accessory", ready, 100)
+        save_json(self.out / "keyboard-warmup.json", state)
+        sim("terminate", self.device, APP_ID, timeout=45)
+
     def set_appearance(self, style):
         sim("ui", self.device, "appearance", style)
         style_now = sim("ui", self.device, "appearance").stdout.strip()
@@ -231,6 +255,14 @@ class Phone:
                 last_error = "The displayed generation or layout changed during capture."
                 return False
             upright = self.oriented_image(candidate, orientation)
+            if keyboard == "visible":
+                metadata = self.scratch / "keyboard-frame.json"
+                save_json(metadata, state)
+                keys = run(sys.executable, str(ORACLE), str(upright), "keyboard", appearance,
+                           "--metadata", str(metadata), timeout=50, check=False)
+                if keys.returncode:
+                    last_error = (keys.stdout + keys.stderr).strip()
+                    return False
             if oracle:
                 command = [sys.executable, str(oracle), str(upright), scene, appearance]
                 if scene == "editor" and oracle == ORACLE:
@@ -292,14 +324,33 @@ class Phone:
                     raise RuntimeError("Simulator recording failed: " + log.read_text())
 
     def suite(self):
+        failures = {}
+
+        def attempt(label, action, *arguments):
+            try:
+                action(*arguments)
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+                failures[label] = str(error)
+                print(f"{label}: {error}", file=sys.stderr, flush=True)
+                save_json(self.out / "failures.json", failures)
+
+        attempt("render-benchmark", self.benchmark)
         for scene, appearance, orientation in [
             ("prompt", "dark", "portrait"), ("shell", "dark", "portrait"), ("editor", "dark", "portrait"),
             ("editor", "dark", "landscape"), ("prompt", "light", "portrait"), ("shell", "light", "portrait"),
             ("editor", "light", "portrait"),
             ("editor", "light", "landscape"),
         ]:
-            pid = self.launch(scene, appearance, orientation, "visible")
-            self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
+            attempt(f"{scene}-{appearance}-{orientation}", self.capture_scene, scene, appearance, orientation)
+        attempt("appearance-switch", self.capture_switch)
+        if failures:
+            raise RuntimeError("iPhone checks failed: " + ", ".join(failures))
+
+    def capture_scene(self, scene, appearance, orientation):
+        pid = self.launch(scene, appearance, orientation, "visible")
+        self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
+
+    def capture_switch(self):
         pid = self.launch("glyphs", "dark", "portrait", "visible")
         dark = self.frame("glyphs", "dark", "portrait", "visible", pid, ORACLE)
         with self.record_switch():
@@ -311,6 +362,8 @@ class Phone:
                 raise RuntimeError(f"System appearance changed {key}: {dark[key]} → {light[key]}")
         if light["rowsPrepared"] or light["glyphUploads"]:
             raise RuntimeError("Appearance change rebuilt rows or rasterized new glyphs.")
+
+    def benchmark(self):
         report = self.out / "render.json"
         result = run("scripts/benchmark-simulator.sh", self.device, str(self.app), str(report),
                      timeout=270, check=False)
@@ -328,7 +381,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
-    parser.add_argument("--scene", default="", help="A scene registered by the demo. Leave empty to run the full proof.")
+    parser.add_argument("--scene", default="", help="A registered scene or render-benchmark. Leave empty to run the full proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -339,6 +392,8 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
+    if args.scene == "render-benchmark" and (args.layout_only or args.oracle):
+        parser.error("The render benchmark produces its own checked JSON report.")
     oracle = None
     if args.oracle:
         oracle = (ROOT / args.oracle).resolve()
@@ -366,7 +421,11 @@ def main():
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
-            if args.scene:
+            if not args.layout_only and args.scene != "render-benchmark" and (not args.scene or args.keyboard == "visible"):
+                phone.warm_keyboard(args.appearance if args.scene else "dark")
+            if args.scene == "render-benchmark":
+                phone.benchmark()
+            elif args.scene:
                 pid = phone.launch(args.scene, args.appearance, args.orientation, args.keyboard)
                 phone.frame(args.scene, args.appearance, args.orientation, args.keyboard, pid, oracle, layout_only=args.layout_only)
             else:

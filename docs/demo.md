@@ -45,6 +45,8 @@ To capture a single registered scene, pass its name, system appearance, orientat
 gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible
 ```
 
+Run `gh workflow run headless.yml --ref main -f scene=render-benchmark` for the packaged simulator render benchmark alone.
+
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and accessory measurements for the PTY recorder.
 
 ## Run a recorded interaction

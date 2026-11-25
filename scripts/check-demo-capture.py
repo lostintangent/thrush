@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Check the native demo's shell, canonical Vim or six-column glyph frame in sRGB."""
+"""Check the native demo's terminal scenes and iPhone keyboard in sRGB."""
 import argparse
 import collections
 import json
+from itertools import groupby
 import struct
 import subprocess
 import tempfile
@@ -183,7 +184,66 @@ def check_status_row(image, state):
                 f"Missing Vim status text in column {col + 1} of {columns}")
 
 
+def keyboard(image, state):
+    require(state is not None, "Keyboard verification requires --metadata")
+    (wx, wy), (width, height) = state["windowPoints"]
+    (gx, gy), (gw, gh) = state["gridFrame"]
+    scale = state["displayScale"]
+    guide, accessory = state["keyboardHeight"], state["accessoryHeight"]
+    require((image.width, image.height) == (round(width * scale), round(height * scale)),
+            "Keyboard framebuffer is not upright at the submitted window size")
+    require(guide > 90 and 44 <= accessory < guide and abs(gy - wy + gh - (height - guide)) <= 1,
+            "The keyboard guide and attached accessory must meet the terminal viewport")
+    left, right = round(gx - wx), round(gx - wx + gw)
+    top = round(height - guide)
+    require(0 <= left < right <= width and 0 <= top < height, "Keyboard is outside the window")
+
+    # Sample point centres. The safe-area width also sets the widths of the seven
+    # equal accessory buttons, including when the home indicator moves in landscape.
+    def luma(x, y):
+        px = int((x + 0.5) * scale)
+        py = int((y + 0.5) * scale)
+        r, g, b = image.rgb(image.pixels[py * image.width + px])
+        return (54 * r + 183 * g + 19 * b) // 256
+
+    for button in range(7):
+        x0 = round(left + (button + 0.20) * (right - left) / 7)
+        x1 = round(left + (button + 0.80) * (right - left) / 7)
+        ink = sum(abs(luma(x, y) - luma(x, top + 3)) >= 70 for x in range(x0, x1)
+                  for y in range(top + 11, top + 33))
+        require(ink >= 10, f"Keyboard accessory control {button + 1} has no visible label or arrow")
+
+    # Native keycaps are brighter than the gutters in both system appearances.
+    # Look for the repeated key-width fills, independently on each scanline. This
+    # follows the actual system keyboard without assuming QWERTY row coordinates.
+    def letter_row(y):
+        samples = [luma(x, y) for x in range(left, right)]
+        ranked = sorted(samples)
+        gutter, cap = ranked[len(ranked) // 25], ranked[len(ranked) * 2 // 3]
+        if cap - gutter < 15:
+            return False
+        threshold = (gutter + cap) / 2
+        widths = [sum(1 for _ in run) for filled, run in groupby(samples, lambda v: v >= threshold) if filled]
+        keys = [w for w in widths if len(samples) * 0.026 <= w <= len(samples) * 0.16]
+        return len(keys) >= 6 and sum(keys) >= len(samples) * 0.42
+
+    # Require sustained keycaps in three vertically separate bands. Spacing scales
+    # with the available keyboard height on a compact landscape keyboard.
+    body = round(top + accessory)
+    bands = []
+    for filled, lines in groupby(range(body, int(height)), key=letter_row):
+        if filled:
+            lines = list(lines)
+            if len(lines) >= 4:
+                center = (lines[0] + lines[-1]) / 2
+                if not bands or center - bands[-1] >= (height - body) * 0.09:
+                    bands.append(center)
+    require(len(bands) >= 3, f"Expected three native letter-key rows below the accessory, found {len(bands)}")
+
+
 def check(image, scene, metadata=None):
+    if scene == "keyboard":
+        return keyboard(image, metadata)
     require(image.count("background") >= image.width * image.height * 0.12,
             "The expected Slate terminal canvas is absent")
     require(image.count("cursor") >= 8, "Missing the terminal cursor")
@@ -215,9 +275,9 @@ def check(image, scene, metadata=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", type=Path)
-    parser.add_argument("scene", choices=["prompt", "shell", "editor", "glyphs"])
+    parser.add_argument("scene", choices=["prompt", "shell", "editor", "glyphs", "keyboard"])
     parser.add_argument("theme", choices=COLORS)
-    parser.add_argument("--metadata", type=Path, help="Completed phone frame metadata for a coordinate-checked Vim status row")
+    parser.add_argument("--metadata", type=Path, help="Phone frame geometry for Vim status or keyboard checks")
     parser.add_argument("--same-grid-as", type=Path, help="Compare a glyph frame from the opposite appearance")
     args = parser.parse_args()
     try:
