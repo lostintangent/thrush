@@ -1,9 +1,10 @@
 # Thrush
 
-Thrush is a first-party Swift terminal emulator for macOS and iOS. [docs/plan.md](docs/plan.md) is the source of truth for requirements, the ontology, contracts, budgets and milestones. When work changes a decision the plan records, update the plan in the same change.
+Thrush is a general-purpose Swift terminal for macOS and iOS apps. [docs/plan.md](docs/plan.md) is the source of truth for requirements, the ontology, contracts, budgets and milestones. When work changes a decision the plan records, update the plan in the same change.
 
 ## Principles
 
+- Thrush stands on its own. Toy Box is its first consumer, not a dependency. No code, test, fixture, script, sample app, benchmark or CI step may need a Toy Box checkout or server. Toy Box can appear as an example consumer or as one server that implements Thrush's protocol.
 - The `ThrushCore` target uses only the Swift standard library. No Foundation, Darwin or third-party code.
 - Add terminal behavior only when a named workflow or its recorded replay needs it.
 - Every new operation lands with its correctness checkpoint and its `ThrushBench` workload in the same change.
