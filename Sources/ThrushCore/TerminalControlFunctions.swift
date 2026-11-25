@@ -276,17 +276,16 @@ extension Terminal {
 
         /// DECRPSS answers DECRQSS with the control function that restores the setting the payload names,
         /// or with 0 when it names none the terminal reports.
-        static func statusString(_ payload: String, scrollTop: Int, scrollBottom: Int, cursorBlink: Bool) -> String {
+        static func statusString(_ payload: String, style: Style, cursorStyle: CursorStyleParameter,
+                                 scrollTop: Int, scrollBottom: Int) -> String {
             let setting: String? = switch payload {
             // No cell is protected from selective erase.
             case "\"q": "0\"q"
             // A VT100-level terminal that sends 7-bit controls, matching DA1.
             case "\"p": "61;1\"p"
             case "r": "\(scrollTop + 1);\(scrollBottom + 1)r"
-            // The reference reports the default rendition and the host's block cursor, whatever the
-            // program has set. Only DECSET 12 changes the blink it reports.
-            case "m": "0m"
-            case " q": cursorBlink ? "1 q" : "2 q"
+            case "m": "\(style.renditionParameters)m"
+            case " q": "\(cursorStyle.rawValue) q"
             default: nil
             }
             return setting.map { "\u{1b}P1$r\($0)\u{1b}\\" } ?? "\u{1b}P0$r\u{1b}\\"
@@ -309,6 +308,17 @@ extension Terminal {
             case .defaultStyle, .blinkingBlock, .steadyBlock: .block
             case .blinkingUnderline, .steadyUnderline: .underline
             case .blinkingBar, .steadyBar: .bar
+            }
+        }
+
+        init(_ shape: CursorShape, blinking: Bool) {
+            self = switch (shape, blinking) {
+            case (.block, true): .blinkingBlock
+            case (.block, false): .steadyBlock
+            case (.underline, true): .blinkingUnderline
+            case (.underline, false): .steadyUnderline
+            case (.bar, true): .blinkingBar
+            case (.bar, false): .steadyBar
             }
         }
     }

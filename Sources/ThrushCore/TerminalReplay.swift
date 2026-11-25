@@ -185,20 +185,7 @@ extension Terminal {
         mutating func setStyle(_ style: Style) {
             guard currentStyle != style else { return }
             currentStyle = style
-            var sgr = ["0"]
-            for (set, code) in [(style.bold, "1"), (style.dim, "2"), (style.italic, "3"),
-                                (style.underline, "4"), (style.blink, "5"), (style.inverse, "7"),
-                                (style.invisible, "8"), (style.strikethrough, "9")] where set {
-                sgr.append(code)
-            }
-            for (color, prefix) in [(style.foreground, "38"), (style.background, "48")] {
-                switch color {
-                case .default: break
-                case .indexed(let index): sgr.append("\(prefix);5;\(index)")
-                case .rgb(let r, let g, let b): sgr.append("\(prefix);2;\(r);\(g);\(b)")
-                }
-            }
-            output += csi + sgr.joined(separator: ";") + "m"
+            output += csi + style.renditionParameters + "m"
         }
 
         mutating func setModes(_ modes: Modes) {
@@ -215,8 +202,7 @@ extension Terminal {
                 output += csi + "?\(code)h"
             }
             if let blink = modes.cursorBlinkOverride {
-                let steady: Int = switch modes.cursorShape { case .block: 2; case .underline: 4; case .bar: 6 }
-                output += csi + "\(blink ? steady - 1 : steady) q"
+                output += csi + "\(CursorStyleParameter(modes.cursorShape, blinking: blink).rawValue) q"
             }
         }
 

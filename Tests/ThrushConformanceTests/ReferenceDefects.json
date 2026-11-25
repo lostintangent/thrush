@@ -1,4 +1,26 @@
 {
+  "DECRQSS m · after a rendition": {
+    "reason": "The reference always reports the default rendition. Thrush reports the rendition the program set, so a program that saves its rendition this way can restore it.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;1;4;38;5;100;48;2;1;2;3m ESC\\"
+      }
+    ]
+  },
+  "DECRQSS SP q · after DECSCUSR 6": {
+    "reason": "The reference always reports a block, blinking only after DECSET 12. Thrush reports the shape and blink the program chose with DECSCUSR, so a program that saves its cursor style this way can restore it.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESCP1$r2 q ESC\\",
+        "thrush": "ESCP1$r6 q ESC\\"
+      }
+    ]
+  },
   "DECRST 7 · then a combining mark after a dropped wide character": {
     "reason": "Without autowrap the reference drops a wide character that doesn't fit at the right margin, but the next combining mark still takes that character's width, so the a it joins becomes two columns wide. Thrush keeps the á one column wide, as the a was.",
     "differences": [
@@ -455,6 +477,28 @@
         "path": "active.visible[7][1]",
         "reference": "blank",
         "thrush": "\"o\""
+      }
+    ]
+  },
+  "stream 244": {
+    "reason": "The stream asks DECRQSS for the rendition after setting a color. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;48;5;2m ESC\\"
+      }
+    ]
+  },
+  "stream 248": {
+    "reason": "The stream asks DECRQSS for the rendition after setting a color. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;38;5;196m ESC\\"
       }
     ]
   },

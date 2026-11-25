@@ -412,8 +412,10 @@ public struct Terminal: Sendable {
                     generation &+= 1
                 }
             case .dcs(.requestStatusString):
-                replies += Reply.statusString(string.payload, scrollTop: screen.scrollTop,
-                                              scrollBottom: screen.scrollBottom, cursorBlink: modes.cursorBlink).utf8
+                let cursorStyle = CursorStyleParameter(modes.cursorShape,
+                                                       blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
+                replies += Reply.statusString(string.payload, style: style, cursorStyle: cursorStyle,
+                                              scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
             }
             return
         }

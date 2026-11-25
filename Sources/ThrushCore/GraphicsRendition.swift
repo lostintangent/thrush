@@ -164,4 +164,21 @@ extension Terminal.Style {
     private static func byte(_ value: Int?) -> UInt8 {
         UInt8(truncatingIfNeeded: value ?? 0)
     }
+
+    /// The SGR parameters that select this style, starting from the default with 0.
+    var renditionParameters: String {
+        var parameters = ["0"]
+        for (set, code) in [(bold, "1"), (dim, "2"), (italic, "3"), (underline, "4"), (blink, "5"),
+                            (inverse, "7"), (invisible, "8"), (strikethrough, "9")] where set {
+            parameters.append(code)
+        }
+        for (color, prefix) in [(foreground, "38"), (background, "48")] {
+            switch color {
+            case .default: break
+            case .indexed(let index): parameters.append("\(prefix);5;\(index)")
+            case .rgb(let r, let g, let b): parameters.append("\(prefix);2;\(r);\(g);\(b)")
+            }
+        }
+        return parameters.joined(separator: ";")
+    }
 }
