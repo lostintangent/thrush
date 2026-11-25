@@ -30,6 +30,9 @@ final class MacWindowLifecycleCheck {
     private var phase: Phase?
     private var hiddenSubmissions = 0
     private var readyEvents = 0
+    private var submitted = 0
+    private var completed = 0
+    private var inFlight: [Double: UInt64] = [:]
     private var lastCompleted: UInt64?
 
     private init(_ session: DemoSession, _ window: NSWindow, _ coverURL: URL) {
@@ -61,11 +64,16 @@ final class MacWindowLifecycleCheck {
 
     private func observe() {
         session.onReady = { [weak self] _ in self?.readyEvents += 1 }
-        session.view.onFrameSubmitted = { [weak self] _, _, _ in
-            if let self, let phase, isObscured(phase) { hiddenSubmissions += 1 }
+        session.view.onFrameSubmitted = { [weak self] time, _, _ in
+            guard let self else { return }
+            submitted += 1
+            if let generation = session.view.snapshot?.generation { inFlight[time] = generation }
+            if let phase, isObscured(phase) { hiddenSubmissions += 1 }
         }
-        session.view.onFrame = { [weak self] frame in
-            if frame.gpuCompleted { self?.lastCompleted = frame.generation }
+        session.view.onFrameCompleted = { [weak self] time, succeeded in
+            guard let self, let generation = inFlight.removeValue(forKey: time), succeeded else { return }
+            completed += 1
+            lastCompleted = max(lastCompleted ?? 0, generation)
         }
     }
 
@@ -86,7 +94,7 @@ final class MacWindowLifecycleCheck {
         let deadline = CACurrentMediaTime() + timeout
         while !(await predicate()) {
             guard CACurrentMediaTime() < deadline else {
-                throw RenderBenchmark.Failure("\(description); frontmost=\(frontmost ?? "none"), windowVisible=\(visible), ready=\(readyEvents).")
+                throw RenderBenchmark.Failure("\(description); frontmost=\(frontmost ?? "none"), windowVisible=\(visible), ready=\(readyEvents), submitted=\(submitted), completed=\(completed), nativeGeneration=\(String(describing: session.view.snapshot?.generation)), completedGeneration=\(String(describing: lastCompleted)).")
             }
             try await Task.sleep(for: .milliseconds(60))
         }
@@ -94,15 +102,16 @@ final class MacWindowLifecycleCheck {
 
     private func run() async throws -> Report {
         guard let connection = session.connection else { throw RenderBenchmark.Failure("Missing shell connection.") }
-        try await wait("The uncovered terminal must render its first shell output", timeout: 25) {
-            guard self.readyEvents == 1, self.visible, let snapshot = self.session.view.snapshot,
-                  let completed = self.lastCompleted, completed >= snapshot.generation else { return false }
-            return snapshot.rows.contains { row in row.text.contains { !$0.isWhitespace } }
-        }
+        try await wait("The uncovered terminal must have a usable shell", timeout: 25) { readyEvents == 1 && visible }
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
         try NativeWorkflowActions.input(.text(command + "\r"), view: session.view)
-        try await wait("The real shell must write its PID") { self.marker(in: await connection.snapshot()) != nil }
+        try await wait("The real shell must write its PID into the emulator") { self.marker(in: await connection.snapshot()) != nil }
+        try await wait("The uncovered terminal must render its first shell marker", timeout: 25) {
+            guard let snapshot = self.session.view.snapshot, self.marker(in: snapshot) != nil,
+                  let completed = self.lastCompleted else { return false }
+            return self.visible && completed >= snapshot.generation
+        }
         var intervals: [Interval] = []
         for step in Phase.allCases { intervals.append(try await measure(step, connection: connection)) }
         let attempts = await connection.socketAttempts
