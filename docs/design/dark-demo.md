@@ -1,6 +1,6 @@
 # Thrush on Mac and iPhone
 
-**I’d choose Slate.** Its amber cursor is easy to find after a burst of output, and the compact grid keeps more of Vim visible above the iPhone keyboard. Ember is the option for larger type and a persistent readout of the peer and grid dimensions.
+**Slate is the approved design for the Mac and iPhone hosts.** Use its type, insets, colors and native controls for the first Metal frames. The amber cursor stays easy to find after a burst of output, and the compact grid keeps more of Vim visible above the iPhone keyboard.
 
 ## Slate
 
@@ -20,9 +20,9 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Selected background / text | `#466B85` / `#F8FBFE` |
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
 | Host backing / separator | `#1D2934` / `#35424E` |
-| iPhone 17 grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape |
+| iPhone 17 study grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
 
-## Ember
+## Ember design study
 
 ![Ember on Mac and iPhone, with larger Menlo type, shell and Vim frames, a connection strip and a software keyboard study](ember.png)
 
