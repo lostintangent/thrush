@@ -12,6 +12,7 @@ let package = Package(
     targets: [
         .target(name: "Thrush"),
         .target(name: "ThrushUI", dependencies: ["Thrush"]),
+        .target(name: "ThrushConnection", dependencies: ["Thrush"]),
         .target(
             name: "ThrushFixtures",
             path: "Fixtures",
@@ -19,6 +20,10 @@ let package = Package(
             resources: [.copy("first-bytes.json")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["Thrush", "ThrushFixtures"]),
+        .executableTarget(
+            name: "ThrushLoopbackCheck",
+            dependencies: ["Thrush", "ThrushConnection", "ThrushFixtures"]
+        ),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushFixtures"]),
     ],
     swiftLanguageModes: [.v6]
