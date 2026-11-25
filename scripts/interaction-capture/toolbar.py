@@ -13,18 +13,15 @@ def edges(rect):
     return x, y, x + w, y + h
 
 
-def check_copy(image, rect, state, checker, scratch, labels):
+def check_copy(image, rect, state, checker, labels):
     # Crop only the checked geometry so a transcript line cannot masquerade as a toolbar title.
     scale = state["displayScale"]
     window_x, window_y, _, _ = edges(state["windowPoints"])
     left, top, right, bottom = edges(rect)
     x, y = round((left - window_x) * scale), round((top - window_y) * scale)
     width, height = round((right - left) * scale), round((bottom - top) * scale)
-    crop = scratch / "toolbar-region.png"
-    subprocess.run(["/usr/bin/sips", "--cropToHeightWidth", str(height), str(width),
-                    "--cropOffset", str(y), str(x), image, "--out", crop],
-                   check=True, stdout=subprocess.DEVNULL, timeout=25)
-    subprocess.run([checker, crop, *labels], check=True, timeout=60)
+    subprocess.run([checker, image, "--crop", str(x), str(y), str(width), str(height), *labels],
+                   check=True, timeout=60)
 
 
 def check(image, state, appearance, scene, scratch):
@@ -50,9 +47,9 @@ def check(image, state, appearance, scene, scratch):
             first[3] <= first[1] or first[2] <= first[0]):
         raise ValueError(f"Row one overlaps toolbar chrome or falls outside the grid: {first}, {bar}, {grid}")
     checker = scratch / "check-pane-capture"
-    check_copy(image, toolbar["navigationBarFrame"], state, checker, scratch, ["Terminal", "Close"])
+    check_copy(image, toolbar["navigationBarFrame"], state, checker, ["Terminal", "Close"])
     labels = ["Connecting"] if scene == "notice-connecting" else ["Open in another window", "Use Here"]
-    check_copy(image, state["notice"]["frameInWindow"], state, checker, scratch, labels)
+    check_copy(image, state["notice"]["frameInWindow"], state, checker, labels)
     pixels = runpy.run_path(str(ROOT / "scripts/check-demo-capture.py"))["Capture"](image, appearance)
     if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale),
                                         round((window[3] - window[1]) * scale)):
@@ -75,7 +72,7 @@ def check(image, state, appearance, scene, scratch):
 
     # First row from the wire peer ends in “swift test”. Only that row may satisfy this check.
     row = ((grid[0], first[1]), (grid[2] - grid[0], first[3] - first[1]))
-    check_copy(image, row, state, checker, scratch, ["swift test"])
+    check_copy(image, row, state, checker, ["swift test"])
     if any(abs(span[i] - window[i]) > epsilon for span in (pane, notice) for i in (0, 2)):
         raise ValueError(f"Status backing does not span the physical window: {notice}, {pane}, {window}")
     # Below the separator and above the padded text, the full scan line is opaque host backing.
