@@ -32,20 +32,34 @@ def load_helper(name):
     return module
 
 
-def run_logged(args, log, timeout, **kwargs):
-    with log.open("w") as output:
-        result = subprocess.run(args, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, timeout=timeout, **kwargs)
+def run_logged(args, log, timeout, observe=None):
+    with log.open("w") as output, subprocess.Popen(args, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT) as result:
+        deadline = time.monotonic() + timeout
+        try:
+            while result.poll() is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                if observe:
+                    observe()
+                try:
+                    result.wait(timeout=min(remaining, 0.25) if observe else remaining)
+                except subprocess.TimeoutExpired:
+                    pass
+        finally:
+            if result.poll() is None:
+                result.kill()
     if result.returncode:
         raise RuntimeError(f"{args[0]} exited {result.returncode}. See {log.name}.\n" + log.read_text()[-2800:])
 
 
-def build_test_runner(work, out):
+def build_test_runner(work, out, source=HERE / (RUNNER + ".swift")):
     # XCUITest needs a UI-test bundle. Keep the product and its generated project inside
     # the disposable build directory; the real app is always the normal SwiftPM bundle.
     project = work / (RUNNER + ".xcodeproj")
     shared = project / "xcshareddata/xcschemes"
     shared.mkdir(parents=True)
-    (work / (RUNNER + ".swift")).symlink_to(HERE / (RUNNER + ".swift"))
+    (work / (RUNNER + ".swift")).symlink_to(source)
     objects = {}
 
     def item(key, isa, **values):
@@ -97,6 +111,27 @@ def collect(phone, device, endpoint, plan, out, work):
     configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
     plan.write_bytes(plistlib.dumps(configuration))
     result = work / "interactions.xcresult"
+    previous = None
+    saved = None
+    since = time.monotonic()
+
+    def observe_layout():
+        nonlocal previous, saved, since
+        state = phone.state()
+        if (state.get("scene") != "shell" or not state.get("gpuCompleted") or not state.get("generation")
+                or state.get("keyboardHeight", 0) <= 90 or state.get("accessoryHeight", 0) < 44):
+            previous = None
+            return
+        geometry = tuple(state[k] for k in ("pid", "appearance", "orientation", "columns", "rows",
+                                             "windowPoints", "gridFrame", "keyboardHeight", "accessoryHeight"))
+        if geometry != previous:
+            previous, since = geometry, time.monotonic()
+        elif geometry != saved and time.monotonic() - since >= 0.7:
+            name = f"shell-{state['appearance']}-{state['orientation']}"
+            (out / (name + "-layout.json")).write_text(json.dumps(state, indent=2) + "\n")
+            print(f"{name}: {state['columns']} × {state['rows']} cells, "
+                  f"{state['keyboardHeight']:g} pt keyboard, {state['accessoryHeight']:g} pt accessory", flush=True)
+            saved = geometry
 
     # The runner timestamps just the gestures in the foreground app. Trim setup, launches
     # and XCTest's transitions out of the simulator's recording before handing it to design.
@@ -112,7 +147,7 @@ def collect(phone, device, endpoint, plan, out, work):
         try:
             run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
                         f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                        "-resultBundlePath", result], out / "ui-gestures.log", 720)
+                        "-resultBundlePath", result], out / "ui-gestures.log", 720, observe_layout)
         finally:
             if result.exists():
                 # XCTest retains accepted frames even when a subsequent gesture fails. Read
@@ -150,6 +185,9 @@ def collect(phone, device, endpoint, plan, out, work):
 def check_images(out):
     oracle = load_helper("check-demo-capture")
     for appearance in APPEARANCES:
+        for orientation in ("portrait", "landscape"):
+            if not (out / f"shell-{appearance}-{orientation}-layout.json").exists():
+                raise ValueError(f"Missing settled keyboard and grid measurements for {appearance} {orientation}.")
         for template in PICS:
             path = out / (template.format(appearance) + ".png")
             capture = oracle.Capture(path, appearance)

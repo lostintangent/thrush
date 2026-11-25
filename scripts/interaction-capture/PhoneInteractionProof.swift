@@ -64,6 +64,11 @@ final class PhoneInteractionProof: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: full, object: selected)], timeout: 5), .completed)
         try screenshot("line-\(appearance)-selected")
         let copy = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Copy'")).firstMatch
+        if !copy.exists || !copy.isHittable {
+            // UIKit can dismiss the edit menu after an action. Tap inside the
+            // highlighted line, clear of its handles, to reopen the menu.
+            transcript.withOffset(CGVector(dx: wrapped.frame.midX, dy: wrapped.frame.minY + 8)).tap()
+        }
         XCTAssertTrue(copy.waitForExistence(timeout: 6))
         copy.tap()
         try finishClip("select-\(appearance)", since: select)
@@ -86,7 +91,7 @@ final class PhoneInteractionProof: XCTestCase {
 
     private func launch(scene: String) throws {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
-        app.launchArguments = ["--endpoint", address, "--scene", scene, "--keyboard"]
+        app.launchArguments = ["--endpoint", address, "--scene", scene, "--keyboard", "--capture-state"]
         app.launch()
     }
 
