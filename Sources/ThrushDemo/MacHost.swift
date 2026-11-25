@@ -55,6 +55,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if session.options.benchmarkURL != nil { session.view.focusInput() }
         NSApp.activate()
         session.setActive(true)
+        MacSpinnerCapture.startIfRequested(session: session, window: window)
         MacWindowLifecycleCheck.startIfRequested(session: session, window: window)
     }
 

@@ -17,6 +17,12 @@ enum CoverWindow {
         window.level = .floating
         window.orderFrontRegardless()
         app.activate()
+        if let index = CommandLine.arguments.firstIndex(of: "--capture-geometry"),
+           index + 1 < CommandLine.arguments.count {
+            let url = URL(fileURLWithPath: CommandLine.arguments[index + 1])
+            do { try JSONEncoder().encode(window.frame).write(to: url, options: .atomic) }
+            catch { exit(2) }
+        }
         withExtendedLifetime(window) { app.run() }
     }
 }
