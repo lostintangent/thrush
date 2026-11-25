@@ -586,10 +586,15 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         onAccessibilityAnnouncement?(text)
     }
 
-    private var visibleCursorCell: CGRect {
+    private var spinnerPosition: (row: Int, column: Int) {
         let cursor = cursorRect
-        let cell = snapshot?.cursorVisible == true && !cursor.isEmpty && bounds.contains(cursor)
-            ? cursor : cellRect(row: 0, column: 0)
+        guard let snapshot, snapshot.cursorVisible, !cursor.isEmpty, bounds.contains(cursor) else { return (0, 0) }
+        return (snapshot.cursorRow, min(snapshot.cursorColumn, snapshot.size.columns - 1))
+    }
+
+    private var visibleCursorCell: CGRect {
+        let position = spinnerPosition
+        let cell = cellRect(row: position.row, column: position.column)
         // Grid coordinates start at the top left. AppKit's Metal view may be unflipped.
         #if os(macOS)
         return macInput.convert(cell, to: self)
@@ -608,19 +613,46 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             return
         }
         let rect = CGRect(x: cell.midX - side / 2, y: cell.midY - side / 2, width: side, height: side)
+        let color = spinnerInk
+        let ink = CGColor(srgbRed: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
+                          blue: CGFloat(color.blue) / 255, alpha: 1)
         #if os(macOS)
-        let background = snapshot?.programColors[.background] ?? resolvedTheme.palette.background
-        let dark = (299 * Int(background.red) + 587 * Int(background.green) + 114 * Int(background.blue)) < 128_000
-        let appearance: NSAppearance.Name = dark ? .darkAqua : .aqua
-        if spinner.appearance?.name != appearance { spinner.appearance = NSAppearance(named: appearance) }
+        spinner.ink = ink
         #else
-        let color = snapshot?.programColors[.foreground] ?? resolvedTheme.palette.foreground
-        spinner.color = UIColor(red: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
-                                blue: CGFloat(color.blue) / 255, alpha: 1)
+        spinner.color = UIColor(cgColor: ink)
         #endif
         spinner.place(in: rect)
         spinner.isHidden = false
         spinner.setAnimating(!reducesMotion)
+    }
+
+    /// Match the painted cursor, allowing contrast headroom for antialiasing at small cell sizes.
+    private var spinnerInk: Terminal.RGB {
+        let program = snapshot?.programColors ?? .init()
+        func color(_ slot: Terminal.ColorSlot) -> Terminal.RGB {
+            program.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
+        }
+        var ink = color(.cursor)
+        var paper = color(.background)
+        if let snapshot {
+            let (y, x) = spinnerPosition
+            let row = snapshot.rows[y]
+            let start = x > 0 && row[x].width == 0 && row[x - 1].width == 2 ? x - 1 : x
+            let cell = row[start]
+            if selection?.columns(in: y, width: snapshot.size.columns)?.overlaps(start..<(start + max(1, cell.width))) == true {
+                ink = resolvedTheme.selectionInk
+                paper = resolvedTheme.selection
+            } else {
+                let style = cell.style
+                paper = switch style.inverse ? style.foreground : style.background {
+                case .default: style.inverse ? color(.foreground) : paper
+                case .indexed(let index): color(.indexed(index))
+                case let .rgb(r, g, b): .init(red: r, green: g, blue: b)
+                }
+            }
+        }
+        guard ink.contrast(with: paper) < 4.5 else { return ink }
+        return paper.isDark ? .white : .init(red: 0, green: 0, blue: 0)
     }
 
     /// Top-left window coordinates, measured independently from the grid and its native indicator.

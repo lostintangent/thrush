@@ -173,9 +173,12 @@ struct LifecycleCheck {
         guard try await session.nextEvent() == .displaced else {
             throw Failure("Expected the peer to displace the old socket with close code 4000")
         }
-        await session.hide() // The user backgrounds and returns to the displaced window.
-        guard await session.state == .displaced, await !session.show() else {
-            throw Failure("Foregrounding a displaced owner must wait for user input")
+        await session.hide()
+        let attempts = await session.socketAttempts
+        try? await session.setFocused(true)
+        try? await session.setFocused(false)
+        guard await session.state == .displaced, await !session.show(), await session.socketAttempts == attempts else {
+            throw Failure("Foreground or keyboard focus reclaimed a displaced shell without user input")
         }
         try await rejectInput(session)
     }
