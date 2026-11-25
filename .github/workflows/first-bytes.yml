@@ -4,10 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       revision:
-        description: Thrush revision to measure
+        description: Thrush revision to measure (defaults to the dispatch revision)
         type: string
-        required: true
-        default: 0cd03d0fd191ae3469f473fb312fc7b932b55087
+        required: false
 
 permissions:
   contents: read
@@ -25,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.revision }}
+          ref: ${{ inputs.revision || github.sha }}
           path: source
           persist-credentials: false
       - name: Measure five consecutive quiet Release runs

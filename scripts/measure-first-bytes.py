@@ -13,17 +13,30 @@ import tempfile
 import time
 
 
-FIXTURE_SHA256 = "fccd53897e403f6c3a7a7f9960afd0d96861473f8c1914b3537902719c96dc72"
+WORKLOAD_SHA256 = "9bc23bc2916fc72d27c5f86d27e9fae0099efe168c1dc5688df802d121372ec2"
 COUNTS = {"receivedBytes": 150_000, "appliedBytes": 150_000, "replyBytes": 36_000,
           "keyBytes": 18_000, "queuedBytesAfterDrain": 0}
 
 
-def validate(report, revision):
+def measured_fixture_sha256(path):
+    """Pin the M1 workload and return the exact file digest that ThrushBench must report."""
+    contents = path.read_bytes()
+    fixture = json.loads(contents)
+    if not isinstance(fixture, dict):
+        raise ValueError("expected an M1 first-bytes fixture object")
+    fixture.pop("reference", None)  # The recording's provenance can change independently.
+    workload = json.dumps(fixture, sort_keys=True, separators=(",", ":")).encode()
+    if hashlib.sha256(workload).hexdigest() != WORKLOAD_SHA256:
+        raise ValueError("SOURCE does not contain the M1 first-bytes workload")
+    return hashlib.sha256(contents).hexdigest()
+
+
+def validate(report, revision, fixture_sha256):
     env, replay = report["environment"], report["replay"]
     if env["commit"] != revision or env["worktreeDirty"] is not False:
         raise ValueError(f"report did not measure the clean source revision {revision}")
     if (report["buildConfiguration"] != "release" or report["fixture"] != "first-bytes.json"
-            or report["fixtureSHA256"] != FIXTURE_SHA256):
+            or report["fixtureSHA256"] != fixture_sha256):
         raise ValueError("report does not match the Release build and M1 fixture")
     for key, expected in COUNTS.items():
         if replay[key] != expected:
@@ -35,7 +48,7 @@ def validate(report, revision):
     return not env["contended"]
 
 
-def collect(binary, source, stage, revision, cores):
+def collect(binary, source, stage, revision, fixture_sha256, cores):
     deadline = time.monotonic() + 15 * 60
     reports = []
     candidate = stage / "candidate.json"
@@ -53,7 +66,7 @@ def collect(binary, source, stage, revision, cores):
         subprocess.run([binary, "--output", candidate], cwd=source, check=True, timeout=remaining,
                        stdout=subprocess.DEVNULL)
         report = json.loads(candidate.read_bytes())
-        quiet = validate(report, revision)
+        quiet = validate(report, revision, fixture_sha256)
         env = report["environment"]
         print(f"Load {env['loadAverage']['oneMinute']:.2f}/{env['coreCount']}, thermal {env['thermalState']}: "
               + (f"quiet run {len(reports) + 1}/5" if quiet else "contended; restarting series"), flush=True)
@@ -102,8 +115,10 @@ def main():
         parser.error("OUTPUT must be outside SOURCE")
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         parser.error("OUTPUT must be a new or empty directory")
-    if hashlib.sha256((source / "Fixtures/first-bytes.json").read_bytes()).hexdigest() != FIXTURE_SHA256:
-        parser.error("SOURCE does not contain the M1 first-bytes fixture")
+    try:
+        fixture_sha256 = measured_fixture_sha256(source / "Fixtures/first-bytes.json")
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
     revision = subprocess.check_output([*git, "rev-parse", "HEAD"], text=True).strip()
     cores = int(subprocess.check_output(["/usr/sbin/sysctl", "-n", "hw.activecpu"], text=True))
     if cores <= 0:
@@ -114,7 +129,7 @@ def main():
         build = ["swift", "build", "--package-path", source, "--scratch-path", stage / "build", "-c", "release"]
         subprocess.run([*build, "--product", "ThrushBench"], check=True)
         binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushBench"
-        reports = collect(binary, source, stage, revision, cores)
+        reports = collect(binary, source, stage, revision, fixture_sha256, cores)
         summarize(reports)
         accepted = stage / "accepted"
         accepted.mkdir()
