@@ -266,6 +266,27 @@ def run_workflow(name, upstream, work, modules, env, app_executable, output, app
                 shutil.rmtree(driver)
 
 
+def stopped_before_attach(output, device, pane):
+    try:
+        observed = json.loads((output / "controller-at-failure.json").read_bytes())
+        state = observed["state"]
+        if (observed["workflow"] != output.name or state["phase"] != "attaching"
+                or state["attachments"] != 0 or state["outputBytes"] != 0
+                or observed["attachments"] != 0 or observed["inputBytes"] != 0
+                or any(observed[key] for key in ("ready", "closures", "checkpoints", "perAttachment",
+                                                 "queuedFrames", "queuedBytes", "exits", "explicitCloses"))
+                or not observed["wire"] or any(observed["wire"].values())):
+            return False
+        app_log = (output / "app.log").read_text(errors="replace")
+        if "com.apple.CoreSimulator.SimError, code=405" not in app_log or "current state: Shutdown" not in app_log:
+            return False
+        inventory = json.loads(pane.simctl("list", "devices", "--json", timeout=15))["devices"]
+        return any(row["udid"] == device and row["isAvailable"] and row["state"] == "Shutdown"
+                   for group in inventory.values() for row in group)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", required=True, choices=("mac", "simulator"))
@@ -326,9 +347,28 @@ def main():
             else:
                 device = stack.enter_context(simulator.disposable_phone(out))
             documents = simulator.prepare_workflow_phone(device, app, out)
+        may_reboot = device is not None and args.device is None
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
-            run_workflow(name, endpoint, work, modules, env, app_executable, out / name, args.appearance, device, documents, pane, args.trace_lifecycle_frames)
+            output = out / name
+            workflow_args = (name, endpoint, work, modules, env, app_executable, output,
+                             args.appearance, device, documents, pane, args.trace_lifecycle_frames)
+            try:
+                run_workflow(*workflow_args)
+            except Exception as error:
+                if not may_reboot or not stopped_before_attach(output, device, pane):
+                    raise
+                may_reboot = False
+                first = output.rename(out / f"{name}-attempt-1")
+                retry = dict(workflow=name, device=device, stateBeforeBoot="Shutdown", nextAttempt=2,
+                             firstAttemptDirectory=first.name, retryDirectory=output.name, rebootLog=f"{first.name}/reboot.log",
+                             originalError=str(error))
+                (out / "simulator-retry.json").write_text(json.dumps(retry, indent=2) + "\n")
+                print(f"Rebooting the disposable simulator to retry {name}. First attempt in {first}", flush=True)
+                with (first / "reboot.log").open("xb") as log:
+                    subprocess.run(["xcrun", "simctl", "bootstatus", device, "-b"], stdout=log,
+                                   stderr=subprocess.STDOUT, timeout=300, check=True)
+                run_workflow(*workflow_args)
     print(out)
 
 
