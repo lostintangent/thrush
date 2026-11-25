@@ -198,9 +198,12 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
                     or not isinstance(result.get("checkpoints"), list) or not result["checkpoints"]
                     or not completed_captures):
                 raise RuntimeError(f"incomplete {name} checkpoint or capture evidence in {report}")
-            images = {json.loads(marker.read_bytes())["name"] for marker in completed_captures}
+            captures = [json.loads(marker.read_bytes()) for marker in completed_captures]
+            images = {capture["name"] for capture in captures}
             if verify_fixture and images != CAPTURES[name]:
                 raise ValueError(f"{name} images differ: got {sorted(images)}, expected {sorted(CAPTURES[name])}")
+            if verify_fixture and name == "codex" and any(capture["appearance"] != "dark" for capture in captures):
+                raise ValueError("Codex recorded its colors on a dark terminal; expected Slate Dark in the captured pane")
             if verify_fixture and platform == "simulator":
                 fixture_root = Path("Fixtures/replays") if name == "shell" else Path("Fixtures/reference/m4/phone")
                 fixture = json.loads((fixture_root / (WORKFLOWS[name] + ".json")).read_bytes())
@@ -235,6 +238,9 @@ def run_workflow(name, output, platform, device, documents, app_bundle, modules,
             endpoint, control = peer_origins(peer, peer_log)
             options = ["--endpoint", endpoint, "--workflow-driver", control,
                        "--workflow-output", str(driver), "--keyboard" if device else "--hide-keyboard"]
+            if name == "codex":
+                # The PTY recording answered OSC 11 with black, and Codex chose white shortcut labels.
+                options += ["--appearance", "dark"]
             if device:
                 launch = ["xcrun", "simctl", "launch", "--console"]
                 if disposable:
