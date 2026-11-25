@@ -11,12 +11,22 @@ extension Terminal.Style {
             case 0: self = .init()
             case 1: bold = true
             case 2: dim = true
+            case 3: italic = true
+            // 4:0 removes the underline. The other underline styles draw as a single line.
+            case 4: underline = parameters[parameter: index, subparameter: 0] != 0
+            case 5: blink = true
             case 7: inverse = true
+            case 8: invisible = true
+            case 9: strikethrough = true
+            case 21: underline = true
             case 22:
                 bold = false
                 dim = false
             case 23: italic = false
+            case 24: underline = false
+            case 25: blink = false
             case 27: inverse = false
+            case 28: invisible = false
             case 29: strikethrough = false
             case 30...37: foreground = .indexed(UInt8(parameter - 30))
             case 40...47: background = .indexed(UInt8(parameter - 40))
