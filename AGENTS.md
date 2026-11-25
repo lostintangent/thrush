@@ -41,6 +41,8 @@ The separate consumer prints its row and reply, then checks binary linkage with 
 
 For real WebSocket and PTY checks, run `scripts/check-pty.sh --toy-box ../toy-box`. The [disposable server procedure](Benchmarks/pty.md) also starts an isolated endpoint for the native demos.
 
+Toy Box builds its Mac app with Command Line Tools, so the libraries it links must build without Xcode. CI checks this, and you can run the same build in a fresh shell with `DEVELOPER_DIR=/Library/Developer/CommandLineTools swift build -c release --target ThrushUI --scratch-path .build/command-line-tools`. The separate scratch path keeps it from rebuilding the Xcode toolchain's products.
+
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
 
 Build the native Release demos with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the mock-backed hosts](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).
