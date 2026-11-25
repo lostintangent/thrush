@@ -2,6 +2,7 @@
 """Run a packaged Thrush host against real processes on an isolated Toy Box PTY."""
 import argparse
 from contextlib import ExitStack, contextmanager
+import hashlib
 import importlib.util
 import json
 import os
@@ -212,7 +213,7 @@ def stall_upstream(proxy, host, log, work, output, device):
         readerResumedAfterSeconds=resumed - stopped), indent=2) + "\n")
 
 
-def run_workflow(name, upstream, work, modules, env, app, output, appearance, device, documents, pane):
+def run_workflow(name, upstream, work, modules, env, app_executable, output, appearance, device, documents, pane):
     output.mkdir()
     log = output / "controller.log"
     controller = ["bun", ROOT / "scripts/live-workflow/controller.ts", "--workflow", name,
@@ -227,7 +228,7 @@ def run_workflow(name, upstream, work, modules, env, app, output, appearance, de
             if device:
                 command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
             else:
-                command = [app / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
+                command = [app_executable, "-NSAppSleepDisabled", "YES"]
             with pane.running([*command, *options], output / "app.log", **({} if device else {"env": env})) as host:
                 try:
                     if name == "recovery":
@@ -291,8 +292,10 @@ def main():
                                stderr=subprocess.STDOUT, timeout=900, check=True)
         with (app / ("Contents/Info.plist" if args.platform == "mac" else "Info.plist")).open("rb") as file:
             info = plistlib.load(file)
+        app_executable = (app / "Contents/MacOS" if args.platform == "mac" else app) / info["CFBundleExecutable"]
+        digest = hashlib.sha256(app_executable.read_bytes()).hexdigest()
         (out / "source.json").write_text(json.dumps(dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
-            toolchain=info["ThrushToolchain"], platform=args.platform, appearance=args.appearance), indent=2) + "\n")
+            toolchain=info["ThrushToolchain"], platform=args.platform, appearance=args.appearance, executableSHA256=digest), indent=2) + "\n")
         device = documents = None
         if args.platform == "simulator":
             simulator = load(ROOT / "scripts/capture-simulator.py")
@@ -301,10 +304,10 @@ def main():
                 pane.ensure_demo_idle(device)
             else:
                 device = stack.enter_context(simulator.disposable_phone(out))
-            documents = simulator.install_and_locate_app(device, app)
+            documents = simulator.prepare_workflow_phone(device, app, out)
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
-            run_workflow(name, endpoint, work, modules, env, app, out / name, args.appearance, device, documents, pane)
+            run_workflow(name, endpoint, work, modules, env, app_executable, out / name, args.appearance, device, documents, pane)
     print(out)
 
 

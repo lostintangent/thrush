@@ -188,7 +188,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             raise RuntimeError(failure.read_text(errors="replace").strip() or str(failure))
         for marker in sorted(driver.glob("capture-*.json")):
             if marker not in completed_captures:
-                collect_capture(marker, output, platform, target, require_keyboard=verify_fixture and platform == "simulator")
+                collect_capture(marker, output, platform, target, require_keyboard=platform == "simulator" and name in WORKFLOWS)
                 completed_captures.add(marker)
                 deadline = time.monotonic() + 90
         report = driver / "workflow-report.json"
