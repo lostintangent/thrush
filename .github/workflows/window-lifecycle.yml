@@ -1,11 +1,17 @@
 name: Mac terminal window lifecycle
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      voiceover:
+        description: Read a terminal row with VoiceOver on the disposable Mac
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   window-lifecycle:
     runs-on: xcode-27
-    timeout-minutes: 12
+    timeout-minutes: ${{ inputs.voiceover && 22 || 12 }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -16,9 +22,13 @@ jobs:
         with:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
+        if: ${{ !inputs.voiceover }}
         run: python3 scripts/pty/check-window.py --output "$RUNNER_TEMP/window-lifecycle"
+      - name: Read a named terminal row with macOS VoiceOver
+        if: inputs.voiceover
+        run: python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output "$RUNNER_TEMP/window-lifecycle"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: thrush-window-lifecycle
+          name: ${{ inputs.voiceover && 'thrush-mac-voiceover' || 'thrush-window-lifecycle' }}
           path: ${{ runner.temp }}/window-lifecycle/
