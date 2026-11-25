@@ -8,6 +8,33 @@ import UIKit
 #endif
 
 @MainActor
+@Test func heldInputKeepsTheConfirmedCursorAndSuspendsMouseReporting() throws {
+    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var shell = Terminal(size: .init(columns: 28, rows: 4))
+    _ = shell.receive("\u{1b}[?1000h% git".utf8)
+    view.display(shell)
+    #expect(view.isPointerReporting)
+    let cursor = view.cursorRect
+    var writes: [[UInt8]] = []
+    view.onInput = { writes.append(shell.encode($0)) }
+
+    view.setInputAvailability(.holdingKeys, dismissKeyboard: false)
+    view.sendInput(.text(" status"))
+    #expect(writes == [Array(" status".utf8)])
+    #expect(view.cursorRect == cursor)
+    #expect(view.snapshot?.cursorVisible == true)
+    #expect(!view.isPointerReporting)
+
+    _ = shell.receive("\u{1b}[?25l".utf8)
+    view.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil)
+    view.setInputAvailability(.live, dismissKeyboard: false)
+    #expect(view.snapshot?.cursorVisible == false)
+    #expect(view.isPointerReporting)
+}
+
+@MainActor
 @Test func replacingDisplayedReplayPreservesCompositionFocusAndSingleCommit() throws {
     let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = mountTestView(view)

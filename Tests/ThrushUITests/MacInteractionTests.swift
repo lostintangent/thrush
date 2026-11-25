@@ -84,7 +84,7 @@ private struct MacInputFixture {
     let unspecified = NSRange(location: NSNotFound, length: 0)
     let insertion = NSRange(location: 1, length: 0)
     host.input.setMarkedText("日", selectedRange: insertion, replacementRange: unspecified)
-    host.view.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: true)
+    host.view.setInputAvailability(.blocked, dismissKeyboard: true)
     host.input.setMarkedText("翼", selectedRange: insertion, replacementRange: unspecified)
     host.input.insertText("鳥", replacementRange: unspecified)
     host.input.unmarkText()

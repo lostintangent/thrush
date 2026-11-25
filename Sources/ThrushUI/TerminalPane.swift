@@ -118,7 +118,7 @@ import ThrushConnection
                 hasTranscript = false
                 deliveredExit = false
                 clearReplacement()
-                view?.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: false)
+                view?.setInputAvailability(.blocked, dismissKeyboard: false)
                 view?.reset()
                 show(nil)
             }
@@ -181,7 +181,7 @@ import ThrushConnection
             let previouslyActive = active
             active = false
             drawingVisible = false
-            view?.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: false)
+            view?.setInputAvailability(.blocked, dismissKeyboard: false)
             view?.setRenderingActive(false)
             if previouslyActive, let connection = pane?.connection {
                 enqueue { await connection.detach() }
@@ -267,7 +267,7 @@ import ThrushConnection
             case .ended: await finishExit(connection, stamp: stamp)
             default:
                 phase = .connecting
-                view.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: false)
+                view.setInputAvailability(.blocked, dismissKeyboard: false)
                 delay(.connecting(retainingTranscript: hasTranscript))
                 reader = Task { [weak self] in await self?.consume(connection, stamp: stamp) }
             }
@@ -313,7 +313,7 @@ import ThrushConnection
                     case .reconnecting:
                         awaitingReplay = false
                         phase = .reconnecting
-                        view?.setInputAvailability(acceptsKeys: hasTranscript, showsCursor: false, dismissKeyboard: false)
+                        view?.setInputAvailability(hasTranscript ? .holdingKeys : .blocked, dismissKeyboard: false)
                         delay(hasTranscript ? .reconnecting : .connecting(retainingTranscript: false))
                     case .displaced:
                         blockInput(.displaced)
@@ -339,7 +339,7 @@ import ThrushConnection
             case .ended: await finishExit(connection, stamp: stamp)
             case .reconnecting, .connecting, .replaying:
                 phase = .reconnecting
-                view?.setInputAvailability(acceptsKeys: hasTranscript, showsCursor: false, dismissKeyboard: false)
+                view?.setInputAvailability(hasTranscript ? .holdingKeys : .blocked, dismissKeyboard: false)
                 delay(hasTranscript ? .reconnecting : .connecting(retainingTranscript: false))
             case .detached, .closing, .active: break
             }
@@ -353,7 +353,7 @@ import ThrushConnection
             let natural = await connection.exitedNaturally
             guard epoch == stamp, active else { return }
             // Prevent new commits while keeping the final frame at its pre-dismissal keyboard size.
-            view?.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: false)
+            view?.setInputAvailability(.blocked, dismissKeyboard: false)
             await view?.presentFinal(final)
             guard epoch == stamp, active, !deliveredExit else { return }
             deliveredExit = true
@@ -364,14 +364,14 @@ import ThrushConnection
 
         private func becomeLive() {
             phase = .live
-            view?.setInputAvailability(acceptsKeys: true, showsCursor: true, dismissKeyboard: false)
+            view?.setInputAvailability(.live, dismissKeyboard: false)
             show(replacement)
         }
 
         private func blockInput(_ state: Phase, notice: PaneNotice? = nil) {
             phase = state
             clearReplacement()
-            view?.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: true)
+            view?.setInputAvailability(.blocked, dismissKeyboard: true)
             show(notice ?? (state == .displaced ? .displaced : .exited))
         }
 

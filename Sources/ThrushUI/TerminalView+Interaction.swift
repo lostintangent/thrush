@@ -4,7 +4,7 @@ import Thrush
 extension TerminalView {
     var historyCount: Int { transcript.historyCount }
     package var historyOffset: Int { transcript.offset }
-    var isPointerReporting: Bool { acceptsTerminalInput && showsLiveCursor && historyOffset == 0 && snapshot.map { $0.mouseTracking != .off } == true }
+    var isPointerReporting: Bool { inputAvailability == .live && historyOffset == 0 && snapshot.map { $0.mouseTracking != .off } == true }
     var selectedText: String? { selection.map { transcript.text(in: $0) } }
     func text(in selection: Selection) -> String { transcript.text(in: selection) }
 

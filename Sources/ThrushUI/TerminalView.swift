@@ -143,8 +143,12 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     private(set) var metrics: GridMetrics?
     var transcript = TerminalTranscript()
     package private(set) var snapshot: Terminal.Snapshot?
-    private(set) var acceptsTerminalInput = true
-    private(set) var showsLiveCursor = true
+    enum InputAvailability {
+        case live, holdingKeys, blocked
+    }
+
+    private(set) var inputAvailability: InputAvailability = .live
+    var acceptsTerminalInput: Bool { inputAvailability != .blocked }
     var noticeBottomInset: CGFloat = 0 {
         didSet { if oldValue != noticeBottomInset { refreshInteraction() } }
     }
@@ -391,14 +395,14 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         finalFrameWaiter = nil
     }
 
-    func setInputAvailability(acceptsKeys: Bool, showsCursor: Bool, dismissKeyboard: Bool) {
-        if acceptsTerminalInput != acceptsKeys {
-            acceptsTerminalInput = acceptsKeys
+    func setInputAvailability(_ availability: InputAvailability, dismissKeyboard: Bool) {
+        if inputAvailability != availability {
+            let acceptedKeys = acceptsTerminalInput
+            inputAvailability = availability
+            lastPointer = nil
+            capturedButtons.removeAll()
             refreshInteraction()
-        }
-        if showsLiveCursor != showsCursor {
-            showsLiveCursor = showsCursor
-            invalidateFrame()
+            if acceptedKeys != acceptsTerminalInput { invalidateFrame() }
         }
         if dismissKeyboard {
             cancelPendingInput()
@@ -527,7 +531,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: showsLiveCursor)
+                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent
             if first { hasSubmittedContent = true }

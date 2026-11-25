@@ -147,7 +147,7 @@ import UIKit
     view.onInput = { sent.append(term.encode($0)) }
     let input = view.phoneInput
     input.setMarkedText("つばさ", selectedRange: .init(location: 3, length: 0))
-    view.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: true)
+    view.setInputAvailability(.blocked, dismissKeyboard: true)
     #expect(!input.canBecomeFirstResponder)
     #expect(input.canPerformAction(#selector(UIResponderStandardEditActions.copy(_:)), withSender: nil))
     input.insertText("ignored")
@@ -158,7 +158,7 @@ import UIKit
     #expect(input.markedTextRange == nil && input.text.isEmpty)
     #expect(view.selection == selected && view.selectedText == "Final output.")
     #expect(sent.isEmpty)
-    view.setInputAvailability(acceptsKeys: true, showsCursor: true, dismissKeyboard: false)
+    view.setInputAvailability(.live, dismissKeyboard: false)
     input.insertText("w")
     #expect(sent == [[119]])
 }
