@@ -65,6 +65,9 @@ import UIKit
     try await waitFor("the first ready socket") { await session.actor.state == .active }
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
+    let prompt = "foreground shell"
+    try peer.send(prompt, opcode: .binary)
+    try await waitFor("the live shell's first row") { terminal.snapshot?.rows.first?.text == prompt }
 
     // Control Center briefly deactivates the scene and then dismisses, without
     // entering background. The mounted pane pauses Metal and retains its live PTY.
@@ -89,9 +92,16 @@ import UIKit
     #expect(!container.isShellPresented)
     #expect(peer.opens == 1)
 
+    peer.resumeNextAttachment = true
     deliver(UIScene.willEnterForegroundNotification)
     deliver(UIScene.didActivateNotification)
-    try await waitFor("the foreground reattachment") { await session.actor.state == .active && peer.opens == 2 }
-    #expect(peer.closes == 1)
+    try await waitFor("the resumed foreground socket") { await session.actor.state == .awaitingReplay && peer.opens == 2 }
+    #expect(terminal.snapshot?.rows.first?.text == prompt)
+    let output = "while hidden"
+    try peer.send("\(prompt)\r\n\(output)", opcode: .binary)
+    try await waitFor("the foreground replay") {
+        await session.actor.state == .active && terminal.snapshot?.rows.dropFirst().first?.text == output
+    }
+    #expect(!session.hasEnded && peer.opens == 2 && peer.closes == 1)
 }
 #endif

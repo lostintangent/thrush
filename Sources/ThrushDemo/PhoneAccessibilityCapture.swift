@@ -8,7 +8,7 @@ import UIKit
         let time: Double, kind: String
         let voiceOverRunning, reduceMotion, reduceTransparency: Bool
         let contentSize: String
-        let focusedLabel, changedFocus, announcement: String?
+        let cursorSpinnerLabel, focusedLabel, changedFocus, announcement: String?
         let announcementSuccessful: Bool?
     }
 
@@ -39,7 +39,8 @@ import UIKit
     func observe(_ state: PhoneCapture.State) {
         // Keep transition data until a matching completed drawable is available, even if the app is relaunched.
         if mounted.contains(where: {
-            $0.cursorSpinner == state.cursorSpinner && $0.gpuCompleted == state.gpuCompleted
+            $0.cursorSpinner == state.cursorSpinner && $0.cursorSpinnerLabel == state.cursorSpinnerLabel
+                && $0.gpuCompleted == state.gpuCompleted
                 && $0.generation == state.generation && $0.columns == state.columns && $0.rows == state.rows
         }) { return }
         mounted.append(state)
@@ -63,6 +64,7 @@ import UIKit
                             reduceMotion: UIAccessibility.isReduceMotionEnabled,
                             reduceTransparency: UIAccessibility.isReduceTransparencyEnabled,
                             contentSize: UIApplication.shared.preferredContentSizeCategory.rawValue,
+                            cursorSpinnerLabel: mounted.last?.cursorSpinnerLabel,
                             focusedLabel: focused?.accessibilityLabel, changedFocus: changedFocus,
                             announcement: announcement, announcementSuccessful: successful))
         do {
