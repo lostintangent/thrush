@@ -10,13 +10,16 @@ struct ServerAPI: Sendable {
     let session: URLSession
 
     func terminalSocket(clientID: String, size: Terminal.Size) -> URLSessionWebSocketTask {
-        let endpoint = URL(string: "ws://127.0.0.1:9138/socket")!
-        return session.webSocketTask(with: endpoint.appending(queryItems: [
+        var endpoint = URLComponents(string: "ws://127.0.0.1:9138/socket")!
+        endpoint.queryItems = [
             .init(name: "service", value: "terminal"),
             .init(name: "clientId", value: clientID),
             .init(name: "cols", value: String(size.columns)),
             .init(name: "rows", value: String(size.rows)),
-        ]))
+        ]
+        // The server reads a literal plus as a space in a query unless it is escaped.
+        endpoint.percentEncodedQuery = endpoint.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        return session.webSocketTask(with: endpoint.url!)
     }
 }
 
