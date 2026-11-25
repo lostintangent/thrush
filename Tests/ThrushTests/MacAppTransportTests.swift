@@ -30,6 +30,11 @@ import Testing
     return view.subviews.lazy.compactMap { terminal(in: $0) }.first
 }
 
+@MainActor private func container(in view: NSView) -> TerminalPaneContainer? {
+    if let container = view as? TerminalPaneContainer { return container }
+    return view.subviews.lazy.compactMap { container(in: $0) }.first
+}
+
 @MainActor private func waitForPane(_ change: String, until condition: () -> Bool) async throws {
     let deadline = ContinuousClock.now + .seconds(5)
     while !condition() {
@@ -80,5 +85,38 @@ import Testing
     #expect(!session.hasEnded)
     try await session.close()
     #expect(await transport.closes == 1)
+}
+
+@MainActor @Test func shellThatOpensDuringTheConnectingWaitLeavesNoNotice() async throws {
+    _ = NSApplication.shared
+    let transport = ControlledTransport()
+    let requested = Mutex(false)
+    let opening = AsyncStream<Void>.makeStream()
+    let session = TerminalSession(openTransport: { _ in
+        requested.withLock { $0 = true }
+        for await _ in opening.stream { break }
+        return transport
+    })
+    let hostingView = NSHostingView(rootView: SessionTestView(session: session, shown: true))
+    hostingView.sizingOptions = []
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
+                          styleMask: .borderless, backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = hostingView
+    window.orderFront(nil)
+    defer { window.close() }
+    hostingView.layoutSubtreeIfNeeded()
+
+    try await waitForPane("the transport request") { requested.withLock { $0 } }
+    try await Task.sleep(for: .milliseconds(50))
+    // The shell opens while the main actor stays busy past the notice's 200 ms wait, so the
+    // notice's wakeup runs after the first screen has already cancelled it.
+    opening.continuation.yield()
+    usleep(400_000)
+    let pane = try #require(container(in: hostingView))
+    try await waitForPane("the fresh shell") { terminal(in: hostingView)?.snapshot != nil }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(pane.current == nil)
+    try await session.close()
 }
 #endif

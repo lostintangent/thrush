@@ -413,7 +413,9 @@ import ThrushCore
             show(nil)
             scheduledNotice = next
             noticeTimer = Task { [weak self] in
-                do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
+                try? await Task.sleep(for: .milliseconds(200))
+                // A transition can cancel the wait after the sleep ends but before this resumes.
+                guard !Task.isCancelled else { return }
                 self?.show(next)
             }
         }
