@@ -39,6 +39,8 @@ python3 scripts/check-benchmark-report.py
 
 The separate consumer prints its row and reply, then checks binary linkage with `otool`. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/README.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
 
+For real WebSocket and PTY checks, run `scripts/check-pty.sh --toy-box ../toy-box`. The [disposable server procedure](Benchmarks/pty.md) also starts an isolated endpoint for the native demos.
+
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
 
 Build the native Release demos with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the mock-backed hosts](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).
