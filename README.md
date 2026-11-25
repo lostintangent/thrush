@@ -116,3 +116,7 @@ The timings come from one contended M1 Max, so they show headroom rather than a 
 ## Develop
 
 [AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover Slate, glass and the pane states.
+
+## License
+
+Thrush is available under the [MIT License](LICENSE).
