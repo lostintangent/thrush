@@ -3,7 +3,6 @@
 import argparse
 from contextlib import contextmanager
 import json
-import math
 import os
 from pathlib import Path
 import plistlib
@@ -100,50 +99,32 @@ def focus_helper(path, process):
             pass
 
 
-def capture(out, label, path, process, title, appearance, focus_pid, helper=None):
+def capture(out, label, path, process, appearance, focus_pid, waiting, helper=None, ended=None):
     active = helper is None
 
     def settled():
         state = read_state(path, process)
-        if (state.get("visible") and state["appearance"] == appearance and state["keyWindow"] == active and state["activeApp"] == active
-                and state.get("frontmostPID") == focus_pid and (state.get("notice") or {}).get("title") == title
-                and state.get("spinnerFrame") and not state["reduceMotion"]):
+        if (state.get("visible") and state["appearance"] == appearance and state["keyWindow"] == active
+                and state["activeApp"] == active and state.get("frontmostPID") == focus_pid
+                and bool(state.get("spinnerFrame")) == waiting and state.get("cursorCellFrame")
+                and not state["reduceMotion"] and (ended is None or (state["shellEnded"] == ended
+                     and bool(state.get("newShellButtonFrame")) == ended))):
             return state
-        return None
 
-    wait(label, settled)
     image = out / (label + ".png")
-    # The Dock can change the screen's available desktop area when focus moves to a
-    # helper. Only the target window's actual content, geometry and activation matter.
-    fields = ("pid", "windowID", "scene", "appearance", "keyWindow", "activeApp", "visible",
-              "hasTranscript", "reduceMotion", "frontmostPID", "windowFrame", "scale", "notice", "spinnerFrame")
+    fields = ("pid", "windowID", "scene", "appearance", "keyWindow", "activeApp", "visible", "frontmostPID",
+              "reduceMotion", "windowFrame", "scale", "spinnerFrame", "cursorCellFrame", "firstCellFrame",
+              "gridFrame", "rows", "columns", "hasTranscript", "shellEnded", "newShellButtonFrame")
     for attempt in (1, 2):
-        time.sleep(.6)
         before = wait(label, settled)
+        time.sleep(.35)
         subprocess.run([SCRIPTS / "capture-demo.sh", "mac", str(process.pid), image], check=True, timeout=60)
         after = read_state(path, process)
         if all(before.get(key) == after.get(key) for key in fields):
-            break
+            save(out / (label + ".json"), dict(before, helperRect=helper))
+            return image, before
         save(out / f"{label}-transition-{attempt}.json", dict(before=before, after=after))
-        if attempt == 2:
-            raise RuntimeError(f"{label} changed focus, geometry or notice during both capture attempts.")
-    with image.open("rb") as png:
-        header = png.read(24)
-    if header[:8] != b"\x89PNG\r\n\x1a\n":
-        raise ValueError(f"{label} is not a PNG.")
-    width, height = struct.unpack(">II", header[16:24])
-    _, (window_w, window_h) = before["windowFrame"]
-    scale = width / window_w
-    if abs(height / window_h - scale) > .01:
-        raise ValueError(f"{label} screenshot does not cover the complete window.")
-    (x, y), (w, h) = before["spinnerFrame"]
-    if not (8 <= w <= 32 and 8 <= h <= 32):
-        raise ValueError(f"{label} unexpected native spinner size {w} × {h}.")
-    left, top = math.floor((x - 2) * scale), math.floor((y - 2) * scale)
-    region = [left, top, math.ceil((x + w + 2) * scale) - left, math.ceil((y + h + 2) * scale) - top]
-    before.update(imagePixels=[width, height], imageScale=scale, region=region, helperRect=helper)
-    save(out / (label + ".json"), before)
-    return image, region
+    raise RuntimeError(f"{label} changed focus, geometry or cursor during both captures.")
 
 
 def prepare_hosted_motion(out, reduced=False):
@@ -196,48 +177,96 @@ def main():
                                  os=subprocess.check_output(["sw_vers", "-productVersion"], text=True).strip()))
     if opts.prepare_hosted_motion:
         prepare_hosted_motion(out)
-    samples, errors = {}, {}
+    results, errors = {}, {}
     peer = runpy.run_path(str(SCRIPTS / "capture-simulator.py"))["peer"]
-    measure = runpy.run_path(str(SCRIPTS / "check-spinner-contrast.py"))["measure"]
-    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out, notices=True) as endpoint:
-        work = Path(scratch)
-        focus = runpy.run_path(str(SCRIPTS / "pty/check-window.py"))["build_cover"](work)
+    proof = runpy.run_path(str(SCRIPTS / "interaction-capture/spinner.py"))
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out, cursor=True) as endpoint:
+        focus = runpy.run_path(str(SCRIPTS / "pty/check-window.py"))["build_cover"](Path(scratch))
         for appearance in ("dark", "light"):
-            for scene in ("connecting", "reconnecting"):
+            for scene in ("spinner-opening", "spinner-reconnecting"):
                 name = f"{scene}-{appearance}"
                 path = out / (name + "-state.json")
-                args = ["--endpoint", endpoint, "--scene", "notice-" + scene, "--appearance", appearance,
+                args = ["--endpoint", endpoint, "--scene", scene, "--appearance", appearance,
                         "--spinner-capture-state", str(path), str(focus)]
                 try:
                     with application(bundle, args, out / (name + "-host.log")) as process:
                         wait("mounted terminal", lambda: read_state(path, process))
-                        subprocess.run(["open", "-a", bundle], check=True)
-                        if scene == "reconnecting":
-                            wait("acknowledged shell transcript", lambda: read_state(path, process).get("hasTranscript"))
-                            with urlopen(Request(endpoint + "/interrupt-reconnecting", method="POST"), timeout=5) as reply:
-                                if reply.status != 204:
-                                    raise RuntimeError("The mock shell did not enter the requested outage.")
-                        title = scene.capitalize()
-                        active = name + "-active"
-                        samples[active] = capture(out, active, path, process, title, appearance, process.pid)
-                        with focus_helper(path, process) as (pid, actual):
-                            inactive = name + "-inactive"
-                            samples[inactive] = capture(out, inactive, path, process, title, appearance, pid, actual)
-                except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+                        subprocess.run(["open", "-a", bundle], check=True, timeout=20)
+                        opening = scene == "spinner-opening"
+                        if not opening:
+                            wait("acknowledged transcript", lambda: read_state(path, process).get("hasTranscript"))
+                        def grab(label, waiting, *, focus_pid=process.pid, helper=None):
+                            return capture(out, name + "-" + label, path, process, appearance, focus_pid, waiting, helper)
+                        active_before = grab("active" if opening else "active-live", opening)
+                        with focus_helper(path, process) as (pid, rect):
+                            inactive_before = grab("inactive" if opening else "inactive-live", opening, focus_pid=pid, helper=rect)
+                            advance(endpoint, "release-opening" if opening else "interrupt-reconnecting")
+                            inactive_after = grab("inactive-live" if opening else "inactive", not opening, focus_pid=pid, helper=rect)
+                        subprocess.run(["open", "-a", bundle], check=True, timeout=20)
+                        active_after = grab("active-live" if opening else "active", not opening)
+                        row, column = (0, 0) if opening else (8, len("~/thrush % "))
+                        for label, before, after in (("active", active_before, active_after), ("inactive", inactive_before, inactive_after)):
+                            paused, live = (before, after) if opening else (after, before)
+                            results[name + "-" + label] = proof["measure"](*paused, appearance, row, column)
+                            results[name + "-" + label].update(proof["compare"](*paused, *live, appearance))
+                except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
                     errors[name] = str(error)
-    results = {}
-    for name, (frame, region) in samples.items():
+                save(out / "cursor-spinners.json", dict(samples=results, errors=errors))
         try:
-            ratio, point, spoke, background = measure(frame, region)
-            results[name] = dict(ratio=ratio, spoke=spoke, pixel=point, background=background)
-            if ratio < 3:
-                errors[name] = f"Leading spoke contrast {ratio:.4f}:1 is below 3:1."
-        except (OSError, ValueError, subprocess.SubprocessError) as error:
-            errors[name] = str(error)
-    save(out / "contrast.json", dict(samples=results, errors=errors))
-    print(json.dumps(results, indent=2), flush=True)
+            check_new_shell(out, bundle, endpoint, focus, Path(scratch))
+        except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+            errors["new-shell-toolbar"] = str(error)
+        save(out / "cursor-spinners.json", dict(samples=results, errors=errors))
+
     if errors or len(results) != 8:
-        sys.exit("Incomplete spinner capture or insufficient contrast: " + str(errors))
+        sys.exit("Incomplete cursor spinner captures: " + str(errors))
+
+
+def check_new_shell(out, bundle, endpoint, focus, work):
+    path = out / "new-shell-state.json"
+    args = ["--endpoint", endpoint, "--scene", "shell-ended", "--appearance", "dark",
+            "--spinner-capture-state", str(path), str(focus)]
+    def observed(count):
+        with urlopen(endpoint + "/toolbar-state", timeout=5) as response:
+            state = json.load(response)
+        return state if state["opened"] == state["acknowledged"] == count else None
+    with application(bundle, args, out / "new-shell-host.log") as process:
+        wait("initial shell output acknowledged", lambda: observed(1))
+        subprocess.run(["open", "-a", bundle], check=True, timeout=20)
+        def capture_phase(label, ended):
+            return capture(out, "new-shell-" + label, path, process, "dark", process.pid, False, ended=ended)
+        _, live = capture_phase("live", False)
+        advance(endpoint, "exit-shell")
+        image, ended = capture_phase("ended", True)
+        (x, y), (w, h) = ended["newShellButtonFrame"]
+        (_, grid_top), _ = ended["gridFrame"]
+        if min(w, h) <= 0 or y < 0 or y + h > grid_top + 1:
+            raise ValueError("The New Shell toolbar button is not above the terminal grid.")
+        checker = work / "check-toolbar-label"
+        subprocess.run(["xcrun", "swiftc", SCRIPTS / "check-pane-capture.swift", "-o", checker], check=True, timeout=120)
+        # ScreenCaptureKit and screencapture can return different image scales.
+        _, (window_w, _) = ended["windowFrame"]
+        with image.open("rb") as png:
+            png.seek(16)
+            pixel_width, = struct.unpack(">I", png.read(4))
+        scale = pixel_width / window_w
+        crop = [str(round(n*scale)) for n in (x, y, w, h)]
+        subprocess.run([checker, image, "--crop", *crop, "New Shell"], check=True, timeout=60)
+        path.with_suffix(path.suffix + ".new-shell").touch()
+        peer = wait("replacement shell output acknowledged", lambda: observed(2))
+        _, fresh = capture_phase("fresh", False)
+        for k in ("pid", "gridFrame", "windowFrame", "rows", "columns", "firstCellFrame"):
+            if not live[k] == ended[k] == fresh[k]:
+                raise ValueError(f"Starting another shell changed native {k}.")
+        save(out / "new-shell-toolbar.json", dict(peer=peer, frame=ended["newShellButtonFrame"],
+                                                grid=ended["gridFrame"], buttonTitle="New Shell",
+                                                visibleByPhase=[False, True, False]))
+
+
+def advance(endpoint, action):
+    with urlopen(Request(endpoint + "/" + action, method="POST"), timeout=10) as response:
+        if response.status != 204:
+            raise RuntimeError(f"The cursor peer rejected {action}.")
 
 
 if __name__ == "__main__":

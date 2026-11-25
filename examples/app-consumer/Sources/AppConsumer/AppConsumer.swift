@@ -28,7 +28,16 @@ struct AppConsumer: App {
 }
 
 @MainActor private final class WindowModel: ObservableObject {
-    let tab = ShellTab(tabID: UUID().uuidString, api: ServerAPI(session: .shared))
+    @Published private(set) var tab = makeTab()
+
+    func newShell() {
+        guard tab.session.hasEnded else { return }
+        tab = Self.makeTab()
+    }
+
+    private static func makeTab() -> ShellTab {
+        ShellTab(tabID: UUID().uuidString, api: ServerAPI(session: .shared))
+    }
 }
 
 private struct ShellWindow: View {
@@ -36,13 +45,18 @@ private struct ShellWindow: View {
 
     var body: some View {
         NavigationStack {
-            model.tab.pane.navigationTitle(title)
+            TerminalPane(model.tab.session)
+                .navigationTitle(title)
+                .toolbar {
+                    if model.tab.session.hasEnded {
+                        Button("New Shell", action: model.newShell)
+                    }
+                }
         }
     }
 
     private var title: String {
         let session = model.tab.session
-        let name = session.title.isEmpty ? "Terminal" : session.title
-        return session.hasEnded ? "\(name) (Ended)" : name
+        return session.title.isEmpty ? "Terminal" : session.title
     }
 }

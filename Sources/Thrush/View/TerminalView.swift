@@ -154,6 +154,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         didSet {
             guard oldValue != reducesMotion else { return }
             textBlink.stop()
+            updateCursorSpinner()
             if showsBlinkingText { invalidateFrame() }
         }
     }
@@ -181,10 +182,15 @@ package final class TerminalView: MTKView, MTKViewDelegate {
 
     private(set) var inputAvailability: InputAvailability = .live
     var acceptsTerminalInput: Bool { inputAvailability != .blocked }
-    var noticeBottomInset: CGFloat = 0 {
-        didSet { if oldValue != noticeBottomInset { refreshInteraction() } }
+    private var cursorSpinner: CursorSpinner?
+    var onDisplacedTap: (() -> Void)? {
+        didSet {
+            #if os(macOS)
+            macInput.cancelDisplacedClick()
+            #endif
+            if (oldValue == nil) != (onDisplacedTap == nil) { refreshInteraction() }
+        }
     }
-    var onViewportInteractionChange: (() -> Void)?
     private var finalFrameRevision: UInt64 = 0
     private var finalFrameWaiter: CheckedContinuation<Void, Never>?
     private var lastPointer: Terminal.Input.Pointer?
@@ -321,6 +327,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
         synchronizedOutput.setActive(active && window != nil)
         updateGeometry()
+        updateCursorSpinner()
         invalidateFrame()
     }
 
@@ -339,13 +346,17 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
-    private func applyClearColor() {
-        let c = resolvedTheme.palette.background.vector
-        let background = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
+    func applyClearColor() {
+        let rgb = resolvedTheme.palette.background
+        let background = CGColor(srgbRed: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255,
+                                 blue: CGFloat(rgb.blue) / 255, alpha: 1)
+        let c = rgb.vector
         #if os(macOS)
+        (superview as? TerminalPaneContainer)?.layer?.backgroundColor = background
         let alpha = effectiveOpacity
         (layer as? CAMetalLayer)?.backgroundColor = alpha == 1 ? background : nil
         #else
+        (superview as? TerminalPaneContainer)?.backgroundColor = UIColor(cgColor: background)
         let alpha = 1.0
         (layer as? CAMetalLayer)?.backgroundColor = background
         #endif
@@ -437,7 +448,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
-    /// Flush synchronized output and publish the final drawable before adding the Ended notice.
+    /// Flush synchronized output and publish the final drawable before dismissing input.
     /// Simulator provides the GPU completion callback in place of a drawable presentation handler.
     func presentFinal(_ next: Terminal.Snapshot) async {
         synchronizedOutput.reset()
@@ -503,6 +514,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     func setDrawingVisible(_ visible: Bool) {
         guard active != visible else { return }
         active = visible
+        updateCursorSpinner()
         synchronizedOutput.setActive(visible && window != nil)
         if visible {
             invalidateFrame()
@@ -510,6 +522,93 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             textBlink.stop()
             releaseDrawables()
         }
+    }
+
+    func setWaiting(_ waiting: Bool) {
+        guard waiting != (cursorSpinner != nil) else { return }
+        if waiting {
+            let spinner = CursorSpinner()
+            cursorSpinner = spinner
+            addSubview(spinner)
+            updateCursorSpinner()
+        } else {
+            cursorSpinner?.removeFromSuperview()
+            cursorSpinner = nil
+        }
+        invalidateFrame()
+    }
+
+    private var visibleCursorCell: CGRect {
+        let cursor = cursorRect
+        let cell = snapshot?.cursorVisible == true && !cursor.isEmpty && bounds.contains(cursor)
+            ? cursor : cellRect(row: 0, column: 0)
+        // Grid coordinates start at the top left. AppKit's Metal view may be unflipped.
+        #if os(macOS)
+        return macInput.convert(cell, to: self)
+        #else
+        return cell
+        #endif
+    }
+
+    private func updateCursorSpinner() {
+        guard let spinner = cursorSpinner else { return }
+        let cell = visibleCursorCell
+        let side = min(16, cell.width, cell.height)
+        guard side > 0, bounds.contains(cell), active, window != nil else {
+            spinner.setAnimating(false)
+            spinner.isHidden = true
+            return
+        }
+        let rect = CGRect(x: cell.midX - side / 2, y: cell.midY - side / 2, width: side, height: side)
+        #if os(macOS)
+        let background = snapshot?.programColors[.background] ?? resolvedTheme.palette.background
+        let dark = (299 * Int(background.red) + 587 * Int(background.green) + 114 * Int(background.blue)) < 128_000
+        let appearance: NSAppearance.Name = dark ? .darkAqua : .aqua
+        if spinner.appearance?.name != appearance { spinner.appearance = NSAppearance(named: appearance) }
+        #else
+        let color = snapshot?.programColors[.foreground] ?? resolvedTheme.palette.foreground
+        spinner.color = UIColor(red: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
+                                blue: CGFloat(color.blue) / 255, alpha: 1)
+        #endif
+        spinner.place(in: rect)
+        spinner.isHidden = false
+        spinner.setAnimating(!reducesMotion)
+    }
+
+    /// Top-left window coordinates, measured independently from the grid and its native indicator.
+    package var cursorCellFrameInWindow: CGRect? { frameInWindow(visibleCursorCell, from: self) }
+
+    package func cellFrameInWindow(row: Int, column: Int) -> CGRect? {
+        guard let gridSize, (0..<gridSize.rows).contains(row), (0..<gridSize.columns).contains(column) else { return nil }
+        let cell = cellRect(row: row, column: column)
+        #if os(macOS)
+        return frameInWindow(cell, from: macInput)
+        #else
+        return frameInWindow(cell, from: self)
+        #endif
+    }
+
+    package var cursorSpinnerFrameInWindow: CGRect? {
+        guard let spinner = cursorSpinner, !spinner.isHidden else { return nil }
+        return frameInWindow(spinner.bounds, from: spinner)
+    }
+
+    private func frameInWindow(_ rect: CGRect, from view: PaneNativeView) -> CGRect? {
+        guard let window, !rect.isEmpty else { return nil }
+        #if os(macOS)
+        let frame = view.convert(rect, to: nil)
+        return CGRect(x: frame.minX, y: window.frame.height - frame.maxY, width: frame.width, height: frame.height)
+        #else
+        return view.convert(rect, to: window)
+        #endif
+    }
+
+    /// A deliberate primary tap may reclaim a displaced session. It sends no terminal input.
+    @discardableResult package func tapDisplacedGrid() -> Bool {
+        guard let action = onDisplacedTap else { return false }
+        onDisplacedTap = nil
+        action()
+        return true
     }
 
     /// Requests native keyboard focus for this viewport and returns whether it was granted.
@@ -554,7 +653,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme)
         phoneTranscript.synchronize()
         #endif
-        onViewportInteractionChange?()
+        if cursorSpinner != nil { updateCursorSpinner() }
     }
 
     package func setHistoryOffset(_ rows: Int) {
@@ -614,7 +713,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput,
+                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput && cursorSpinner == nil,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent

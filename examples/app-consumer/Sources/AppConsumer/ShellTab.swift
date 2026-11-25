@@ -13,6 +13,4 @@ struct ShellTab {
     init(openTransport: @escaping @Sendable (Terminal.Size) async throws -> any TerminalTransport) {
         session = TerminalSession(openTransport: openTransport)
     }
-
-    var pane: TerminalPane { TerminalPane(session) }
 }

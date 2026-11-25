@@ -45,7 +45,6 @@ package actor SessionActor {
 
     package internal(set) var state: State
     package internal(set) var hasSeenReady = false
-    package internal(set) var exitedNaturally = false
     package internal(set) var lastReceiptTime: CFTimeInterval?
     package private(set) var receivedBytes = 0
     package private(set) var appliedBytes = 0
@@ -66,23 +65,21 @@ package actor SessionActor {
     }
 
     /// Shows the session. Returns true when it starts opening a transport.
-    /// Only a user action can reclaim a displaced shell or restart an ended one.
+    /// Only a user action can reclaim a displaced shell. An ended session stays ended.
     @discardableResult
     package func show(userInitiated: Bool = false) -> Bool {
         switch transport {
         case .webSocket(let socket): socket.attach(to: self, userInitiated: userInitiated)
-        case .app(let app): app.show(in: self, userInitiated: userInitiated)
+        case .app(let app): app.show(in: self)
         }
     }
 
-    func beginOpening(userInitiated: Bool) -> Bool {
+    func beginOpening(userInitiated: Bool = false) -> Bool {
         switch state {
         case .idle: break
         case .displaced where userInitiated: break
-        case .ended where userInitiated && exitedNaturally: hasSeenReady = false
         default: return false
         }
-        exitedNaturally = false
         lifetime &+= 1
         return true
     }
@@ -131,7 +128,7 @@ package actor SessionActor {
         switch transport {
         // A suspended reader may still own this actor after the app releases its session.
         case .webSocket(let socket): socket.detach(from: self)
-        case .app(let app): await app.release(in: self)
+        case .app(let app): await app.close(in: self)
         }
     }
 

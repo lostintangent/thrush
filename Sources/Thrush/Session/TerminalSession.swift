@@ -9,7 +9,8 @@ import ThrushCore
 @MainActor @Observable public final class TerminalSession {
     /// The last title set by the shell. The initial title is empty.
     public private(set) var title = ""
-    /// Whether the shell has ended or the app has closed the session.
+    /// Whether the shell exited, the app closed the session, or an attachment found a different shell.
+    /// The final screen stays available. Create a new session to open a shell again.
     public private(set) var hasEnded = false
 
     package let actor: SessionActor
@@ -27,8 +28,8 @@ import ThrushCore
     /// Creates a session on a transport supplied by the app.
     ///
     /// The factory opens the program at the pane’s first measured grid size. The session
-    /// keeps reading while the pane is hidden. After EOF or a transport failure, New Shell
-    /// opens a fresh transport. Explicitly closing the session releases its transport permanently.
+    /// keeps reading while the pane is hidden. EOF, a transport failure, or an explicit
+    /// close ends the session. Create a new session to open another transport.
     public convenience init(openTransport: @escaping @Sendable (Terminal.Size) async throws -> any TerminalTransport) {
         self.init { observer in SessionActor(observer: observer, openTransport: openTransport) }
     }
@@ -81,14 +82,13 @@ extension TerminalSession {
     /// Each screen and its accompanying metadata come from the same turn of the session actor.
     enum Update: Sendable {
         case fresh(Terminal.Snapshot)
-        case replacedShell(Terminal.Snapshot, discardedInput: Bool)
         case awaitingReplay
         case screen(Terminal.Snapshot)
         case output(Terminal.Snapshot, receivedAt: TimeInterval?)
         case replay(Terminal.Snapshot, receivedAt: TimeInterval?)
         case reconnecting
         case displaced
-        case ended(Terminal.Snapshot, canRestart: Bool)
+        case ended(Terminal.Snapshot)
     }
 
     func show(userInitiated: Bool, theme: TerminalTheme, needsRetainedScreen: Bool) async
@@ -125,7 +125,7 @@ private extension SessionActor {
         setPalette(palette, cursor: cursor)
         let hadScreen = hasSeenReady
         show(userInitiated: userInitiated)
-        if state == .ended { return (nil, .ended(snapshot(), canRestart: exitedNaturally)) }
+        if state == .ended { return (nil, .ended(snapshot())) }
         // An active app transport provides its current screen as the first update.
         let retainedScreen = needsRetainedScreen && hadScreen && state != .active ? snapshot() : nil
         return (retainedScreen, state == .displaced ? .displaced : nil)
@@ -139,21 +139,19 @@ private extension SessionActor {
     func nextUpdate() async throws -> TerminalSession.Update {
         switch try await nextEvent() {
         case .ready(resumed: true): .awaitingReplay
-        case .ready(resumed: false):
-            if replacedPreviousShell { .replacedShell(snapshot(), discardedInput: discardedHeldInputOnLastReady) }
-            else { .fresh(snapshot()) }
+        case .ready(resumed: false): .fresh(snapshot())
         case .screen: .screen(snapshot())
         case .output: .output(snapshot(), receivedAt: lastReceiptTime)
         case .replay: .replay(snapshot(), receivedAt: lastReceiptTime)
         case .reconnecting: .reconnecting
         case .displaced: .displaced
-        case .exit: .ended(snapshot(), canRestart: exitedNaturally)
+        case .exit: .ended(snapshot())
         }
     }
 
     func statusAfterError() -> TerminalSession.Update? {
         switch state {
-        case .ended: .ended(snapshot(), canRestart: exitedNaturally)
+        case .ended: .ended(snapshot())
         case .displaced: .displaced
         case .connecting, .reconnecting, .awaitingReplay: .reconnecting
         case .idle, .closing, .active: nil

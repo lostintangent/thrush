@@ -57,13 +57,13 @@ struct WorkflowCapture: Encodable {
     let appearance: String
     let windowSize, gridInWindow: [CGFloat]
     let keyboard: Keyboard?
-    let endedNotice: VisiblePaneNotice?
+    let ended: Bool
     let inkMask: [String]
     let selection: [Int]?
     let copiedText: String?
 
-    init(name: String, eventIndex: Int, view: TerminalView, snapshot: Terminal.Snapshot, layout: Layout, copied: String?, endedNotice: VisiblePaneNotice? = nil) {
-        self.endedNotice = endedNotice
+    init(name: String, eventIndex: Int, view: TerminalView, snapshot: Terminal.Snapshot, layout: Layout, copied: String?, ended: Bool = false) {
+        self.ended = ended
         self.name = name
         self.eventIndex = eventIndex
         columns = snapshot.size.columns

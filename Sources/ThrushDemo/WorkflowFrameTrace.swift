@@ -10,6 +10,26 @@ final class WorkflowFrameTrace: WebSocketFrameTrace {
 
     init(url: URL) throws { records = try Mutex(Records(url: url)) }
 
+    /// New app sessions start their counters at zero; the workflow trace covers the whole exchange.
+    func continuing(after attachments: Int, received: Int, applied: Int) -> any WebSocketFrameTrace {
+        SessionTrace(trace: self, attachments: attachments, received: received, applied: applied)
+    }
+
+    private struct SessionTrace: WebSocketFrameTrace {
+        let trace: WorkflowFrameTrace
+        let attachments, received, applied: Int
+
+        func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
+                     note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+            trace.observe(event, attachment: attachments + attachment, message: message, note: note, stale: stale,
+                          closeCode: closeCode, received: received.map { self.received + $0 }, applied: applied.map { self.applied + $0 })
+        }
+
+        func finish(_ result: String, attachment: Int, received: Int, applied: Int) async {
+            await trace.finish(result, attachment: attachments + attachment, received: self.received + received, applied: self.applied + applied)
+        }
+    }
+
     func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
                  note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
         records.withLock {
