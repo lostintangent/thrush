@@ -75,6 +75,7 @@ The pane measures its grid and reports each new size, follows the system appeara
 | --- | --- |
 | Fresh attach or orphan expiry | `ready(resumed: false)` starts a clean grid and a fresh input stream. Queued keys from a previous attachment cannot reach the new shell. |
 | Brief detach and resume | Keep the shell’s client ID. On `ready(resumed: true)`, reset the emulator, apply serialized screen/history/modes to the clean grid once, then apply live bytes in socket order. Compare what the server preserves. Its serializer documents losses such as link targets and cursor shape. In the recorded edited Vim row, the pinned serializer also restores the cursor one column to the left. Match its replayed screen at this checkpoint. |
+| In-band resynchronization | A live socket can send `ready(resumed: true)` and a serialized screen after its output buffer drains. Input stays live. Keep the old displayed generation until the reset and complete replay can be presented together. Preserve surviving history and selection anchors and local composition as specified in the [pane states](design/pane-states.md#in-band-replay). |
 | Takeover | A second socket using that ID takes ownership. Close code 4000 stops automatic reconnect from the displaced client until user input. Discard callbacks from the displaced socket. |
 | Dismiss, background, close or exit | Dismissal or backgrounding detaches the socket. The server preserves an orphan for 30 seconds. Explicit close ends the PTY. Shell exit displays final bytes before reporting exit. |
 

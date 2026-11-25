@@ -18,6 +18,14 @@ On **Use Here** or **Try Again**, consume the button activation exactly once and
 
 Keep the replacement notice until the user commits input in the new shell and has had at least three visible seconds to read it. Scrolling, selecting and copying preserve the notice. Defer removal while VoiceOver is reading it. An ordinary successful resume needs no success message.
 
+## In-band replay
+
+A live socket can send `ready(resumed: true)` to refresh a screen after the reader falls behind. Keep input and the last displayed generation live while the reset and replay build privately. Present the complete replay as one generation, with no status, blank frame or VoiceOver announcement.
+
+- At the live edge, follow the restored cursor. In history, preserve the top logical line and its offset through soft wraps. Match text and neighboring lines across the reset, since row numbers can change. If the line has expired, use its nearest identifiable surviving neighbor, falling back to the oldest retained line.
+- Keep an active selection and its handles only when both endpoints and the intervening text identify the same logical range. Reposition the handles for the new cell geometry. If the range is absent or ambiguous, clear the selection and its edit menu. Copy always reads the displayed generation.
+- Keep the native marked string, its internal selection and the same input responder. Move the composition to the restored cursor when the frame swaps. Replay sends no composition bytes. The user’s eventual commit goes to the still-active shell exactly once.
+
 ## Layout and motion
 
 ![Mac Slate Light design reference showing a retained transcript and a Reconnecting status area above the lower safe edge](pane-reconnecting.png)
