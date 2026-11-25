@@ -74,7 +74,14 @@ def record(phone, appearance, wait_for, save_json):
                 if any(observed.get(key) != initial.get(key) for key in ("pid", "keyboardHeight", "accessoryHeight", "keyboardLanguage")):
                     raise RuntimeError("The native keyboard moved or changed during reconnect.")
             save_json(phone.out / "reconnect-wire.json", proof)
-            save_json(phone.out / "reconnect-view.json", dict(live=initial, reconnecting=reconnecting, resumed=final))
+            views = phone.out / "reconnect-view.json"
+            save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final))
+            colors = runpy.run_path(str(HERE.parent / "check-demo-capture.py"))["COLORS"][appearance]
+            with (phone.out / "reconnect-cursor.log").open("w") as log:
+                subprocess.run(["xcrun", "swift", HERE / "reconnect-cursor.swift",
+                                phone.out / "reconnect-typing.mov", views, colors["cursor"],
+                                phone.out / "reconnect-typing-held.png"],
+                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
         finally:
             if test.poll() is None:
                 test.terminate()
