@@ -474,12 +474,12 @@ private typealias NoticeHost = UIView & UIContentView
 
     // Keep the source drawable at its native height while the keyboard clips its viewport.
     // A reader in history keeps the top row. At the live edge the cursor can lift into view.
-    func beginRotation() {
+    func beginRotation(sourceHeight: CGFloat? = nil) {
         guard rotationConstraints.isEmpty else { return }
         terminal.holdsGridGeometry = true
         let preferredTop = terminal.topAnchor.constraint(equalTo: viewport.topAnchor, constant: gridTop.constant)
         preferredTop.priority = .defaultHigh
-        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: terminal.bounds.height), preferredTop]
+        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), preferredTop]
         let cursor = terminal.cursorRect
         if terminal.historyOffset == 0, terminal.snapshot?.cursorVisible == true, !cursor.isEmpty {
             let inset = max(0, terminal.cellRect(row: 0, column: 0).minY)

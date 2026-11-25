@@ -137,6 +137,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
     #else
+    var beforeViewportResize: ((CGSize) -> Void)?
+
     // The pane coordinates the size change with UIKit's keyboard and orientation transitions.
     var holdsGridGeometry = false {
         didSet {
@@ -402,6 +404,12 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : contentScaleFactor
         #endif
         let pixelSize = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
+        #if os(iOS)
+        if lastViewport != pixelSize, let metrics {
+            beforeViewportResize?(CGSize(width: lastViewport.width / metrics.scale, height: lastViewport.height / metrics.scale))
+            guard !holdsGridGeometry else { return }
+        }
+        #endif
         let nextSize: CGFloat = fontSize ?? {
             #if os(macOS)
             14

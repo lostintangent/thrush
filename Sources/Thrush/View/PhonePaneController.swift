@@ -6,6 +6,7 @@ import UIKit
     private let pane: TerminalPaneContainer
     private weak var rotation: (any UIViewControllerTransitionCoordinator)?
     private var coordinatorFinished = false
+    private var releasing = false
     private var keyboardWasVisible = false
     private var keyboardEnd: CGRect?
     private var lastBounds: CGSize?
@@ -23,9 +24,25 @@ import UIKit
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        pane.terminal.beforeViewportResize = { [weak self] source in self?.keyboardLayoutBegan(source: source) }
         for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)), name: name, object: nil)
         }
+    }
+
+    private func keyboardLayoutBegan(source: CGSize) {
+        // The keyboard can install its destination height while the window is still in
+        // the source orientation, before UIKit calls viewWillTransition on the pane.
+        guard !releasing, !pane.terminal.holdsGridGeometry, pane.terminal.phoneInput.isFirstResponder,
+              source.height != pane.terminal.bounds.height, keyboardEnd != nil,
+              pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1,
+              !keyboardMatchesGuide() else { return }
+        coordinatorFinished = true
+        keyboardWasVisible = true
+        lastBounds = nil
+        settleDuration = max(UIView.inheritedAnimationDuration, CATransaction.animationDuration())
+        pane.beginRotation(sourceHeight: source.height)
+        checkGeometry()
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
@@ -33,7 +50,8 @@ import UIKit
             settleTask?.cancel()
             rotation = coordinator
             coordinatorFinished = false
-            keyboardWasVisible = pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1
+            keyboardWasVisible = (pane.terminal.holdsGridGeometry && keyboardWasVisible)
+                || pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1
             keyboardEnd = nil
             lastBounds = nil
             settleDuration = coordinator.transitionDuration
@@ -57,7 +75,7 @@ import UIKit
     }
 
     @objc private func keyboardFrameChanged(_ note: Notification) {
-        guard pane.terminal.holdsGridGeometry, let window = pane.window,
+        guard let window = pane.window,
               let screen = window.windowScene?.screen,
               (note.object as? UIScreen).map({ $0 === screen }) != false,
               let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
@@ -99,7 +117,10 @@ import UIKit
         guard abs(inWindow.width - window.bounds.width) <= 1 else { return false }
         let expected = pane.bounds.intersection(pane.convert(inWindow, from: window))
         let guide = pane.keyboardLayoutGuide.layoutFrame
-        return !expected.isEmpty && abs(guide.minX - expected.minX) <= 1 && abs(guide.maxX - expected.maxX) <= 1
+        if expected.isEmpty {
+            return inWindow.minY >= window.bounds.maxY - 1 && abs(guide.minY - pane.safeAreaLayoutGuide.layoutFrame.maxY) <= 1
+        }
+        return abs(guide.minX - expected.minX) <= 1 && abs(guide.maxX - expected.maxX) <= 1
             && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
     }
 
@@ -108,7 +129,9 @@ import UIKit
         settleTask = nil
         rotation = nil
         coordinatorFinished = false
+        releasing = true
         pane.endRotation()
+        releasing = false
     }
 }
 #endif

@@ -1,7 +1,7 @@
 #if os(iOS)
 import Testing
-import Thrush
-@testable import ThrushUI
+import ThrushCore
+@testable import Thrush
 import UIKit
 
 /// UIKit supplies the geometry between the pane's safe top and its keyboard guide.
@@ -101,5 +101,58 @@ import UIKit
     host.pane.endRotation()
     host.pane.layoutIfNeeded()
     #expect(terminal.bounds.size == host.usableRect.size)
+}
+
+/// The keyboard can resize the source-orientation pane before its controller receives
+/// viewWillTransition. Replay the observed usable sizes at the native resize boundary.
+@MainActor @Test func sourceKeyboardResizeCanBeHeldBeforeItPublishesAnIntermediateGrid() throws {
+    let host = RotationPane()
+    host.window.frame.size = CGSize(width: 950, height: 950)
+    host.pane.frame.origin = CGPoint(x: 80, y: 100)
+    host.resize(to: host.portrait)
+    let view = host.terminal
+    #expect(host.pane.viewportSize == host.portrait)
+    var emitted: [Terminal.Size] = []
+    view.onGridSizeChange = { emitted.append($0) }
+
+    func turn(early: CGSize, destination: CGSize, settled: Terminal.Size) throws {
+        let source = view.bounds.size
+        let grid = try #require(view.gridSize)
+        let drawable = view.drawableSize
+        var intercepted = false
+        // The hosted peer verifies UIKit's keyboard notification and guide. Here
+        // the recorded early viewport is delivered deterministically by Auto Layout.
+        view.beforeViewportResize = { previous in
+            guard view.bounds.size == early && !intercepted else { return }
+            intercepted = true
+            #expect(previous == source)
+            #expect(view.gridSize == grid)
+            host.pane.beginRotation(sourceHeight: previous.height)
+        }
+        host.resize(to: early)
+        #expect(intercepted)
+        #expect(host.pane.viewportSize == early)
+        #expect(view.gridSize == grid && view.drawableSize == drawable)
+        #expect(emitted.isEmpty)
+        // This is the later start signal used by the rotation coordinator.
+        host.pane.beginRotation()
+        host.resize(to: destination)
+        #expect(host.pane.viewportSize == destination)
+        #expect(view.bounds.height == source.height)
+        #expect(view.gridSize == grid && view.drawableSize == drawable)
+        #expect(emitted.isEmpty)
+
+        host.pane.endRotation()
+        host.pane.layoutIfNeeded()
+        #expect(view.gridSize == settled)
+        #expect(emitted == [settled])
+        emitted.removeAll()
+        view.beforeViewportResize = nil
+    }
+
+    try turn(early: CGSize(width: 402, height: 588), destination: host.landscape,
+             settled: .init(columns: 90, rows: 9))
+    try turn(early: CGSize(width: 750, height: 358), destination: host.portrait,
+             settled: .init(columns: 47, rows: 25))
 }
 #endif

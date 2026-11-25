@@ -1,5 +1,5 @@
 #if os(iOS)
-import ThrushUI
+import Thrush
 import UIKit
 
 /// Captures the UIKit animation context synchronously with geometry changes in the demo.

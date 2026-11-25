@@ -109,6 +109,41 @@ import UIKit
 }
 
 @MainActor
+@Test func phoneAccessoryUsesOnlyTheKeyboardHostResizeAnimation() throws {
+    let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
+    let host = UIView(frame: window.bounds)
+    let accessory = TerminalKeyAccessory { _ in }
+    window.addSubview(host)
+    host.addSubview(accessory)
+    window.isHidden = false
+    defer { window.isHidden = true }
+
+    accessory.frame = .init(x: 0, y: 0, width: 750, height: 44)
+    accessory.layoutIfNeeded()
+    let stack = try #require(accessory.subviews.compactMap { $0 as? UIStackView }.first)
+    let buttons = stack.arrangedSubviews
+    #expect(buttons.count == 7)
+    CATransaction.flush()
+
+    // UIKit gives the accessory its destination bounds and animates the keyboard host.
+    // Auto Layout still runs with the host's inherited animation context.
+    UIView.animate(withDuration: 5, delay: 0, options: .curveLinear) {
+        host.transform = .init(scaleX: 0.6, y: 1)
+        UIView.performWithoutAnimation { accessory.bounds.size.width = 402 }
+        accessory.layoutIfNeeded()
+    }
+    CATransaction.flush()
+
+    #expect(!(host.layer.animationKeys() ?? []).isEmpty)
+    for view in [stack] + buttons {
+        let presented = try #require(view.layer.presentation())
+        #expect(abs(presented.bounds.width - view.bounds.width) <= 1)
+        #expect(abs(presented.position.x - view.layer.position.x) <= 1)
+    }
+    #expect(buttons.allSatisfy { $0.bounds.width >= 44 && $0.bounds.height >= 44 })
+}
+
+@MainActor
 @Test func hidingTheKeyRowRemovesItsAccessoryAndDisarmsControl() throws {
     let view = TerminalView(frame: .zero)
     let window = mountTestView(view)

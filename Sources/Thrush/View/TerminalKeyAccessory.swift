@@ -6,6 +6,7 @@ import UIKit
 final class TerminalKeyAccessory: UIInputView {
     private(set) var controlArmed = false
     private var theme: TerminalTheme = .slateDark
+    private let stack = UIStackView()
     private let control = UIButton(type: .system)
     private let separator = UIView()
     private let onKey: (Terminal.Input.Key) -> Void
@@ -14,7 +15,6 @@ final class TerminalKeyAccessory: UIInputView {
         self.onKey = onKey
         super.init(frame: CGRect(x: 0, y: 0, width: 393, height: 44), inputViewStyle: .keyboard)
         autoresizingMask = [.flexibleWidth]
-        let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.distribution = .fillEqually
         stack.semanticContentAttribute = .forceLeftToRight
@@ -68,6 +68,15 @@ final class TerminalKeyAccessory: UIInputView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    override func layoutSubviews() {
+        // UIKit animates the accessory's host to the new keyboard width. Keep the
+        // controls in destination coordinates throughout that transform.
+        UIView.performWithoutAnimation {
+            super.layoutSubviews()
+            stack.layoutIfNeeded()
+        }
+    }
 
     func clearModifier() {
         guard controlArmed else { return }

@@ -107,7 +107,7 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift"), *, mac=False
     return next((derived / "Build/Products").glob("*.xctestrun"))
 
 
-def export_attachments(result, out, work):
+def export_attachments(result, out, work, frame_times):
     # XCTest retains completed frames and motion intervals when a later gesture fails.
     exported = work / "attachments"
     run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
@@ -120,6 +120,8 @@ def export_attachments(result, out, work):
             name = match.group(1)
             is_frame = any(name == template.format(style) for template in PICS for style in APPEARANCES)
             is_clip = any(name == f"{clip}-{style}" for clip in CLIPS for style in APPEARANCES)
+            if is_frame:
+                frame_times[name] = attachment["timestamp"]
             if is_frame or is_clip:
                 src = exported / Path(attachment["exportedFileName"]).name
                 shutil.copyfile(src, out / (name + (".png" if is_frame else "-motion.json")))
@@ -143,6 +145,34 @@ def export_clip(name, video_start, out, work):
     shutil.move(clip, out / clip.name)
 
 
+def save_rotation_layouts(out, appearance, spans, frame_times):
+    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
+    portrait = frame_times[f"shell-{appearance}-portrait"]
+    landscape = frame_times[f"shell-{appearance}-landscape"]
+    if not portrait <= start < landscape < end:
+        raise ValueError(f"{appearance}: screenshot times do not bracket the two orientation changes.")
+
+    pid = None
+    for stage, when in (("portrait", portrait), ("landscape", landscape), ("portrait-return", end)):
+        # A span ends at the first poll with a different geometry, an unqualified drawing or a different PID.
+        span = next((span for span in reversed(spans) if span[0][0] <= when), None)
+        if span is None or when > spans[-1][-1][0]:
+            raise ValueError(f"{appearance} {stage}: no observed layout at the XCTest checkpoint.")
+        observed, state = next(sample for sample in reversed(span) if sample[0] <= when)
+        orientation = "portrait" if stage == "portrait-return" else stage
+        if (state is None or state["appearance"] != appearance or state["orientation"] != orientation
+                or span[-1][0] - span[0][0] < 0.7 or (pid is not None and state["pid"] != pid)):
+            measured = (state["pid"], state["appearance"], state["orientation"]) if state else None
+            raise ValueError(f"{appearance} {stage}: expected a stable completed layout at {when}; "
+                             f"observed {measured} for {span[-1][0] - span[0][0]:.3f}s, shell PID {pid}.")
+        pid = state["pid"]
+        name = f"shell-{appearance}-{stage}"
+        evidence = dict(state, checkpointTime=when, observedAt=observed)
+        (out / (name + "-layout.json")).write_text(json.dumps(evidence, indent=2) + "\n")
+        print(f"{name}: PID {pid}, {state['columns']} × {state['rows']} cells, "
+              f"{state['keyboardHeight']:g} pt keyboard", flush=True)
+
+
 def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=False, trace_layout=False):
     configuration = plistlib.loads(plan.read_bytes())
     environment = configuration[RUNNER]["EnvironmentVariables"]
@@ -151,27 +181,23 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
     environment["THRUSH_TRACE_ROTATION_LAYOUT"] = "1" if trace_layout else "0"
     plan.write_bytes(plistlib.dumps(configuration))
     result = work / "interactions.xcresult"
+    spans = []
     previous = None
-    saved = None
-    since = time.monotonic()
 
     def observe_layout():
-        nonlocal previous, saved, since
+        nonlocal previous
         state = phone.state()
         if (state.get("scene") != "shell" or not state.get("gpuCompleted") or not state.get("generation")
                 or state.get("keyboardHeight", 0) <= 90 or state.get("accessoryHeight", 0) < 44):
-            previous = None
-            return
-        geometry = tuple(state[k] for k in ("pid", "appearance", "orientation", "columns", "rows",
-                                             "windowPoints", "gridFrame", "keyboardHeight", "accessoryHeight"))
-        if geometry != previous:
-            previous, since = geometry, time.monotonic()
-        elif geometry != saved and time.monotonic() - since >= 0.7:
-            name = f"shell-{state['appearance']}-{state['orientation']}"
-            (out / (name + "-layout.json")).write_text(json.dumps(state, indent=2) + "\n")
-            print(f"{name}: {state['columns']} × {state['rows']} cells, "
-                  f"{state['keyboardHeight']:g} pt keyboard, {state['accessoryHeight']:g} pt accessory", flush=True)
-            saved = geometry
+            state = None
+        geometry = None
+        if state:
+            geometry = tuple(state[k] for k in ("pid", "appearance", "orientation", "columns", "rows",
+                                                "windowPoints", "gridFrame", "keyboardHeight", "accessoryHeight"))
+        if not spans or geometry != previous:
+            spans.append([])
+            previous = geometry
+        spans[-1].append((time.time(), state))
 
     # The runner timestamps just the gestures in the foreground app. Trim setup, launches
     # and XCTest's transitions out of the simulator's recording before handing it to design.
@@ -192,7 +218,10 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
         attempt("finalize gesture recording", recording.close)
 
     if result.exists():
-        attempt("gesture attachments", export_attachments, result, out, work)
+        frame_times = {}
+        attempt("gesture attachments", export_attachments, result, out, work, frame_times)
+        for appearance in APPEARANCES:
+            attempt(f"{appearance} rotation layouts", save_rotation_layouts, out, appearance, spans, frame_times)
     gestures = ("rotate",) if rotation_only else CLIPS
     names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in gestures]
     for name in names:
@@ -211,12 +240,11 @@ def collect_layout_traces(phone, out):
 
 def check_keyboard_release(out, appearance):
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
-    # The system may restore the previous appearance in another process after the gesture.
-    # Use the recorded gesture interval to identify the shell that actually turned.
-    events = sorted((json.loads(line) for trace in out.glob("rotation-layout-*.jsonl")
-                     for line in trace.read_text().splitlines()), key=lambda event: event["time"])
-    for orientation in ("landscape", "portrait"):
-        settled = json.loads((out / f"shell-{appearance}-{orientation}-layout.json").read_text())
+    landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
+    trace = out / f"rotation-layout-{landscape['pid']}.jsonl"
+    events = [json.loads(line) for line in trace.read_text().splitlines()]
+    for orientation, stage in (("landscape", "landscape"), ("portrait", "portrait-return")):
+        settled = json.loads((out / f"shell-{appearance}-{stage}-layout.json").read_text())
         expected = (settled["columns"], settled["rows"])
         # The proof's full-screen window starts at the screen origin. The docked keyboard
         # fills its width and ends at its bottom edge in each settled orientation.
@@ -253,8 +281,8 @@ def check_keyboard_release(out, appearance):
 def check_rotation_sizes(out, appearance):
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     expected = []
-    for orientation in ("landscape", "portrait"):
-        layout = json.loads((out / f"shell-{appearance}-{orientation}-layout.json").read_text())
+    for stage in ("landscape", "portrait-return"):
+        layout = json.loads((out / f"shell-{appearance}-{stage}-layout.json").read_text())
         expected.append((layout["columns"], layout["rows"]))
     actual = []
     for line in (out / "peer.log").read_text().splitlines():
