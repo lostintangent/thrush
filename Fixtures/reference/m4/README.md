@@ -59,7 +59,7 @@ NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference
 
 ## Running the native pane
 
-The packaged demo can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks the frame delivered by the Metal view.
+The packaged demo can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed successfully on the GPU. The report records whether the drawable supplied a presentation timestamp by the checkpoint.
 
 ```sh
 scripts/check-pane-workflows.sh mac /tmp/thrush-mac-workflows
@@ -82,7 +82,7 @@ Launch the packaged app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTR
 | `GET /checkpoint?clientId=ID&eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the xterm cells and lines for the actual pane geometry. |
 | `POST /ack?clientId=ID` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
 
-The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` performs the xterm and presentation checks. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
+The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` checks the xterm snapshot and the GPU-completed generation. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
 
 For a new live PTY recording, keep the actual input and output on the terminal server connection. Derive the xterm expectation from the bytes, resizes and replay that server delivered. The recorded fixture peer provides the same control interface with `bun scripts/demo-peer.ts --workflow shell --view --driver`. Its terminal and control listeners can select separate free ports with `THRUSH_PORT=0 THRUSH_DRIVER_PORT=0`.
 

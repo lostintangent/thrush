@@ -124,6 +124,8 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     package var onFrame: ((FrameMeasurement) -> Void)?
     /// Capture the native layout at submission and match the GPU result using submittedAt.
     package var onFrameSubmitted: ((Double, Terminal.Size?, CGRect) -> Void)?
+    /// Command-buffer completion can precede or outlive the drawable's presentation callback.
+    package var onFrameCompleted: (@MainActor (_ submittedAt: Double, _ succeeded: Bool) -> Void)?
     package private(set) var submissionCount = 0
     private var renderer: MetalRenderer?
     private var preparingDeviceID: UInt64?
@@ -531,6 +533,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             if first { hasSubmittedContent = true }
             let finalRevision = finalFrameWaiter == nil ? nil : finalFrameRevision
             let report = onFrame
+            let reportCompletion = onFrameCompleted
             let presentation: Presentation? = (report != nil || finalRevision != nil) ?
                 Presentation(cpu: submitted - started, shaderCompile: first ? firstCompilation : nil,
                              firstFrame: first ? submitted - firstContentStart : nil, submitted: submitted, received: received,
@@ -561,6 +564,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
                 let gpu = command.gpuEndTime - command.gpuStartTime
                 let completed = command.status == .completed
                 Task { @MainActor in
+                    reportCompletion?(submitted, completed)
                     if let presentation {
                         presentation.gpu = gpu > 0 ? gpu : nil
                         presentation.gpuCompleted = completed
