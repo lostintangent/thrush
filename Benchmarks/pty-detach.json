@@ -278,5 +278,120 @@
         [66,716910553.0409168,4,3,"applied",13,null,null,402,402,null,"0d1b5b4b0d7468727573682420"]
       ]
     }
+  ],
+  "hostedComparisons": [
+    {
+      "runID": 45576981020,
+      "attempt": 2,
+      "runURL": "https://github.com/lostintangent/thrush/actions/runs/45576981020/attempts/2",
+      "artifactID": 15006211286,
+      "artifactName": "thrush-live-simulator-dark-lifecycle-45576981020-2",
+      "archiveSHA256": "e68e53e2fb52bd36eaecb0a9bc3be3f0477c05f6b2ac54c99de33494edaed6a7",
+      "verifiedArtifactFiles": 14,
+      "sampleRevision": "8a8b9ea7b6a39d6267dbdcac20fecd3df9b030a6",
+      "executableSHA256": "23fbc7f0b002e5b06deb7e6c5515c5dfb2021066ec0076b6f4d02f30b8c54a56",
+      "hardware": "iPhone 17 Simulator",
+      "runtime": "iOS 27.2 (24B8117)",
+      "appearance": "Slate Dark",
+      "inputSHA256": {"source.json": "475a105d40304d5f322117c540a9dfe9f97efa20ea6a396af2dae0971f3016e4","device.json": "e6d66bbf7b263b9b610b35e02787a4c7dd82fffea89461672bc4a633f29d9785","server.json": "41fe10dbdb957d5b3449fc8ef7ac5f1998889de7bf1538f168e83dac22b46619","lifecycle/controller-at-failure.json": "fd485f624b8d277d115a84f0c65c935e7514fc36480cb69beebd413489cbc31e","lifecycle/native-wire.jsonl": "356dd523133b86c92aa2eb2a5f1d2c7a11463ee2b16eb4f2766d7cbfba1a805a","lifecycle/workflow-events.log": "0bba7330f66955325d109f4612ee24976831009089813f541c1e543c71d69f3e"},
+      "phase": "failed",
+      "eventIndex": 11,
+      "complete": false,
+      "acknowledgedCheckpoints": {
+        "fields": ["eventIndex","cumulativeReceivedAndAppliedBytes"],
+        "rows": [
+          [2,79],
+          [5,141],
+          [8,202],
+          [10,354]
+        ]
+      },
+      "totals": {"upstreamFrames": 14,"upstreamBytes": 380,"forwardedFrames": 13,"forwardedBytes": 367,"nativeObservedBytes": 354,"nativeReceivedBytes": 354,"nativeAppliedBytes": 354,"replayBytes": 214,"exits": 0,"explicitCloses": 0},
+      "byAttachment": [
+        [1,false,79,79,0,79,79,79,5,5,5,5],
+        [2,true,123,123,62,123,123,123,6,6,6,6],
+        [3,true,178,165,152,152,152,152,3,2,1,1]
+      ],
+      "byAttachmentFieldsReference": "rowFields.byAttachment",
+      "completeRelayObservationCount": 41,
+      "nativeRecordCount": 57,
+      "nativeFinalRow": {"sequence": 57,"event": "finished","text": "failure","receivedBytes": 354,"appliedBytes": 354},
+      "promptHex": "0d1b5b4b0d7468727573682420",
+      "promptFields": ["attachment","frame","upstreamByteStart","upstreamByteEnd","relayReceivedSequence","relaySendSequence","relaySendPhase","relaySendEventIndex","sendResult","nativeObservedSequence","nativeAcceptedSequence","nativeAppliedSequence"],
+      "prompts": [
+        [3,3,152,165,36,40,"detach",11,13,null,null,null],
+        [3,4,165,178,39,41,"detach",11,0,null,null,null]
+      ],
+      "nativeBoundaryEvents": [
+        {"sequence": 54,"attachment": 3,"event": "detach"},
+        {"sequence": 55,"attachment": 3,"event": "cancel","closeCode": 0},
+        {"sequence": 56,"attachment": 3,"event": "receive-error","stale": true,"closeCode": 1000}
+      ],
+      "scope": "Both redraws arrived from the PTY on the retiring socket. Bun accepted the first send during detach and returned zero for the second. URLSession recorded cancellation and a stale receive error. Neither redraw was observed by the failure footer. No fresh replacement socket opened."
+    },
+    {
+      "runID": 45577247099,
+      "attempt": 1,
+      "runURL": "https://github.com/lostintangent/thrush/actions/runs/45577247099/attempts/1",
+      "artifactID": 15004774151,
+      "artifactName": "thrush-live-simulator-dark-all-45577247099-1",
+      "archiveSHA256": "2a17d7c6fb3683154d71f9da3cb15c8a60315a4217a2992891f5278fa1649a06",
+      "verifiedArtifactFiles": 14,
+      "sampleRevision": "991b588d1f2457ab1f302ece43a64f3c0b779556",
+      "executableSHA256": "bccc7cb47e2ec3926e7b8ccd0a72e1e42c7b29e05d6fd52484da1578097ee536",
+      "hardware": "iPhone 17 Simulator",
+      "runtime": "iOS 27.2 (24B8117)",
+      "appearance": "Slate Dark",
+      "inputSHA256": {"source.json": "7afbe4a68be2fe1aeb3b0458ac4bd123df34a4039c3a0b1e6dd1024666c59ec7","device.json": "8f0088ab850a435755d7faa17134ad9f54473d6501d601eca1726da5b297e9aa","server.json": "91b2c1e5d3e8f968218a4cda8cae821336d48b89b7bac88670a9055fa393e649","lifecycle/controller-at-failure.json": "7d40aae319f40b7a2bc0c04c9a698ad72e424c7f57b9661a49ce6c061bcd668a","lifecycle/native-wire.jsonl": "22c2b0da9c274576ad7d925495443e4559021052600996a20f30ccade541dea8","lifecycle/workflow-events.log": "492bcc167bd458b7f51de8892514c6d23ae5be2e3c36378e16f8a524653b13af"},
+      "phase": "checkpoint",
+      "eventIndex": 19,
+      "complete": false,
+      "acknowledgedCheckpoints": {
+        "fields": ["eventIndex","cumulativeReceivedAndAppliedBytes"],
+        "rows": [
+          [2,106],
+          [5,195],
+          [8,257],
+          [10,451],
+          [16,565]
+        ]
+      },
+      "totals": {"upstreamFrames": 23,"upstreamBytes": 614,"forwardedFrames": 23,"forwardedBytes": 614,"nativeObservedBytes": 614,"nativeReceivedBytes": 614,"nativeAppliedBytes": 614,"replayBytes": 270,"exits": 1,"explicitCloses": 0},
+      "byAttachment": [
+        [1,false,106,106,0,106,106,106,5,5,5,5],
+        [2,true,151,151,89,151,151,151,5,5,5,5],
+        [3,true,194,194,181,194,194,194,2,2,2,2],
+        [4,false,163,163,0,163,163,163,11,11,11,11]
+      ],
+      "byAttachmentFieldsReference": "rowFields.byAttachment",
+      "completeRelayObservationCount": 68,
+      "nativeRecordCount": 96,
+      "nativeFinalRow": {"sequence": 96,"event": "cancel","closeCode": 0},
+      "promptHex": "0d1b5b4b0d7468727573682420",
+      "promptFields": ["attachment","frame","upstreamByteStart","upstreamByteEnd","relayReceivedSequence","relaySendSequence","relaySendPhase","relaySendEventIndex","sendResult","nativeObservedSequence","nativeAcceptedSequence","nativeAppliedSequence"],
+      "prompts": [
+        [3,3,181,194,35,36,"useHere",9,13,50,51,52],
+        [4,3,16,29,43,45,"input",14,13,64,65,66],
+        [4,4,29,42,44,46,"input",14,13,67,68,69]
+      ],
+      "nativeBoundaryEvents": [
+        {"sequence": 53,"attachment": 3,"event": "detach"},
+        {"sequence": 54,"attachment": 3,"event": "cancel","closeCode": 0},
+        {"sequence": 55,"attachment": 3,"event": "receive-error","stale": true,"closeCode": 1000},
+        {"sequence": 58,"attachment": 4,"event": "ready","frame": 1},
+        {"sequence": 95,"attachment": 4,"event": "exit","frame": 13},
+        {"sequence": 96,"attachment": 4,"event": "cancel","closeCode": 0}
+      ],
+      "scope": "All 23 binary messages and five controls match through the last retained native record. Checkpoint 19 has no capture acceptance or native acknowledgement. No finished footer, New Shell activation or completed lifecycle report was recorded.",
+      "oldPromptAppliedBeforeDetachMs": 19071.496875,
+      "exitSocketCloseCodes": {"client": 1000,"upstream": 1000},
+      "capture19": {"pngSHA256": "6c3cb94ad92256d55c75b53d0409191f08f25941dd83cbe48038c4d786626574","markerSHA256": "138c5629ea4f905e8322ac5baf7ea55562a2eaf0ff0c947ee4ddffb339179675","result": "The original and independently rerun image oracle detected Ended and the final shell output. It could not read the New Shell action."},
+      "otherCompletedWorkflows": {
+        "names": ["shell","vim","codex"],
+        "checkpoints": 27,
+        "receivedAndAppliedBytes": 23739,
+        "verifiedKeyboardCaptures": 11
+      }
+    }
   ]
 }
