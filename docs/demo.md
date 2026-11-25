@@ -35,6 +35,12 @@ open -n .build/demo/mac/Thrush.app --args --scene editor --appearance light
 xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --scene glyphs --appearance dark
 ```
 
+## Run a recorded interaction
+
+Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow vim` or `--workflow codex`. The peer waits for the recorded user input before sending the following PTY bytes. Vim also waits for the recorded resizes, detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it.
+
+Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native host at a different grid or palette, append `--view` to the peer command. That mode accepts the host’s actual cursor position and color query replies. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
+
 ## Embed the view
 
 Create one `TerminalView(frame:)` from ThrushUI for the lifetime of the viewport. On the main actor, `display(_:receivedAt:)` accepts a terminal value captured by its serial owner. The package-private connection uses the same API with an immutable screen snapshot. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.

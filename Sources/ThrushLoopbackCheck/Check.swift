@@ -12,6 +12,11 @@ struct LoopbackCheck {
     }
 
     static func main() async throws {
+        let args = CommandLine.arguments
+        if args.count == 4, args[1] == "--workflow", let endpoint = URL(string: args[3]) {
+            try await runWorkflow(named: args[2], at: endpoint)
+            return
+        }
         guard CommandLine.arguments.count == 2, let endpoint = URL(string: CommandLine.arguments[1]) else {
             throw CheckFailure("Usage: ThrushLoopbackCheck SERVER_BASE_URL")
         }

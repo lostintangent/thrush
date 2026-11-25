@@ -8,7 +8,7 @@ For each shell, Vim and parser recording, the runner first checks every recorded
 
 The feeder offers the recording in one burst and requests up to 16 pending events or 8 KiB at a time. It drains that batch in order before requesting more. An oversized output chunk can span batches. The shell log fills the slot budget, and the split control-string recording fills the byte budget. Drain time covers queue management, parsing, resize, encoding and reply checks. These headless measurements exclude transport and viewport presentation.
 
-The runner also plays two recordings of Vim painting the same Swift file under Slate Dark and Slate Light. Each includes a desktop, portrait and landscape repaint, with indented source and Vim’s reverse-video status line. They joined the workload after the four-recording measurement below.
+The runner also plays two recordings of Vim painting the same Swift file under Slate Dark and Slate Light. Each includes a desktop, portrait and landscape repaint, with indented source and Vim’s reverse-video status line. They joined the workload after the four-recording measurement below. The current runner also measures the shell, resumable Vim and Codex workflows, plus hardware keys under both cursor modes. Each workflow’s JSON row includes its exact byte and reply counts, receive rate and peak, timed semantic inputs and maximum queue occupancy. [Workflow recordings](../Fixtures/reference/m4/README.md)
 
 Each resize records the requested and effective grids, active buffer, visible buffer’s history count before resizing, and p50/p95. The round trips start with a full shell history and repeat with Vim active. Budgets compare p95 with 8.333 ms (120 Hz). The two phone-sized grids exercise layout on the reference Mac. Physical phone timings require the device run. The CI check independently reconciles fixture hashes, byte counts, peak windows, effective sizes and queue bounds with the raw recordings.
 
@@ -65,3 +65,13 @@ Run 1 had the median 80×24 bulk throughput and supplies the detailed timing and
 All five runs cleared the 100 MiB/s bulk target on all three grids and the 2× recorded-peak target on every fixture. Every resize p95 was within 8.333 ms. All four fixture queues drained to zero in every measured pass.
 
 The phone-sized grids were measured on the Mac. Physical iPhone timing remains outstanding.
+
+## Recorded interaction measurements
+
+One Release run on the same M1 Max measured 25 repetitions of each interaction at clean revision `95f7edfe0505`. The one-minute load was 645.60 on 10 cores. Each workload applied all its recorded bytes, checked the replies and semantic input, and drained its queue. The drain time covers a headless burst. The interactive peer separately preserves the PTY’s timed output between user actions.
+
+| Workflow | Output bytes per replay | Receive MiB/s | Peak queued bytes | Drain p95 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| shell-workflow | 426 | 72.38 | 283 | 0.012 |
+| vim-resume | 10,568 | 146.32 | 6,255 | 0.086 |
+| codex-session | 18,382 | 69.69 | 2,862 | 0.270 |

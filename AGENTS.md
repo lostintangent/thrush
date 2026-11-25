@@ -32,6 +32,7 @@ swift test
 scripts/check-core.sh
 scripts/check-consumer.sh
 scripts/check-loopback.sh
+scripts/check-workflows.sh
 swift run -c release ThrushBench
 python3 scripts/check-benchmark-report.py
 ```
