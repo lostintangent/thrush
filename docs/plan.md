@@ -6,6 +6,8 @@ Build a first-party terminal emulator that lets someone run a shell, edit in Vim
 
 **Channel identity.** The bird above is the approved Thrush logo. The channel avatar places the transparent square export on a white background, with the bird filling most of the square while its wing and tail clear the avatar's rounded corners. It preserves the amber brow, neck and chest and the open chevron in the slate wing. [Channel avatar PNG](Thrush-channel-white.png) · [Transparent square export](Thrush-channel.png)
 
+**Quality bar.** Thrush is a 10-star experience that spares no expense on being beautiful on macOS and iOS. Typography, color, motion, input and feel meet the standard of Apple's own best apps, and the Designer signs off every visible surface. The performance budgets below are part of that bar, so beauty never costs latency or idle frames.
+
 **Delivery order.** Build a standalone Swift package against a scripted server. Draw its first visible prompt with Metal. Prove the same demo against a disposable Toy Box PTY. Integrate the proven package into the two Toy Box apps last. The first release commits to the three workflows below. Add terminal features when a named workflow or its recorded replay requires them.
 
 ## Requirements and acceptance
