@@ -504,5 +504,55 @@
       "producerFinishedSeconds": 0.280344542000023
     }
   },
-  "presentation": "Every checkpoint verified a Metal-completed frame. 0 of 37 recorded a drawable presentation timestamp."
+  "presentation": "Every checkpoint verified a Metal-completed frame. 0 of 37 recorded a drawable presentation timestamp.",
+  "windowLifecycle": {
+    "run": "https://github.com/lostintangent/thrush/actions/runs/45673878161/attempts/1",
+    "source": {
+      "commit": "e91b7eeb71d27c70870c6df0cc9c005924053505",
+      "dirty": false
+    },
+    "server": "ThrushServer",
+    "artifactID": 15050967645,
+    "archiveSHA256": "a19bdb750f1e1f92e6f47345d4e53bd0939baf421c3c058c081c48539ea772a4",
+    "reportSHA256": "9a79581209af108177124aa4098dd03d2d36492a15562ff9a9b784f0fbd29a6b",
+    "serverSampleSHA256": "572600a21239e85984d1d5dd8cb4ad46224ff7e497227a33b355fa7fefb9bdc2",
+    "independentShellPID": 4229,
+    "intervals": [
+      {
+        "durationSeconds": 32.00001766666668,
+        "finalTick": 31,
+        "firstTick": 0,
+        "frontmostBundle": "app.thrush.lifecycle-cover",
+        "hiddenGeneration": 104,
+        "hiddenSubmissions": 0,
+        "phase": "covered",
+        "revealedGeneration": 104,
+        "shellPID": 4229
+      },
+      {
+        "durationSeconds": 32.0215642083333,
+        "finalTick": 62,
+        "firstTick": 31,
+        "frontmostBundle": "app.thrush.demo",
+        "hiddenGeneration": 200,
+        "hiddenSubmissions": 0,
+        "phase": "minimized",
+        "revealedGeneration": 200,
+        "shellPID": 4229
+      },
+      {
+        "durationSeconds": 32.00453429166663,
+        "finalTick": 93,
+        "firstTick": 63,
+        "frontmostBundle": "com.apple.finder",
+        "hiddenGeneration": 293,
+        "hiddenSubmissions": 0,
+        "phase": "hidden",
+        "revealedGeneration": 293,
+        "shellPID": 4229
+      }
+    ],
+    "readyEvents": 1,
+    "socketAttempts": 1
+  }
 }
