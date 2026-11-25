@@ -97,7 +97,7 @@ The warmer canvas, Menlo’s larger letterforms and extra leading leave more roo
 | Cyan | 36 / 96 | `#78C4CE` | `#9CE0E4` | `#88B9B0` | `#A6D4CB` |
 | White | 37 / 97 | `#C1CDD4` | `#F4F7F9` | `#CFC2AD` | `#F8EEDD` |
 
-Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text.
+Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With the approved foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
 
 ## Native surfaces and motion
 
