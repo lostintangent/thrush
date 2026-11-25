@@ -159,7 +159,7 @@ import Testing
     #expect(await actor.state == .idle)
 }
 
-@MainActor @Test func resumedReplayReportsTheCurrentFocusBeforeHeldKeys() async throws {
+@MainActor @Test func programsHearTheCurrentFocusEvenWhenItChangesDuringAReply() async throws {
     let peer = try ShellTestPeer()
     defer { peer.stop() }
     let deadline = ContinuousClock.now + .seconds(5)
@@ -171,33 +171,41 @@ import Testing
     }
     try await waitFor("The loopback peer must be listening.") { peer.port != nil }
     let port = try #require(peer.port)
-    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
-    let sockets = URLSession(configuration: .ephemeral)
-    defer { sockets.invalidateAndCancel() }
-    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
-    let actor = session.actor
+    let actor = Mutex<SessionActor?>(nil)
+    let focusDuringReply = Mutex<Bool?>(nil)
+    // Changes focus as the output's reply goes out, the moment a racing click or tap would land.
+    let session = try TerminalSession(baseURL: try #require(URL(string: "http://127.0.0.1:\(port)")),
+                                      clientID: "focus", onOutput: { _ in
+        guard let focused = focusDuringReply.withLock({ $0.take() }), let actor = actor.withLock({ $0 }) else { return }
+        actor.assumeIsolated { actor in Task { try? await actor.setFocused(focused) } }
+    })
+    actor.withLock { $0 = session.actor }
     let report = "\u{1b}[?1004h"
 
-    // A program that asks hears the current focus at once, then each change.
-    try #require(await actor.show())
-    #expect(try await actor.nextEvent() == .ready(resumed: false))
-    try peer.send(report, opcode: .binary)
-    #expect(try await actor.nextEvent() == .output)
-    try await actor.setFocused(true)
-    try await actor.setFocused(true)
-    try await actor.setFocused(false)
+    // A program that asks hears the current focus at once, then each change, even one made while
+    // the title it set is being published.
+    try #require(await session.actor.show())
+    #expect(try await session.actor.nextEvent() == .ready(resumed: false))
+    focusDuringReply.withLock { $0 = true }
+    try peer.send("\u{1b}]2;oshen\u{7}" + report, opcode: .binary)
+    #expect(try await session.actor.nextEvent() == .output)
+    try await session.actor.setFocused(true)
+    try await session.actor.setFocused(false)
     try await waitFor("The program must hear each focus change once.") { peer.receivedBinary.count == 3 }
+    #expect(peer.receivedBinary == ["\u{1b}[O", "\u{1b}[I", "\u{1b}[O"])
 
-    // Focus returns while the network is down, and a key waits for the resumed shell.
+    // Focus returns while the network is down, and a key waits for the resumed shell. Focus leaves
+    // again as the replay's reply goes out, before the held key reaches the shell.
     peer.drop()
-    #expect(try await actor.nextEvent() == .reconnecting)
-    try await actor.setFocused(true)
-    try await actor.send(.text("x"))
+    #expect(try await session.actor.nextEvent() == .reconnecting)
+    try await session.actor.setFocused(true)
+    try await session.actor.send(.text("x"))
     peer.resumeNextAttachment = true
-    #expect(try await actor.nextEvent() == .ready(resumed: true))
+    #expect(try await session.actor.nextEvent() == .ready(resumed: true))
+    focusDuringReply.withLock { $0 = false }
     try peer.send(report, opcode: .binary)
-    #expect(try await actor.nextEvent() == .replay)
-    try await waitFor("The resumed shell must hear focus, then the held key.") { peer.receivedBinary.count == 5 }
-    #expect(peer.receivedBinary == ["\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "\u{1b}[I", "x"])
+    #expect(try await session.actor.nextEvent() == .replay)
+    try await waitFor("The held key must reach the resumed shell.") { peer.receivedBinary.last == "x" }
+    #expect(peer.receivedBinary == ["\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "x"])
     withExtendedLifetime(session) {}
 }

@@ -198,18 +198,21 @@ final class WebSocketTransport {
                     session.resetTerminal(size: size)
                 }
                 let reply = session.apply(bytes)
+                // The reply reports the focus of this moment, so it's queued before anything can suspend
+                // and let a later focus report overtake it.
+                let replyFocus = session.terminal.isFocused
                 frameTrace?.record("applied", attachment: attachment, message: message, received: session.receivedBytes, applied: session.appliedBytes)
                 onOutput?(bytes)
-                await session.publishMetadata(title: session.terminal.title)
-                guard session.lifetime == stamp else { throw CancellationError() }
                 do {
                     if !reply.isEmpty && session.state != .closing { try await write(.data(Data(reply)), to: current, in: session) }
-                    if session.state == .awaitingReplay { try await activate(current, in: session) }
+                    if session.state == .awaitingReplay { try await activate(current, replyFocus: replyFocus, in: session) }
                     if replay == .live && session.state == .active { try await resizeIfNeeded(current, in: session) }
                 } catch {
                     // Output was already applied. Present it before reporting its reply's transport failure.
                     guard session.lifetime == stamp, pendingEvent != nil else { throw error }
                 }
+                guard session.lifetime == stamp else { throw CancellationError() }
+                await session.publishMetadata(title: session.terminal.title)
                 guard session.lifetime == stamp else { throw CancellationError() }
                 return replay == nil ? .output : .replay
 
@@ -275,7 +278,8 @@ final class WebSocketTransport {
             switch input {
             case .text(let text), .paste(let text): count = text.utf8.count
             default:
-                // Only typed input can follow a replay to a differently sized screen. The replay reports focus itself.
+                // Only typed input can follow a replay to a differently sized screen. Focus isn't held
+                // because the replay's reply and activation report the current focus.
                 guard case .key(let key, _) = input else { return }
                 if case .character(let character) = key { count = character.utf8.count }
                 else { count = 1 }
@@ -295,12 +299,20 @@ final class WebSocketTransport {
         if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current, in: session, onWriteStarted: notify) }
     }
 
-    private func activate(_ current: URLSessionWebSocketTask, in session: isolated SessionActor) async throws {
+    /// Writes held input once the shell is current. A replayed program that reports focus first hears
+    /// any change since its reply reported `replyFocus`, because focus changes aren't held.
+    private func activate(_ current: URLSessionWebSocketTask, replyFocus: Bool? = nil,
+                          in session: isolated SessionActor) async throws {
         // A second loss drops only an attempted write, whose delivery is ambiguous. Later keys
         // still belong to the unsent queue and will use the next resumed shell's input modes.
+        var heardFocus = replyFocus
         while socket === current && session.state != .closing {
+            let focus = session.terminal.isFocused
             if session.terminal.size != session.requestedSize {
                 try await resizeIfNeeded(current, in: session)
+            } else if session.terminal.modes.sendFocus, let heard = heardFocus, heard != focus {
+                heardFocus = focus
+                try await send(.focus(focus), on: current, in: session, notify: nil)
             } else if !heldInput.isEmpty {
                 let next = heldInput.removeFirst()
                 heldBytes -= next.byteCount
