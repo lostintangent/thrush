@@ -220,7 +220,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
         time.sleep(0.1)
 
 
-def run_workflow(name, output, platform, device, documents, app_bundle, modules):
+def run_workflow(name, output, platform, device, documents, app_bundle, modules, *, disposable=False):
     output.mkdir()
     driver = Path(tempfile.mkdtemp(prefix=f"thrush-{name}-", dir=documents)) if device else output
     try:
@@ -233,8 +233,13 @@ def run_workflow(name, output, platform, device, documents, app_bundle, modules)
             options = ["--endpoint", endpoint, "--workflow-driver", control,
                        "--workflow-output", str(driver), "--keyboard" if device else "--hide-keyboard"]
             if device:
-                ensure_demo_idle(device)
-                launch = ["xcrun", "simctl", "launch", "--console", device, BUNDLE_ID]
+                launch = ["xcrun", "simctl", "launch", "--console"]
+                if disposable:
+                    # Every launch on this phone belongs to this run, including the previous workflow.
+                    launch.append("--terminate-running-process")
+                else:
+                    ensure_demo_idle(device)
+                launch.extend([device, BUNDLE_ID])
             else:
                 # An obscured capture window still needs its foreground input and network turns.
                 launch = [app_bundle / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
@@ -254,8 +259,9 @@ def main():
     if any(output.iterdir()):
         raise ValueError(f"use an empty output directory to preserve existing evidence: {output}")
     reservation = contextlib.nullcontext(None)
+    disposable = args.platform == "simulator" and args.udid == "new"
     if args.platform == "simulator":
-        if args.udid == "new":
+        if disposable:
             capture = runpy.run_path("scripts/capture-simulator.py")
             reservation = capture["disposable_phone"](output)
         else:
@@ -270,7 +276,8 @@ def main():
         with reservation as device:
             documents = None
             if device:
-                ensure_demo_idle(device)
+                if not disposable:
+                    ensure_demo_idle(device)
                 try:
                     simctl("install", device, str(app), timeout=180)
                 except subprocess.TimeoutExpired:
@@ -284,7 +291,8 @@ def main():
             for name in args.workflows:
                 print(f"Checking {name} in {output / name}", flush=True)
                 try:
-                    run_workflow(name, output / name, args.platform, device, documents, app, modules)
+                    run_workflow(name, output / name, args.platform, device, documents, app, modules,
+                                 disposable=disposable)
                 except Exception as error:
                     (output / name / "runner-error.txt").write_text(str(error) + "\n")
                     raise

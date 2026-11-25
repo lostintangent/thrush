@@ -9,13 +9,13 @@ package enum WorkflowCheckpoint {
 
     /// Sample all three generations within one attachment. The live model keeps parsing during
     /// a synchronized repaint, while the previous coherent frame may still be in flight.
-    /// On Simulator the frame callback observes GPU completion in place of drawable presentation.
+    /// The rendered generation comes from the successful completion of that frame's Metal command buffer.
     package static func verify(
         _ event: ReplayFixture.Event,
         snapshot: Terminal.Snapshot,
         nativePalette: Terminal.Palette,
         accepted: Terminal.Snapshot?,
-        presentedGeneration: UInt64?,
+        renderedGeneration: UInt64?,
         copiedText: String? = nil
     ) throws {
         func failure(_ message: String) -> Failure { Failure(description: "\(event.name): \(message)") }
@@ -25,15 +25,15 @@ package enum WorkflowCheckpoint {
         guard snapshot.palette == nativePalette else { throw failure("terminal palette differs from the native view") }
 
         guard let accepted else { throw failure("the native pane has not accepted a snapshot") }
-        guard let presentedGeneration else { throw failure("the native pane has not rendered a frame") }
+        guard let renderedGeneration else { throw failure("the native pane has not rendered a frame") }
         if snapshot.synchronizedOutputID != nil {
             guard accepted.synchronizedOutputID == nil, accepted.generation < snapshot.generation,
-                  presentedGeneration <= accepted.generation else {
-                throw failure("synchronized repaint at \(snapshot.generation) must retain a coherent frame, accepted \(accepted.generation), presented \(presentedGeneration)")
+                  renderedGeneration <= accepted.generation else {
+                throw failure("synchronized repaint at \(snapshot.generation) must retain a coherent frame, accepted \(accepted.generation), GPU-completed \(renderedGeneration)")
             }
         } else {
-            guard accepted.generation == snapshot.generation, presentedGeneration == snapshot.generation else {
-                throw failure("expected frame \(snapshot.generation), accepted \(accepted.generation), presented \(presentedGeneration)")
+            guard accepted.generation == snapshot.generation, renderedGeneration == snapshot.generation else {
+                throw failure("expected frame \(snapshot.generation), accepted \(accepted.generation), GPU-completed \(renderedGeneration)")
             }
             guard accepted.palette == nativePalette else { throw failure("the accepted frame uses a stale palette") }
             try event.verify(accepted)

@@ -41,15 +41,22 @@ final class PaneWorkflowDriver {
         let checkpoints: [Entry]
     }
 
+    private struct SubmittedFrame {
+        let submittedAt: Double
+        let generation: UInt64
+        let layout: WorkflowCapture.Layout
+    }
+
     private let control: URL, output: URL
     private let view: TerminalView
     private let connection: TerminalConnection
     private let setActive: (Bool) -> Void
     private let activateAction: (String) -> Bool
     private let http = URLSession(configuration: .ephemeral)
-    private var lastFrame: FrameMeasurement?
-    private var submittedLayouts: [Double: WorkflowCapture.Layout] = [:]
-    private var lastLayout: WorkflowCapture.Layout?
+    private var lastFrame: SubmittedFrame?
+    private var inFlight: [Double: SubmittedFrame] = [:]
+    private var submittedGeneration: UInt64?
+    private var lastTimedSubmission = -Double.infinity
     private var firstSubmission = -Double.infinity
     private var entries: [Entry] = []
     private var lastCheckpoint: ReplayFixture.Event?
@@ -125,21 +132,27 @@ final class PaneWorkflowDriver {
         let originalSubmitHook = view.onFrameSubmitted
         view.onFrameSubmitted = { [weak self] time, size, grid in
             originalSubmitHook?(time, size, grid)
-            guard let self, size != nil else { return }
-            submittedLayouts[time] = WorkflowCapture.Layout(view: view, drawableGrid: grid)
+            guard let self, size != nil, let snapshot = view.snapshot,
+                  let layout = WorkflowCapture.Layout(view: view, drawableGrid: grid) else { return }
+            submittedGeneration = snapshot.generation
+            inFlight[time] = SubmittedFrame(submittedAt: time, generation: snapshot.generation, layout: layout)
+        }
+        let originalCompletionHook = view.onFrameCompleted
+        view.onFrameCompleted = { [weak self] time, succeeded in
+            originalCompletionHook?(time, succeeded)
+            guard let self, let frame = inFlight.removeValue(forKey: time), succeeded,
+                  time >= firstSubmission, time >= (lastFrame?.submittedAt ?? -Double.infinity) else { return }
+            lastFrame = frame
         }
         let originalFrameHook = view.onFrame
         view.onFrame = { [weak self] frame in
             originalFrameHook?(frame)
-            guard let self else { return }
-            let layout = submittedLayouts.removeValue(forKey: frame.submittedAt)
-            guard frame.gpuCompleted, frame.submittedAt >= firstSubmission,
-                  frame.submittedAt >= (lastFrame?.submittedAt ?? -Double.infinity) else { return }
-            lastLayout = layout
-            lastFrame = frame
+            guard let self, frame.presentedTime != nil else { return }
+            lastTimedSubmission = max(lastTimedSubmission, frame.submittedAt)
         }
         defer {
             view.onFrame = originalFrameHook
+            view.onFrameCompleted = originalCompletionHook
             view.onFrameSubmitted = originalSubmitHook
             http.invalidateAndCancel()
         }
@@ -249,6 +262,7 @@ final class PaneWorkflowDriver {
 
     private func inspect(_ expected: ReplayFixture.Event, state: State) async throws -> Entry {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        var redrawAfter = ContinuousClock.now.advanced(by: .seconds(1))
         var detail = "Waiting for the recorded output"
         var copied: String?
         var copiedAt: Double?
@@ -258,6 +272,12 @@ final class PaneWorkflowDriver {
             if applied == state.outputBytes, received == state.outputBytes {
                 let snapshot = await connection.snapshot()
                 let accepted = view.snapshot
+                // MTKView's initial on-demand draw can run before a drawable becomes available.
+                // Ask the native view to retry that dirty frame while the fixture holds its output.
+                if let accepted, submittedGeneration != accepted.generation, ContinuousClock.now >= redrawAfter {
+                    redrawAfter = .now.advanced(by: .seconds(2))
+                    view.draw()
+                }
                 do {
                     if let copy = expected.copy, copied == nil, accepted?.generation == snapshot.generation,
                        lastFrame?.generation == snapshot.generation {
@@ -276,13 +296,13 @@ final class PaneWorkflowDriver {
                         try previous.verify(accepted)
                     } else {
                         try WorkflowCheckpoint.verify(expected, snapshot: snapshot, nativePalette: view.resolvedTheme.palette,
-                                                      accepted: accepted, presentedGeneration: frame.generation, copiedText: copied)
+                                                      accepted: accepted, renderedGeneration: frame.generation, copiedText: copied)
                     }
                     return Entry(name: expected.name, eventIndex: state.eventIndex, columns: snapshot.size.columns,
                                  rows: snapshot.size.rows, receivedBytes: received, appliedBytes: applied,
                                  attachments: state.attachments, generation: snapshot.generation,
                                  acceptedGeneration: accepted.generation, renderedGeneration: frame.generation,
-                                 synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: frame.presentedTime != nil,
+                                 synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: lastTimedSubmission == frame.submittedAt,
                                  copiedText: copied)
                 } catch { detail = String(describing: error) }
             } else {
@@ -290,7 +310,9 @@ final class PaneWorkflowDriver {
             }
             try await Task.sleep(for: .milliseconds(8))
         }
-        throw Failure("\(expected.name): \(detail)")
+        let submitted = submittedGeneration.map(String.init) ?? "none"
+        let completed = lastFrame.map { String($0.generation) } ?? "none"
+        throw Failure("\(expected.name): \(detail) (submitted \(submitted), GPU-completed \(completed))")
     }
 
     private func shouldCapture(_ name: String) -> Bool {
@@ -304,11 +326,12 @@ final class PaneWorkflowDriver {
 
     private func capture(_ entry: Entry) async throws {
         let base = String(format: "capture-%03d", entry.eventIndex)
-        guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration, let lastLayout else {
+        guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration,
+              let frame = lastFrame, frame.generation == entry.renderedGeneration else {
             throw Failure("Missing the submitted grid for " + entry.name)
         }
         let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
-                                     snapshot: accepted, layout: lastLayout, copied: entry.copiedText)
+                                     snapshot: accepted, layout: frame.layout, copied: entry.copiedText)
         try save(marker, as: base + ".json")
         let ack = output.appending(path: base + ".done")
         let deadline = ContinuousClock.now.advanced(by: .seconds(180))
