@@ -176,6 +176,36 @@ import UIKit
     #expect(abs(cursor.maxY - heldCursor.maxY) < cursor.height)
 }
 
+/// The turn grows the viewport toward a stale guide, then the destination guide shortens it
+/// without an animation. The viewport must keep presenting the held prompt.
+@MainActor @Test func viewportKeepsPresentingWhenTheGuideSettlesMidTurn() async throws {
+    let host = RotationPane()
+    host.window.isHidden = false
+    host.resize(to: host.landscape)
+    let viewport = try #require(host.terminal.superview)
+    func presentedHeight() -> CGFloat { viewport.layer.presentation()?.bounds.height ?? viewport.bounds.height }
+
+    let start = viewport.bounds.height
+    host.pane.beginRotation()
+    UIView.animate(withDuration: 1) { host.resize(to: CGSize(width: 402, height: 768)) }
+    try await Task.sleep(for: .milliseconds(200))
+    let before = presentedHeight()
+    #expect(before > start + 1)
+    host.resize(to: host.portrait)
+
+    var lowest = presentedHeight()
+    var topDrift: CGFloat = 0
+    let deadline = ContinuousClock.now + .seconds(3)
+    while viewport.layer.animationKeys() != nil && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(8))
+        lowest = min(lowest, presentedHeight())
+        topDrift = max(topDrift, abs((viewport.layer.presentation()?.frame.minY ?? 0) - viewport.frame.minY))
+    }
+    #expect(lowest >= before - 1, "presented \(lowest) after \(before)")
+    #expect(topDrift <= 1)
+    host.pane.endRotation()
+}
+
 @MainActor @Test func heldPaneReleasesWhenTheConnectionSendsNoResizedFrame() async throws {
     let host = RotationPane()
     let controller = PhonePaneController(host.pane)

@@ -499,10 +499,43 @@ private typealias NoticeHost = UIView & UIContentView
     }
 
     override func layoutSubviews() {
+        let turning = turnMovesViewport ? (frame: viewport.frame, presented: viewport.layer.presentation()) : nil
         super.layoutSubviews()
+        if let turning, let presented = turning.presented, viewport.frame != turning.frame,
+           UIView.inheritedAnimationDuration == 0 {
+            easeViewportIntoTurn(from: turning.frame, presented: presented)
+        }
         alignHeldCursor()
         keepReadingPositionVisible()
         updateSchemes()
+    }
+
+    private var turnMovesViewport: Bool {
+        !rotationConstraints.isEmpty || viewport.layer.animation(forKey: "turn bounds.size.height") != nil
+    }
+
+    // UIKit turns the pane with additive animations, so a keyboard guide that moves the viewport
+    // mid-turn without one shifts it by the whole change at once. A shorter viewport can then
+    // present shorter than any frame it had and clip the terminal away. Instead, the change eases
+    // in on the turn's own curve: an offset that starts at the full change and shrinks with the
+    // part of the turn still ahead, so the viewport reaches its new frame as the turn ends.
+    private func easeViewportIntoTurn(from previous: CGRect, presented: CALayer) {
+        let layer = viewport.layer
+        guard let turn = (layer.animationKeys() ?? []).compactMap({ layer.animation(forKey: $0) as? CABasicAnimation })
+                .last(where: { $0.keyPath == "bounds.size" && $0.isAdditive }),
+              let turned = (turn.fromValue as? NSValue)?.cgSizeValue, turned.width != 0 else { return }
+        let ahead = (presented.bounds.width - layer.bounds.width) / turned.width
+        guard ahead > 0.05 else { return }
+        for (key, shift) in [("bounds.size.height", previous.height - layer.bounds.height),
+                             ("position.y", previous.midY - layer.position.y)] {
+            let easing = layer.animation(forKey: "turn " + key) as? CABasicAnimation
+            let ease = turn.copy() as! CABasicAnimation
+            ease.delegate = nil
+            ease.keyPath = key
+            ease.fromValue = (easing?.fromValue as? CGFloat ?? 0) + shift / ahead
+            ease.toValue = 0
+            layer.add(ease, forKey: "turn " + key)
+        }
     }
 
     // Follows the emulator's resize: a shorter grid scrolls the cursor into view, and a taller
