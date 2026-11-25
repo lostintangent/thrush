@@ -1,77 +1,71 @@
 # Headless replay measurements
 
-`swift run -c release ThrushBench` writes the first-bytes report and a second table and JSON report for headless emulation. The default paths are `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. With `--output trial.json` the headless report is `trial-headless.json` in the same directory. Both reports sample their own host load, thermal state, hardware and revision.
-
-The bulk workload feeds 1,048,640 bytes of printable ASCII and CRLFs through 4 KiB array chunks. It uses one warmup and five measured passes per grid. Each pass checks the last two rows, their wrap boundary, the 1,000-row history and the final cursor report. The reference generator independently verifies the expected state of the 80 × 24, 40 × 32 and 80 × 14 grids with the pinned reference emulator.
-
-For each shell, Vim and parser recording, the runner first checks every recorded checkpoint against the reference, including cells, attributes, wraps, cursor, history and modes. It then times 25 replays through that same feeder. Each measured pass checks replies and semantic input bytes. Receive throughput uses only the time spent in synchronous receive calls, including replies to Vim’s foreground and background queries. The ratio in the JSON compares that rate with the largest amount of recorded output in any one-second window. Input, host palette changes and resize have separate timings.
-
-The feeder offers the recording in one burst and requests up to 16 pending events or 8 KiB at a time. It drains that batch in order before requesting more. An oversized output chunk can span batches. The shell log fills the slot budget, and the split control-string recording fills the byte budget. Drain time covers queue management, parsing, resize, encoding and reply checks. These headless measurements exclude transport and viewport presentation.
-
-The runner also plays two recordings of Vim painting the same Swift file under Slate Dark and Slate Light. Each includes a desktop, portrait and landscape repaint, with indented source and Vim’s reverse-video status line. They joined the workload after the four-recording measurement below. The current runner also measures the shell, resumable Vim and Codex workflows, plus hardware keys under both cursor modes. Each workflow’s JSON row includes its exact byte and reply counts, receive rate and peak, timed semantic inputs and maximum queue occupancy. [Workflow recordings](../Fixtures/reference/m4/README.md)
-
-Each resize records the requested and effective grids, active buffer, visible buffer’s history count before resizing, and p50/p95. The round trips start with a full shell history and repeat with Vim active. Budgets compare p95 with 8.333 ms (120 Hz). The two phone-sized grids exercise layout on the reference Mac. Physical phone timings require the device run. The CI check independently reconciles fixture hashes, byte counts, peak windows, effective sizes and queue bounds with the raw recordings.
-
-## Milestone 1 profile
-
-The original 80 × 24 parser was profiled at commit `3b2b6ff` on the M1 Max with Swift 6.4.2, separate optimized core and caller modules, one warmup and five passes of the bulk workload above. The concrete overloads use the same receive method body as the generic API. The printable-run prototype handles contiguous ASCII in the parser and decoder’s ground states and updates each row in a single mutable access. Rows and the final cursor reply matched in every variant.
-
-| Receive path in the profile | Median MiB/s |
-| --- | ---: |
-| Generic sequence with array | 12.11 |
-| Generic sequence with array slice | 17.95 |
-| Generic sequence with unsafe buffer | 55.66 |
-| Concrete array | 71.50 |
-| Concrete array slice | 74.69 |
-| Concrete unsafe buffer | 79.00 |
-| Contiguous printable runs | 260.94 |
-
-These same-session comparisons motivated the contiguous receive path and a 100 MiB/s bulk target. The reference machine was contended. Quiet repeated runs are needed to establish a timing baseline.
+Thrush sustained **445.26 MiB/s** at 80 × 24 and resized a grid with 1,000 history rows in **0.796 ms at p95** in the slowest full-history case. The benchmark exercises the emulator directly, from incoming bytes to updated cells and generated replies. [Complete measurements](headless.json)
 
 ## Recorded Mac measurements
 
-Five Release runs measured clean revision `04c69f871d6b` on Apple M1 Max (MacBookPro18,4, 10 active cores), macOS 27.2.1 (Build 26B131), Swift 6.4.2, AC Power. Thermal state was nominal. All five runs exceeded the one-minute load threshold. Timing remains provisional until quiet-machine measurements are available.
+Five consecutive Release runs used clean revision `75860e3` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed nominal. All five runs reported host contention, with one-minute load averages from 204.53 to 213.23. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
 
-| Run | Load (1 / 5 / 15 min) | 80×24 ASCII MiB/s | 40×32 ASCII MiB/s | 80×14 ASCII MiB/s | Compiler MiB/s | Worst full-history p95 (ms) |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 (selected) | 311.75 / 337.01 / 328.23 | 193.02 | 151.36 | 204.63 | 76.00 | 0.582 |
-| 2 | 310.33 / 336.30 / 328.03 | 185.45 | 146.57 | 197.43 | 69.86 | 0.684 |
-| 3 | 309.05 / 335.17 / 327.72 | 204.51 | 151.69 | 200.20 | 71.31 | 0.758 |
-| 4 | 313.85 / 335.73 / 327.96 | 182.40 | 139.40 | 202.61 | 75.18 | 0.628 |
-| 5 | 316.19 / 335.85 / 328.05 | 195.44 | 151.50 | 190.97 | 74.10 | 0.625 |
-| Range ÷ median | | 11.5% | 8.1% | 6.8% | 8.3% | 28.0% |
+Run 2 had the median 80 × 24 ASCII throughput. The two published JSON reports and the workload tables use that complete run. Across the five runs, throughput ranged from 423.38 to 463.69 MiB/s, a spread of 40.31 MiB/s (9.05% of the median).
 
-Run 1 had the median 80×24 bulk throughput and supplies the detailed timing and queue tables. The last column takes the largest resize p95 among operations that started with 1,000 normal-history rows, including resizes while Vim was active. The range row describes the observed five-run spread. [Complete measured JSON](headless.json)
+| Run | 80 × 24 ASCII (MiB/s) | One-minute load |
+| --- | ---: | ---: |
+| 1 | 463.69 | 213.23 |
+| 2 | 445.26 | 208.41 |
+| 3 | 445.85 | 208.41 |
+| 4 | 423.38 | 204.53 |
+| 5 | 436.90 | 204.53 |
 
-| Recording | Receive MiB/s | Recorded peak B/s | Rate / peak | Max queued bytes | Max queued slots | Drain p95 (ms) |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| shell-log | 76.00 | 58,076 | 1,372.2× | 8,192 | 16 | 3.091 |
-| vim-edit | 158.21 | 5,611 | 29,566.4× | 4,465 | 16 | 0.069 |
-| shell-edges | 120.24 | 17,110 | 7,368.9× | 8,192 | 16 | 0.170 |
-| prompt-bom | 43.79 | 15 | 3,061,474.4× | 15 | 1 | 0.001 |
+The sustained-output test feeds 1,048,640 bytes of printable ASCII and line endings in 4 KiB chunks. After one warmup, the runner measures five passes per grid. Each pass verifies the final rows, wrapping, cursor report and 1,000-row history. All three grids cleared the 100 MiB/s target.
 
-| Recording | Active screen | Resize | Active history before | Normal history before | p50 (ms) | p95 (ms) |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| shell-log | Normal | 80×24 → 40×32 | 1,000 | 1,000 | 0.577 | 0.582 |
-| shell-log | Normal | 40×32 → 80×14 | 1,000 | 1,000 | 0.256 | 0.262 |
-| shell-log | Normal | 80×14 → 80×24 | 1,000 | 1,000 | 0.029 | 0.030 |
-| shell-log | Alternate | 80×24 → 40×32 | 0 | 1,000 | 0.577 | 0.581 |
-| shell-log | Alternate | 40×32 → 80×14 | 0 | 1,000 | 0.256 | 0.258 |
-| shell-log | Alternate | 80×14 → 80×24 | 0 | 497 | 0.015 | 0.016 |
-| vim-edit | Alternate | 80×24 → 40×32 | 0 | 0 | 0.005 | 0.006 |
-| vim-edit | Alternate | 40×32 → 80×14 | 0 | 0 | 0.004 | 0.004 |
-| vim-edit | Alternate | 80×14 → 80×24 | 0 | 0 | 0.001 | 0.001 |
+| Grid | Receive (MiB/s) | Chunk p50 (µs) | Chunk p95 (µs) |
+| --- | ---: | ---: | ---: |
+| 80 × 24 | 445.26 | 8.541 | 10.709 |
+| 40 × 32 | 388.25 | 9.917 | 10.417 |
+| 80 × 14 | 446.51 | 8.541 | 10.667 |
 
-All five runs cleared the 100 MiB/s bulk target on all three grids and the 2× recorded-peak target on every fixture. Every resize p95 was within 8.333 ms. All four fixture queues drained to zero in every measured pass.
+Resizing the normal screen can reflow its scrollback even while Vim’s alternate screen is visible. The table includes every resize that began with **1,000 rows in the normal screen’s history**. Across all 29 recorded resize operations, every p95 fell within the 8.333 ms budget for one 120 Hz frame. The timer measures the synchronous resize call. [Resize measurements](headless.json)
 
-The phone-sized grids were measured on the Mac. Physical iPhone timing remains outstanding.
+| Active screen | Grid change | Resize p95 (ms) |
+| --- | --- | ---: |
+| Normal | 80 × 24 → 40 × 32 | 0.796 |
+| Normal | 40 × 32 → 80 × 14 | 0.285 |
+| Normal | 80 × 14 → 80 × 24 | 0.033 |
+| Alternate | 80 × 24 → 40 × 32 | 0.787 |
+| Alternate | 40 × 32 → 80 × 14 | 0.293 |
 
 ## Recorded interaction measurements
 
-One Release run on the same M1 Max measured 25 repetitions of each interaction at clean revision `95f7edfe0505`. The one-minute load was 645.60 on 10 cores. Each workload applied all its recorded bytes, checked the replies and semantic input, and drained its queue. The drain time covers a headless burst. The interactive peer separately preserves the PTY’s timed output between user actions.
+Each recording first passes an independent reference check for cells, attributes, wraps, cursor, history and modes. The runner then times 25 replays through the same queue, checking reply bytes and encoded input. All **134 reference checkpoints** passed. Every recording sustained more than twice its largest recorded one-second output volume. [Recording fixtures](../Fixtures/replays)
 
-| Workflow | Output bytes per replay | Receive MiB/s | Peak queued bytes | Drain p95 (ms) |
+| Recording | Output bytes per replay | Checkpoints | Receive (MiB/s) | Burst drain p95 (µs) |
 | --- | ---: | ---: | ---: | ---: |
-| shell-workflow | 426 | 72.38 | 283 | 0.012 |
-| vim-resume | 10,568 | 146.32 | 6,255 | 0.086 |
-| codex-session | 18,382 | 69.69 | 2,862 | 0.270 |
+| Shell workflow (`shell-workflow`) | 426 | 7 | 135.35 | 9.125 |
+| Vim detach and resume (`vim-resume`) | 10,578 | 10 | 330.46 | 46.709 |
+| Codex session (`codex-session`) | 18,382 | 11 | 218.87 | 99.375 |
+| Compiler output (`shell-log`) | 104,167 | 14 | 142.70 | 2,799.042 |
+| Vim editing (`vim-edit`) | 8,720 | 8 | 330.57 | 40.917 |
+| Shell and control-sequence cases (`shell-edges`) | 17,563 | 63 | 626.62 | 74.042 |
+| Prompt with a byte order mark (`prompt-bom`) | 15 | 1 | 66.03 | 0.459 |
+| Swift source in Vim (`vim-swift-dark`) | 8,190 | 7 | 254.13 | 44.792 |
+| Swift source in Vim (`vim-swift-light`) | 7,788 | 7 | 253.23 | 43.084 |
+| Hardware keys (`hardware-keys`) | 10 | 2 | 96.88 | 17.166 |
+| Pointer input (`pointer-input`) | 42 | 4 | 133.37 | 3.750 |
+
+Receive throughput divides incoming bytes by time spent in `Terminal.receive`. For the hardware-key and pointer fixtures, those bytes set terminal modes. The report times key and pointer encoding separately. Burst drain timing includes queue handling, parsing, input encoding, resizes and reply checks. The queue holds at most 16 events and 8 KiB of output at once. It drains in order and finishes empty on every replay. The JSON includes each recording’s peak byte rate, queue occupancy and operation timings. [Recording details](headless.json)
+
+## Run the benchmark
+
+From the package root, run `swift run -c release ThrushBench`, then `python3 scripts/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json` and `.build/benchmarks/first-bytes.json`. With `--output trial.json`, the two files are `trial-headless.json` and `trial.json`. [First-bytes measurements](first-bytes.md)
+
+To repeat the five-run selection, build the Release executable once and keep each pair of reports in its own directory.
+
+```sh
+swift build -c release --product ThrushBench
+bin_dir=$(swift build -c release --show-bin-path)
+for run in 1 2 3 4 5; do
+  "$bin_dir/ThrushBench" --output ".build/benchmarks/run-$run/first-bytes.json"
+done
+```
+
+Sort the five 80 × 24 ASCII receive rates and use both reports from the middle run. Verify its headless report with `python3 scripts/check-benchmark-report.py .build/benchmarks/run-N/headless.json`, substituting the selected run number for `N`.

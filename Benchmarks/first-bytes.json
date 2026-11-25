@@ -2,32 +2,32 @@
   "buildConfiguration" : "release",
   "columns" : 80,
   "environment" : {
-    "commit" : "0cd03d0fd191ae3469f473fb312fc7b932b55087",
-    "contended" : false,
-    "coreCount" : 3,
+    "commit" : "75860e3c02a62c2e8f44fb0d65171c1f4f7b6cf3",
+    "contended" : true,
+    "coreCount" : 10,
     "displayInterval" : "headless",
-    "hardwareModel" : "VirtualMac2,1",
+    "hardwareModel" : "MacBookPro18,4",
     "loadAverage" : {
-      "fifteenMinutes" : 17.1953125,
-      "fiveMinutes" : 19.46923828125,
-      "oneMinute" : 2.6240234375
+      "fifteenMinutes" : 343.630859375,
+      "fiveMinutes" : 326.2412109375,
+      "oneMinute" : 208.40673828125
     },
     "lowPowerMode" : false,
-    "operatingSystem" : "Version 27.0.1 (Build 26A434)",
+    "operatingSystem" : "Version 27.2.1 (Build 26B131)",
     "powerSource" : "AC Power",
-    "processor" : "Apple M1 (Virtual)",
-    "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.0.0",
+    "processor" : "Apple M1 Max",
+    "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
     "thermalState" : "nominal",
     "worktreeDirty" : false
   },
   "fixture" : "first-bytes.json",
-  "fixtureSHA256" : "fccd53897e403f6c3a7a7f9960afd0d96861473f8c1914b3537902719c96dc72",
-  "recordedAt" : "2026-11-25T08:18:17Z",
+  "fixtureSHA256" : "fcfa73400ae75e4e4f5115959b8d65b7f833347ebf7c890b70fc73f9d3d47dd3",
+  "recordedAt" : "2026-11-25T17:58:38Z",
   "replay" : {
     "appliedBytes" : 150000,
     "burstDrain" : {
-      "p50Nanoseconds" : 6084,
-      "p95Nanoseconds" : 14791
+      "p50Nanoseconds" : 1584,
+      "p95Nanoseconds" : 1708
     },
     "fixturePeakBytesInOneSecond" : 75,
     "keyBytes" : 18000,
@@ -38,164 +38,164 @@
         "bytesPerCall" : 8,
         "name" : "Shell prompt",
         "timing" : {
-          "p50Nanoseconds" : 667,
-          "p95Nanoseconds" : 1666
+          "p50Nanoseconds" : 125,
+          "p95Nanoseconds" : 167
         }
       },
       {
         "bytesPerCall" : 3,
         "name" : "Up after Shell prompt",
         "timing" : {
-          "p50Nanoseconds" : 41,
-          "p95Nanoseconds" : 42
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 4,
         "name" : "Begin cursor mode",
         "timing" : {
-          "p50Nanoseconds" : 334,
-          "p95Nanoseconds" : 791
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 1,
         "name" : "Enable cursor mode",
         "timing" : {
-          "p50Nanoseconds" : 167,
-          "p95Nanoseconds" : 333
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 3,
         "name" : "Up after Enable cursor mode",
         "timing" : {
-          "p50Nanoseconds" : 41,
-          "p95Nanoseconds" : 42
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 3,
         "name" : "Begin cursor query",
         "timing" : {
-          "p50Nanoseconds" : 291,
-          "p95Nanoseconds" : 625
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 1,
         "name" : "Answer cursor query",
         "timing" : {
-          "p50Nanoseconds" : 250,
-          "p95Nanoseconds" : 542
+          "p50Nanoseconds" : 167,
+          "p95Nanoseconds" : 167
         }
       },
       {
         "bytesPerCall" : 5,
         "name" : "Disable cursor mode",
         "timing" : {
-          "p50Nanoseconds" : 375,
-          "p95Nanoseconds" : 875
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 3,
         "name" : "Up after Disable cursor mode",
         "timing" : {
-          "p50Nanoseconds" : 41,
-          "p95Nanoseconds" : 42
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 10,
         "name" : "Colored output",
         "timing" : {
-          "p50Nanoseconds" : 791,
-          "p95Nanoseconds" : 1833
+          "p50Nanoseconds" : 125,
+          "p95Nanoseconds" : 167
         }
       },
       {
         "bytesPerCall" : 1,
         "name" : "Begin UTF-8 scalar",
         "timing" : {
-          "p50Nanoseconds" : 125,
-          "p95Nanoseconds" : 291
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 5,
         "name" : "Finish UTF-8 scalar",
         "timing" : {
-          "p50Nanoseconds" : 417,
-          "p95Nanoseconds" : 958
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 3,
         "name" : "Backspace and overwrite",
         "timing" : {
-          "p50Nanoseconds" : 334,
-          "p95Nanoseconds" : 833
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 125
         }
       },
       {
         "bytesPerCall" : 18,
         "name" : "Unknown CSI and OSC",
         "timing" : {
-          "p50Nanoseconds" : 1125,
-          "p95Nanoseconds" : 2792
+          "p50Nanoseconds" : 125,
+          "p95Nanoseconds" : 167
         }
       },
       {
         "bytesPerCall" : 1,
         "name" : "Begin string terminator",
         "timing" : {
-          "p50Nanoseconds" : 125,
-          "p95Nanoseconds" : 291
+          "p50Nanoseconds" : 42,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 6,
         "name" : "Finish string and query",
         "timing" : {
-          "p50Nanoseconds" : 584,
-          "p95Nanoseconds" : 1375
+          "p50Nanoseconds" : 208,
+          "p95Nanoseconds" : 209
         }
       },
       {
         "bytesPerCall" : 2,
         "name" : "Carriage return",
         "timing" : {
-          "p50Nanoseconds" : 250,
-          "p95Nanoseconds" : 500
+          "p50Nanoseconds" : 83,
+          "p95Nanoseconds" : 84
         }
       },
       {
         "bytesPerCall" : 7,
         "name" : "Line feed and query",
         "timing" : {
-          "p50Nanoseconds" : 708,
-          "p95Nanoseconds" : 1625
+          "p50Nanoseconds" : 209,
+          "p95Nanoseconds" : 250
         }
       },
       {
         "name" : "Read visible row",
         "timing" : {
-          "p50Nanoseconds" : 625,
-          "p95Nanoseconds" : 1208
+          "p50Nanoseconds" : 125,
+          "p95Nanoseconds" : 166
         }
       },
       {
         "bytesPerCall" : 4,
         "name" : "Complete cursor query",
         "timing" : {
-          "p50Nanoseconds" : 417,
-          "p95Nanoseconds" : 1000
+          "p50Nanoseconds" : 166,
+          "p95Nanoseconds" : 167
         }
       }
     ],
     "queuedBytesAfterDrain" : 0,
-    "receiveMiBPerSecond" : 8.939505527197095,
+    "receiveMiBPerSecond" : 44.09557101562876,
     "receivedBytes" : 150000,
     "replyBytes" : 36000,
     "warmupReplays" : 100
