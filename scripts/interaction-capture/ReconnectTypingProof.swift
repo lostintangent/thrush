@@ -1,0 +1,64 @@
+import Foundation
+import XCTest
+
+/// Drives the visible English keyboard before, during and after a real socket interruption.
+@MainActor final class ReconnectTypingProof: XCTestCase {
+    private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private let base = URL(string: ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"]!)!
+
+    func testTypingThroughReconnect() async throws {
+        continueAfterFailure = false
+        let appearance = ProcessInfo.processInfo.environment["THRUSH_CAPTURE_APPEARANCE"] ?? "dark"
+        XCUIDevice.shared.orientation = .portrait
+        app.launchArguments = ["--endpoint", base.absoluteString, "--scene", "notice-motion",
+                               "--appearance", appearance, "--keyboard", "--capture-state"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Test run passed."].waitForExistence(timeout: 30), app.debugDescription)
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons["Control"].exists)
+        let initial = keyboard.frame
+        try await post("app-ready")
+        let deadline = Date.now.addingTimeInterval(50)
+        while true {
+            let (data, _) = try await URLSession.shared.data(from: base.appending(path: "motion/state"))
+            let state = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            if state?["recording"] as? Bool == true { break }
+            guard Date.now < deadline else { throw NSError(domain: "Simulator recorder did not start", code: 1) }
+            try await Task.sleep(for: .milliseconds(80))
+        }
+        try tap("git")
+        let live = app.staticTexts["~/thrush % git"]
+        XCTAssertTrue(live.waitForExistence(timeout: 8), app.debugDescription)
+        try await post("interrupt")
+        let status = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Reconnecting")).firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(keyboard.frame, initial)
+        try tap(" status")
+        XCTAssertTrue(live.exists, "The old transcript must stay still while the shell is unavailable.")
+        let echoed = app.staticTexts["~/thrush % git status"]
+        XCTAssertFalse(echoed.exists)
+        try await post("resume")
+        XCTAssertTrue(echoed.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(status.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(keyboard.frame, initial)
+        try await Task.sleep(for: .milliseconds(700))
+        try await post("complete")
+    }
+
+    private func tap(_ text: String) throws {
+        for character in text {
+            let label = character == " " ? "space" : String(character)
+            let key = app.keyboards.keys[label]
+            XCTAssertTrue(key.waitForExistence(timeout: 3), "Missing English keyboard key \(label).")
+            key.tap()
+        }
+    }
+
+    private func post(_ step: String) async throws {
+        var request = URLRequest(url: base.appending(path: "motion/" + step))
+        request.httpMethod = "POST"
+        let (data, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204, String(decoding: data, as: UTF8.self))
+    }
+}

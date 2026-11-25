@@ -11,6 +11,7 @@ struct DemoOptions {
         case noticeReplacement = "notice-replacement"
         case noticeDisplaced = "notice-displaced"
         case noticeEnded = "notice-ended"
+        case noticeMotion = "notice-motion"
 
         var capturesNotice: Bool { rawValue.hasPrefix("notice-") }
     }

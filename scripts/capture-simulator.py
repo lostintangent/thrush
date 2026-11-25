@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import runpy
 import signal
 import struct
 import subprocess
@@ -364,11 +365,11 @@ class Phone:
             raise RuntimeError(f"{name}: {last_error}") from error
 
     @contextlib.contextmanager
-    def record_switch(self):
+    def record_switch(self, name="appearance-switch"):
         log = self.out / "recording.log"
         with log.open("w") as output:
             process = subprocess.Popen(["xcrun", "simctl", "io", self.device, "recordVideo", "--codec=h264",
-                                        "--mask=black", "--force", str(self.out / "appearance-switch.mov")],
+                                        "--mask=black", "--force", str(self.out / (name + ".mov"))],
                                        stdout=output, stderr=subprocess.STDOUT)
             try:
                 def started():
@@ -386,7 +387,7 @@ class Phone:
                     process.kill()
                     process.wait()
                     raise RuntimeError("Simulator did not finalize the screen recording.")
-                movie = self.out / "appearance-switch.mov"
+                movie = self.out / (name + ".mov")
                 if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
                     raise RuntimeError("Simulator recording failed: " + log.read_text())
 
@@ -459,8 +460,8 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
-    if args.scene == "render-benchmark" and (args.layout_only or args.oracle):
-        parser.error("The render benchmark produces its own checked JSON report.")
+    if args.scene in {"render-benchmark", "notice-reconnect-motion"} and (args.layout_only or args.oracle):
+        parser.error("The named workload produces its own evidence.")
     oracle = None
     if args.oracle:
         oracle = (ROOT / args.oracle).resolve()
@@ -484,17 +485,19 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    notices = args.scene in NOTICE_SCENES or args.scene == "notices"
+    notices = args.scene in NOTICE_SCENES or args.scene in {"notices", "notice-reconnect-motion"}
     with peer(out, notices=notices) as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
             opens_keyboard = (not args.scene or args.keyboard == "visible" or
-                              (args.scene in {"notices", "notice-reconnecting"} and args.keyboard == "any"))
+                              (args.scene in {"notices", "notice-reconnecting", "notice-reconnect-motion"} and args.keyboard == "any"))
             if not args.layout_only and args.scene != "render-benchmark" and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")
             if args.scene == "render-benchmark":
                 phone.benchmark()
+            elif args.scene == "notice-reconnect-motion":
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
             elif args.scene:
                 scenes = NOTICE_SCENES if args.scene == "notices" else [args.scene]
                 for scene in scenes:

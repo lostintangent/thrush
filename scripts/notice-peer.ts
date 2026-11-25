@@ -1,12 +1,14 @@
 // Script the five native pane notices using only the same WebSocket protocol as the PTY.
 import type { ServerWebSocket } from "bun";
+import { ReconnectRecording } from "./interaction-capture/reconnect-peer";
 
-const scenes = ["connecting", "reconnecting", "replacement", "displaced", "ended"] as const;
+const scenes = ["connecting", "reconnecting", "replacement", "displaced", "ended", "motion"] as const;
 type Scene = typeof scenes[number] | "prompt";
 type Attachment = { id: string; scene: Scene; url: string; index: number; acknowledged: boolean };
 type Socket = ServerWebSocket<Attachment>;
 type Session = { count: number; owner?: Socket; other?: WebSocket };
 const sessions = new Map<string, Session>();
+const motion = new ReconnectRecording();
 const csi = "\x1b[";
 const prompt = csi + "36m~/thrush" + csi + "0m % ";
 const rows = [prompt + "swift test", "Building for debugging…", "", "✓  TerminalTests passed",
@@ -18,6 +20,7 @@ const server = Bun.serve({
     port: Number(process.env.THRUSH_PORT ?? 9138),
     fetch(request, server) {
         const url = new URL(request.url);
+        if (url.pathname.startsWith("/motion/")) return motion.control(request, url.pathname);
         if (request.method === "POST" && url.pathname === "/interrupt-reconnecting") {
             // The capture controller sends this only after it observes the requested native
             // keyboard geometry on the original shell's GPU-completed frame.
@@ -48,6 +51,7 @@ const server = Bun.serve({
             const { id, scene, index } = socket.data;
             const session = sessions.get(id)!;
             console.log(scene, "attachment", index);
+            if (scene === "motion") { motion.attach(socket, index, rows.join("\r\n")); return; }
             const previous = session.owner;
             session.owner = socket;
             if (scene === "connecting" || (scene === "reconnecting" && index > 1)) return;
@@ -67,6 +71,7 @@ const server = Bun.serve({
                 if (JSON.parse(message).type === "close") socket.close(1000);
                 return;
             }
+            if (socket.data.scene === "motion") { motion.input(message); return; }
             const { id, scene, url, index } = socket.data;
             if (index !== 1 || socket.data.acknowledged || !/^\x1b\[\d+;\d+R$/.test(message.toString())) return;
             socket.data.acknowledged = true;
