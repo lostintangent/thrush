@@ -215,9 +215,26 @@ def check_voiceover(phone, device, endpoint, plan, out, work):
         observed = phone.state_path.parent / "accessibility-spinner-reconnecting.json"
         if observed.exists():
             shutil.copyfile(observed, out / observed.name)
-    report = json.loads((out / observed.name).read_text())
-    if not any(event["voiceOverRunning"] for event in report["events"]):
-        raise ValueError("UIKit did not observe VoiceOver running during the interrupted shell.")
+
+
+def check_accessibility_settings(events):
+    if not any(event["reduceMotion"] and event["reduceTransparency"]
+               and event["contentSize"] == "UICTContentSizeCategoryAccessibilityXXXL" for event in events):
+        raise ValueError("UIKit did not observe both reduced effects and the largest text size.")
+
+
+def check_voiceover_focus(events):
+    reconnect = next((i for i, event in enumerate(events) if event.get("cursorSpinnerLabel") == "Reconnecting"), None)
+    if reconnect is None:
+        raise ValueError("UIKit did not observe the reconnecting spinner.")
+    # A reconnect announcement can change the last spoken phrase while the reading cursor stays on its row.
+    before = [event for event in events[:reconnect] if event["voiceOverRunning"]]
+    during = [event for event in events[reconnect:] if event["voiceOverRunning"]
+              and event.get("cursorSpinnerLabel") == "Reconnecting"]
+    if not before or before[-1].get("focusedLabel") != "Test run passed.":
+        raise ValueError("VoiceOver did not focus the terminal line before the interruption.")
+    if not during or any(event.get("focusedLabel") != "Test run passed." for event in during):
+        raise ValueError("VoiceOver did not retain the terminal line during reconnect.")
 
 
 def main():
@@ -275,9 +292,13 @@ def main():
                 attempt("interaction screenshots", check_images, out)
             attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
             if options.accessibility_only:
-                log = (out / "uikit-tests.log").read_text()
-                if "Reduce Motion=true Reduce Transparency=true System size=UICTContentSizeCategoryAccessibilityXXXL" not in log:
-                    failures["accessibility settings"] = "UIKit did not observe both reduced effects and the largest text size."
+                report = out / "accessibility-spinner-reconnecting.json"
+                if report.exists():
+                    events = json.loads(report.read_text())["events"]
+                    attempt("accessibility settings", check_accessibility_settings, events)
+                    attempt("VoiceOver reading position", check_voiceover_focus, events)
+                else:
+                    failures["accessibility observations"] = "The mounted app did not record its accessibility state."
             simulator.save_json(out / "checks.json", {"failures": failures})
             if failures:
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
