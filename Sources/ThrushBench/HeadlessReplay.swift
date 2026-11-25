@@ -123,6 +123,7 @@ struct HeadlessReplay: Encodable {
             var pending = queue.bytes
             for item in queue.items {
                 let event = fixture.events[item.event]
+                if item.range.lowerBound == 0 { event.applyReady(to: &terminal) }
                 if item.range.lowerBound == 0, let palette = event.palette {
                     let start = DispatchTime.now().uptimeNanoseconds
                     terminal.palette = palette
@@ -163,7 +164,7 @@ struct HeadlessReplay: Encodable {
                     guard reply == event.reply else { throw BenchmarkError("Reply mismatch at \(event.name).") }
                     result.replyBytes += reply.count
                     reply.removeAll(keepingCapacity: true)
-                    if !event.input.isEmpty {
+                    if event.hasSemanticInput {
                         let start = DispatchTime.now().uptimeNanoseconds
                         if let encoded = event.encodedInput(using: terminal) {
                             let elapsed = DispatchTime.now().uptimeNanoseconds - start

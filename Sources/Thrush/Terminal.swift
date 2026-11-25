@@ -25,6 +25,8 @@ public struct Terminal: Sendable {
         var cursorShape: CursorShape = .block
         var cursorBlinkOverride: Bool?
         package var sendFocus = false
+        var synchronizedOutputID: UInt64?
+        package var synchronizedOutput: Bool { synchronizedOutputID != nil }
         package let origin = false
         package let insert = false
         package let wraparound = true
@@ -140,6 +142,10 @@ public struct Terminal: Sendable {
             modes.cursorBlinkOverride = first == 0 ? nil : !first.isMultiple(of: 2)
             generation &+= 1
             return
+        case (nil, nil, 0x63) where first == 0:
+            // Codex probes primary device attributes alongside its optional keyboard query.
+            replies.append(contentsOf: "\u{1b}[?1;2c".utf8)
+            return
         case (0x3e, nil, 0x63) where first == 0:
             // Secondary device attributes advertised by the server's configured xterm.
             replies.append(contentsOf: "\u{1b}[>0;276;0c".utf8)
@@ -156,8 +162,20 @@ public struct Terminal: Sendable {
         }
 
         switch final {
+        case 0x41, 0x42: // CUU/CUD stop at the scroll margin when approached from inside it.
+            let count = max(1, first)
+            let row = screen.row
+            let target: Int
+            if final == 0x41 {
+                target = max(row >= screen.scrollTop ? screen.scrollTop : 0, row - count)
+            } else {
+                target = min(row <= screen.scrollBottom ? screen.scrollBottom : size.rows - 1, row + count)
+            }
+            screen.move(toRow: target, column: screen.column)
         case 0x43: // CUF advances over unwritten cells when Vim draws an indented line.
             screen.move(toRow: screen.row, column: screen.column + max(1, first))
+        case 0x44: // CUB measures from the visible right margin even when wrapping is pending.
+            screen.move(toRow: screen.row, column: min(screen.column, size.columns - 1) - max(1, first))
         case 0x48: // CUP
             let column = parameters.count > 1 ? parameters[1] : 1
             screen.move(toRow: max(1, first) - 1, column: max(1, column) - 1)
@@ -190,6 +208,7 @@ public struct Terminal: Sendable {
         case 25:
             modes.cursorVisible = enabled
             generation &+= 1
+        case 66: modes.applicationKeypad = enabled
         case 1004: modes.sendFocus = enabled
         case 1049:
             guard enabled != screen.isAlternate else { return }
@@ -204,6 +223,10 @@ public struct Terminal: Sendable {
             }
             generation &+= 1
         case 2004: modes.bracketedPaste = enabled
+        case 2026:
+            // The presenter owns the timeout. Parsing, input and replies continue during a batch.
+            generation &+= 1
+            modes.synchronizedOutputID = enabled ? generation : nil
         default: break
         }
     }

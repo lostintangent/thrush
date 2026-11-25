@@ -30,6 +30,7 @@ extension Terminal {
     package struct Snapshot: Sendable {
         package let size: Size
         package let palette: Palette
+        package let modes: Modes
         package let rows: [Row]
         package let history: History
         package let normalHistoryCount: Int
@@ -40,6 +41,13 @@ extension Terminal {
         package let cursorShape: CursorShape
         package let isAlternate: Bool
         package let generation: UInt64
+        /// A presenter can coalesce these snapshots and release the most recent one on reset or timeout.
+        package var synchronizedOutputID: UInt64? { modes.synchronizedOutputID }
+
+        /// Zero is the oldest retained row. The first live row follows the active history.
+        package func row(atAbsoluteIndex index: Int) -> Row {
+            index < history.count ? history[index] : rows[index - history.count]
+        }
     }
 
     /// A rotating viewport makes the usual full-height scroll O(1), independent of scrollback.
@@ -128,7 +136,7 @@ extension Terminal {
         }
 
         func snapshot(generation: UInt64, modes: Modes, palette: Palette) -> Snapshot {
-            Snapshot(size: size, palette: palette, rows: active.visible, history: active.history,
+            Snapshot(size: size, palette: palette, modes: modes, rows: active.visible, history: active.history,
                      normalHistoryCount: normalWhileAlternate?.history.count ?? active.history.count,
                      cursorRow: row, cursorColumn: column, cursorVisible: modes.cursorVisible,
                      cursorBlink: modes.cursorBlinkOverride ?? modes.cursorBlink, cursorShape: modes.cursorShape,
@@ -247,19 +255,30 @@ extension Terminal {
         }
 
         mutating func eraseDisplay(_ mode: Int, style: Style) {
-            guard mode == 2 else { return }  // The recorded editor clears the visible display.
+            let firstRow: Int
+            switch mode {
+            case 0:
+                eraseLine(0, style: style)
+                firstRow = row + 1
+            case 2:
+                firstRow = 0
+            default:
+                return
+            }
             active.column = min(column, size.columns)
             revision &+= 1
             let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            if isAlternate {
-                for index in active.rows.indices {
-                    let width = active.rows[index].storageColumns
-                    active.rows[index] = Row(columns: width, generation: revision, style: style.eraseStyle)
-                    active.rows[index].columns = size.columns
-                }
-            } else {
+            if firstRow == 0 && !isAlternate {
                 active.rows = Array(repeating: blank, count: size.rows)
                 active.head = 0
+                return
+            }
+            for row in firstRow..<size.rows {
+                let index = active.index(of: row)
+                let width = active.rows[index].storageColumns
+                active.rows[index] = width == size.columns ? blank
+                    : Row(columns: width, generation: revision, style: style.eraseStyle)
+                active.rows[index].columns = size.columns
             }
         }
 

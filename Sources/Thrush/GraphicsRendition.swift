@@ -8,6 +8,7 @@ extension Terminal.Style {
             switch parameter {
             case 0: self = .init()
             case 1: bold = true
+            case 2: dim = true
             case 7: inverse = true
             case 22:
                 bold = false

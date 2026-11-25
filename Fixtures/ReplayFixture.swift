@@ -4,7 +4,8 @@ import Thrush
 
 /// Development-only playback data and independent expected screens for the recorded workflows.
 package struct ReplayFixture: Sendable {
-    package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light"]
+    package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light",
+                                "hardware-keys", "shell-workflow", "vim-resume", "codex-session"]
 
     package struct Grid: Decodable, Sendable {
         package let columns: Int
@@ -42,23 +43,30 @@ package struct ReplayFixture: Sendable {
         enum Kind: String, Decodable { case text, paste, key }
         let kind: Kind
         let value: String
+        let modifiers: [String]?
 
         func terminalInput() throws -> Terminal.Input {
             switch kind {
             case .text: return .text(value)
             case .paste: return .paste(value)
             case .key:
-                switch value {
-                case "up": return .key(.up)
-                case "down": return .key(.down)
-                case "left": return .key(.left)
-                case "right": return .key(.right)
-                case "enter": return .key(.enter)
-                case "escape": return .key(.escape)
-                case "backspace": return .key(.backspace)
-                case "tab": return .key(.tab)
-                default: throw Failure("Unknown recorded key \(value)")
+                let named: [String: Terminal.Input.Key] = [
+                    "up": .up, "down": .down, "left": .left, "right": .right, "home": .home, "end": .end,
+                    "pageUp": .pageUp, "pageDown": .pageDown, "delete": .delete, "enter": .enter,
+                    "escape": .escape, "backspace": .backspace, "tab": .tab,
+                ]
+                guard let key = named[value] ?? (value.count == 1 ? value.first.map { .character($0) } : nil)
+                else { throw Failure("Unknown recorded key \(value)") }
+                var flags: Terminal.Input.Modifiers = []
+                for modifier in modifiers ?? [] {
+                    switch modifier {
+                    case "shift": flags.insert(.shift)
+                    case "alt": flags.insert(.alt)
+                    case "control": flags.insert(.control)
+                    default: throw Failure("Unknown recorded modifier \(modifier)")
+                    }
                 }
+                return .key(key, modifiers: flags)
             }
         }
     }
@@ -125,10 +133,29 @@ package struct ReplayFixture: Sendable {
         package let cursorRow: Int
         fileprivate let cursorShape: String
         fileprivate let cursorBlink: Bool
+        fileprivate let synchronizedOutput: Bool?
         package let isAlternate: Bool
         package let history: [Int]
         package let visible: [Int]
         fileprivate let modes: Modes
+    }
+
+    package struct Lifecycle: Decodable, Sendable {
+        package enum Kind: String, Decodable, Sendable { case detach, ready }
+        package let type: Kind
+        package let clientId: String
+        package let resumed: Bool?
+    }
+
+    package struct Copy: Decodable, Sendable {
+        package struct Position: Decodable, Sendable {
+            package let row: Int
+            package let column: Int
+        }
+
+        package let start: Position
+        package let end: Position
+        package let text: String
     }
 
     private struct RawEvent: Decodable {
@@ -139,6 +166,8 @@ package struct ReplayFixture: Sendable {
         let reply: Data?
         let resize: Grid?
         let palette: RawPalette?
+        let lifecycle: Lifecycle?
+        let copy: Copy?
         let normalHistoryRowsBefore, historyRowsBefore: Int?
         let action: Action?
         let checkpoint: Checkpoint?
@@ -162,10 +191,18 @@ package struct ReplayFixture: Sendable {
         package let reply: [UInt8]
         package let resize: Grid?
         package let palette: Terminal.Palette?
+        package let lifecycle: Lifecycle?
+        package let copy: Copy?
+        package var hasSemanticInput: Bool { semanticInput != nil }
         package let normalHistoryRowsBefore, historyRowsBefore: Int?
         package let checkpoint: Checkpoint?
-        fileprivate let semanticInput: Terminal.Input?
+        package let semanticInput: Terminal.Input?
         fileprivate let pool: Pool
+
+        /// A ready control precedes any serialized replay on the new attachment.
+        package func applyReady(to terminal: inout Terminal) {
+            if lifecycle?.type == .ready { terminal = Terminal(size: terminal.size, palette: terminal.palette) }
+        }
 
         package func encodedInput(using terminal: Terminal) -> [UInt8]? {
             semanticInput.map { terminal.encode($0) }
@@ -175,9 +212,15 @@ package struct ReplayFixture: Sendable {
             if let encoded = encodedInput(using: terminal), encoded != input {
                 throw Failure("\(name) input: got \(encoded), expected \(input)")
             }
+            if checkpoint != nil { try verify(terminal.snapshot()) }
+        }
+
+        package func verify(_ snapshot: Terminal.Snapshot) throws {
             guard let checkpoint else { return }
-            let snapshot = terminal.snapshot()
-            let modes = terminal.modes
+            let modes = snapshot.modes
+            if let expected = checkpoint.synchronizedOutput, (snapshot.synchronizedOutputID != nil) != expected {
+                throw Failure("\(name) synchronized output should be \(expected)")
+            }
             let actualModes = Checkpoint.Modes(applicationCursorKeys: modes.applicationCursorKeys,
                 applicationKeypad: modes.applicationKeypad, bracketedPaste: modes.bracketedPaste,
                 insert: modes.insert, origin: modes.origin, wraparound: modes.wraparound,
@@ -252,6 +295,7 @@ package struct ReplayFixture: Sendable {
             Event(name: event.name, offsetMicroseconds: event.offsetMicroseconds,
                   bytes: Array(event.bytes ?? Data()), input: Array(event.input ?? Data()),
                   reply: Array(event.reply ?? Data()), resize: event.resize, palette: try event.palette?.palette(),
+                  lifecycle: event.lifecycle, copy: event.copy,
                   normalHistoryRowsBefore: event.normalHistoryRowsBefore, historyRowsBefore: event.historyRowsBefore,
                   checkpoint: event.checkpoint,
                   semanticInput: try event.action?.terminalInput(), pool: pool)

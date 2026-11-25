@@ -1,0 +1,23 @@
+{"name":"shell-workflow","term":"xterm-256color","shell":"bash --noprofile --norc -i","shellVersion":"GNU bash, version 5.3.9(1)-release (aarch64-apple-darwin25.1.0)","columns":80,"rows":24,"buildScriptSHA256":"58324013c04046251ba1bb6741d7c69c3986af0a9fcf6cfd2399d23741dd2f28","clangVersion":"Apple clang version 21.0.0 (clang-2100.4.1.1)",
+"events":[
+{"name":"Shell prompt","offsetMicroseconds":775374,"bytes":"G1s/MjAwNGh0aHJ1c2gkIA=="},
+{"name":"Fresh prompt","offsetMicroseconds":1102023,"checkpoint":true},
+{"name":"Resize to 47x25","offsetMicroseconds":1102035,"resize":{"columns":47,"rows":25},"checkpoint":true},
+{"name":"Redraw after resize","offsetMicroseconds":1103230,"bytes":"DRtbSw10aHJ1c2gkIA=="},
+{"name":"Type unfinished command","offsetMicroseconds":1305737,"input":"Li9idWlseA==","action":{"kind":"text","value":"./builx"}},
+{"name":"Type unfinished command","offsetMicroseconds":1305827,"bytes":"Li9idWlseA=="},
+{"name":"Typed command","offsetMicroseconds":1516637,"checkpoint":true},
+{"name":"Correct typo","offsetMicroseconds":1516651,"input":"fw==","action":{"kind":"key","value":"backspace"}},
+{"name":"Correct typo","offsetMicroseconds":1516724,"bytes":"CBtbSw=="},
+{"name":"Edited command","offsetMicroseconds":1725555,"checkpoint":true},
+{"name":"Paste build arguments","offsetMicroseconds":1725571,"input":"G1syMDB+ZCAxMjYgMTMwG1syMDF+","action":{"kind":"paste","value":"d 126 130"}},
+{"name":"Paste build arguments","offsetMicroseconds":1725692,"bytes":"G1s3bWQgMTI2IDEzMBtbMjdt"},
+{"name":"Pasted build command","offsetMicroseconds":1930043,"checkpoint":true},
+{"name":"Run numbered compiler log","offsetMicroseconds":1930062,"input":"DQ==","action":{"kind":"key","value":"enter"}},
+{"name":"Run numbered compiler log","offsetMicroseconds":1930171,"bytes":"CAgICAgICAgIZCAxMjYgMTMwDQobWz8yMDA0bA0="},
+{"name":"Run numbered compiler log","offsetMicroseconds":5480877,"bytes":"G1szMm0wMTI2G1swbSAgY29tcGlsZSB1bml0cy9jYWbDqS/nlYwvZcyBL3VuaXQtMDEyNi5oDQo="},
+{"name":"Run numbered compiler log","offsetMicroseconds":5482721,"bytes":"G1szMm0wMTI3G1swbSAgY29tcGlsZSB1bml0cy9jYWbDqS/nlYwvZcyBL3VuaXQtMDEyNy5oDQobWzMybTAxMjgbWzBtICBjb21waWxlIHVuaXRzL2NhZsOpL+eVjC9lzIEvbG9uZy1kZXBlbmRlbmN5L3dpdGgvbmVzdGVkLXNvdXJjZS1mb2xkZXJzL3VuaXQtMDEyOC5oDQobWzMybTAxMjkbWzBtICBjb21waWxlIHVuaXRzL2NhZsOpL+eVjC9lzIEvdW5pdC0wMTI5LmgNChtbMzJtMDEzMBtbMG0gIGNvbXBpbGUgdW5pdHMvY2Fmw6kv55WML2XMgS91bml0LTAxMzAuaA0K"},
+{"name":"Run numbered compiler log","offsetMicroseconds":5492746,"bytes":"G1s/MjAwNGh0aHJ1c2gkIA=="},
+{"name":"Numbered compiler log","offsetMicroseconds":5702602,"checkpoint":true},
+{"name":"Copy soft-wrapped compiler path","offsetMicroseconds":6813887,"copy":{"start":{"row":3,"column":0},"end":{"row":4,"column":37},"text":"0128  compile units/café/界/é/long-dependency/with/nested-source-folders/unit-0128.h"},"checkpoint":true}
+]}

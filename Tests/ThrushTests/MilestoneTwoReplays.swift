@@ -20,7 +20,8 @@ func milestoneTwoReplay(named name: String, delivery: Delivery) throws {
 
     for event in fixture.events {
         // Host updates and semantic input observe all preceding bytes.
-        if delivery == .whole, event.palette != nil || event.resize != nil || !event.input.isEmpty { drain() }
+        if delivery == .whole, event.lifecycle != nil || event.palette != nil || event.resize != nil || event.hasSemanticInput { drain() }
+        event.applyReady(to: &terminal)
         if let palette = event.palette { terminal.palette = palette }
         if let resize = event.resize {
             let before = terminal.snapshot()

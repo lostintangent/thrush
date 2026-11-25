@@ -89,3 +89,29 @@ import ThrushFixtures
     terminal.palette = custom
     #expect(terminal.snapshot().generation == changed.generation)
 }
+
+@Test func synchronizedOutputKeepsParsingAndAnswersQueriesBeforeRelease() throws {
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    let start = "\u{1b}[?2026h", end = "\u{1b}[?2026l"
+    let visible = terminal.snapshot()
+    #expect(visible.synchronizedOutputID == nil)
+
+    // Pinned xterm advances the grid and returns CPR while synchronized output is active.
+    #expect(terminal.receive((start + "A\u{1b}[6n").utf8) == Array("\u{1b}[1;2R".utf8))
+    let first = terminal.snapshot()
+    let batch = try #require(first.synchronizedOutputID)
+    _ = terminal.receive("B".utf8)
+    #expect(terminal.snapshot().synchronizedOutputID == batch)
+    #expect(terminal.text(inRow: 0) == "AB")
+    #expect(visible.rows[0].text.isEmpty)
+    #expect(first.rows[0].text == "A")
+
+    // A repeat begin is a new token for a presenter whose previous hold may already have timed out.
+    _ = terminal.receive((start + "C").utf8)
+    let repeated = try #require(terminal.snapshot().synchronizedOutputID)
+    #expect(repeated != batch)
+    _ = terminal.receive(end.utf8)
+    let released = terminal.snapshot()
+    #expect(released.synchronizedOutputID == nil)
+    #expect(released.rows[0].text == "ABC")
+}

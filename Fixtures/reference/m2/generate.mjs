@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { applyPalette, reference, server, terminal, write } from './xterm-reference.mjs';
+import { hardwareKeys } from '../m4/hardware-keys.mjs';
 
 const { evaluateKeyboardEvent } = await import(server.resolve('@xterm/xterm/src/common/input/Keyboard.ts'));
 const { bracketTextForPaste, prepareTextForTerminal } = await import(server.resolve('@xterm/xterm/src/browser/Clipboard.ts'));
@@ -140,15 +141,23 @@ function shellEdges() {
   output('Extended colors with reversed ANSI palette', osc('4;16;?;231;?;232;?;255;?'));
   return {name:'shell-edges', columns:1, rows:2, events};
 }
-const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13};
+const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13,
+  home:36,end:35,pageUp:33,pageDown:34,delete:46,'[':219,'\\':220,']':221};
 function encodedInput(t, action) {
   switch (action.kind) {
     case 'text': return utf8(action.value);
     case 'paste': return utf8(bracketTextForPaste(prepareTextForTerminal(action.value), t.modes.bracketedPasteMode));
     case 'key': {
-      const key = evaluateKeyboardEvent({ keyCode:keyCodes[action.value] }, t.modes.applicationCursorKeysMode, true, false).key;
-      assert.equal(typeof key, 'string');
-      return utf8(key);
+      const key = action.value;
+      const modifiers = new Set(action.modifiers);
+      const keyCode = keyCodes[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : undefined);
+      assert.notEqual(keyCode, undefined, 'Unknown recorded key ' + key);
+      const result = evaluateKeyboardEvent({keyCode, key, altKey:modifiers.has('alt'),
+        shiftKey:modifiers.has('shift'), ctrlKey:modifiers.has('control'), metaKey:false},
+        t.modes.applicationCursorKeysMode, true, false);
+      if (result.key === undefined && !action.modifiers?.length && key.length === 1) return utf8(key);
+      // Local viewport commands such as Shift+PageUp have no outbound bytes.
+      return utf8(result.key ?? '');
     }
     default: throw Error('Unknown input ' + action.kind);
   }
@@ -185,14 +194,15 @@ async function verifyStyledPaints(recording, events, cells, lines) {
 }
 
 async function generate(name) {
-  const directory = name.startsWith('vim-swift-') ? '../m3/' : '';
-  const captureBytes = ['shell-edges','prompt-bom'].includes(name) ? null
+  const directory = workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
+  const captureBytes = ['shell-edges','prompt-bom','hardware-keys'].includes(name) ? null
     : await readFile(new URL(directory + name + '.capture.json', import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
-    : shellEdges();
-  const t = terminal(recording.columns, recording.rows);
+    : name === 'hardware-keys' ? hardwareKeys() : shellEdges();
+  let t = terminal(recording.columns, recording.rows);
+  let palette;
   const cells = new Pool(), lines = new Pool();
   assert.equal(cells.get({text:'',width:1,flags:0,foreground:-1,background:-1}), 0);
   let replies;
@@ -204,7 +214,17 @@ async function generate(name) {
   for (const source of recording.events) {
     const event = {...source};
     if (events.length) assert(event.offsetMicroseconds >= events.at(-1).offsetMicroseconds);
-    if (event.palette) applyPalette(t, event.palette);
+    if (event.lifecycle?.type === 'ready') {
+      const {cols, rows} = t;
+      t.dispose();
+      t = terminal(cols, rows);
+      t.onData(value => replies.push(utf8(value)));
+      if (palette) applyPalette(t, palette);
+    }
+    if (event.palette) {
+      palette = event.palette;
+      applyPalette(t, palette);
+    }
     if (event.resize) {
       event.normalHistoryRowsBefore = t.buffer.normal.baseY;
       event.historyRowsBefore = t.buffer.active.baseY;
@@ -226,6 +246,7 @@ async function generate(name) {
     }
     if (event.checkpoint) {
       event.checkpoint = checkpoint(t,cells,lines);
+      if (name === 'codex-session') event.checkpoint.synchronizedOutput = t.modes.synchronizedOutputMode;
       if (name === 'shell-log' && fullHistory.delete(event.name)) {
         assert.equal(event.checkpoint.isAlternate, false, event.name);
         assert.equal(event.checkpoint.history.length, 1000, event.name);
@@ -248,7 +269,13 @@ async function generate(name) {
   await writeFile(new URL('../../replays/'+name+'.json',import.meta.url),data);
   console.log(name, events.length, sha256(data));
 }
-for (const name of ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light']) await generate(name);
+const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
+const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys', ...workflows];
+const requested = process.argv.slice(3);
+for (const name of requested.length ? requested : all) {
+  assert(all.includes(name), 'Unknown replay: ' + name);
+  await generate(name);
+}
 
 // Validate the benchmark's sustained, directly generated ASCII workload.
 const line = 'abcdefghij'.repeat(8).slice(0,78);
