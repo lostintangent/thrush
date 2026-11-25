@@ -1,4 +1,4 @@
-// The PTY recorder hands this headless terminal each read and writes its replies back to Vim.
+// The PTY recorder hands the server emulator and browser color service each read and writes its replies back to Vim.
 import { createInterface } from 'node:readline';
 import { terminal, write } from './xterm-reference.mjs';
 
@@ -13,3 +13,5 @@ for await (const line of createInterface({ input:process.stdin, crlfDelay:Infini
   process.stdout.write(JSON.stringify({reply:Buffer.concat(replies).toString('base64')}) + '\n');
 }
 t.dispose();
+// xterm's browser bundle retains its process-wide scheduler after terminal disposal.
+process.exit(0);

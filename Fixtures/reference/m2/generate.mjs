@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { reference, server, terminal, write } from './xterm-reference.mjs';
+import { applyPalette, reference, server, terminal, write } from './xterm-reference.mjs';
 
 const { evaluateKeyboardEvent } = await import(server.resolve('@xterm/xterm/src/common/input/Keyboard.ts'));
 const { bracketTextForPaste, prepareTextForTerminal } = await import(server.resolve('@xterm/xterm/src/browser/Clipboard.ts'));
@@ -110,6 +110,34 @@ function shellEdges() {
   resize(4, 5);
   output('Commit the clipped log line', utf8('\r\n'));
   resize(8, 5);
+  const osc = body => utf8('\x1b]' + body + '\x07');
+  const ansiQuery = '4;' + Array.from({length:16}, (_, i) => i + ';?').join(';');
+  output('Indexed text before host palette changes', utf8('\r\n\x1b[31;44mwarn\x1b[0m'));
+  output('Default foreground and background', osc('10;?;?'));
+  output('Default ANSI colors', osc(ansiQuery));
+  output('Extended palette limits', osc('4;16;?;231;?;232;?;255;?'));
+  output('Skip an out-of-range index between valid indexes', osc('4;1;?;256;?;15;?'));
+  output('Ignore a nonnumeric index and unsupported color query', Buffer.concat([osc('4;no;?'), osc('13;?')]));
+  output('Cancel foreground query before its terminator', utf8('\x1b]10;?\x18'));
+  output('Cancel indexed query before its terminator', utf8('\x1b]4;1;?\x1a'));
+  const custom = {
+    foreground:'#d9e6f1', background:'#122434',
+    ansi:['#091321','#a64152','#25835b','#b2832c','#4277aa','#98619b','#367d81','#acb8c2',
+          '#566d7a','#db697a','#61b985','#d6ae52','#739cdd','#c68cc2','#71b8c4','#e6f1ff']
+  };
+  output('Begin foreground query before host changes the palette', utf8('\x1b]10;?'), false);
+  append('Host applies custom palette and finishes the query', {palette:custom,bytes:base64([7]),checkpoint:true});
+  output('Custom ANSI colors', osc(ansiQuery));
+  output('Custom default background before split ST', utf8('\x1b]11;?'));
+  output('Escape in custom background query terminator', utf8('\x1b'));
+  output('Finish custom background query terminator', utf8('\\'));
+  output('Custom foreground and background', osc('10;?;?'), false);
+  const reversed = {foreground:custom.background, background:custom.foreground, ansi:[...custom.ansi].reverse()};
+  append('Host reverses palette and queries both defaults', {
+    palette:reversed, bytes:base64(osc('10;?;?')), checkpoint:true
+  });
+  output('Reversed ANSI colors', osc(ansiQuery));
+  output('Extended colors with reversed ANSI palette', osc('4;16;?;231;?;232;?;255;?'));
   return {name:'shell-edges', columns:1, rows:2, events};
 }
 const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13};
@@ -143,6 +171,7 @@ async function generate(name) {
   for (const source of recording.events) {
     const event = {...source};
     if (events.length) assert(event.offsetMicroseconds >= events.at(-1).offsetMicroseconds);
+    if (event.palette) applyPalette(t, event.palette);
     if (event.resize) {
       event.normalHistoryRowsBefore = t.buffer.normal.baseY;
       event.historyRowsBefore = t.buffer.active.baseY;
@@ -204,3 +233,5 @@ for (const [columns, rows] of [[80,24],[40,32],[80,14]]) {
   assert.deepEqual(replies,['\x1b['+rows+';1R']);
   t.dispose();
 }
+// The browser bundle retains its process-wide scheduler after terminal disposal.
+process.exit(0);

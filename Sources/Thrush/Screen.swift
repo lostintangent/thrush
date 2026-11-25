@@ -29,6 +29,7 @@ extension Terminal {
 
     package struct Snapshot: Sendable {
         package let size: Size
+        package let palette: Palette
         package let rows: [Row]
         package let history: History
         package let normalHistoryCount: Int
@@ -126,8 +127,8 @@ extension Terminal {
             alternateCapacity = size.rows
         }
 
-        func snapshot(generation: UInt64, modes: Modes) -> Snapshot {
-            Snapshot(size: size, rows: active.visible, history: active.history,
+        func snapshot(generation: UInt64, modes: Modes, palette: Palette) -> Snapshot {
+            Snapshot(size: size, palette: palette, rows: active.visible, history: active.history,
                      normalHistoryCount: normalWhileAlternate?.history.count ?? active.history.count,
                      cursorRow: row, cursorColumn: column, cursorVisible: modes.cursorVisible,
                      cursorBlink: modes.cursorBlinkOverride ?? modes.cursorBlink, cursorShape: modes.cursorShape,

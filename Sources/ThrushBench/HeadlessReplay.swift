@@ -38,12 +38,15 @@ struct HeadlessReplay: Encodable {
     let queuedBytesAfterDrain: Int
     let burstDrain: Timing
     let resizes: [ResizeTiming]
+    let paletteChangesPerReplay: Int
+    let paletteChangeTime: Timing?
     let input: [Operation]
 
     static func measure(_ fixture: ReplayFixture, named name: String) throws -> HeadlessReplay {
         let measured = 25
         let bytesPerReplay = fixture.events.reduce(0) { $0 + $1.bytes.count }
         let repliesPerReplay = fixture.events.reduce(0) { $0 + $1.reply.count }
+        let paletteChanges = fixture.events.filter { $0.palette != nil }.count
         let checkpoints = fixture.events.filter { $0.checkpoint != nil }.count
         guard bytesPerReplay > 0, checkpoints > 0 else { throw BenchmarkError("Empty replay \(name).") }
 
@@ -55,6 +58,7 @@ struct HeadlessReplay: Encodable {
         for run in runs {
             guard run.appliedBytes == bytesPerReplay, run.receivedBytes == bytesPerReplay,
                   run.replyBytes == repliesPerReplay, run.encodedInputBytes == reference.encodedInputBytes,
+                  run.paletteChangeTimes.count == paletteChanges,
                   run.maximumQueuedBytes <= BurstQueue.byteLimit, run.maximumQueuedSlots <= BurstQueue.slotLimit,
                   run.queuedBytesAfterDrain == 0 else { throw BenchmarkError("Incomplete replay \(name).") }
         }
@@ -72,6 +76,7 @@ struct HeadlessReplay: Encodable {
                       timing: Timing(runs.map { $0.keys[index].duration }))
         }
         let applied = runs.reduce(0) { $0 + $1.appliedBytes }
+        let paletteTimes = runs.flatMap(\.paletteChangeTimes)
         let rate = mebibytesPerSecond(applied, in: samples.reduce(0, +))
         let peak = peakBytesInOneSecond(fixture.events.map { ($0.offsetMicroseconds, $0.bytes.count) })
         let multiple = rate * 1_048_576 / Double(peak)
@@ -88,7 +93,8 @@ struct HeadlessReplay: Encodable {
             maximumQueuedBytes: runs.map(\.maximumQueuedBytes).max()!,
             maximumQueuedSlots: runs.map(\.maximumQueuedSlots).max()!,
             queuedBytesAfterDrain: reference.queuedBytesAfterDrain, burstDrain: Timing(runs.map(\.drain)),
-            resizes: resizes, input: input
+            resizes: resizes, paletteChangesPerReplay: paletteChanges,
+            paletteChangeTime: paletteTimes.isEmpty ? nil : Timing(paletteTimes), input: input
         )
     }
 
@@ -98,6 +104,7 @@ struct HeadlessReplay: Encodable {
         var maximumQueuedBytes = 0, maximumQueuedSlots = 0, queuedBytesAfterDrain = 0
         var drain: UInt64 = 0
         var chunks = [UInt64]()
+        var paletteChangeTimes = [UInt64]()
         var resizes: [(from: BenchmarkGrid, requested: BenchmarkGrid, to: BenchmarkGrid, alternate: Bool,
                        historyRows: Int, normalHistoryRows: Int, duration: UInt64)] = []
         var keys: [(name: String, bytes: Int, duration: UInt64)] = []
@@ -116,6 +123,11 @@ struct HeadlessReplay: Encodable {
             var pending = queue.bytes
             for item in queue.items {
                 let event = fixture.events[item.event]
+                if item.range.lowerBound == 0, let palette = event.palette {
+                    let start = DispatchTime.now().uptimeNanoseconds
+                    terminal.palette = palette
+                    result.paletteChangeTimes.append(DispatchTime.now().uptimeNanoseconds - start)
+                }
                 if item.range.lowerBound == 0, let resize = event.resize {
                     guard event.checkpoint != nil else { throw BenchmarkError("Missing resize checkpoint at \(event.name).") }
                     let from = BenchmarkGrid(columns: terminal.size.columns, rows: terminal.size.rows)

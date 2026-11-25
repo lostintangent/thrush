@@ -49,7 +49,8 @@ class Session:
             os.execve("/bin/bash", ["bash", "--noprofile", "--norc", "-i"], env)
 
         self.reference = subprocess.Popen(
-            ["bun", ROOT / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            ["bun", ROOT / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
 
     def exchange(self, event):
         self.reference.stdin.write(json.dumps(event) + "\n")

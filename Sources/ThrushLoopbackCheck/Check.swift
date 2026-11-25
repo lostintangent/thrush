@@ -41,11 +41,21 @@ struct LoopbackCheck {
 
         // A width-one request must use xterm's effective width in the attach URL and every resize.
         let minimum = Terminal.Size(columns: 1, rows: 2)
-        let next = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: minimum)
+        let defaults = Terminal.Palette.default
+        let light = Terminal.Palette(foreground: defaults.background, background: defaults.foreground, ansi: defaults.ansi)
+        let next = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: minimum, palette: light)
         guard try await next.nextEvent() == .ready(resumed: false), await next.text(inRow: 0).isEmpty,
               try await next.nextEvent() == .output, await next.text(inRow: 0) == "AB",
               await next.text(inRow: 1).isEmpty
         else { throw CheckFailure("Expected AB on row zero of the fresh two-column grid") }
+        let beforeSwitch = await next.snapshot()
+        await next.setPalette(defaults)
+        let afterSwitch = await next.snapshot()
+        guard beforeSwitch.palette == light, afterSwitch.palette == defaults,
+              beforeSwitch.generation != afterSwitch.generation,
+              beforeSwitch.rows.map(\.generation) == afterSwitch.rows.map(\.generation),
+              afterSwitch.rows[0].text == "AB", afterSwitch.cursorColumn == beforeSwitch.cursorColumn
+        else { throw CheckFailure("Changing the host palette must preserve the grid and cursor") }
         try await next.sendResize(to: .init(columns: 5, rows: 3))
         try await next.sendResize(to: minimum)
         try await next.sendResize(to: .init(columns: 2, rows: 2))

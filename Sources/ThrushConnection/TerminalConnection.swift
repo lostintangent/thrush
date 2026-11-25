@@ -38,7 +38,7 @@ package actor TerminalConnection {
     private var isReading = false
     private var lastWrite: Task<Void, Error>?
 
-    package init(baseURL: URL, clientID: String, size: Terminal.Size) throws {
+    package init(baseURL: URL, clientID: String, size: Terminal.Size, palette: Terminal.Palette = .default) throws {
         guard !clientID.isEmpty,
               var location = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               location.host != nil, location.query == nil, location.fragment == nil
@@ -60,7 +60,7 @@ package actor TerminalConnection {
         guard let url = location.url else { throw ConnectionError.invalidEndpoint }
         session = URLSession(configuration: .ephemeral)
         socket = session.webSocketTask(with: url)
-        terminal = Terminal(size: size)
+        terminal = Terminal(size: size, palette: palette)
         socket.resume()
     }
 
@@ -102,6 +102,10 @@ package actor TerminalConnection {
     }
 
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
+
+    package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }
+
+    package func setPalette(_ palette: Terminal.Palette) { terminal.palette = palette }
 
     package func send(_ input: Terminal.Input) async throws {
         guard phase == .active else { throw ConnectionError.inactiveAttachment }

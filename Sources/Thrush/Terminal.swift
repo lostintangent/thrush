@@ -31,6 +31,10 @@ public struct Terminal: Sendable {
     }
 
     public var size: Size { screen.size }
+    /// Change this when the host changes theme. Stored cells retain their semantic colors.
+    public var palette: Palette {
+        didSet { if oldValue != palette { generation &+= 1 } }
+    }
     package private(set) var modes = Modes()
     private var decoder = ScalarDecoder()
     private var parser = EscapeParser()
@@ -40,7 +44,10 @@ public struct Terminal: Sendable {
     private var generation: UInt64 = 0
     private var hasCombiningBase = false
 
-    public init(size: Size) { screen = Screen(size: size) }
+    public init(size: Size, palette: Palette = .default) {
+        self.palette = palette
+        screen = Screen(size: size)
+    }
 
     /// Apply PTY output in order. UTF-8 and control sequences may span arbitrary calls.
     /// Replies are ready to send to the peer in the order the queries arrived.
@@ -85,7 +92,7 @@ public struct Terminal: Sendable {
 
     /// A single, read-only generation for drawing, selection and accessibility.
     package func snapshot() -> Snapshot {
-        screen.snapshot(generation: generation, modes: modes)
+        screen.snapshot(generation: generation, modes: modes, palette: palette)
     }
 
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
@@ -104,6 +111,9 @@ public struct Terminal: Sendable {
         case .carriageReturn: screen.carriageReturn()
         case .lineFeed: screen.lineFeed(style: style)
         case .backspace: screen.backspace()
+        case .colorQueries(let queries):
+            palette.appendReplies(to: &replies, for: queries)
+            return
         case .keypad(let enabled):
             modes.applicationKeypad = enabled
             return

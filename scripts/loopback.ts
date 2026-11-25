@@ -15,6 +15,7 @@ if (process.argv.length !== 3) {
     throw new Error("Usage: bun scripts/loopback.ts --serve | PATH_TO_CHECK_EXECUTABLE");
 }
 const standalone = command === "--serve";
+const backgroundQuery = "\x1b]11;?\x07";
 const expectedInput = fixture.events.flatMap(event => {
     const messages = [];
     if (event.reply.length) messages.push(event.reply);
@@ -72,7 +73,7 @@ const server = Bun.serve({
         data: {} as Session,
         open(socket) {
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
-            if (socket.data.minimumGrid) socket.sendBinary(new TextEncoder().encode("AB"));
+            if (socket.data.minimumGrid) socket.sendBinary(new TextEncoder().encode("AB" + backgroundQuery));
             else void replay(socket).catch(fail);
         },
         message(socket, message) {
@@ -80,12 +81,21 @@ const server = Bun.serve({
                 const state = socket.data;
                 assert(!state.complete, "Unexpected frame after session completion");
                 if (state.minimumGrid) {
+                    // This shell queries its background before and after the host switches its palette.
+                    if (state.received === 0 || state.received === 3) {
+                        assert(typeof message !== "string", "Expected a binary background-color reply");
+                        const rgb = state.received === 0 ? "ffff/ffff/ffff" : "0000/0000/0000";
+                        assert.equal(new TextDecoder().decode(message), "\x1b]11;rgb:" + rgb + "\x1b\\");
+                        state.received++;
+                        return;
+                    }
                     assert.equal(typeof message, "string", "Expected a resize or close control");
                     const control = JSON.parse(message as string);
                     const controls = [{ type: "resize", cols: 5, rows: 3 }, { type: "resize", cols: 2, rows: 2 }];
-                    if (state.received < controls.length) {
-                        assert.deepEqual(control, controls[state.received++]);
-                        if (state.received === controls.length) socket.sendBinary(new TextEncoder().encode("\x1b[HXYZ"));
+                    if (state.received <= controls.length) {
+                        assert.deepEqual(control, controls[state.received - 1]);
+                        state.received++;
+                        if (state.received === 3) socket.sendBinary(new TextEncoder().encode("\x1b[HXYZ" + backgroundQuery));
                         return;
                     }
                     assert.deepEqual(control, { type: "close" });
@@ -128,7 +138,7 @@ if (standalone) {
         assert.equal(fixturesAccepted, 1);
         assert.equal(closesAccepted, 1);
         console.log("Loopback passed: " + fixture.events.length + " output chunks, " + expectedInput.length
-            + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, deduplicated resize and explicit close.");
+            + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, live palette replies, deduplicated resize and explicit close.");
     } finally {
         clearTimeout(timeout);
         client.kill();

@@ -11,6 +11,28 @@ package struct ReplayFixture: Sendable {
         package let rows: Int
     }
 
+    private struct RawPalette: Decodable {
+        let foreground: String
+        let background: String
+        let ansi: [String]
+
+        func palette() throws -> Terminal.Palette {
+            guard ansi.count == 16 else { throw Failure("A fixture palette requires 16 ANSI colors.") }
+            return try Terminal.Palette(foreground: Self.rgb(foreground), background: Self.rgb(background),
+                                        ansi: ansi.map(Self.rgb))
+        }
+
+        private static func rgb(_ text: String) throws -> Terminal.RGB {
+            let digits = text.dropFirst()
+            guard text.first == "#", text.utf8.count == 7, digits.allSatisfy(\.isHexDigit),
+                  let value = UInt32(digits, radix: 16) else {
+                throw Failure("Invalid fixture color \(text). Expected #rrggbb.")
+            }
+            return .init(red: UInt8(value >> 16), green: UInt8(truncatingIfNeeded: value >> 8),
+                         blue: UInt8(truncatingIfNeeded: value))
+        }
+    }
+
     struct Failure: Error, CustomStringConvertible {
         let description: String
         init(_ description: String) { self.description = description }
@@ -116,6 +138,7 @@ package struct ReplayFixture: Sendable {
         let input: Data?
         let reply: Data?
         let resize: Grid?
+        let palette: RawPalette?
         let normalHistoryRowsBefore, historyRowsBefore: Int?
         let action: Action?
         let checkpoint: Checkpoint?
@@ -138,6 +161,7 @@ package struct ReplayFixture: Sendable {
         package let input: [UInt8]
         package let reply: [UInt8]
         package let resize: Grid?
+        package let palette: Terminal.Palette?
         package let normalHistoryRowsBefore, historyRowsBefore: Int?
         package let checkpoint: Checkpoint?
         fileprivate let semanticInput: Terminal.Input?
@@ -227,7 +251,7 @@ package struct ReplayFixture: Sendable {
         let events = try recording.events.map { event in
             Event(name: event.name, offsetMicroseconds: event.offsetMicroseconds,
                   bytes: Array(event.bytes ?? Data()), input: Array(event.input ?? Data()),
-                  reply: Array(event.reply ?? Data()), resize: event.resize,
+                  reply: Array(event.reply ?? Data()), resize: event.resize, palette: try event.palette?.palette(),
                   normalHistoryRowsBefore: event.normalHistoryRowsBefore, historyRowsBefore: event.historyRowsBefore,
                   checkpoint: event.checkpoint,
                   semanticInput: try event.action?.terminalInput(), pool: pool)

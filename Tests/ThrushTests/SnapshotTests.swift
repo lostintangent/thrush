@@ -64,3 +64,28 @@ import ThrushFixtures
     #expect(beforeGrow.history.map(\.text) == ["A"])
     #expect(beforeGrow.rows.map(\.text) == ["B", "C"])
 }
+
+@Test func switchingPaletteReusesStyledCellsAndPreservesPreviousFrame() {
+    var terminal = Terminal(size: .init(columns: 4, rows: 2))
+    _ = terminal.receive("A\u{1b}[31mB\u{1b}[38;2;12;34;56mC".utf8)
+    let previous = terminal.snapshot()
+    let original = previous.palette
+    var ansi = original.ansi
+    ansi.swapAt(0, 1)
+    let custom = Terminal.Palette(foreground: original.background, background: original.foreground, ansi: ansi)
+    terminal.palette = custom
+    let changed = terminal.snapshot()
+    #expect(changed.palette == custom)
+    #expect(previous.palette == .default)
+    #expect(previous.generation != changed.generation)
+    #expect(previous.rows.map(\.generation) == changed.rows.map(\.generation))
+    #expect(changed.rows[0][0].style.foreground == .default)
+    #expect(changed.rows[0][1].style.foreground == .indexed(1))
+    #expect(changed.rows[0][2].style.foreground == .rgb(12, 34, 56))
+    let sharedCells = previous.rows[0].cells.withUnsafeBufferPointer { old in
+        changed.rows[0].cells.withUnsafeBufferPointer { new in old.baseAddress == new.baseAddress }
+    }
+    #expect(sharedCells)
+    terminal.palette = custom
+    #expect(terminal.snapshot().generation == changed.generation)
+}

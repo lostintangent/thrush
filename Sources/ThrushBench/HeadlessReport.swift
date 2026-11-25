@@ -44,6 +44,11 @@ struct HeadlessReport: Encodable {
                                   replay.fixturePeakMultiple, replay.maximumQueuedBytes,
                                   Double(replay.burstDrain.p95Nanoseconds) / 1e6))
         }
+        for replay in recordings {
+            if let time = replay.paletteChangeTime {
+                print("\nHost palette change (\(replay.name)): p50 \(time.p50Nanoseconds) ns, p95 \(time.p95Nanoseconds) ns.")
+            }
+        }
         print("\nResize              Screen       From → To          Active history   Normal history   p50 ms   p95 ms")
         for replay in recordings {
             for resize in replay.resizes {

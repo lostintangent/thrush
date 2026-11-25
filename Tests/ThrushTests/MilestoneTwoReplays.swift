@@ -19,8 +19,9 @@ func milestoneTwoReplay(named name: String, delivery: Delivery) throws {
     }
 
     for event in fixture.events {
-        // A resize or semantic input observes all preceding bytes.
-        if delivery == .whole, event.resize != nil || !event.input.isEmpty { drain() }
+        // Host updates and semantic input observe all preceding bytes.
+        if delivery == .whole, event.palette != nil || event.resize != nil || !event.input.isEmpty { drain() }
+        if let palette = event.palette { terminal.palette = palette }
         if let resize = event.resize {
             let before = terminal.snapshot()
             #expect(before.history.count == event.historyRowsBefore)

@@ -33,6 +33,9 @@ for replay in replays:
     semantic = sum(n for event, n in zip(events, sizes("input")) if "action" in event)
     assert replay["encodedInputBytes"] == passes * semantic, replay["name"]
     assert replay["referenceCheckpointsPerReplay"] == sum("checkpoint" in e for e in events), replay["name"]
+    palette_changes = sum("palette" in e for e in events)
+    assert replay["paletteChangesPerReplay"] == palette_changes
+    assert (replay.get("paletteChangeTime") is not None) == (palette_changes > 0)
     assert replay["queuedBytesAfterDrain"] == 0, replay["name"]
     assert 0 < replay["maximumQueuedBytes"] <= min(replay["queueByteLimit"], sum(output)), replay["name"]
     assert 0 < replay["maximumQueuedSlots"] <= replay["queueSlotLimit"], replay["name"]
