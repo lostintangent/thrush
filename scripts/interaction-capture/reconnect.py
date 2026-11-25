@@ -4,6 +4,7 @@ from pathlib import Path
 import plistlib
 import runpy
 import subprocess
+import sys
 import time
 from urllib.request import Request, urlopen
 
@@ -85,13 +86,15 @@ def record(phone, appearance, wait_for, save_json):
             views = phone.out / "reconnect-view.json"
             save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final,
                                   noticeIntervalSeconds=[first_visible, last_visible]))
-            colors = runpy.run_path(str(HERE.parent / "check-demo-capture.py"))["COLORS"][appearance]
             still = phone.out / "reconnect-typing-held.png"
             with (phone.out / "reconnect-cursor.log").open("w") as log:
-                subprocess.run(["xcrun", "swift", HERE / "reconnect-cursor.swift",
-                                phone.out / "reconnect-typing.mov", views, colors["cursor"], still],
+                subprocess.run([sys.executable, HERE / "reconnect-cursor.py",
+                                phone.out / "reconnect-typing.mov", views, appearance, still],
+                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=240)
+                checker = phone.scratch / "check-pane-capture"
+                subprocess.run(["xcrun", "swiftc", HERE.parent / "check-pane-capture.swift", "-o", checker],
                                stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
-                subprocess.run(["xcrun", "swift", HERE.parent / "check-pane-capture.swift", still,
+                subprocess.run([checker, still,
                                 "Reconnecting", "Typing waits for this shell to resume."],
                                stdout=log, stderr=subprocess.STDOUT, check=True, timeout=90)
         finally:
