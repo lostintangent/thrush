@@ -214,17 +214,18 @@ def stall_upstream(proxy, host, log, work, output, device):
         readerResumedAfterSeconds=resumed - stopped), indent=2) + "\n")
 
 
-def run_workflow(name, upstream, work, modules, env, app_executable, output, appearance, device, documents, pane):
+def run_workflow(name, upstream, work, modules, env, app_executable, output, appearance, device, documents, pane, trace_lifecycle_frames=False):
     output.mkdir()
     log = output / "controller.log"
     controller = ["bun", ROOT / "scripts/live-workflow/controller.ts", "--workflow", name,
                   "--upstream", upstream, "--work", work, "--report", output / "controller-report.json"]
-    with service(controller, log, dict(env, THRUSH_XTERM_MODULES=str(modules))) as proxy:
+    trace = ["--trace-lifecycle-frames"] if trace_lifecycle_frames and name == "lifecycle" else []
+    with service([*controller, *trace], log, dict(env, THRUSH_XTERM_MODULES=str(modules))) as proxy:
         endpoint, control = wait_for(proxy, log, lambda: controller_origins(log), 30)
         driver = Path(tempfile.mkdtemp(prefix="thrush-live-", dir=documents)) if device else output
         try:
             options = ["--endpoint", endpoint, "--workflow-driver", control, "--workflow-output", str(driver),
-                       "--appearance", appearance,
+                       "--appearance", appearance, *trace,
                        "--keyboard" if device else "--hide-keyboard"]
             if device:
                 command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
@@ -274,6 +275,7 @@ def main():
     parser.add_argument("--public-web-build", action="store_true", help="Use the documented CI substitute for Toy Box’s web animation components in a disposable copy of the pin")
     parser.add_argument("--working-tree", action="store_true", help="Build the current Toy Box files instead of the pinned revision")
     parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"), help="Select workflows. Defaults to shell, vim, codex and lifecycle. Use recovery with --working-tree.")
+    parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames for the disposable lifecycle workflow")
     parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
@@ -282,6 +284,8 @@ def main():
     if args.public_web_build and args.working_tree:
         parser.error("The public web build uses the pinned server revision; select one source mode")
     workflows = args.workflow or list(WORKFLOWS)
+    if args.trace_lifecycle_frames and "lifecycle" not in workflows:
+        parser.error("--trace-lifecycle-frames requires the lifecycle workflow")
     if "recovery" in workflows and not args.working_tree:
         parser.error("The recovery workflow needs the candidate's in-band repair. Pass --working-tree with its Toy Box checkout.")
     if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
@@ -323,7 +327,7 @@ def main():
             documents = simulator.prepare_workflow_phone(device, app, out)
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
-            run_workflow(name, endpoint, work, modules, env, app_executable, out / name, args.appearance, device, documents, pane)
+            run_workflow(name, endpoint, work, modules, env, app_executable, out / name, args.appearance, device, documents, pane, args.trace_lifecycle_frames)
     print(out)
 
 

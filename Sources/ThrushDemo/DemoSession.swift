@@ -27,6 +27,7 @@ struct DemoOptions {
     let interactionURL: URL?
     let runsWorkflowDriver: Bool
     let checksToolbar: Bool
+    let frameTraceURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -36,6 +37,8 @@ struct DemoOptions {
         }
         checksToolbar = arguments.contains("--toolbar-proof")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
+        frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
+            ? value(after: "--workflow-output").map { URL(fileURLWithPath: $0).appending(path: "native-wire.jsonl") } : nil
         let address = value(after: "--endpoint") ?? "http://127.0.0.1:9138"
         // An invalid user-provided address fails through the same visible connection error.
         endpoint = URL(string: address) ?? URL(filePath: address)
@@ -112,7 +115,8 @@ final class DemoSession: ObservableObject {
         let id = options.runsWorkflowDriver ? PaneWorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
         do {
             endpointError = nil
-            let next = try TerminalConnection(baseURL: options.endpoint, clientID: id)
+            let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
+            let next = try TerminalConnection(baseURL: options.endpoint, clientID: id, frameTrace: trace)
             connection = next
             if options.runsWorkflowDriver {
                 PaneWorkflowDriver.startIfRequested(view: view, connection: next, setActive: setActive,

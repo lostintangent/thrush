@@ -46,6 +46,7 @@ public actor TerminalConnection {
 
     private let makeSocket: @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask
     private let clientID: String
+    private let frameTrace: (any ConnectionFrameObserver)?
     private let onOutput: (@Sendable (Data) -> Void)?
     private let sleepForRetry: @Sendable (Duration) async throws -> Void
     private var retryWait: Task<Void, Error>?
@@ -84,7 +85,7 @@ public actor TerminalConnection {
     package private(set) var appliedBytes = 0
 
     package init(baseURL: URL, clientID: String, size: Terminal.Size? = nil, palette: Terminal.Palette = .default,
-                 onOutput: (@Sendable (Data) -> Void)? = nil) throws {
+                 onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any ConnectionFrameObserver)? = nil) throws {
         guard var location = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               location.host != nil, location.query == nil, location.fragment == nil
         else { throw ConnectionError.invalidEndpoint }
@@ -96,7 +97,8 @@ public actor TerminalConnection {
         location.path = baseURL.appending(path: "socket").path
         let endpoint = location
         let owner = DemoSession()
-        self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput) { id, size in
+        self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput,
+                  frameTrace: frameTrace) { id, size in
             let url = try Self.url(for: endpoint, clientID: id, size: size)
             return owner.session.webSocketTask(with: url)
         }
@@ -112,11 +114,13 @@ public actor TerminalConnection {
 
     package init(clientID: String, size: Terminal.Size?, palette: Terminal.Palette = .default,
                  onOutput: (@Sendable (Data) -> Void)? = nil,
+                 frameTrace: (any ConnectionFrameObserver)? = nil,
                  sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
                  makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
         precondition(!clientID.isEmpty, "A shell needs a stable client ID")
         self.sleepForRetry = sleepForRetry
         self.clientID = clientID
+        self.frameTrace = frameTrace
         self.onOutput = onOutput
         self.makeSocket = makeSocket
         let initialSize = size ?? .init(columns: 80, rows: 24)
@@ -129,6 +133,7 @@ public actor TerminalConnection {
                 let first = try makeSocket(clientID, size)
                 socket = first
                 state = .connecting
+                self.frameTrace?.record("open", attachment: socketAttempts)
                 first.resume()
             } catch {
                 state = .reconnecting
@@ -164,6 +169,7 @@ public actor TerminalConnection {
             attachmentSize = requestedSize
             socket = next
             state = .connecting
+            frameTrace?.record("open", attachment: socketAttempts)
             next.resume()
         } catch {
             beginRecovery()
@@ -219,10 +225,15 @@ public actor TerminalConnection {
     }
 
     private func receiveEvent(from current: URLSessionWebSocketTask, lifetime stamp: UInt64) async throws -> Event? {
+        let attachment = socketAttempts
         let message: URLSessionWebSocketTask.Message
         do {
             message = try await current.receive()
+            frameTrace?.record("observed", attachment: attachment, message: message,
+                               stale: lifetime != stamp || socket !== current)
         } catch {
+            frameTrace?.record("receive-error", attachment: attachment, note: String(describing: error),
+                               stale: lifetime != stamp || socket !== current, closeCode: current.closeCode.rawValue)
             guard lifetime == stamp, state != .closing else { throw CancellationError() }
             if socket === current { lost(current) }
             if let event = takePendingEvent() { return event }
@@ -242,6 +253,7 @@ public actor TerminalConnection {
                 }
                 lastReceiptTime = CACurrentMediaTime()
                 receivedBytes += bytes.count
+                frameTrace?.record("accepted", attachment: attachment, message: message, received: receivedBytes, applied: appliedBytes)
                 let resynchronized = isResynchronizing
                 if resynchronized {
                     // No actor suspension between resetting the parser and applying the checkpoint.
@@ -251,6 +263,7 @@ public actor TerminalConnection {
                 }
                 let reply = bytes.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
                 appliedBytes += bytes.count
+                frameTrace?.record("applied", attachment: attachment, message: message, received: receivedBytes, applied: appliedBytes)
                 onOutput?(bytes)
                 do {
                     if !reply.isEmpty && state != .closing { try await write(.data(Data(reply)), to: current) }
@@ -268,6 +281,7 @@ public actor TerminalConnection {
                 switch (control.type, state) {
                 case (.ready, .connecting):
                     guard let resumed = control.resumed else { throw ConnectionError.unexpectedMessage }
+                    frameTrace?.record("ready", attachment: attachment, message: message)
                     replacedPreviousShell = hasSeenReady && !resumed
                     discardedHeldInputOnLastReady = !resumed && !heldInput.isEmpty
                     hasSeenReady = true
@@ -284,9 +298,11 @@ public actor TerminalConnection {
                     guard lifetime == stamp else { throw CancellationError() }
                     return .ready(resumed: resumed)
                 case (.ready, .active) where control.resumed == true && !isResynchronizing:
+                    frameTrace?.record("ready", attachment: attachment, message: message)
                     isResynchronizing = true
                     return nil
                 case (.exit, .active), (.exit, .closing):
+                    frameTrace?.record("exit", attachment: attachment, message: message)
                     if state != .closing {
                         park(as: .ended)
                         exitedNaturally = true
@@ -302,6 +318,10 @@ public actor TerminalConnection {
             if socket === current, state != .closing { park(as: .detached) }
             throw error
         }
+    }
+
+    package func finishFrameTrace(_ result: String) async {
+        await frameTrace?.finish(result, attachment: socketAttempts, received: receivedBytes, applied: appliedBytes)
     }
 
     private func takePendingEvent() -> Event? {
@@ -407,6 +427,7 @@ public actor TerminalConnection {
 
     /// Release the attachment and any retry delay when the view leaves the foreground.
     public func detach() {
+        frameTrace?.record("detach", attachment: socketAttempts)
         guard state != .displaced, state != .ended, state != .closing else { return }
         park(as: socket?.closeCode.rawValue == 4000 ? .displaced : .detached)
     }
@@ -422,7 +443,10 @@ public actor TerminalConnection {
         let current = socket
         socket = nil
         lastWrite = nil
-        current?.cancel(with: .normalClosure, reason: nil)
+        if let current {
+            frameTrace?.record("cancel", attachment: socketAttempts, closeCode: current.closeCode.rawValue)
+            current.cancel(with: .normalClosure, reason: nil)
+        }
     }
 
     private func park(as state: State) {
@@ -470,6 +494,9 @@ public actor TerminalConnection {
             try await previous?.value
             guard self.socket === current else { throw CancellationError() }
             onWriteStarted?()
+            if self.frameTrace != nil, case .string = message {
+                self.frameTrace?.record("control-write", attachment: self.socketAttempts, message: message)
+            }
             try await current.send(message)
         }
         lastWrite = next

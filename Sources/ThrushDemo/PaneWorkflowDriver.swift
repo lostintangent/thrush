@@ -91,6 +91,7 @@ final class PaneWorkflowDriver {
                                                 connection: connection, setActive: setActive, activateAction: activateAction)
                 try await driver.run()
             } catch {
+                await connection.finishFrameTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
@@ -206,6 +207,7 @@ final class PaneWorkflowDriver {
                 let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
                 guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
                 let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
+                await connection.finishFrameTrace("success")
                 try save(report, as: "workflow-report.json")
                 return
             case .focus, .input, .resize, .detach, .resume, .checkpoint:
