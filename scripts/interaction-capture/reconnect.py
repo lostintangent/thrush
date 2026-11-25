@@ -4,6 +4,7 @@ from pathlib import Path
 import plistlib
 import runpy
 import subprocess
+import time
 from urllib.request import Request, urlopen
 
 HERE = Path(__file__).resolve().parent
@@ -42,13 +43,18 @@ def record(phone, appearance, wait_for, save_json):
             initial = phone.state()
             reconnecting = None
             final = None
+            first_visible = last_visible = None
 
             def finished():
-                nonlocal reconnecting, final
+                nonlocal reconnecting, final, first_visible, last_visible
                 terminal = phone.state()
-                if (terminal.get("notice") or {}).get("title") == "Reconnecting":
-                    reconnecting = terminal
                 proof = state()
+                if ((terminal.get("notice") or {}).get("title") == "Reconnecting" and
+                        proof["interrupted"] and not proof["resumed"]):
+                    reconnecting = terminal
+                    last_visible = time.monotonic() - recording_started
+                    if first_visible is None:
+                        first_visible = last_visible
                 if not proof["complete"] and test.poll() is not None:
                     raise RuntimeError("Native typing stopped before the remote echo. See reconnect-ui.log.")
                 if proof["complete"] and terminal.get("gpuCompleted") and not terminal.get("notice"):
@@ -56,7 +62,9 @@ def record(phone, appearance, wait_for, save_json):
                     return True
                 return False
 
+            # record_switch returns control when simctl reports its first real video frame.
             with phone.record_switch("reconnect-typing"):
+                recording_started = time.monotonic()
                 with urlopen(Request(phone.endpoint + "/motion/start", method="POST"), timeout=5):
                     pass
                 wait_for("held input echoed exactly once after the resumed replay", finished, 90)
@@ -75,13 +83,17 @@ def record(phone, appearance, wait_for, save_json):
                     raise RuntimeError("The native keyboard moved or changed during reconnect.")
             save_json(phone.out / "reconnect-wire.json", proof)
             views = phone.out / "reconnect-view.json"
-            save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final))
+            save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final,
+                                  noticeIntervalSeconds=[first_visible, last_visible]))
             colors = runpy.run_path(str(HERE.parent / "check-demo-capture.py"))["COLORS"][appearance]
+            still = phone.out / "reconnect-typing-held.png"
             with (phone.out / "reconnect-cursor.log").open("w") as log:
                 subprocess.run(["xcrun", "swift", HERE / "reconnect-cursor.swift",
-                                phone.out / "reconnect-typing.mov", views, colors["cursor"],
-                                phone.out / "reconnect-typing-held.png"],
+                                phone.out / "reconnect-typing.mov", views, colors["cursor"], still],
                                stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+                subprocess.run(["xcrun", "swift", HERE.parent / "check-pane-capture.swift", still,
+                                "Reconnecting", "Typing waits for this shell to resume."],
+                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=90)
         finally:
             if test.poll() is None:
                 test.terminate()
