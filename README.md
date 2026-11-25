@@ -77,12 +77,12 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 
 ## Benchmarks
 
-`swift run -c release ThrushBench` checks every recorded replay against an independent xterm reference, then writes its measurements to `.build/benchmarks`.
+`swift run -c release ThrushBench` checks every recorded replay against an independent reference emulator, then writes its measurements to `.build/benchmarks`.
 
 | Measure | Result | Report |
 | --- | --- | --- |
 | Sustained output | 193 MiB/s at 80 × 24, against a 100 MiB/s target | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
-| Recorded workflows | Shell 72, Vim 146 and Codex 70 MiB/s, with every checkpoint matching xterm | [Headless](Benchmarks/headless.md#recorded-interaction-measurements) |
+| Recorded workflows | Shell 72, Vim 146 and Codex 70 MiB/s, with every checkpoint matching the reference | [Headless](Benchmarks/headless.md#recorded-interaction-measurements) |
 | Resize with full history | Worst p95 0.582 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
 | Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |

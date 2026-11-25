@@ -1,6 +1,6 @@
 # Benchmarks
 
-Every benchmark checks what it measured. Replays compare each checkpoint with the pinned xterm reference and stop at the first mismatch. Each JSON report records the source revision and the host it ran on.
+Every benchmark checks what it measured. Replays compare each checkpoint with the pinned reference emulator and stop at the first mismatch. Each JSON report records the source revision and the host it ran on.
 
 | Report | Command | What it measures | Recorded result |
 | --- | --- | --- | --- |
