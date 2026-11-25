@@ -11,6 +11,7 @@ Thrush is a general-purpose Swift terminal for macOS and iOS apps. [docs/plan.md
 - A change that slows any ThrushBench workload doesn't land without the lead's agreement.
 - Reference expectations come from outside Thrush. Never generate a fixture's expected output with Thrush itself.
 - A pinned reference emulator is the conformance oracle and nothing more. Only the tooling that runs it, under `Fixtures/reference` and the scripts that drive it, names it. The comparison benchmark names the cores it measures. Code, tests and docs describe terminal behavior in their own terms, and code follows [the emulator design](docs/emulator.md) rather than another project's structure.
+- Every noun earns its place. Use one word per concept across the API, code, docs and UI. Name a type with a public noun, a term [the emulator design](docs/emulator.md) defines, or a mechanism a reader already knows, such as a parser, renderer or scroll view. A new noun needs the lead's agreement.
 - Build and test from the command line. There is no checked-in Xcode project.
 - Write plans, specs, designs and reviews as Markdown that describes Thrush as it is today. History belongs in commit messages. Never use `.brief` files. Visuals such as SVG or PNG mockups live beside the Markdown that explains them.
 
