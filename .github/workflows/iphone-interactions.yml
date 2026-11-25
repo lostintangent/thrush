@@ -11,6 +11,10 @@ on:
         description: Capture keyboard-open rotation and verify shell resizes in both appearances
         type: boolean
         default: false
+      trace_rotation_layout:
+        description: Record the shell's UIKit layouts and keyboard frame notifications
+        type: boolean
+        default: false
   push:
     branches: [capture/m4]
 
@@ -34,10 +38,12 @@ jobs:
         env:
           ACCESSIBILITY_ONLY: ${{ inputs.accessibility_only }}
           ROTATION_ONLY: ${{ inputs.rotation_only }}
+          TRACE_ROTATION_LAYOUT: ${{ inputs.trace_rotation_layout }}
         run: |
           flags=()
           if [[ "$ACCESSIBILITY_ONLY" == true ]]; then flags+=(--accessibility-only); fi
           if [[ "$ROTATION_ONLY" == true ]]; then flags+=(--rotation-only); fi
+          if [[ "$TRACE_ROTATION_LAYOUT" == true ]]; then flags+=(--trace-rotation-layout); fi
           python3 scripts/interaction-capture/run.py --output "$RUNNER_TEMP/thrush-iphone-interactions" "${flags[@]}"
       - name: Upload interaction captures and checks
         if: always()
@@ -48,6 +54,7 @@ jobs:
             ${{ runner.temp }}/thrush-iphone-interactions/*.png
             ${{ runner.temp }}/thrush-iphone-interactions/*.mp4
             ${{ runner.temp }}/thrush-iphone-interactions/*.json
+            ${{ runner.temp }}/thrush-iphone-interactions/*.jsonl
             ${{ runner.temp }}/thrush-iphone-interactions/*.log
           compression-level: 0
           retention-days: 7

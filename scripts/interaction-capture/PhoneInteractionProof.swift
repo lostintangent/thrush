@@ -109,6 +109,9 @@ final class PhoneInteractionProof: XCTestCase {
     private func launch(scene: String) throws {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
         app.launchArguments = ["--endpoint", address, "--scene", scene, "--keyboard", "--capture-state"]
+        if scene == "shell", ProcessInfo.processInfo.environment["THRUSH_TRACE_ROTATION_LAYOUT"] == "1" {
+            app.launchArguments.append("--trace-rotation-layout")
+        }
         app.launch()
     }
 
