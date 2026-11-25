@@ -110,9 +110,6 @@ enum RenderBenchmark {
         #else
         guard size.columns >= 24, size.rows >= 2 else { throw Failure("Render benchmark needs at least 24 × 2.") }
         let collector = FrameCollector(view: view, size: size)
-        let previousCallback = view.onFrame
-        view.onFrame = { frame in collector.receive(frame) }
-        defer { view.onFrame = previousCallback }
         view.reset()
         // Keep the same glyphs and styles for every warm frame. Neither cursor motion nor
         // reflow to a different viewport is allowed to hide the cost of a new glyph upload.
@@ -231,49 +228,75 @@ enum RenderBenchmark {
         return IdleObservation(seconds: CACurrentMediaTime() - start, additionalSubmissions: view.submissionCount - before)
     }
 
+    /// A layout redraw can finish just after the requested content. Retain the first
+    /// matching callback even if Metal delivers several before the waiting task resumes.
+    static func measureFrame(on view: TerminalView, for operation: String, generation: UInt64,
+                             after start: Double, receivedAt receipt: Double? = nil,
+                             update: () -> Void) async throws -> FrameMeasurement {
+        let initialSubmissions = view.submissionCount
+        var gpuCompletions = 0
+        var callbacks = 0
+        var last: FrameMeasurement?
+        var match: FrameMeasurement?
+        let priorFrame = view.onFrame
+        let priorCompletion = view.onFrameCompleted
+        view.onFrame = { frame in
+            callbacks += 1
+            last = frame
+            if match == nil, frame.generation == generation, frame.submittedAt >= start,
+               receipt == nil || frame.receivedAt == receipt {
+                match = frame
+            }
+        }
+        view.onFrameCompleted = { submittedAt, succeeded in
+            gpuCompletions += 1
+            priorCompletion?(submittedAt, succeeded)
+        }
+        defer {
+            view.onFrame = priorFrame
+            view.onFrameCompleted = priorCompletion
+        }
+        update()
+        let deadline = start + 15
+        while true {
+            if let match { return match }
+            guard CACurrentMediaTime() < deadline else {
+                let lastSummary = last.map { "generation \($0.generation), receipt \(String(describing: $0.receivedAt))" } ?? "none"
+                throw Failure("No frame for \(operation), expected generation \(generation), receipt \(String(describing: receipt)). "
+                    + "Submissions \(view.submissionCount - initialSubmissions), GPU completions \(gpuCompletions), "
+                    + "frame callbacks \(callbacks), last callback \(lastSummary).")
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
     @MainActor
     private final class FrameCollector {
         let view: TerminalView
         var terminal: Terminal
         var hash = SHA256()
         var samples: [Sample] = []
-        var latest: FrameMeasurement?
 
         init(view: TerminalView, size: Terminal.Size) {
             self.view = view
             terminal = Terminal(size: size)
         }
 
-        func receive(_ frame: FrameMeasurement) { latest = frame }
-
         @discardableResult
         func observeMutation(_ mutation: () -> Void) async throws -> FrameMeasurement {
-            latest = nil
-            let start = CACurrentMediaTime()
-            let generation = terminal.snapshot().generation
-            mutation()
-            while latest?.generation != generation || (latest?.submittedAt ?? 0) < start {
-                guard CACurrentMediaTime() - start < 15 else { throw Failure("No frame after a viewport or theme change.") }
-                try await Task.sleep(for: .milliseconds(5))
-            }
-            guard let latest else { throw Failure("Missing frame after changing appearance.") }
-            return latest
+            try await measureFrame(on: view, for: "viewport or theme change", generation: terminal.snapshot().generation,
+                                   after: CACurrentMediaTime(), update: mutation)
         }
 
         func apply(_ string: String, as operation: String) async throws {
             let bytes = Array(string.utf8)
             hash.update(data: bytes)
-            latest = nil
             let receipt = CACurrentMediaTime()
             _ = terminal.receive(bytes)
             let expected = terminal.snapshot().generation
-            view.display(terminal, receivedAt: receipt)
-            let deadline = receipt + 15
-            while latest?.generation != expected || latest?.receivedAt != receipt {
-                guard CACurrentMediaTime() < deadline else { throw Failure("No frame result for \(operation), generation \(expected).") }
-                try await Task.sleep(for: .milliseconds(5))
+            let frame = try await measureFrame(on: view, for: operation, generation: expected, after: receipt, receivedAt: receipt) {
+                view.display(terminal, receivedAt: receipt)
             }
-            guard let frame = latest else { throw Failure("Missing frame statistics.") }
             if let presented = frame.presentedTime, presented <= 0 || presented < receipt {
                 throw Failure("Invalid drawable presentation timestamp for \(operation).")
             }
