@@ -295,21 +295,13 @@ def main():
             toolchain=info["ThrushToolchain"], platform=args.platform, appearance=args.appearance), indent=2) + "\n")
         device = documents = None
         if args.platform == "simulator":
+            simulator = load(ROOT / "scripts/capture-simulator.py")
             if args.device:
                 device = stack.enter_context(pane.reserve_phone(args.device))
                 pane.ensure_demo_idle(device)
             else:
-                simulator = load(ROOT / "scripts/capture-simulator.py")
                 device = stack.enter_context(simulator.disposable_phone(out))
-            try:
-                pane.simctl("install", device, str(app), timeout=180)
-            except subprocess.TimeoutExpired:
-                try:
-                    pane.simctl("get_app_container", device, pane.BUNDLE_ID, "app")
-                except subprocess.SubprocessError:
-                    pane.simctl("install", device, str(app), timeout=180)
-            documents = Path(pane.simctl("get_app_container", device, pane.BUNDLE_ID, "data")) / "Documents"
-            documents.mkdir(exist_ok=True)
+            documents = simulator.install_and_locate_app(device, app)
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
             run_workflow(name, endpoint, work, modules, env, app, out / name, args.appearance, device, documents, pane)
