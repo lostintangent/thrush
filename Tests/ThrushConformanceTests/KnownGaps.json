@@ -1,61 +1,4 @@
 {
- "C0": [
-  "C0 · inside a CSI"
- ],
- "C1 CSI": [
-  "C1 CSI · as UTF-8"
- ],
- "C1 IND": [
-  "C1 IND · as UTF-8"
- ],
- "C1 NEL": [
-  "C1 NEL · as UTF-8"
- ],
- "CBT": [
-  "CBT · no parameter",
-  "CBT · parameter 0",
-  "CBT · parameter 1",
-  "CBT · parameter 3",
-  "CBT · parameter 99",
-  "CBT · wide right half"
- ],
- "CHA": [
-  "CHA · no parameter",
-  "CHA · parameter 0",
-  "CHA · parameter 1",
-  "CHA · parameter 3",
-  "CHA · parameter 99",
-  "CHA · pending wrap",
-  "CHA · wide right half"
- ],
- "CHT": [
-  "CHT · no parameter",
-  "CHT · parameter 0",
-  "CHT · parameter 1",
-  "CHT · parameter 3",
-  "CHT · parameter 99",
-  "CHT · wide left half"
- ],
- "CNL": [
-  "CNL · no parameter",
-  "CNL · parameter 0",
-  "CNL · parameter 1",
-  "CNL · parameter 3",
-  "CNL · parameter 99",
-  "CNL · bottom row",
-  "CNL · pending wrap",
-  "CNL · at a region bottom"
- ],
- "CPL": [
-  "CPL · no parameter",
-  "CPL · parameter 0",
-  "CPL · parameter 1",
-  "CPL · parameter 3",
-  "CPL · parameter 99",
-  "CPL · top row",
-  "CPL · pending wrap",
-  "CPL · at a region top"
- ],
  "DECALN": [
   "DECALN",
   "DECALN · inside a scroll region"
@@ -69,10 +12,6 @@
   "DECDC · inside a scroll region",
   "DECDC · wide right half"
  ],
- "DECDSR 6": [
-  "DECDSR 6",
-  "DECDSR 6 · at a pending wrap"
- ],
  "DECIC": [
   "DECIC · no parameter",
   "DECIC · parameter 0",
@@ -82,99 +21,11 @@
   "DECIC · inside a scroll region",
   "DECIC · wide right half"
  ],
- "DECRC": [
-  "DECRC · without DECSC"
- ],
- "DECRQM ?1": [
-  "DECRQM ?1",
-  "DECRQM ?1 · after DECSET"
- ],
- "DECRQM ?1000": [
-  "DECRQM ?1000",
-  "DECRQM ?1000 · after DECSET"
- ],
- "DECRQM ?1002": [
-  "DECRQM ?1002",
-  "DECRQM ?1002 · after DECSET"
- ],
- "DECRQM ?1003": [
-  "DECRQM ?1003",
-  "DECRQM ?1003 · after DECSET"
- ],
- "DECRQM ?1004": [
-  "DECRQM ?1004",
-  "DECRQM ?1004 · after DECSET"
- ],
- "DECRQM ?1006": [
-  "DECRQM ?1006",
-  "DECRQM ?1006 · after DECSET"
- ],
- "DECRQM ?1047": [
-  "DECRQM ?1047",
-  "DECRQM ?1047 · after DECSET"
- ],
- "DECRQM ?1048": [
-  "DECRQM ?1048",
-  "DECRQM ?1048 · after DECSET"
- ],
- "DECRQM ?1049": [
-  "DECRQM ?1049",
-  "DECRQM ?1049 · after DECSET"
- ],
- "DECRQM ?2004": [
-  "DECRQM ?2004",
-  "DECRQM ?2004 · after DECSET"
- ],
- "DECRQM ?2026": [
-  "DECRQM ?2026",
-  "DECRQM ?2026 · after DECSET"
- ],
- "DECRQM ?25": [
-  "DECRQM ?25",
-  "DECRQM ?25 · after DECSET"
- ],
- "DECRQM ?3": [
-  "DECRQM ?3",
-  "DECRQM ?3 · after DECSET"
- ],
  "DECRQM ?45": [
-  "DECRQM ?45",
   "DECRQM ?45 · after DECSET"
  ],
- "DECRQM ?47": [
-  "DECRQM ?47",
-  "DECRQM ?47 · after DECSET"
- ],
  "DECRQM ?6": [
-  "DECRQM ?6",
   "DECRQM ?6 · after DECSET"
- ],
- "DECRQM ?66": [
-  "DECRQM ?66",
-  "DECRQM ?66 · after DECSET"
- ],
- "DECRQM ?7": [
-  "DECRQM ?7",
-  "DECRQM ?7 · after DECSET"
- ],
- "DECRQM ?9999": [
-  "DECRQM ?9999",
-  "DECRQM ?9999 · after DECSET"
- ],
- "DECRQM 12": [
-  "DECRQM 12"
- ],
- "DECRQM 2": [
-  "DECRQM 2"
- ],
- "DECRQM 20": [
-  "DECRQM 20"
- ],
- "DECRQM 4": [
-  "DECRQM 4"
- ],
- "DECRQM 99": [
-  "DECRQM 99"
  ],
  "DECRQSS \" p": [
   "DECRQSS \" p"
@@ -197,89 +48,24 @@
  "DECRQSS unknown": [
   "DECRQSS unknown"
  ],
- "DECRST 1049": [
-  "DECRST 1049 · without the alternate screen"
- ],
  "DECRST 6": [
   "DECRST 6"
  ],
- "DECRST 7": [
-  "DECRST 7",
-  "DECRST 7 · then a wide character at the edge"
- ],
  "DECSC": [
-  "DECSC · and DECRC after moving and styling",
-  "DECSC · at a pending wrap",
   "DECSC · with a charset"
  ],
- "DECSED 0": [
-  "DECSED 0 · no parameter",
-  "DECSED 0",
-  "DECSED 0 · with a background color",
-  "DECSED 0 · from a pending wrap",
-  "DECSED 0 · on a wide right half",
-  "DECSED 0 · on a wide left half"
- ],
- "DECSED 1": [
-  "DECSED 1",
-  "DECSED 1 · with a background color",
-  "DECSED 1 · from a pending wrap",
-  "DECSED 1 · on a wide right half",
-  "DECSED 1 · on a wide left half"
- ],
  "DECSED 2": [
-  "DECSED 2",
-  "DECSED 2 · with a background color",
-  "DECSED 2 · from a pending wrap",
-  "DECSED 2 · on a wide right half",
-  "DECSED 2 · on a wide left half",
-  "DECSED 2 · with history",
   "DECSED 2 · over protected cells"
  ],
- "DECSED 3": [
-  "DECSED 3 · with history"
- ],
- "DECSEL 0": [
-  "DECSEL 0 · no parameter",
-  "DECSEL 0",
-  "DECSEL 0 · with a background color",
-  "DECSEL 0 · on a wide right half",
-  "DECSEL 0 · on a wide left half"
- ],
- "DECSEL 1": [
-  "DECSEL 1",
-  "DECSEL 1 · with a background color",
-  "DECSEL 1 · from a pending wrap",
-  "DECSEL 1 · on a wide right half",
-  "DECSEL 1 · on a wide left half"
- ],
  "DECSEL 2": [
-  "DECSEL 2",
-  "DECSEL 2 · with a background color",
-  "DECSEL 2 · from a pending wrap",
-  "DECSEL 2 · on a wide right half",
-  "DECSEL 2 · on a wide left half",
   "DECSEL 2 · over protected cells"
  ],
  "DECSET 1016": [
   "DECSET 1016"
  ],
- "DECSET 1047": [
-  "DECSET 1047",
-  "DECSET 1047 · and back with a changed cursor and rendition",
-  "DECSET 1047 · twice"
- ],
- "DECSET 1048": [
-  "DECSET 1048 · then restore after moving"
- ],
  "DECSET 45": [
   "DECSET 45",
   "DECSET 45 · then BS across a wrap"
- ],
- "DECSET 47": [
-  "DECSET 47",
-  "DECSET 47 · and back with a changed cursor and rendition",
-  "DECSET 47 · twice"
  ],
  "DECSET 6": [
   "DECSET 6",
@@ -292,121 +78,6 @@
  ],
  "DECSTR": [
   "DECSTR"
- ],
- "DL": [
-  "DL · no parameter",
-  "DL · parameter 0",
-  "DL · parameter 1",
-  "DL · parameter 3",
-  "DL · parameter 99",
-  "DL · top row",
-  "DL · bottom row",
-  "DL · pending wrap",
-  "DL · inside a scroll region",
-  "DL · with a background color"
- ],
- "DSR 5": [
-  "DSR 5"
- ],
- "ECH": [
-  "ECH · no parameter",
-  "ECH · parameter 0",
-  "ECH · parameter 1",
-  "ECH · parameter 3",
-  "ECH · parameter 99",
-  "ECH · last column",
-  "ECH · pending wrap",
-  "ECH · wide left half",
-  "ECH · wide right half",
-  "ECH · with a background color",
-  "ECH · over protected cells"
- ],
- "ED 0": [
-  "ED 0 · with a background color"
- ],
- "ED 1": [
-  "ED 1 · with a background color"
- ],
- "ED 2": [
-  "ED 2 · with a background color"
- ],
- "ED 3": [
-  "ED 3 · with history"
- ],
- "EL 0": [
-  "EL 0 · with a background color"
- ],
- "EL 1": [
-  "EL 1 · with a background color"
- ],
- "EL 2": [
-  "EL 2 · with a background color"
- ],
- "ESC": [
-  "ESC · inside a CSI"
- ],
- "HPA": [
-  "HPA · no parameter",
-  "HPA · parameter 0",
-  "HPA · parameter 1",
-  "HPA · parameter 3",
-  "HPA · parameter 99",
-  "HPA · pending wrap",
-  "HPA · wide right half"
- ],
- "HPR": [
-  "HPR · no parameter",
-  "HPR · parameter 0",
-  "HPR · parameter 1",
-  "HPR · parameter 3",
-  "HPR · parameter 99",
-  "HPR · pending wrap"
- ],
- "HTS": [
-  "HTS · then HT",
-  "HTS · by C1 control"
- ],
- "HVP": [
-  "HVP · no parameter",
-  "HVP · parameters 0;0",
-  "HVP · parameters 3;4",
-  "HVP · parameters 3",
-  "HVP · parameters ;4",
-  "HVP · parameters 99;99",
-  "HVP · parameters 8;20",
-  "HVP · parameters 2;99"
- ],
- "IL": [
-  "IL · no parameter",
-  "IL · parameter 0",
-  "IL · parameter 1",
-  "IL · parameter 3",
-  "IL · parameter 99",
-  "IL · top row",
-  "IL · bottom row",
-  "IL · pending wrap",
-  "IL · inside a scroll region",
-  "IL · with a background color"
- ],
- "IND": [
-  "IND",
-  "IND · top row",
-  "IND · bottom row",
-  "IND · pending wrap",
-  "IND · at a region top",
-  "IND · at a region bottom",
-  "IND · below a scroll region",
-  "IND · with a background color"
- ],
- "NEL": [
-  "NEL",
-  "NEL · top row",
-  "NEL · bottom row",
-  "NEL · pending wrap",
-  "NEL · at a region top",
-  "NEL · at a region bottom",
-  "NEL · below a scroll region",
-  "NEL · with a background color"
  ],
  "OSC 11 ?": [
   "OSC 11 ? · after OSC 11 set"
@@ -424,24 +95,6 @@
   "OSC 8",
   "OSC 8 · with id"
  ],
- "program editors": [
-  "editors program"
- ],
- "program lazygit": [
-  "lazygit program"
- ],
- "program monitors": [
-  "monitors program"
- ],
- "program multiplexers": [
-  "multiplexers program"
- ],
- "program pager": [
-  "pager program"
- ],
- "program zsh": [
-  "zsh program"
- ],
  "REP": [
   "REP · pending wrap",
   "REP · after a wide character",
@@ -452,22 +105,8 @@
   "resize · narrower with wide text",
   "resize · wider and narrower at a pending wrap"
  ],
- "RI": [
-  "RI",
-  "RI · top row",
-  "RI · bottom row",
-  "RI · pending wrap",
-  "RI · at a region top",
-  "RI · at a region bottom",
-  "RI · below a scroll region",
-  "RI · with a background color"
- ],
  "RIS": [
   "RIS"
- ],
- "SCOSC": [
-  "SCOSC · and SCORC",
-  "SCOSC · with parameters"
  ],
  "SCS G0 =": [
   "SCS G0 ="
@@ -681,38 +320,8 @@
  "SCS G3 Z": [
   "SCS G3 Z · with +"
  ],
- "SD": [
-  "SD · no parameter",
-  "SD · parameter 0",
-  "SD · parameter 1",
-  "SD · parameter 3",
-  "SD · parameter 99",
-  "SD · pending wrap",
-  "SD · inside a scroll region",
-  "SD · below a scroll region",
-  "SD · with a background color"
- ],
- "SGR 1;;4": [
-  "SGR 1;;4"
- ],
- "SGR 1;4;31;42": [
-  "SGR 1;4;31;42"
- ],
  "SGR 21": [
   "SGR 21"
- ],
- "SGR 3": [
-  "SGR 3"
- ],
- "SGR 31;0;4": [
-  "SGR 31;0;4"
- ],
- "SGR 38;2;1;2;3;4": [
-  "SGR 38;2;1;2;3;4"
- ],
- "SGR 4": [
-  "SGR 4",
-  "SGR 4 · carried into an erase"
  ],
  "SGR 4;58;2;7;8;9;59": [
   "SGR 4;58;2;7;8;9;59"
@@ -723,17 +332,11 @@
  "SGR 4;58;5;3;24;4": [
   "SGR 4;58;5;3;24;4"
  ],
- "SGR 4:1": [
-  "SGR 4:1"
- ],
  "SGR 4:2": [
   "SGR 4:2"
  ],
  "SGR 4:3": [
   "SGR 4:3"
- ],
- "SGR 4:3;4": [
-  "SGR 4:3;4"
  ],
  "SGR 4:3;58:2::7:8:9": [
   "SGR 4:3;58:2::7:8:9"
@@ -744,20 +347,10 @@
  "SGR 4:5": [
   "SGR 4:5"
  ],
- "SGR 4:6": [
-  "SGR 4:6"
- ],
- "SGR 5": [
-  "SGR 5"
- ],
  "SGR 53": [
   "SGR 53"
  ],
- "SGR 8": [
-  "SGR 8"
- ],
  "SGR 9": [
-  "SGR 9",
   "SGR 9 · carried into wide text"
  ],
  "SL": [
@@ -767,16 +360,6 @@
   "SL · parameter 3",
   "SL · parameter 99",
   "SL · inside a scroll region"
- ],
- "SM 20": [
-  "SM 20",
-  "SM 20 · with VT and FF"
- ],
- "SM 4": [
-  "SM 4",
-  "SM 4 · pushing a wide character off the edge",
-  "SM 4 · inserting a wide character",
-  "SM 4 · at a pending wrap"
  ],
  "SR": [
   "SR · no parameter",
@@ -789,7 +372,6 @@
  "stream": [
   "stream 1",
   "stream 2",
-  "stream 3",
   "stream 4",
   "stream 5",
   "stream 6",
@@ -798,18 +380,13 @@
   "stream 9",
   "stream 10",
   "stream 11",
-  "stream 12",
   "stream 13",
   "stream 14",
   "stream 15",
-  "stream 16",
   "stream 17",
   "stream 18",
-  "stream 19",
   "stream 20",
-  "stream 21",
   "stream 22",
-  "stream 23",
   "stream 24",
   "stream 25",
   "stream 26",
@@ -825,7 +402,6 @@
   "stream 37",
   "stream 38",
   "stream 39",
-  "stream 40",
   "stream 41",
   "stream 42",
   "stream 43",
@@ -839,11 +415,6 @@
   "stream 51",
   "stream 52",
   "stream 53",
-  "stream 54",
-  "stream 55",
-  "stream 56",
-  "stream 57",
-  "stream 58",
   "stream 59",
   "stream 60",
   "stream 61",
@@ -859,32 +430,23 @@
   "stream 71",
   "stream 72",
   "stream 73",
-  "stream 74",
   "stream 76",
   "stream 77",
   "stream 78",
   "stream 79",
   "stream 80",
-  "stream 81",
   "stream 82",
   "stream 83",
   "stream 84",
   "stream 85",
   "stream 86",
-  "stream 87",
   "stream 88",
   "stream 89",
   "stream 90",
   "stream 91",
   "stream 92",
-  "stream 93",
   "stream 94",
-  "stream 95",
-  "stream 96",
-  "stream 97",
-  "stream 98",
   "stream 99",
-  "stream 100",
   "stream 101",
   "stream 103",
   "stream 104",
@@ -905,13 +467,9 @@
   "stream 119",
   "stream 121",
   "stream 122",
-  "stream 123",
-  "stream 124",
   "stream 125",
   "stream 126",
   "stream 127",
-  "stream 128",
-  "stream 129",
   "stream 130",
   "stream 131",
   "stream 132",
@@ -923,25 +481,20 @@
   "stream 138",
   "stream 139",
   "stream 140",
-  "stream 141",
   "stream 142",
   "stream 143",
-  "stream 144",
   "stream 145",
-  "stream 146",
   "stream 147",
   "stream 148",
   "stream 149",
   "stream 150",
   "stream 151",
-  "stream 152",
   "stream 153",
   "stream 154",
   "stream 155",
   "stream 156",
   "stream 157",
   "stream 158",
-  "stream 159",
   "stream 160",
   "stream 161",
   "stream 162",
@@ -959,18 +512,12 @@
   "stream 174",
   "stream 175",
   "stream 176",
-  "stream 177",
-  "stream 178",
   "stream 179",
-  "stream 180",
   "stream 181",
   "stream 182",
   "stream 183",
   "stream 184",
-  "stream 185",
   "stream 186",
-  "stream 187",
-  "stream 188",
   "stream 189",
   "stream 190",
   "stream 191",
@@ -982,7 +529,6 @@
   "stream 197",
   "stream 198",
   "stream 199",
-  "stream 200",
   "stream 201",
   "stream 202",
   "stream 203",
@@ -997,7 +543,6 @@
   "stream 212",
   "stream 213",
   "stream 214",
-  "stream 215",
   "stream 217",
   "stream 218",
   "stream 219",
@@ -1008,48 +553,32 @@
   "stream 224",
   "stream 225",
   "stream 226",
-  "stream 227",
   "stream 228",
   "stream 229",
-  "stream 230",
   "stream 231",
-  "stream 232",
   "stream 233",
-  "stream 234",
   "stream 235",
-  "stream 237",
-  "stream 238",
   "stream 239",
   "stream 240",
   "stream 241",
   "stream 242",
-  "stream 243",
   "stream 244",
   "stream 245",
   "stream 246",
-  "stream 247",
   "stream 248",
-  "stream 249",
   "stream 250",
-  "stream 252",
-  "stream 253",
   "stream 254",
   "stream 255",
   "stream 256",
-  "stream 257",
-  "stream 258",
   "stream 259",
   "stream 260",
   "stream 261",
   "stream 262",
   "stream 263",
-  "stream 264",
   "stream 265",
   "stream 266",
   "stream 267",
   "stream 268",
-  "stream 269",
-  "stream 270",
   "stream 271",
   "stream 272",
   "stream 273",
@@ -1060,8 +589,6 @@
   "stream 278",
   "stream 279",
   "stream 280",
-  "stream 281",
-  "stream 282",
   "stream 283",
   "stream 284",
   "stream 285",
@@ -1084,49 +611,34 @@
   "stream 302",
   "stream 303",
   "stream 304",
-  "stream 305",
   "stream 306",
   "stream 307",
   "stream 308",
   "stream 309",
-  "stream 310",
-  "stream 311",
   "stream 313",
   "stream 314",
-  "stream 315",
   "stream 316",
-  "stream 317",
-  "stream 318",
-  "stream 319",
   "stream 320",
   "stream 321",
   "stream 322",
   "stream 323",
   "stream 324",
   "stream 325",
-  "stream 326",
   "stream 327",
-  "stream 328",
   "stream 329",
   "stream 330",
   "stream 331",
-  "stream 332",
   "stream 333",
   "stream 334",
-  "stream 335",
   "stream 336",
   "stream 337",
   "stream 338",
-  "stream 339",
-  "stream 340",
   "stream 341",
   "stream 342",
-  "stream 343",
   "stream 344",
   "stream 345",
   "stream 346",
   "stream 347",
-  "stream 348",
   "stream 349",
   "stream 350",
   "stream 351",
@@ -1138,24 +650,17 @@
   "stream 358",
   "stream 359",
   "stream 360",
-  "stream 361",
   "stream 362",
   "stream 363",
-  "stream 364",
   "stream 365",
   "stream 366",
   "stream 367",
   "stream 368",
-  "stream 369",
-  "stream 370",
-  "stream 371",
   "stream 372",
-  "stream 373",
   "stream 374",
   "stream 375",
   "stream 376",
   "stream 377",
-  "stream 378",
   "stream 379",
   "stream 380",
   "stream 381",
@@ -1170,49 +675,11 @@
   "stream 390",
   "stream 391",
   "stream 392",
-  "stream 393",
-  "stream 394",
   "stream 395",
   "stream 396",
   "stream 397",
   "stream 398",
   "stream 399",
   "stream 400"
- ],
- "SU": [
-  "SU · no parameter",
-  "SU · parameter 0",
-  "SU · parameter 1",
-  "SU · parameter 3",
-  "SU · parameter 99",
-  "SU · pending wrap",
-  "SU · inside a scroll region",
-  "SU · below a scroll region",
-  "SU · with a background color"
- ],
- "TBC 3": [
-  "TBC 3",
-  "TBC 3 · then CHT"
- ],
- "TBC 5": [
-  "TBC 5"
- ],
- "VPA": [
-  "VPA · no parameter",
-  "VPA · parameter 0",
-  "VPA · parameter 1",
-  "VPA · parameter 3",
-  "VPA · parameter 99",
-  "VPA · pending wrap",
-  "VPA · inside a scroll region"
- ],
- "VPR": [
-  "VPR · no parameter",
-  "VPR · parameter 0",
-  "VPR · parameter 1",
-  "VPR · parameter 3",
-  "VPR · parameter 99",
-  "VPR · pending wrap",
-  "VPR · inside a scroll region"
  ]
 }

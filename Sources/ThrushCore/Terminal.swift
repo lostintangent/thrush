@@ -36,8 +36,15 @@ public struct Terminal: Sendable {
         var synchronizedOutputID: UInt64?
         package var synchronizedOutput: Bool { synchronizedOutputID != nil }
         package let origin = false
-        package let insert = false
-        package let wraparound = true
+        /// IRM shifts the rest of the row right before each printed character.
+        package var insert = false
+        /// DECAWM moves printing to the next row at the right margin. Off, it overwrites the last column.
+        package var wraparound = true
+        /// LNM makes LF, VT and FF also return to the first column.
+        var newLine = false
+
+        /// Whether ASCII runs can take the fast path, or each character must be printed on its own.
+        var printsASCIIRuns: Bool { wraparound && !insert }
     }
 
     /// The current dimensions of the visible grid in character cells.
@@ -56,7 +63,6 @@ public struct Terminal: Sendable {
     private var stringHandler = TerminalStringHandler()
     private var screen: Screen
     private var style = Style()
-    private var savedStyle = Style()
     private var generation: UInt64 = 0
     // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
     private var hasCombiningBase = false
@@ -84,7 +90,7 @@ public struct Terminal: Sendable {
         var index = 0
         while index < bytes.count {
             let byte = bytes[index]
-            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete {
+            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete, modes.printsASCIIRuns {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
@@ -141,7 +147,7 @@ public struct Terminal: Sendable {
         guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { return }
         if parser.isGround, TextScanner.isPrintable(scalar) {
             let width = ColumnWidth.of(scalar)
-            screen.write(scalar, width: width, style: style, joinsPrevious: hasCombiningBase)
+            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert, joinsPrevious: hasCombiningBase)
             hasCombiningBase = width > 0 || hasCombiningBase
             generation &+= 1
             return
@@ -164,31 +170,79 @@ public struct Terminal: Sendable {
         switch function {
         case .execute(.backspace): screen.backspace()
         case .execute(.horizontalTab): screen.horizontalTab()
-        case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed): screen.lineFeed(style: style)
+        case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed):
+            if modes.newLine { screen.carriageReturn() }
+            screen.lineFeed(style: style)
         case .execute(.carriageReturn): screen.carriageReturn()
+        case .escape(.saveCursor):
+            saveCursor()
+            return
+        case .escape(.restoreCursor): restoreCursor()
         case .escape(.applicationKeypad):
             modes.applicationKeypad = true
             return
         case .escape(.numericKeypad):
             modes.applicationKeypad = false
             return
+        case .escape(.index): screen.index(style: style)
+        case .escape(.nextLine):
+            screen.carriageReturn()
+            screen.index(style: style)
+        case .escape(.tabSet):
+            screen.setTabStop()
+            return
+        case .escape(.reverseIndex): screen.reverseIndex(style: style)
         case .control(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
         case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
         case .control(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
-        case .control(.cursorForward): screen.cursorForward(parser.parameters[0, default: 1])
+        case .control(.cursorForward), .control(.columnRelative): screen.cursorForward(parser.parameters[0, default: 1])
         case .control(.cursorBackward): screen.cursorBackward(parser.parameters[0, default: 1])
-        case .control(.cursorPosition):
+        case .control(.cursorNextLine): screen.cursorNextLine(parser.parameters[0, default: 1])
+        case .control(.cursorPrecedingLine): screen.cursorPrecedingLine(parser.parameters[0, default: 1])
+        case .control(.cursorColumn), .control(.columnAbsolute):
+            screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
+        case .control(.rowAbsolute):
+            screen.move(toRow: parser.parameters[0, default: 1] - 1, column: screen.column)
+        case .control(.rowRelative):
+            // Unlike CUD, VPR passes the bottom margin.
+            screen.move(toRow: screen.row + parser.parameters[0, default: 1], column: screen.column)
+        case .control(.cursorPosition), .control(.horizontalVerticalPosition):
             screen.move(toRow: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
-        case .control(.eraseInDisplay):
-            if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseDisplay(range, style: style) }
-        case .control(.eraseInLine):
+        case .control(.forwardTab): screen.horizontalTab(parser.parameters[0, default: 1])
+        case .control(.backwardTab): screen.backwardTab(parser.parameters[0, default: 1])
+        case .control(.tabClear):
+            // TBC 0 clears the stop at the cursor and TBC 3 clears every stop.
+            switch parser.parameters[0] {
+            case 0: screen.clearTabStop()
+            case 3: screen.clearAllTabStops()
+            default: break
+            }
+            return
+        case .control(.eraseInDisplay), .control(.selectiveEraseInDisplay):
+            if parser.parameters[0] == 3 {
+                screen.eraseHistory()
+            } else if let range = EraseRange(rawValue: parser.parameters[0]) {
+                screen.eraseDisplay(range, style: style)
+            }
+        case .control(.eraseInLine), .control(.selectiveEraseInLine):
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
+        case .control(.insertLines): screen.insertLines(parser.parameters[0, default: 1], style: style)
+        case .control(.deleteLines): screen.deleteLines(parser.parameters[0, default: 1], style: style)
         case .control(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
+        case .control(.scrollUp): screen.scrollUp(parser.parameters[0, default: 1], style: style)
+        case .control(.scrollDown): screen.scrollDown(parser.parameters[0, default: 1])
+        case .control(.eraseCharacters): screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
         case .control(.primaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
         case .control(.secondaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
+            return
+        case .control(.setMode):
+            setModes(enabled: true)
+            return
+        case .control(.resetMode):
+            setModes(enabled: false)
             return
         case .control(.setPrivateMode):
             setPrivateModes(enabled: true)
@@ -200,15 +254,25 @@ public struct Terminal: Sendable {
             style.applySGR(parser.parameters)
             return
         case .control(.deviceStatusReport):
-            // DSR 6 asks for the current cursor position.
-            if parser.parameters[0] == 6 {
-                replies.append(contentsOf: Reply.cursorPosition(row: screen.row, column: screen.column).utf8)
+            // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
+            switch parser.parameters[0] {
+            case 5: replies.append(contentsOf: Reply.operatingStatus.utf8)
+            case 6: replies.append(contentsOf: Reply.cursorPosition(row: screen.row, column: screen.column).utf8)
+            default: break
             }
             return
-        case .control(.requestPrivateMode):
-            if PrivateMode(rawValue: parser.parameters[0]) == .cursorBlink {
-                replies.append(contentsOf: Reply.cursorBlink(enabled: modes.cursorBlink).utf8)
+        case .control(.privateDeviceStatusReport):
+            if parser.parameters[0] == 6 {
+                replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row, column: screen.column).utf8)
             }
+            return
+        case .control(.requestMode):
+            let mode = parser.parameters[0]
+            replies.append(contentsOf: Reply.modeReport(mode, modeState(mode), isPrivate: false).utf8)
+            return
+        case .control(.requestPrivateMode):
+            let mode = parser.parameters[0]
+            replies.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
             return
         case .control(.cursorStyle): setCursorStyle(parser.parameters[0])
         case .control(.scrollMargins):
@@ -217,6 +281,10 @@ public struct Terminal: Sendable {
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
             screen.move(toRow: 0, column: 0)
+        case .control(.saveCursor):
+            saveCursor()
+            return
+        case .control(.restoreCursor): restoreCursor()
         case .command(.setIconAndWindowTitle), .command(.setWindowTitle):
             stringHandler.start(.windowTitle)
             return
@@ -247,6 +315,59 @@ public struct Terminal: Sendable {
         generation &+= 1
     }
 
+    private mutating func saveCursor() { screen.saveCursor(style: style) }
+
+    private mutating func restoreCursor() { style = screen.restoreCursor().style }
+
+    private mutating func setModes(enabled: Bool) {
+        for index in 0..<parser.parameters.count {
+            switch Mode(rawValue: parser.parameters[index]) {
+            case .insert: modes.insert = enabled
+            case .newLine: modes.newLine = enabled
+            case nil: break
+            }
+        }
+    }
+
+    private func modeState(_ mode: Int) -> ModeState {
+        switch Mode(rawValue: mode) {
+        case .insert: ModeState(modes.insert)
+        case .newLine: ModeState(modes.newLine)
+        // The keyboard never locks (KAM, 2) and local echo stays off (SRM, 12).
+        case nil: mode == 2 ? .permanentlyReset : mode == 12 ? .permanentlySet : .unrecognized
+        }
+    }
+
+    private func privateModeState(_ mode: Int) -> ModeState {
+        guard let mode = PrivateMode(rawValue: mode) else {
+            return switch mode {
+            // Origin mode, X10 mouse reports, reverse wraparound and pixel mouse coordinates stay off.
+            case 6, 9, 45, 1016: .reset
+            // Keys always autorepeat (DECARM, 8). Backspace sends DEL, and the UTF-8 and urxvt mouse encodings are unsupported.
+            case 8: .permanentlySet
+            case 67, 1005, 1015: .permanentlyReset
+            default: .unrecognized
+            }
+        }
+        return switch mode {
+        case .applicationCursorKeys: ModeState(modes.applicationCursorKeys)
+        case .wraparound: ModeState(modes.wraparound)
+        case .cursorBlink: ModeState(modes.cursorBlink)
+        case .cursorVisible: ModeState(modes.cursorVisible)
+        case .applicationKeypad: ModeState(modes.applicationKeypad)
+        case .mousePress: ModeState(modes.mouseTracking == .press)
+        case .mouseDrag: ModeState(modes.mouseTracking == .drag)
+        case .mouseMotion: ModeState(modes.mouseTracking == .all)
+        case .sendFocus: ModeState(modes.sendFocus)
+        case .mouseSGR: ModeState(modes.mouseSGR)
+        // The reference reports 1048 as set, whatever was saved.
+        case .saveCursor: .set
+        case .alternateScreenOnly, .alternateScreenClearing, .alternateScreen: ModeState(screen.isAlternate)
+        case .bracketedPaste: ModeState(modes.bracketedPaste)
+        case .synchronizedOutput: ModeState(modes.synchronizedOutput)
+        }
+    }
+
     @inline(__always)
     private mutating func setPrivateModes(enabled: Bool) {
         for index in 0..<parser.parameters.count {
@@ -269,6 +390,7 @@ public struct Terminal: Sendable {
     private mutating func setPrivateMode(_ mode: PrivateMode, enabled: Bool) {
         switch mode {
         case .applicationCursorKeys: modes.applicationCursorKeys = enabled
+        case .wraparound: modes.wraparound = enabled
         case .cursorBlink:
             modes.cursorBlink = enabled
             generation &+= 1
@@ -286,17 +408,17 @@ public struct Terminal: Sendable {
             setMouseTracking(tracking)
         case .mouseSGR: modes.mouseSGR = enabled
         case .sendFocus: modes.sendFocus = enabled
+        case .saveCursor:
+            if enabled { saveCursor() } else { restoreCursor() }
+            generation &+= 1
         case .alternateScreen:
-            guard enabled != screen.isAlternate else { return }
-            if enabled {
-                screen.saveCursor()
-                savedStyle = style
-            }
+            // Leaving restores the normal screen's saved cursor even when the alternate screen wasn't active.
+            if enabled { saveCursor() }
             screen.setAlternate(enabled, style: style)
-            if !enabled {
-                screen.restoreCursor()
-                style = savedStyle
-            }
+            if !enabled { restoreCursor() }
+            generation &+= 1
+        case .alternateScreenOnly, .alternateScreenClearing:
+            screen.setAlternate(enabled, style: style)
             generation &+= 1
         case .bracketedPaste: modes.bracketedPaste = enabled
         case .synchronizedOutput:

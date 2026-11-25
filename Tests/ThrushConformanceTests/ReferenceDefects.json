@@ -162,48 +162,6 @@
     "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
     "differences": [
       {
-        "checkpoint": "middle",
-        "path": "cursor.column",
-        "reference": "13",
-        "thrush": "2"
-      },
-      {
-        "checkpoint": "middle",
-        "path": "replies",
-        "reference": "ESC[?1;8R",
-        "thrush": "none"
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[0][0]",
-        "reference": "blank",
-        "thrush": "\"S\""
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[1].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[1][0]",
-        "reference": "\"→\"",
-        "thrush": "\"w\""
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[2][15]",
-        "reference": "\"x\"",
-        "thrush": "\"日\" width 2"
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[3][0]",
-        "reference": "\"x\"",
-        "thrush": "\"語\" width 2"
-      },
-      {
         "checkpoint": "end",
         "path": "error",
         "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
@@ -223,31 +181,25 @@
       },
       {
         "checkpoint": "end",
-        "path": "active.visible[0].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[0][0]",
-        "reference": "blank",
-        "thrush": "\"x\""
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[1].wrapped",
-        "reference": "false",
-        "thrush": "true"
+        "path": "active.visible[0][7]",
+        "reference": "\"ñ\"",
+        "thrush": "blank"
       },
       {
         "checkpoint": "end",
         "path": "active.visible[1][0]",
         "reference": "\"→\"",
-        "thrush": "\"語\" width 2"
+        "thrush": "blank"
       },
       {
         "checkpoint": "end",
-        "path": "active.visible[2][2]",
+        "path": "active.visible[2].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][0]",
         "reference": "\"x\"",
         "thrush": "blank"
       },
@@ -360,27 +312,9 @@
       },
       {
         "checkpoint": "end",
-        "path": "replies",
-        "reference": "ESC[?2026;2$y",
-        "thrush": "none"
-      },
-      {
-        "checkpoint": "end",
         "path": "active.history.count",
         "reference": "0",
         "thrush": "1"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[5][0]",
-        "reference": "\"x\"",
-        "thrush": "\"w\""
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[6][14]",
-        "reference": "blank",
-        "thrush": "\"x\""
       },
       {
         "checkpoint": "end",

@@ -17,10 +17,28 @@ enum TerminalControlFunction {
     }
 
     enum Escape: UInt32 {
+        /// DECSC, ESC 7.
+        case saveCursor = 0x37
+        /// DECRC, ESC 8.
+        case restoreCursor = 0x38
         /// DECKPAM, ESC =.
         case applicationKeypad = 0x3d
         /// DECKPNM, ESC >.
         case numericKeypad = 0x3e
+        /// IND, ESC D or C1 0x84.
+        case index = 0x44
+        /// NEL, ESC E or C1 0x85.
+        case nextLine = 0x45
+        /// HTS, ESC H or C1 0x88.
+        case tabSet = 0x48
+        /// RI, ESC M.
+        case reverseIndex = 0x4d
+
+        /// The 8-bit forms of IND, NEL and HTS. The reference executes no other C1 control.
+        init?(c1 byte: UInt8) {
+            guard byte == 0x84 || byte == 0x85 || byte == 0x88 else { return nil }
+            self.init(rawValue: UInt32(byte - 0x40))
+        }
     }
 
     enum CSI: UInt32 {
@@ -34,32 +52,80 @@ enum TerminalControlFunction {
         case cursorForward = 0x43
         /// CUB, CSI Ps D.
         case cursorBackward = 0x44
+        /// CNL, CSI Ps E.
+        case cursorNextLine = 0x45
+        /// CPL, CSI Ps F.
+        case cursorPrecedingLine = 0x46
+        /// CHA, CSI Ps G.
+        case cursorColumn = 0x47
         /// CUP, CSI row ; column H.
         case cursorPosition = 0x48
+        /// CHT, CSI Ps I.
+        case forwardTab = 0x49
         /// ED, CSI Ps J.
         case eraseInDisplay = 0x4a
+        /// DECSED, CSI ? Ps J. Without protected cells it erases as ED does.
+        case selectiveEraseInDisplay = 0x3f_4a
         /// EL, CSI Ps K.
         case eraseInLine = 0x4b
+        /// DECSEL, CSI ? Ps K. Without protected cells it erases as EL does.
+        case selectiveEraseInLine = 0x3f_4b
+        /// IL, CSI Ps L.
+        case insertLines = 0x4c
+        /// DL, CSI Ps M.
+        case deleteLines = 0x4d
         /// DCH, CSI Ps P.
         case deleteCharacters = 0x50
+        /// SU, CSI Ps S.
+        case scrollUp = 0x53
+        /// SD, CSI Ps T.
+        case scrollDown = 0x54
+        /// ECH, CSI Ps X.
+        case eraseCharacters = 0x58
+        /// CBT, CSI Ps Z.
+        case backwardTab = 0x5a
+        /// HPA, CSI Ps `.
+        case columnAbsolute = 0x60
+        /// HPR, CSI Ps a.
+        case columnRelative = 0x61
         /// DA1, CSI Ps c.
         case primaryDeviceAttributes = 0x63
         /// DA2, CSI > Ps c.
         case secondaryDeviceAttributes = 0x3e_63
+        /// VPA, CSI Ps d.
+        case rowAbsolute = 0x64
+        /// VPR, CSI Ps e.
+        case rowRelative = 0x65
+        /// HVP, CSI row ; column f.
+        case horizontalVerticalPosition = 0x66
+        /// TBC, CSI Ps g.
+        case tabClear = 0x67
+        /// SM, CSI Pm h.
+        case setMode = 0x68
         /// DECSET, CSI ? Pm h.
         case setPrivateMode = 0x3f_68
+        /// RM, CSI Pm l.
+        case resetMode = 0x6c
         /// DECRST, CSI ? Pm l.
         case resetPrivateMode = 0x3f_6c
         /// SGR, CSI Pm m.
         case graphicRendition = 0x6d
         /// DSR, CSI Ps n.
         case deviceStatusReport = 0x6e
+        /// DECDSR, CSI ? Ps n.
+        case privateDeviceStatusReport = 0x3f_6e
+        /// DECRQM, CSI Ps $ p.
+        case requestMode = 0x24_70
         /// DECRQM, CSI ? Ps $ p.
         case requestPrivateMode = 0x3f_24_70
         /// DECSCUSR, CSI Ps SP q.
         case cursorStyle = 0x20_71
         /// DECSTBM, CSI top ; bottom r.
         case scrollMargins = 0x72
+        /// SCOSC, CSI s.
+        case saveCursor = 0x73
+        /// SCORC, CSI u.
+        case restoreCursor = 0x75
     }
 
     enum OSC: Int {
@@ -84,8 +150,13 @@ enum TerminalControlFunction {
     init?(_ action: EscapeParser.Action) {
         switch action {
         case .execute(let byte):
-            guard let function = C0(rawValue: byte) else { return nil }
-            self = .execute(function)
+            if let function = C0(rawValue: byte) {
+                self = .execute(function)
+            } else if let function = Escape(c1: byte) {
+                self = .escape(function)
+            } else {
+                return nil
+            }
         case .esc(let id):
             guard let function = Escape(rawValue: id.rawValue) else { return nil }
             self = .escape(function)
@@ -121,10 +192,25 @@ extension Terminal {
             "\u{1b}[\(row + 1);\(column + 1)R"
         }
 
-        /// DECRPM reports private mode 12 as set (1) or reset (2).
-        static func cursorBlink(enabled: Bool) -> String {
-            enabled ? "\u{1b}[?12;1$y" : "\u{1b}[?12;2$y"
+        /// DECXCPR answers DECDSR 6 with the same coordinates as CPR.
+        static func privateCursorPosition(row: Int, column: Int) -> String {
+            "\u{1b}[?\(row + 1);\(column + 1)R"
         }
+
+        /// DSR 5 reports that the terminal is working.
+        static let operatingStatus = "\u{1b}[0n"
+
+        /// DECRPM answers DECRQM with the mode number and its state.
+        static func modeReport(_ mode: Int, _ state: ModeState, isPrivate: Bool) -> String {
+            "\u{1b}[\(isPrivate ? "?" : "")\(mode);\(state.rawValue)$y"
+        }
+    }
+
+    /// The states DECRPM can report for a mode.
+    enum ModeState: Int {
+        case unrecognized = 0, set, reset, permanentlySet, permanentlyReset
+
+        init(_ enabled: Bool) { self = enabled ? .set : .reset }
     }
 
     /// DECSCUSR pairs each cursor shape with a blinking or steady presentation.
@@ -146,16 +232,27 @@ extension Terminal {
         case entire = 2
     }
 
+    enum Mode: Int {
+        case insert = 4
+        case newLine = 20
+    }
+
     enum PrivateMode: Int {
         case applicationCursorKeys = 1
+        case wraparound = 7
         case cursorBlink = 12
         case cursorVisible = 25
+        /// Switches screens without saving the cursor or clearing the alternate screen first.
+        case alternateScreenOnly = 47
         case applicationKeypad = 66
         case mousePress = 1000
         case mouseDrag = 1002
         case mouseMotion = 1003
         case sendFocus = 1004
         case mouseSGR = 1006
+        /// Behaves as 47 in the reference.
+        case alternateScreenClearing = 1047
+        case saveCursor = 1048
         case alternateScreen = 1049
         case bracketedPaste = 2004
         case synchronizedOutput = 2026

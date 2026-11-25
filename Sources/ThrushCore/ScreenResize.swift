@@ -37,10 +37,10 @@ extension Terminal.Buffer {
             let trim = lines.count - maxCount
             lines.removeFirst(trim)
             base = max(0, base - trim)
-            savedRow = max(0, savedRow - trim)
+            saved.row = max(0, saved.row - trim)
         }
         column = min(column, newSize.columns - 1)
-        savedColumn = min(savedColumn, newSize.columns - 1)
+        saved.column = min(saved.column, newSize.columns - 1)
         row = min(row, newSize.rows - 1)
 
         if oldSize.columns != newSize.columns {
@@ -61,10 +61,10 @@ extension Terminal.Buffer {
                     // Reflow consumes unused space below the cursor first, and then creates history.
                     let spare = base == 0 ? min(delta, newSize.rows - row - 1) : 0
                     if spare > 0 { lines.removeLast(spare); row += spare }
-                    savedRow = min(savedRow + delta, lines.count - 1)
+                    saved.row = min(saved.row + delta, lines.count - 1)
                 } else if delta < 0 {
                     row = max(0, row - max(0, -delta - base))
-                    savedRow = max(0, savedRow + delta)
+                    saved.row = max(0, saved.row + delta)
                 }
             }
         }
@@ -89,6 +89,7 @@ extension Terminal.Buffer {
         size = newSize
         scrollTop = 0
         scrollBottom = newSize.rows - 1
+        tabs.resize(to: newSize.columns)
     }
 
     /// A logical line comprises its first physical row and all immediately following soft wraps.
