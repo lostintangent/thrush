@@ -4,8 +4,8 @@ import Synchronization
 import Thrush
 
 /// Development-only native frame evidence for the finite, disposable lifecycle workflow.
-/// Formatting and disk I/O run off the connection actor.
-final class WorkflowFrameTrace: ConnectionFrameObserver {
+/// Formatting and disk I/O run off the session actor.
+final class WorkflowFrameTrace: WebSocketFrameTrace {
     private let records: Mutex<Records>
 
     init(url: URL) throws { records = try Mutex(Records(url: url)) }

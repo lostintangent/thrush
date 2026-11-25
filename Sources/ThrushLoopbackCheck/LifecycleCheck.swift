@@ -2,7 +2,7 @@ import Foundation
 import Synchronization
 import Thrush
 
-/// Two host instances share a shell ID. The peer controls orphan time and acknowledges each
+/// Two apps share a shell ID. The peer controls orphan time and acknowledges each
 /// expected write on the socket that owns the shell.
 struct LifecycleCheck {
     typealias Failure = LoopbackCheck.CheckFailure
@@ -25,9 +25,11 @@ struct LifecycleCheck {
         try await expectOutput(first, rows: ["old-only", "old.", ""])
         guard await first.snapshot().size == wide else { throw Failure("Lost the active resize") }
 
+        let beforeHide = await first.snapshot()
         try await resumeWithPendingRead(first)
-        try await expectReady(first, resumed: true)
+        try await expectReady(first, resumed: true, retaining: beforeHide)
         try await expectEditorReplay(first, row: "alt")
+        guard await first.snapshot().size == size else { throw Failure("Replay did not restore the negotiated grid") }
         try await expectOutput(first, rows: ["alt!", "", ""])
         try await first.send(.key(.up))
         try await expectOutput(first, rows: ["alt!A", "", ""])
@@ -43,12 +45,13 @@ struct LifecycleCheck {
         try await expectOutput(second, rows: ["alt!A!B", "", ""])
         try await checkpoint("owner-b")
 
-        guard await first.attach(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
+        let beforeReclaim = await first.snapshot()
+        guard await first.show(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
         try await first.sendResize(to: .init(columns: 20, rows: 3))
-        try await expectReady(first, resumed: true)
+        try await expectReady(first, resumed: true, retaining: beforeReclaim)
         let editorSize = Terminal.Size(columns: 17, rows: 3)
         try await first.sendResize(to: editorSize)
-        guard await first.snapshot().size == size else { throw Failure("Resized before the peer's replay") }
+        try expectRetained(beforeReclaim, in: await first.snapshot())
         try await checkpoint("replay")
         try await expectEditorReplay(first, row: "alt!A!B")
         guard await first.snapshot().size == editorSize else { throw Failure("Lost the resize during replay") }
@@ -62,10 +65,10 @@ struct LifecycleCheck {
             throw Failure("Leaving the replayed editor lost or duplicated shell history or cursor position")
         }
 
-        await first.detach()
+        await first.hide()
         try await first.sendResize(to: size)
         try await checkpoint("expire")
-        guard await first.attach() else { throw Failure("Could not attach after orphan expiry") }
+        guard await first.show() else { throw Failure("Could not attach after orphan expiry") }
         // The peer withholds ready until the rejected keystroke has had a chance to queue.
         try await rejectInput(first)
         try await checkpoint("ready")
@@ -92,13 +95,13 @@ struct LifecycleCheck {
         try await expectEnded(final, closed: false)
     }
 
-    private func open() throws -> TerminalWorker {
-        try TerminalWorker(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+    private func open() throws -> SessionActor {
+        try SessionActor(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
     }
 
     private func open(in session: URLSession,
-                      onOutput: (@Sendable (Data) -> Void)? = nil) throws -> TerminalWorker {
-        TerminalWorker(size: size, palette: palette, onOutput: onOutput) { grid in
+                      onOutput: (@Sendable (Data) -> Void)? = nil) throws -> SessionActor {
+        SessionActor(size: size, palette: palette, onOutput: onOutput) { grid in
             let address = endpoint.appending(path: "socket").appending(queryItems: [
                 URLQueryItem(name: "service", value: "terminal"),
                 URLQueryItem(name: "clientId", value: "thrush lifecycle"),
@@ -112,79 +115,99 @@ struct LifecycleCheck {
         }
     }
 
-    private func expectReady(_ connection: TerminalWorker, resumed: Bool) async throws {
-        guard try await connection.nextEvent() == .ready(resumed: resumed) else {
+    private func expectReady(_ session: SessionActor, resumed: Bool, retaining previous: Terminal.Snapshot? = nil) async throws {
+        guard try await session.nextEvent() == .ready(resumed: resumed) else {
             throw Failure("Expected ready(resumed: \(resumed)) before any output")
         }
-        let grid = await connection.snapshot()
-        guard grid.size == size, grid.palette == palette, grid.rows.allSatisfy({ $0.text.isEmpty }),
-              grid.history.isEmpty, grid.normalHistoryCount == 0, !grid.isAlternate,
-              grid.cursorRow == 0, grid.cursorColumn == 0 else {
-            throw Failure("Ready must start on a clean grid at the requested size and palette")
+        let grid = await session.snapshot()
+        if let previous {
+            try expectRetained(previous, in: grid)
+        } else {
+            guard grid.size == size, grid.palette == palette, grid.rows.allSatisfy({ $0.text.isEmpty }),
+                  grid.history.isEmpty, grid.normalHistoryCount == 0, !grid.isAlternate,
+                  grid.cursorRow == 0, grid.cursorColumn == 0 else {
+                throw Failure("Expected a clean grid for a new session or shell")
+            }
         }
-        if resumed { try await rejectInput(connection) }
+        if resumed {
+            guard await session.state == .awaitingReplay, await session.awaitingReplay else {
+                throw Failure("A resumed socket must await its replay")
+            }
+            try await rejectInput(session)
+        }
     }
 
-    private func expectOutput(_ connection: TerminalWorker, rows: [String]) async throws {
-        let event = try await connection.nextEvent()
+    private func expectRetained(_ previous: Terminal.Snapshot, in current: Terminal.Snapshot) throws {
+        guard current.generation == previous.generation, current.size == previous.size,
+              current.rows.map(\.text) == previous.rows.map(\.text), current.history.map(\.text) == previous.history.map(\.text),
+              current.isAlternate == previous.isAlternate, current.modes == previous.modes,
+              current.cursorRow == previous.cursorRow, current.cursorColumn == previous.cursorColumn else {
+            throw Failure("The session changed the retained screen before its replay arrived")
+        }
+    }
+
+    private func expectOutput(_ session: SessionActor, rows: [String]) async throws {
+        let event = try await session.nextEvent()
         guard event == .output else { throw Failure("Expected output for \(rows), got \(event)") }
-        let actual = await connection.snapshot().rows.map(\.text)
+        let actual = await session.snapshot().rows.map(\.text)
         guard actual == rows else { throw Failure("Expected \(rows), got \(actual)") }
     }
 
-    private func expectEditorReplay(_ connection: TerminalWorker, row: String) async throws {
-        try await expectOutput(connection, rows: [row, "", ""])
-        let grid = await connection.snapshot()
-        guard grid.isAlternate, grid.normalHistoryCount == 1, grid.cursorRow == 0,
+    private func expectEditorReplay(_ session: SessionActor, row: String) async throws {
+        guard try await session.nextEvent() == .replay, !(await session.awaitingReplay) else {
+            throw Failure("Expected the complete serialized editor replay")
+        }
+        let grid = await session.snapshot()
+        guard grid.rows.map(\.text) == [row, "", ""], grid.isAlternate, grid.normalHistoryCount == 1, grid.cursorRow == 0,
               grid.cursorColumn == row.utf8.count else {
             throw Failure("Replayed alternate screen, saved shell history or cursor diverged")
         }
     }
 
-    private func expectDisplacement(_ connection: TerminalWorker) async throws {
-        guard try await connection.nextEvent() == .displaced else {
+    private func expectDisplacement(_ session: SessionActor) async throws {
+        guard try await session.nextEvent() == .displaced else {
             throw Failure("Expected the peer to displace the old socket with close code 4000")
         }
-        await connection.detach() // The user backgrounds and returns to the displaced window.
-        guard await connection.state == .displaced, await !connection.attach() else {
+        await session.hide() // The user backgrounds and returns to the displaced window.
+        guard await session.state == .displaced, await !session.show() else {
             throw Failure("Foregrounding a displaced owner must wait for user input")
         }
-        try await rejectInput(connection)
+        try await rejectInput(session)
     }
 
-    private func expectEnded(_ connection: TerminalWorker, closed: Bool) async throws {
-        guard await connection.state == .ended, await !connection.attach() else {
+    private func expectEnded(_ session: SessionActor, closed: Bool) async throws {
+        guard await session.state == .ended, await !session.show() else {
             throw Failure("A closed or exited shell must stay ended")
         }
-        if closed, await connection.attach(userInitiated: true) { throw Failure("Explicitly closed shell restarted") }
-        try await rejectInput(connection)
+        if closed, await session.show(userInitiated: true) { throw Failure("Explicitly closed shell restarted") }
+        try await rejectInput(session)
     }
 
-    private func rejectInput(_ connection: TerminalWorker) async throws {
-        do { try await connection.send(.text("stale")) }
+    private func rejectInput(_ session: SessionActor) async throws {
+        do { try await session.send(.text("stale")) }
         catch { return }
         throw Failure("Accepted input outside the active attachment")
     }
 
-    private func resumeWithPendingRead(_ connection: isolated TerminalWorker) async throws {
+    private func resumeWithPendingRead(_ session: isolated SessionActor) async throws {
         // Each immediate task enters the actor and suspends at its first I/O wait. The input is
         // already queued for this socket when we detach, before its writer gets the actor again.
-        let pendingRead = Task.immediate { try await connection.nextEvent() }
-        let pendingInput = Task.immediate { try await connection.send(.text("stale")) }
-        connection.detach()
-        try await connection.sendResize(to: size)
-        guard connection.attach() else { throw Failure("Could not resume on foreground return") }
+        let pendingRead = Task.immediate { try await session.nextEvent() }
+        let pendingInput = Task.immediate { try await session.send(.text("stale")) }
+        session.hide()
+        try await session.sendResize(to: size)
+        guard session.show() else { throw Failure("Could not resume on foreground return") }
         try await checkpoint("detached")
         guard case .failure = await pendingRead.result,
               case .failure(let error) = await pendingInput.result, error is CancellationError,
-              connection.state == .connecting else {
+              session.state == .connecting else {
             throw Failure("Stale I/O survived detachment or altered the new attachment")
         }
     }
 
-    private func closeWithPendingRead(_ connection: isolated TerminalWorker) async throws {
-        let pendingRead = Task.immediate { try await connection.nextEvent() }
-        try await connection.closeShell()
+    private func closeWithPendingRead(_ session: isolated SessionActor) async throws {
+        let pendingRead = Task.immediate { try await session.nextEvent() }
+        try await session.closeShell()
         guard case .failure = await pendingRead.result else {
             throw Failure("A receive survived explicit close")
         }

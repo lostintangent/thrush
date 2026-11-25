@@ -10,6 +10,7 @@ import Testing
     private(set) var port: UInt16?
     private(set) var opens = 0
     private(set) var closes = 0
+    private(set) var receivedText: [String] = []
 
     init() throws {
         let options = NWParameters.tcp
@@ -42,10 +43,11 @@ import Testing
     }
 
     private func receive(_ socket: NWConnection) {
-        socket.receiveMessage { [weak self] _, context, _, error in
+        socket.receiveMessage { [weak self] data, context, _, error in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let ws = context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
+                if ws?.opcode == .text, let data { self.receivedText.append(String(decoding: data, as: UTF8.self)) }
                 if ws?.opcode == .close || error != nil {
                     self.closes += 1
                     socket.cancel()

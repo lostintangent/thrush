@@ -2,7 +2,7 @@
 
 # Thrush
 
-Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no dependencies turns PTY output into a screen, one Metal renderer draws it on both platforms, and native text input, selection, the pasteboard and VoiceOver handle everything a person does with it. An app points it at any server that speaks Thrush's small WebSocket protocol. [Toy Box](https://github.com/lostintangent/toy-box) is the first app to use it, bringing its shells to Mac and iPhone.
+Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no dependencies turns PTY output into a screen, one Metal renderer draws it on both platforms, and native text input, selection, the pasteboard and VoiceOver handle everything a person does with it. An app can use the built-in WebSocket transport with any server that speaks Thrush’s protocol. [Toy Box](https://github.com/lostintangent/toy-box) is the first app to use it, bringing its shells to Mac and iPhone.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/thrush-dark.png">
@@ -17,7 +17,7 @@ Add the package and link the `Thrush` product to your app target. Thrush needs m
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
-Keep one `TerminalSession` per tab in a main-actor model that outlives the view. Capture the tab’s stable client ID in the socket factory and pass the session to a pane.
+Keep one `TerminalSession` per tab in a main-actor model that outlives the view. Each session owns a terminal and talks to one shell. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
 
 ```swift
 import Thrush
@@ -29,12 +29,12 @@ let session = TerminalSession { size in
 TerminalPane(session)
 ```
 
-The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
+The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and handles focus, selection, copying and scrolling through history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. The pane shows a native notice when the shell needs attention.
 
 | State | What the pane shows |
 | --- | --- |
 | Opening | **Connecting**, after 200 ms |
-| A lost socket retries | **Reconnecting**, with the transcript kept and typing held for the same shell |
+| A lost socket retries | **Reconnecting**, with the previous screen and history available and typing held for the same shell |
 | The shell was replaced | **Previous shell ended**, with the new shell ready |
 | Another window took the shell | **Open in another window**, with **Use Here** |
 | The shell exited | **Ended**, with **New Shell** |
@@ -53,15 +53,15 @@ TerminalPane(
 
 To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
-SwiftUI observes `session.title` and `session.hasEnded` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(session.title.isEmpty ? "Terminal" : session.title)`. The session ends when the shell exits or the host calls `try await session.close()`. On shell exit, the pane keeps its last screen and offers **New Shell**. A host that closes ended tabs can observe `session.hasEnded` with `.onChange`. [Pane states and behavior](docs/design/pane-states.md)
+SwiftUI observes `session.title` and `session.hasEnded` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(session.title.isEmpty ? "Terminal" : session.title)`. The session ends when the shell exits or the app calls `try await session.close()`. On shell exit, the pane keeps its last screen and offers **New Shell**. An app that closes ended tabs can observe `session.hasEnded` with `.onChange`. [Pane states and behavior](docs/design/pane-states.md)
 
-### The socket
+### WebSocket transport
 
 On every attachment, the socket factory receives the current `Terminal.Size` in columns and rows. Return a fresh, suspended `URLSessionWebSocketTask` for the same client ID each time, created from your app’s `URLSession` so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
 
-### Use a local PTY or SSH channel
+### Supply a transport
 
-Tag `v0.2.0` provides the socket initializer above. On `main`, `TerminalSession(openTransport:)` also accepts a host’s local PTY or SSH channel. Here `ssh` and its sendable `ShellChannel` belong to the host app.
+Tag `v0.2.0` provides the socket initializer above. On `main`, an app can also supply a `TerminalTransport` for a local PTY or a remote shell over SSH. In this example, the app provides the SSH client and its sendable `ShellChannel`.
 
 ```swift
 import Foundation
@@ -86,7 +86,7 @@ let session = TerminalSession(openTransport: { size in
 TerminalPane(session)
 ```
 
-The factory receives the pane’s measured grid. A local PTY adapter uses the same four methods. Return `nil` from `read()` after the final bytes. Make `close()` release the channel and wake any pending I/O. While the app can run, the session keeps reading and answering terminal queries with the pane hidden. Showing it again displays the current screen. EOF or a transport error leaves the final screen visible with **Ended**. **New Shell** opens a fresh channel. Calling `session.close()` ends the session permanently. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
+The factory opens a shell at the pane’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the pane hidden. Showing it again displays the current screen. EOF or a transport error leaves the final screen visible with the **Ended** notice. **New Shell** calls the factory for a fresh shell. Calling `session.close()` ends the session permanently. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
 
 ## Try the sample apps
 
@@ -115,7 +115,7 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 | Resize with full history | Worst p95 0.796 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
 | Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
-| Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [Connection](Benchmarks/connection.md) |
+| Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [WebSocket lifecycle](Benchmarks/connection.md) |
 | Real shells | Bash, Vim, Codex and shell lifecycle on Mac and iPhone, with 34 checkpoints per platform and end-to-end byte counts | [Live workflows](Benchmarks/live-workflows.md) |
 
 The timings come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.

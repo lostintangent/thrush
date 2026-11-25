@@ -3,7 +3,7 @@ import QuartzCore
 import Thrush
 import ThrushReplay
 
-/// This development-only driver observes the tab's real connection and drives its native
+/// This development-only driver observes the tab's session and drives its native
 /// responder. The terminal protocol stays on the existing socket. A separate loopback HTTP
 /// listener holds each reference boundary until the pane, Metal, and capture runner have caught up.
 @MainActor
@@ -51,7 +51,6 @@ final class PaneWorkflowDriver {
     private let control: URL, output: URL
     private let view: TerminalView
     private let session: TerminalSession
-    private var connection: TerminalWorker { session.worker }
     private let setActive: (Bool) -> Void
     private let activateAction: (String) -> Bool
     private let http = URLSession(configuration: .ephemeral)
@@ -90,7 +89,7 @@ final class PaneWorkflowDriver {
                                                 session: session, setActive: setActive, activateAction: activateAction)
                 try await driver.run()
             } catch {
-                await session.worker.finishFrameTrace("failure")
+                await session.actor.finishFrameTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
@@ -207,7 +206,7 @@ final class PaneWorkflowDriver {
                 let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
                 guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
                 let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
-                await connection.finishFrameTrace("success")
+                await session.actor.finishFrameTrace("success")
                 try save(report, as: "workflow-report.json")
                 return
             case .focus, .input, .resize, .detach, .resume, .checkpoint:
@@ -283,10 +282,10 @@ final class PaneWorkflowDriver {
         var copied: String?
         var copiedAt: Double?
         while ContinuousClock.now < deadline {
-            let applied = await connection.appliedBytes
-            let received = await connection.receivedBytes
+            let applied = await session.actor.appliedBytes
+            let received = await session.actor.receivedBytes
             if applied == state.outputBytes, received == state.outputBytes {
-                let snapshot = await connection.snapshot()
+                let snapshot = await session.actor.snapshot()
                 let accepted = view.snapshot
                 // MTKView's initial on-demand draw can run before a drawable becomes available.
                 // Ask the native view to retry that dirty frame while the fixture holds its output.
@@ -303,12 +302,12 @@ final class PaneWorkflowDriver {
                     guard let accepted, let frame = lastFrame else { throw Failure("The pane has no rendered checkpoint yet.") }
                     if let copiedAt, frame.submittedAt < copiedAt { throw Failure("Waiting for the native selection highlight.") }
                     if expected.lifecycle?.resumed == true {
-                        // The connection resets its parser at ready(true). Keep the last
-                        // coherent native frame on screen until the serialized replay arrives.
-                        try expected.verify(snapshot)
-                        guard let previous = lastCheckpoint, accepted.generation == frame.generation else {
+                        // A continuing session keeps its previous screen until the replay arrives.
+                        guard let previous = lastCheckpoint, snapshot.generation == accepted.generation,
+                              accepted.generation == frame.generation else {
                             throw Failure("The pane lost its pre-detach frame while waiting for replay.")
                         }
+                        try previous.verify(snapshot)
                         try previous.verify(accepted)
                     } else {
                         try WorkflowCheckpoint.verify(expected, snapshot: snapshot, nativePalette: view.resolvedTheme.palette,
@@ -322,7 +321,7 @@ final class PaneWorkflowDriver {
                                  copiedText: copied)
                 } catch { detail = String(describing: error) }
             } else {
-                detail = "peer sent \(state.outputBytes), connection received \(received) and applied \(applied)"
+                detail = "peer sent \(state.outputBytes), session received \(received) and applied \(applied)"
             }
             try await Task.sleep(for: .milliseconds(8))
         }

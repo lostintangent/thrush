@@ -59,14 +59,14 @@ import ThrushCore
     update(shown: true, selected: true)
     try await waitFor { !attachments().isEmpty && attachments()[0].columns > 1 }
     update(shown: true, selected: false)
-    try await waitFor { await session.worker.state == .detached }
+    try await waitFor { await session.actor.state == .idle }
     let first = attachments()
     try await Task.sleep(for: .milliseconds(350))
     #expect(attachments() == first)
     update(shown: true, selected: true)
     try await waitFor { attachments().count > first.count }
     update(shown: false, selected: true)
-    try await waitFor { await session.worker.state == .detached }
+    try await waitFor { await session.actor.state == .idle }
     let removed = attachments()
     try await Task.sleep(for: .milliseconds(350))
     #expect(attachments() == removed)

@@ -80,7 +80,7 @@ func run() throws {
         return
     }
     if arguments.first == "--connection" || arguments.first == "--transport" {
-        try runConnectionBenchmark(arguments: arguments)
+        try runTransportBenchmark(arguments: arguments)
         return
     }
     if arguments.first == "--workload" {

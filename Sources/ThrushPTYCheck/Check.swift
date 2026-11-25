@@ -38,13 +38,13 @@ private final class WireCapture: Sendable {
         }
     }
 
-    /// The adapter reports whether this exact binary frame was a serialization or live output.
-    func next(_ connection: TerminalWorker) async throws -> TerminalWorker.Event {
-        let event = try await connection.nextEvent()
+    /// The session reports whether this frame replaced the screen or added live output.
+    func next(_ session: SessionActor) async throws -> SessionActor.Event {
+        let event = try await session.nextEvent()
         state.withLock { state in
             guard let chunk = state.pending else { return }
             state.pending = nil
-            if event == .resynchronized {
+            if event == .replay {
                 state.replayBytes += chunk.count
                 state.replayFrames += 1
                 return
@@ -102,8 +102,8 @@ struct PTYCheck {
         ["http", "https"].contains(url.scheme ?? "") && ["127.0.0.1", "localhost", "[::1]", "::1"].contains(url.host ?? "")
     }
 
-    static func enterFixture(_ connection: TerminalWorker) async throws {
-        if let command = fixtureCommand { try await connection.send(.text(command)) }
+    static func enterFixture(_ session: SessionActor) async throws {
+        if let command = fixtureCommand { try await session.send(.text(command)) }
     }
 
     static func main() async throws {
@@ -134,7 +134,7 @@ struct PTYCheck {
         let directory = URL(filePath: args[4], directoryHint: .isDirectory)
         let capture = WireCapture(), clientID = UUID().uuidString
         let size = Terminal.Size(columns: 80, rows: 24)
-        let live = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
+        let live = try SessionActor(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
         guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
@@ -146,17 +146,17 @@ struct PTYCheck {
         try await live.send(.text("stty -echo -onlcr && exec /usr/bin/python3 producer.py \(scenario)\r"))
         while !capture.finished {
             let event = try await capture.next(live)
-            guard event == .output || event == .resynchronized else { throw PTYCheckFailure("Missing live end fence") }
+            guard event == .output || event == .replay else { throw PTYCheckFailure("Missing live end fence") }
             if let bytesPerSecond, !capture.finished { try await capture.delayNextRead(at: bytesPerSecond) }
         }
         let liveEnd = DispatchTime.now().uptimeNanoseconds
         let liveRows = await live.snapshot().rows.map(\.text)
-        await live.detach()
+        await live.hide()
 
         // A fresh observer of the same shell restores the server's serialized grid. Its replay
         // and subsequent frames belong to a separate attachment and never enter the live totals.
-        let restored = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size)
-        guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .output else {
+        let restored = try SessionActor(baseURL: endpoint, clientID: clientID, size: size)
+        guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .replay else {
             throw PTYCheckFailure("Missing replay after the numbered log")
         }
         let replayRows = await restored.snapshot().rows.map(\.text)

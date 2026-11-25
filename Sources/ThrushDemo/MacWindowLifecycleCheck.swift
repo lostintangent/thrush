@@ -100,20 +100,20 @@ final class MacWindowLifecycleCheck {
 
     private func run() async throws -> Report {
         guard let terminalSession = session.terminalSession else { throw RenderBenchmark.Failure("Missing terminal session.") }
-        let connection = terminalSession.worker
+        let actor = terminalSession.actor
         try await wait("The uncovered terminal must have a usable shell", timeout: 25) { readyEvents == 1 && visible }
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
         try NativeWorkflowActions.input(.text(command + "\r"), view: session.view)
-        try await wait("The real shell must write its PID into the emulator") { self.marker(in: await connection.snapshot()) != nil }
+        try await wait("The real shell must write its PID into the emulator") { self.marker(in: await actor.snapshot()) != nil }
         try await wait("The uncovered terminal must render its first shell marker", timeout: 25) {
             guard let snapshot = self.session.view.snapshot, self.marker(in: snapshot) != nil,
                   let completed = self.lastCompleted else { return false }
             return self.visible && completed >= snapshot.generation
         }
         var intervals: [Interval] = []
-        for step in Phase.allCases { intervals.append(try await measure(step, connection: connection)) }
-        let attempts = await connection.socketAttempts
+        for step in Phase.allCases { intervals.append(try await measure(step, actor: actor)) }
+        let attempts = await actor.socketAttempts
         guard attempts == 1, readyEvents == 1 else {
             throw RenderBenchmark.Failure("Expected one socket and one ready, observed \(attempts) and \(readyEvents).")
         }
@@ -121,7 +121,7 @@ final class MacWindowLifecycleCheck {
         return Report(socketAttempts: attempts, readyEvents: readyEvents, intervals: intervals)
     }
 
-    private func measure(_ step: Phase, connection: TerminalWorker) async throws -> Interval {
+    private func measure(_ step: Phase, actor: SessionActor) async throws -> Interval {
         phase = step
         hiddenSubmissions = 0
         switch step {
@@ -142,7 +142,7 @@ final class MacWindowLifecycleCheck {
             }
         }
         try await wait("WindowServer did not confirm \(step.rawValue)") { isObscured(step) }
-        let initialModel = await connection.snapshot()
+        let initialModel = await actor.snapshot()
         guard let first = marker(in: initialModel) else { throw RenderBenchmark.Failure("Missing shell PID marker.") }
         let other = frontmost
         let start = CACurrentMediaTime()
@@ -153,7 +153,7 @@ final class MacWindowLifecycleCheck {
             try await Task.sleep(for: .milliseconds(100))
         } while CACurrentMediaTime() - start < 32
         let elapsed = CACurrentMediaTime() - start
-        let hiddenModel = await connection.snapshot()
+        let hiddenModel = await actor.snapshot()
         let generation = hiddenModel.generation
         guard let final = marker(in: hiddenModel), generation > initialModel.generation, final.pid == first.pid,
               final.tick >= first.tick + 20,

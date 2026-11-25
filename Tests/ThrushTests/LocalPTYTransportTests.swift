@@ -5,7 +5,7 @@ import Synchronization
 import Testing
 import Thrush
 
-/// A host-supplied transport with a real PTY as the shell's standard input, output and error.
+/// An app-supplied transport with a real PTY as the shell's standard input, output and error.
 private actor LocalShellPTY: TerminalTransport {
     private let process = Process()
     private let master: FileHandle
@@ -86,7 +86,7 @@ private actor LocalShellPTY: TerminalTransport {
     }
 }
 
-@MainActor @Test(.timeLimit(.minutes(1))) func localShellResizesAndContinuesWhileDetached() async throws {
+@MainActor @Test(.timeLimit(.minutes(1))) func localShellResizesAndContinuesWhileHidden() async throws {
     let gate = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: gate) }
     let opened = Mutex<[LocalShellPTY]>([])
@@ -108,31 +108,30 @@ private actor LocalShellPTY: TerminalTransport {
         opened.withLock { $0.append(shell) }
         return shell
     })
-    let worker = session.worker
-    try await worker.sendResize(to: .init(columns: 43, rows: 8))
-    try #require(await worker.attach())
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
+    let actor = session.actor
+    try await actor.sendResize(to: .init(columns: 43, rows: 8))
+    try #require(await actor.show())
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
     let shell = try #require(opened.withLock { $0.first })
 
     let first = "FIRST \(shell.pid) 8 43"
-    try await waitForPTY("the PTY's measured initial size") { await worker.text(inRow: 0) == first }
-    try await worker.sendResize(to: .init(columns: 51, rows: 9))
-    try await worker.send(.text("acorn"))
-    try await worker.send(.key(.enter))
-    try await waitForPTY("input and resized PTY") { await worker.text(inRow: 1) == "INPUT acorn 9 51" }
+    try await waitForPTY("the PTY's measured initial size") { await actor.text(inRow: 0) == first }
+    try await actor.sendResize(to: .init(columns: 51, rows: 9))
+    try await actor.send(.text("acorn"))
+    try await actor.send(.key(.enter))
+    try await waitForPTY("input and resized PTY") { await actor.text(inRow: 1) == "INPUT acorn 9 51" }
 
-    await worker.detach()
+    await actor.hide()
     try Data().write(to: gate)
-    try await waitForPTY("output produced while detached") { await worker.text(inRow: 2) == "HIDDEN \(shell.pid)" }
-    #expect(await !worker.attach())
-    try #require(try await worker.nextEvent() == .ready(resumed: true))
-    try #require(try await worker.nextEvent() == .output)
-    #expect(await worker.text(inRow: 0) == first)
-    #expect(await worker.text(inRow: 2) == "HIDDEN \(shell.pid)")
+    try await waitForPTY("output produced while hidden") { await actor.text(inRow: 2) == "HIDDEN \(shell.pid)" }
+    #expect(await !actor.show())
+    try #require(try await actor.nextEvent() == .screen)
+    #expect(await actor.text(inRow: 0) == first)
+    #expect(await actor.text(inRow: 2) == "HIDDEN \(shell.pid)")
     #expect(opened.withLock { $0.count } == 1)
-    try await worker.send(.text("finish\r"))
+    try await actor.send(.text("finish\r"))
     try await waitForPTY("shell EOF") { session.hasEnded }
-    #expect(await worker.text(inRow: 3) == "FINAL \(shell.pid) finish")
+    #expect(await actor.text(inRow: 3) == "FINAL \(shell.pid) finish")
 }
 
 @MainActor @Test(.timeLimit(.minutes(1))) func closingLocalShellInterruptsPendingRead() async throws {
@@ -143,9 +142,9 @@ private actor LocalShellPTY: TerminalTransport {
         opened.withLock { $0 = shell }
         return shell
     })
-    try await session.worker.sendResize(to: .init(columns: 40, rows: 8))
-    try #require(await session.worker.attach())
-    try #require(try await session.worker.nextEvent() == .ready(resumed: false))
+    try await session.actor.sendResize(to: .init(columns: 40, rows: 8))
+    try #require(await session.actor.show())
+    try #require(try await session.actor.nextEvent() == .ready(resumed: false))
     let shell = try #require(opened.withLock { $0 })
     try await waitForPTY("a pending read on the quiet PTY") { await shell.waitingForOutput }
     let closing = Task { try await session.close() }

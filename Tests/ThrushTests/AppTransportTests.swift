@@ -5,27 +5,27 @@ import Thrush
 
 // A one-use acknowledgement. The deadline only reports a missing callback.
 private struct Acknowledgement: Sendable {
-    private let channel = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
+    private let signalStream = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
 
     func signal() {
-        channel.continuation.yield(true)
-        channel.continuation.finish()
+        signalStream.continuation.yield(true)
+        signalStream.continuation.finish()
     }
 
     func wait() async throws {
         let timeout = Task {
             try await Task.sleep(for: .seconds(5))
-            channel.continuation.yield(false)
-            channel.continuation.finish()
+            signalStream.continuation.yield(false)
+            signalStream.continuation.finish()
         }
         defer { timeout.cancel() }
-        var iterator = channel.stream.makeAsyncIterator()
+        var iterator = signalStream.stream.makeAsyncIterator()
         let received = await iterator.next()
         try #require(received == true)
     }
 }
 
-enum FailingStreamOperation: CaseIterable, Sendable { case write, resize }
+enum FailingTransportOperation: CaseIterable, Sendable { case write, resize }
 
 actor ControlledTransport: TerminalTransport {
     enum Failure: Error { case interrupted }
@@ -44,9 +44,9 @@ actor ControlledTransport: TerminalTransport {
 
     func emit(_ text: String) { output.continuation.yield(Data(text.utf8)) }
     func interrupt() { output.continuation.finish(throwing: Failure.interrupted) }
-    private var failure: FailingStreamOperation?
+    private var failure: FailingTransportOperation?
 
-    func fail(_ operation: FailingStreamOperation) { failure = operation }
+    func fail(_ operation: FailingTransportOperation) { failure = operation }
 
     func write(_ bytes: Data) throws {
         // The remote end can receive bytes before the writer learns of a failure.
@@ -76,20 +76,20 @@ private actor DelayedOpen {
         }
     }
 
-    func finish(with channel: ControlledTransport) {
-        result?.resume(returning: channel)
+    func finish(with transport: ControlledTransport) {
+        result?.resume(returning: transport)
         result = nil
     }
 }
 
-@MainActor @Test func closingDuringTransportOpenDisposesTheLateChannel() async throws {
+@MainActor @Test func closingDuringTransportOpenClosesTheLateTransport() async throws {
     let open = DelayedOpen()
-    let channel = ControlledTransport()
+    let transport = ControlledTransport()
     let session = TerminalSession(openTransport: { _ in await open.open() })
-    let worker = session.worker
-    try await worker.sendResize(to: .init(columns: 20, rows: 4))
+    let actor = session.actor
+    try await actor.sendResize(to: .init(columns: 20, rows: 4))
     let opening = Task {
-        if await worker.attach() { _ = try? await worker.nextEvent() }
+        if await actor.show() { _ = try? await actor.nextEvent() }
     }
     try await open.started.wait()
 
@@ -99,17 +99,17 @@ private actor DelayedOpen {
         try await closed.wait()
     } catch {
         // Release the simulated non-cooperative factory even if close incorrectly waits for it.
-        await open.finish(with: channel)
+        await open.finish(with: transport)
         throw error
     }
     try await closing.value
     #expect(session.hasEnded)
-    await open.finish(with: channel)
-    try await channel.closed.wait()
+    await open.finish(with: transport)
+    try await transport.closed.wait()
     await opening.value
-    #expect(await channel.closes == 1)
-    #expect(await worker.state == .ended)
-    #expect(await worker.attach(userInitiated: true) == false)
+    #expect(await transport.closes == 1)
+    #expect(await actor.state == .ended)
+    #expect(await actor.show(userInitiated: true) == false)
 }
 
 @MainActor @Test func interruptedTransportPreservesItsScreenUntilExplicitRestart() async throws {
@@ -122,57 +122,60 @@ private actor DelayedOpen {
             return attempts.count == 1 ? first : second
         }
     })
-    let worker = session.worker
+    let actor = session.actor
     let size = Terminal.Size(columns: 20, rows: 4)
-    try await worker.sendResize(to: size)
-    try #require(await worker.attach())
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
+    let cursor = Terminal.RGB(red: 29, green: 103, blue: 197)
+    await actor.setPalette(.default, cursor: cursor)
+    try await actor.sendResize(to: size)
+    try #require(await actor.show())
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
 
-    try await worker.send(.text("a"))
+    try await actor.send(.text("a"))
     await first.emit("tail\u{1b}[6n")
-    try #require(try await worker.nextEvent() == .output)
-    try await worker.send(.key(.enter))
-    // The cursor query follows four printed cells. Replies and keystrokes share the byte stream.
+    try #require(try await actor.nextEvent() == .output)
+    try await actor.send(.key(.enter))
+    // The cursor query follows four printed cells. Replies and keystrokes use the same transport.
     #expect(await first.writes == [Data("a".utf8), Data("\u{1b}[1;5R".utf8), Data([13])])
     await first.interrupt()
-    try #require(try await worker.nextEvent() == .exit)
+    try #require(try await actor.nextEvent() == .exit)
     #expect(session.hasEnded)
-    #expect(await worker.text(inRow: 0) == "tail")
-    await worker.detach()
-    #expect(await worker.attach() == false)
+    #expect(await actor.text(inRow: 0) == "tail")
+    await actor.hide()
+    #expect(await actor.show() == false)
     #expect(sizes.withLock { $0 } == [size])
 
-    try #require(await worker.attach(userInitiated: true))
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
+    try #require(await actor.show(userInitiated: true))
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
     #expect(!session.hasEnded)
-    #expect(await worker.text(inRow: 0) == "")
+    #expect(await actor.currentTerminal.cursorColor == cursor)
+    #expect(await actor.text(inRow: 0) == "")
     #expect(await second.writes.isEmpty)
     #expect(sizes.withLock { $0 } == [size, size])
     try await session.close()
-    #expect(await worker.attach(userInitiated: true) == false)
+    #expect(await actor.show(userInitiated: true) == false)
     #expect(await second.closes == 1)
 }
 
 @MainActor @Test func releasingHiddenSessionClosesItsPendingRead() async throws {
-    let channel = ControlledTransport()
-    var session: TerminalSession? = TerminalSession(openTransport: { _ in channel })
+    let transport = ControlledTransport()
+    var session: TerminalSession? = TerminalSession(openTransport: { _ in transport })
     weak let observedSession = session
-    let worker = try #require(session?.worker)
-    try await worker.sendResize(to: .init(columns: 20, rows: 4))
-    try #require(await worker.attach())
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
-    try await channel.reading.wait()
+    let actor = try #require(session?.actor)
+    try await actor.sendResize(to: .init(columns: 20, rows: 4))
+    try #require(await actor.show())
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
+    try await transport.reading.wait()
 
-    await worker.detach()
-    #expect(await channel.closes == 0)
+    await actor.hide()
+    #expect(await transport.closes == 0)
     session = nil
     #expect(observedSession == nil)
-    try await channel.closed.wait()
-    #expect(await channel.closes == 1)
+    try await transport.closed.wait()
+    #expect(await transport.closes == 1)
 }
 
-@MainActor @Test(arguments: FailingStreamOperation.allCases)
-func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: FailingStreamOperation) async throws {
+@MainActor @Test(arguments: FailingTransportOperation.allCases)
+func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: FailingTransportOperation) async throws {
     let first = ControlledTransport()
     let replacement = ControlledTransport()
     let opens = Mutex(0)
@@ -182,33 +185,33 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
             return count == 1 ? first : replacement
         }
     })
-    let worker = session.worker
-    try await worker.sendResize(to: .init(columns: 20, rows: 4))
-    try #require(await worker.attach())
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
-    // Full-screen programs cannot redraw an alternate screen after the channel fails.
+    let actor = session.actor
+    try await actor.sendResize(to: .init(columns: 20, rows: 4))
+    try #require(await actor.show())
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
+    // Full-screen programs cannot redraw an alternate screen after the transport fails.
     let finalOutput = "\u{1b}[?1049hlast output"
     await first.emit(finalOutput)
-    try #require(try await worker.nextEvent() == .output)
+    try #require(try await actor.nextEvent() == .output)
     await first.fail(operation)
     await #expect(throws: ControlledTransport.Failure.interrupted) {
         switch operation {
-        case .write: try await worker.send(.text("uncertain"))
-        case .resize: try await worker.sendResize(to: .init(columns: 6, rows: 4))
+        case .write: try await actor.send(.text("uncertain"))
+        case .resize: try await actor.sendResize(to: .init(columns: 6, rows: 4))
         }
     }
-    try #require(try await worker.nextEvent() == .exit)
-    #expect(await worker.text(inRow: 0) == "last output")
-    #expect(await worker.appliedBytes == finalOutput.utf8.count)
+    try #require(try await actor.nextEvent() == .exit)
+    #expect(await actor.text(inRow: 0) == "last output")
+    #expect(await actor.appliedBytes == finalOutput.utf8.count)
     #expect(await first.writes == (operation == .write ? [Data("uncertain".utf8)] : []))
     #expect(await first.closes == 1)
     #expect(session.hasEnded)
-    #expect(await worker.attach() == false)
+    #expect(await actor.show() == false)
     #expect(opens.withLock { $0 } == 1)
 
-    try #require(await worker.attach(userInitiated: true))
-    try #require(try await worker.nextEvent() == .ready(resumed: false))
-    try await worker.send(.text("new"))
+    try #require(await actor.show(userInitiated: true))
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
+    try await actor.send(.text("new"))
     #expect(await replacement.writes == [Data("new".utf8)])
     try await session.close()
 }

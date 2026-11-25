@@ -137,7 +137,7 @@ final class InteractionBenchmark {
         print("Report \(reportURL.path)")
     }
 
-    /// A private viewport keeps the live connection, its responder and its echo timeline intact.
+    /// A private viewport keeps the live session, its responder and its echo timeline intact.
     private func measureAnchoredReplay() throws -> AnchoredReplay {
         let grid = Terminal.Size(columns: 80, rows: 24)
         let historyRows = 1_000

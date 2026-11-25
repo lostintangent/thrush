@@ -2,12 +2,11 @@ import QuartzCore
 import SwiftUI
 import ThrushCore
 
-/// A terminal pane that attaches its session while visible.
+/// A terminal pane that shows its session while visible.
 /// Keep the session in a model that outlives the pane's SwiftUI updates.
 @MainActor public struct TerminalPane: View {
     private let session: TerminalSession
-    private var worker: TerminalWorker { session.worker }
-    /// Whether the host is showing the pane. Set this to false when hiding a retained tab.
+    /// Whether the app is showing the pane. Set this to false when hiding a retained tab.
     package var isActive: Bool
     /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
     package var theme: TerminalTheme?
@@ -19,7 +18,7 @@ import ThrushCore
     #endif
 
     /// Creates a pane for a session, using the system appearance unless a theme is supplied.
-    /// The pane manages attachment and, on iPhone, shows the key row above the keyboard.
+    /// The pane shows the session and, on iPhone, the key row above the keyboard.
     ///
     /// - Parameters:
     ///   - session: The session whose output and input the pane presents.
@@ -89,8 +88,7 @@ import ThrushCore
         private var actions: Task<Void, Never>?
         private var noticeTimer: Task<Void, Never>?
         private var phase = Phase.initial
-        private var hasTranscript = false
-        private var awaitingReplay = false
+        private var hasScreen = false
         private var size: Terminal.Size?
         private var scheduledNotice: PaneNotice?
         private var notice: PaneNotice?
@@ -116,17 +114,17 @@ import ThrushCore
                 guard let self else { return }
                 pane?.onResolvedTheme?(theme)
                 self.container?.show(notice)
-                perform { worker, _ in await worker.setPalette(theme.palette, cursor: theme.cursor) }
+                perform { session, _ in await session.setTheme(theme) }
             }
             container.terminal.onInput = { [weak self] in self?.input($0) }
         }
 
         fileprivate func apply(_ next: TerminalPane) {
-            let workerChanged = pane?.worker !== next.worker
-            if workerChanged {
+            let sessionChanged = pane?.session !== next.session
+            if sessionChanged {
                 stop()
                 phase = .initial
-                hasTranscript = false
+                hasScreen = false
                 deliveredExit = false
                 clearReplacement()
                 view?.setInputAvailability(.blocked, dismissKeyboard: false)
@@ -137,7 +135,7 @@ import ThrushCore
             guard let view else { return }
             let previousTheme = view.resolvedTheme
             if view.theme != next.theme { view.theme = next.theme }
-            if workerChanged && previousTheme == view.resolvedTheme { next.onResolvedTheme?(view.resolvedTheme) }
+            if sessionChanged && previousTheme == view.resolvedTheme { next.onResolvedTheme?(view.resolvedTheme) }
             if view.fontSize != next.fontSize { view.fontSize = next.fontSize }
             #if os(iOS)
             view.showsKeyRow = next.showsKeyRow
@@ -152,8 +150,8 @@ import ThrushCore
 
         private func updateActivity() {
             guard let pane, let container else { return }
-            let shouldAttach = isPresented && pane.isActive && (container.isShellPresented || pane.assumesVisibleForBenchmark)
-            guard shouldAttach else {
+            let shouldShow = isPresented && pane.isActive && (container.isShellPresented || pane.assumesVisibleForBenchmark)
+            guard shouldShow else {
                 if active { stop() }
                 return
             }
@@ -187,15 +185,14 @@ import ThrushCore
             noticeTimer = nil
             scheduledNotice = nil
             size = nil
-            awaitingReplay = false
             pauseReplacementTimer()
             let previouslyActive = active
             active = false
             drawingVisible = false
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
             view?.setRenderingActive(false)
-            if previouslyActive, let worker = pane?.worker {
-                enqueue { await worker.detach() }
+            if previouslyActive, let session = pane?.session {
+                enqueue { await session.hide() }
             }
         }
 
@@ -209,27 +206,27 @@ import ThrushCore
             }
         }
 
-        private func perform(_ operation: @escaping @MainActor (TerminalWorker, UInt64) async throws -> Void) {
-            guard let worker = pane?.worker else { return }
+        private func perform(_ operation: @escaping @MainActor (TerminalSession, UInt64) async throws -> Void) {
+            guard let session = pane?.session else { return }
             let stamp = epoch
             enqueue { [weak self] in
                 guard let self, epoch == stamp, active else { return }
-                do { try await operation(worker, stamp) }
-                catch { await handleError(from: worker, stamp: stamp) }
+                do { try await operation(session, stamp) }
+                catch { await handleError(stamp: stamp) }
             }
         }
 
         private func resize(_ measured: Terminal.Size) {
             guard active, measured != size else { return }
             size = measured
-            perform { [weak self] worker, stamp in
-                try await worker.sendResize(to: measured)
-                guard let self, epoch == stamp else { return }
+            perform { [weak self] session, stamp in
+                guard let self else { return }
+                let screen = try await session.resize(to: measured, needsScreen: reader != nil && phase == .live)
+                guard epoch == stamp else { return }
                 if reader == nil, phase != .displaced, phase != .exited {
-                    try await start(worker, userInitiated: false, stamp: stamp)
-                } else if phase == .live, !awaitingReplay {
-                    let snapshot = await worker.snapshot()
-                    if epoch == stamp { view?.display(snapshot) }
+                    await start(session, userInitiated: false, stamp: stamp)
+                } else if phase == .live, let screen {
+                    view?.display(screen)
                 }
             }
         }
@@ -240,9 +237,9 @@ import ThrushCore
             // text, paste and keys are meaningful for an attachment that may be restored.
             if case .pointer = input, phase == .reconnecting { return }
             let onWrite = pane?.onWriteStarted
-            perform { worker, _ in
-                if let onWrite { try await worker.send(input) { onWrite(CACurrentMediaTime()) } }
-                else { try await worker.send(input) }
+            perform { session, _ in
+                if let onWrite { try await session.send(input) { onWrite(CACurrentMediaTime()) } }
+                else { try await session.send(input) }
             }
             if case .replacement = notice, case .pointer = input { return }
             if case .replacement = notice {
@@ -254,123 +251,107 @@ import ThrushCore
         private func activateButton() {
             guard active, phase == .displaced || phase == .exited else { return }
             phase = .connecting
-            delay(.connecting(retainingTranscript: hasTranscript))
-            perform { [weak self] worker, stamp in
-                try await self?.start(worker, userInitiated: true, stamp: stamp)
+            delay(.connecting(retainingTranscript: hasScreen))
+            perform { [weak self] session, stamp in
+                await self?.start(session, userInitiated: true, stamp: stamp)
             }
         }
 
-        private func start(_ worker: TerminalWorker, userInitiated: Bool, stamp: UInt64) async throws {
+        private func start(_ session: TerminalSession, userInitiated: Bool, stamp: UInt64) async {
             guard epoch == stamp, active, reader == nil, let view else { return }
-            let theme = view.resolvedTheme
-            await worker.setPalette(theme.palette, cursor: theme.cursor)
+            let (retainedScreen, status) = await session.show(userInitiated: userInitiated, theme: view.resolvedTheme,
+                                                              needsRetainedScreen: !hasScreen)
             guard epoch == stamp else { return }
-            if !hasTranscript, await worker.hasSeenReady {
-                let retained = await worker.snapshot()
-                guard epoch == stamp else { return }
-                view.replaceDisplayedSnapshot(retained, receivedAt: nil)
-                hasTranscript = true
+            if let retainedScreen {
+                view.replaceDisplayedSnapshot(retainedScreen, receivedAt: nil)
+                hasScreen = true
             }
-            _ = await worker.attach(userInitiated: userInitiated)
-            let state = await worker.state
-            guard epoch == stamp else { return }
-            switch state {
-            case .displaced: blockInput(.displaced)
-            case .ended: await finishExit(worker, stamp: stamp)
-            default:
-                phase = .connecting
-                view.setInputAvailability(.blocked, dismissKeyboard: false)
-                delay(.connecting(retainingTranscript: hasTranscript))
-                reader = Task { [weak self] in await self?.consume(worker, stamp: stamp) }
+            if let status {
+                await apply(status, stamp: stamp)
+                return
             }
-        }
+            phase = .connecting
+            view.setInputAvailability(.blocked, dismissKeyboard: false)
+            delay(.connecting(retainingTranscript: hasScreen))
 
-        private func consume(_ worker: TerminalWorker, stamp: UInt64) async {
-            defer { if epoch == stamp { reader = nil } }
-            do {
-                while !Task.isCancelled, epoch == stamp {
-                    let event = try await worker.nextEvent()
-                    guard epoch == stamp, !Task.isCancelled else { return }
-                    switch event {
-                    case .ready(let resumed):
-                        if resumed {
-                            awaitingReplay = true
-                        } else {
-                            let replacement = await worker.replacedPreviousShell
-                            let discarded = await worker.discardedHeldInputOnLastReady
-                            guard epoch == stamp else { return }
-                            deliveredExit = false
-                            clearReplacement()
-                            view?.reset()
-                            let snapshot = await worker.snapshot()
-                            guard epoch == stamp else { return }
-                            view?.display(snapshot)
-                            becomeLive()
-                            if replacement { announceReplacement(discarded: discarded) }
-                        }
-                        pane?.onReady?(resumed)
-                    case .output, .resynchronized:
-                        let time = await worker.lastReceiptTime
-                        let snapshot = await worker.snapshot()
-                        guard epoch == stamp else { return }
-                        if event == .resynchronized || awaitingReplay {
-                            view?.replaceDisplayedSnapshot(snapshot, receivedAt: time)
-                            if awaitingReplay { becomeLive() }
-                            awaitingReplay = false
-                        } else {
-                            view?.display(snapshot, receivedAt: time)
-                        }
-                        hasTranscript = true
-                        if let time { pane?.onOutput?(snapshot.generation, time) }
-                    case .reconnecting:
-                        awaitingReplay = false
-                        phase = .reconnecting
-                        view?.setInputAvailability(hasTranscript ? .holdingKeys : .blocked, dismissKeyboard: false)
-                        delay(hasTranscript ? .reconnecting : .connecting(retainingTranscript: false))
-                    case .displaced:
-                        blockInput(.displaced)
-                        return
-                    case .exit:
-                        // A final PTY write may still be inside synchronized output. Flush it
-                        // before the native notice changes what a reader sees.
-                        await finishExit(worker, stamp: stamp)
-                        return
+            // Only the read operation survives the wait. The app can release the pane and its session.
+            reader = Task { [weak self, read = session.readUpdate] in
+                defer { if self?.epoch == stamp { self?.reader = nil } }
+                do {
+                    while !Task.isCancelled, self?.epoch == stamp {
+                        let update = try await read()
+                        guard !Task.isCancelled, self?.epoch == stamp else { return }
+                        guard await self?.apply(update, stamp: stamp) == true else { return }
                     }
+                } catch {
+                    if !Task.isCancelled { await self?.handleError(stamp: stamp) }
                 }
-            } catch {
-                guard epoch == stamp, !Task.isCancelled else { return }
-                await handleError(from: worker, stamp: stamp)
             }
         }
 
-        private func handleError(from worker: TerminalWorker, stamp: UInt64) async {
-            let state = await worker.state
-            guard epoch == stamp, active else { return }
-            switch state {
-            case .displaced: blockInput(.displaced)
-            case .ended: await finishExit(worker, stamp: stamp)
-            case .reconnecting, .connecting, .replaying:
+        @discardableResult
+        private func apply(_ update: TerminalSession.Update, stamp: UInt64) async -> Bool {
+            switch update {
+            case .fresh(let screen):
+                openedShell(screen)
+            case .replacedShell(let screen, let discardedInput):
+                openedShell(screen, discardedOnReplacement: discardedInput)
+            case .awaitingReplay:
+                pane?.onReady?(true)
+            case .screen(let screen):
+                view?.replaceDisplayedSnapshot(screen, receivedAt: nil)
+                hasScreen = true
+                becomeLive()
+            case .output(let screen, let time):
+                view?.display(screen, receivedAt: time)
+                hasScreen = true
+                if let time { pane?.onOutput?(screen.generation, time) }
+            case .replay(let screen, let time):
+                view?.replaceDisplayedSnapshot(screen, receivedAt: time)
+                hasScreen = true
+                if phase != .live { becomeLive() }
+                if let time { pane?.onOutput?(screen.generation, time) }
+            case .reconnecting:
                 phase = .reconnecting
-                view?.setInputAvailability(hasTranscript ? .holdingKeys : .blocked, dismissKeyboard: false)
-                delay(hasTranscript ? .reconnecting : .connecting(retainingTranscript: false))
-            case .detached, .closing, .active: break
+                view?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
+                delay(hasScreen ? .reconnecting : .connecting(retainingTranscript: false))
+            case .displaced:
+                blockInput(.displaced)
+                return false
+            case .ended(let final, let canRestart):
+                await finishExit(final, canRestart: canRestart, stamp: stamp)
+                return false
             }
+            return true
         }
 
-        private func finishExit(_ worker: TerminalWorker, stamp: UInt64) async {
-            guard epoch == stamp, !deliveredExit, finishingExitStamp != stamp else { return }
+        private func openedShell(_ screen: Terminal.Snapshot, discardedOnReplacement: Bool? = nil) {
+            deliveredExit = false
+            clearReplacement()
+            view?.reset()
+            view?.display(screen)
+            becomeLive()
+            if let discardedOnReplacement { announceReplacement(discarded: discardedOnReplacement) }
+            pane?.onReady?(false)
+        }
+
+        private func handleError(stamp: UInt64) async {
+            guard epoch == stamp, active, let status = await pane?.session.statusAfterError() else { return }
+            guard epoch == stamp, active else { return }
+            await apply(status, stamp: stamp)
+        }
+
+        private func finishExit(_ final: Terminal.Snapshot, canRestart: Bool, stamp: UInt64) async {
+            guard epoch == stamp, active, !deliveredExit, finishingExitStamp != stamp else { return }
             finishingExitStamp = stamp
             defer { if finishingExitStamp == stamp { finishingExitStamp = nil } }
-            let final = await worker.snapshot()
-            let natural = await worker.exitedNaturally
-            guard epoch == stamp, active else { return }
-            // Prevent new commits while keeping the final frame at its pre-dismissal keyboard size.
+            // Present the final bytes at the pre-dismissal keyboard size, including synchronized output.
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
             await view?.presentFinal(final)
             guard epoch == stamp, active, !deliveredExit else { return }
             deliveredExit = true
-            hasTranscript = true
-            blockInput(.exited, notice: natural ? .exited : .closed)
+            hasScreen = true
+            blockInput(.exited, notice: canRestart ? .exited : .closed)
         }
 
         private func becomeLive() {

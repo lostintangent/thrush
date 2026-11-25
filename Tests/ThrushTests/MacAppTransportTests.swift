@@ -5,7 +5,7 @@ import Synchronization
 import Testing
 @testable import Thrush
 
-@MainActor private struct StreamPaneHost: View {
+@MainActor private struct SessionTestView: View {
     let session: TerminalSession
     let shown: Bool
 
@@ -40,45 +40,45 @@ import Testing
 
 @MainActor @Test func remountedMacPaneDisplaysOutputReadWhileRemoved() async throws {
     _ = NSApplication.shared
-    let stream = ControlledTransport()
+    let transport = ControlledTransport()
     let opens = Mutex<[Terminal.Size]>([])
     let session = TerminalSession(openTransport: { size in
         opens.withLock { $0.append(size) }
-        return stream
+        return transport
     })
-    let host = NSHostingView(rootView: StreamPaneHost(session: session, shown: true))
-    host.sizingOptions = []
+    let hostingView = NSHostingView(rootView: SessionTestView(session: session, shown: true))
+    hostingView.sizingOptions = []
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
                           styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
-    window.contentView = host
+    window.contentView = hostingView
     window.orderFront(nil)
     defer { window.close() }
-    host.layoutSubtreeIfNeeded()
+    hostingView.layoutSubtreeIfNeeded()
 
-    await stream.emit("first\r\n")
-    try await waitForPane("the first native grid") { terminal(in: host)?.snapshot?.rows.first?.text == "first" }
-    let firstView = try #require(terminal(in: host))
+    await transport.emit("first\r\n")
+    try await waitForPane("the first native grid") { terminal(in: hostingView)?.snapshot?.rows.first?.text == "first" }
+    let firstView = try #require(terminal(in: hostingView))
     let measured = try #require(firstView.gridSize)
     #expect(measured.columns > 1 && measured.rows > 1)
     #expect(opens.withLock { $0 } == [measured])
 
-    host.rootView = StreamPaneHost(session: session, shown: false)
-    host.layoutSubtreeIfNeeded()
-    try await waitForPane("native view removal") { firstView.window == nil && terminal(in: host) == nil }
-    await stream.emit("\u{1b}]2;Hidden title\u{7}second")
+    hostingView.rootView = SessionTestView(session: session, shown: false)
+    hostingView.layoutSubtreeIfNeeded()
+    try await waitForPane("native view removal") { firstView.window == nil && terminal(in: hostingView) == nil }
+    await transport.emit("\u{1b}]2;Hidden title\u{7}second")
     try await waitForPane("output while unmounted") { session.title == "Hidden title" }
-    #expect(await stream.closes == 0)
+    #expect(await transport.closes == 0)
 
-    host.rootView = StreamPaneHost(session: session, shown: true)
-    host.layoutSubtreeIfNeeded()
+    hostingView.rootView = SessionTestView(session: session, shown: true)
+    hostingView.layoutSubtreeIfNeeded()
     try await waitForPane("the new native grid") {
-        guard let view = terminal(in: host), view !== firstView, let rows = view.snapshot?.rows else { return false }
+        guard let view = terminal(in: hostingView), view !== firstView, let rows = view.snapshot?.rows else { return false }
         return rows.prefix(2).map(\.text) == ["first", "second"]
     }
     #expect(opens.withLock { $0 } == [measured])
     #expect(!session.hasEnded)
     try await session.close()
-    #expect(await stream.closes == 1)
+    #expect(await transport.closes == 1)
 }
 #endif

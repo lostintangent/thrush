@@ -16,9 +16,9 @@ struct PTYLifecycle {
         try await first.send(.text("KEEP=acorn; printf '\\r\\nSIZE-'; stty size\r"))
         try await row("SIZE-25 61", in: first)
 
-        await first.detach()
-        guard await first.attach(), try await first.nextEvent() == .ready(resumed: true),
-              try await first.nextEvent() == .output else { throw PTYCheckFailure("Missing foreground replay") }
+        await first.hide()
+        guard await first.show(), try await first.nextEvent() == .ready(resumed: true),
+              try await first.nextEvent() == .replay else { throw PTYCheckFailure("Missing foreground replay") }
         // Read the replay itself before issuing a command so the live shell cannot mask a lost screen.
         let replay = await first.snapshot()
         guard replay.rows.contains(where: { $0.text == "SIZE-25 61" }),
@@ -30,11 +30,11 @@ struct PTYLifecycle {
 
         let owner = try connect()
         guard try await owner.nextEvent() == .ready(resumed: true),
-              try await owner.nextEvent() == .output else { throw PTYCheckFailure("Missing takeover replay") }
+              try await owner.nextEvent() == .replay else { throw PTYCheckFailure("Missing takeover replay") }
         var event = try await first.nextEvent()
         while event == .output { event = try await first.nextEvent() }
         guard event == .displaced else { throw PTYCheckFailure("Missing takeover event on the first socket") }
-        guard await first.state == .displaced, await !first.attach() else {
+        guard await first.state == .displaced, await !first.show() else {
             throw PTYCheckFailure("Displaced client attempted an automatic reconnect")
         }
         try await owner.send(.text("printf '\\r\\nOWNER-%s-%d\\n' \"$KEEP\" $$\r"))
@@ -44,11 +44,11 @@ struct PTYLifecycle {
 
         let orphan = try connect()
         let orphanPID = try await freshShell(orphan)
-        await orphan.detach()
+        await orphan.hide()
         let detached = ContinuousClock.now
         try await waitForProcessExit(orphanPID, within: .seconds(40))
         let orphanAge = detached.duration(to: .now)
-        guard orphanAge >= .seconds(29), await orphan.attach() else {
+        guard orphanAge >= .seconds(29), await orphan.show() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
         _ = try await freshShell(orphan)
@@ -61,29 +61,29 @@ struct PTYLifecycle {
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")
     }
 
-    private func connect() throws -> TerminalWorker {
-        try TerminalWorker(baseURL: endpoint, clientID: clientID, size: initialSize)
+    private func connect() throws -> SessionActor {
+        try SessionActor(baseURL: endpoint, clientID: clientID, size: initialSize)
     }
 
-    private func freshShell(_ connection: TerminalWorker) async throws -> Int32 {
-        guard try await connection.nextEvent() == .ready(resumed: false),
-              await connection.snapshot().rows.allSatisfy({ $0.text.isEmpty }) else {
+    private func freshShell(_ session: SessionActor) async throws -> Int32 {
+        guard try await session.nextEvent() == .ready(resumed: false),
+              await session.snapshot().rows.allSatisfy({ $0.text.isEmpty }) else {
             throw PTYCheckFailure("Expected a fresh clean grid")
         }
-        try await PTYCheck.enterFixture(connection)
-        try await row("THRUSH-\(token)", in: connection)
-        try await connection.send(.text("stty -echo; printf '\\r\\nPID-%d\\n' $$\r"))
+        try await PTYCheck.enterFixture(session)
+        try await row("THRUSH-\(token)", in: session)
+        try await session.send(.text("stty -echo; printf '\\r\\nPID-%d\\n' $$\r"))
         while true {
-            for row in await connection.snapshot().rows where row.text.hasPrefix("PID-") {
+            for row in await session.snapshot().rows where row.text.hasPrefix("PID-") {
                 if let pid = Int32(row.text.dropFirst(4)), pid > 1 { return pid }
             }
-            guard try await connection.nextEvent() == .output else { throw PTYCheckFailure("Missing shell PID") }
+            guard try await session.nextEvent() == .output else { throw PTYCheckFailure("Missing shell PID") }
         }
     }
 
-    private func row(_ text: String, in connection: TerminalWorker) async throws {
-        while !(await connection.snapshot().rows.contains { $0.text == text }) {
-            guard try await connection.nextEvent() == .output else { throw PTYCheckFailure("Missing row \(text)") }
+    private func row(_ text: String, in session: SessionActor) async throws {
+        while !(await session.snapshot().rows.contains { $0.text == text }) {
+            guard try await session.nextEvent() == .output else { throw PTYCheckFailure("Missing row \(text)") }
         }
     }
 

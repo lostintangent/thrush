@@ -2,7 +2,7 @@ import Foundation
 import Thrush
 import ThrushFixtures
 
-/// The host reads the recorded chunk boundaries and captures the terminal's actual replies.
+/// Supplies the recording at its original chunk boundaries and captures the terminal's replies.
 private actor FixtureTransport: TerminalTransport {
     let chunks: [Data]
     private var index = 0
@@ -29,7 +29,7 @@ private actor FixtureTransport: TerminalTransport {
 
 extension LoopbackCheck {
     @MainActor
-    static func measureStreamTransport() async throws {
+    static func measureAppTransport() async throws {
         let fixture = try FirstBytesFixture.load()
         let chunks = fixture.events.map { Data($0.bytes) }
         let replies = fixture.events.filter { !$0.reply.isEmpty }.map { Data($0.reply) }
@@ -38,26 +38,25 @@ extension LoopbackCheck {
         let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
 
         func pass() async throws -> UInt64 {
-            let channel = FixtureTransport(chunks)
+            let transport = FixtureTransport(chunks)
             let session = TerminalSession(openTransport: { grid in
                 guard grid == size else { throw CheckFailure("The stream opened at an unexpected size.") }
-                return channel
+                return transport
             })
-            let worker = session.worker
-            try await worker.sendResize(to: size)
-            guard await worker.attach(), try await worker.nextEvent() == .ready(resumed: false) else {
-                throw CheckFailure("The host byte stream did not open.")
+            try await session.actor.sendResize(to: size)
+            guard await session.actor.show(), try await session.actor.nextEvent() == .ready(resumed: false) else {
+                throw CheckFailure("The app transport did not open.")
             }
-            // Presentation may coalesce output while the worker drains the channel.
-            var event: TerminalWorker.Event
-            repeat { event = try await worker.nextEvent() } while event == .output
-            guard event == .exit, session.hasEnded, let elapsed = await channel.elapsed,
-                  await worker.receivedBytes == expectedBytes, await worker.appliedBytes == expectedBytes,
-                  await channel.replies == replies else {
+            // Presentation may coalesce output while the session reads from the transport.
+            var event: SessionActor.Event
+            repeat { event = try await session.actor.nextEvent() } while event == .output
+            guard event == .exit, session.hasEnded, let elapsed = await transport.elapsed,
+                  await session.actor.receivedBytes == expectedBytes, await session.actor.appliedBytes == expectedBytes,
+                  await transport.replies == replies else {
                 throw CheckFailure("Stream bytes, replies or EOF differed from the recording.")
             }
             for (row, text) in finalRows {
-                guard await worker.text(inRow: row) == text else { throw CheckFailure("Incorrect final row \(row).") }
+                guard await session.actor.text(inRow: row) == text else { throw CheckFailure("Incorrect final row \(row).") }
             }
             return elapsed
         }

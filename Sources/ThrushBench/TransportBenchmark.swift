@@ -14,13 +14,13 @@ private struct PeerRun: Decodable {
     let observations: [Observation]
 }
 
-private struct ConnectionInterval: Encodable {
+private struct WebSocketInterval: Encodable {
     let name: String
     let samplesNanoseconds: [UInt64]
     let timing: Timing
 }
 
-private struct ConnectionReport: Encodable {
+private struct WebSocketReport: Encodable {
     let schemaVersion = 1
     let buildConfiguration = "release"
     let recordedAt = Date()
@@ -39,10 +39,10 @@ private struct ConnectionReport: Encodable {
     let attachmentsPerPass: Int
     let freshShellsPerPass: Int
     let takeoversPerPass: Int
-    let intervals: [ConnectionInterval]
+    let intervals: [WebSocketInterval]
 }
 
-private struct StreamReport: Encodable {
+private struct AppTransportReport: Encodable {
     let schemaVersion = 1
     let buildConfiguration = "release"
     let recordedAt = Date()
@@ -68,7 +68,7 @@ private func writeReport(_ report: some Encodable, to output: URL) throws {
 }
 
 /// Build the matching optimized checker outside the timed intervals.
-func runConnectionBenchmark(arguments: [String]) throws {
+func runTransportBenchmark(arguments: [String]) throws {
     guard arguments.count == 1 || (arguments.count == 3 && arguments[1] == "--output" && !arguments[2].isEmpty) else {
         throw BenchmarkError("Usage: ThrushBench \(arguments[0]) [--output PATH]")
     }
@@ -85,14 +85,14 @@ func runConnectionBenchmark(arguments: [String]) throws {
         let fixture = try FirstBytesFixture.load()
         let json = try Environment.command(client.path, ["--transport"], captureDiagnostics: false)
         let samples = try JSONDecoder().decode([UInt64].self, from: Data(json.utf8))
-        guard !samples.isEmpty else { throw BenchmarkError("The host stream returned no samples.") }
-        let report = StreamReport(workloadSHA256: fixture.sha256, measuredPasses: samples.count,
+        guard !samples.isEmpty else { throw BenchmarkError("The app transport returned no samples.") }
+        let report = AppTransportReport(workloadSHA256: fixture.sha256, measuredPasses: samples.count,
                                   chunksPerPass: fixture.events.count,
                                   verifiedBytesPerPass: fixture.events.reduce(0) { $0 + $1.bytes.count },
                                   replyBytesPerPass: fixture.events.reduce(0) { $0 + $1.reply.count },
                                   samplesNanoseconds: samples, timing: Timing(samples), environment: environment)
         try writeReport(report, to: output)
-        print("Host byte stream   \(report.chunksPerPass) chunks   \(report.verifiedBytesPerPass) verified bytes per pass")
+        print("App transport   \(report.chunksPerPass) chunks   \(report.verifiedBytesPerPass) verified bytes per pass")
         print("p50 \(report.timing.p50Nanoseconds) ns   p95 \(report.timing.p95Nanoseconds) ns")
         print("Report \(output.path)")
         return
@@ -113,15 +113,15 @@ func runConnectionBenchmark(arguments: [String]) throws {
     }) else { throw BenchmarkError("The scripted lifecycle workload changed between passes.") }
     let intervals = names.enumerated().map { index, name in
         let samples = runs.map { $0.observations[index].nanoseconds }
-        return ConnectionInterval(name: name, samplesNanoseconds: samples, timing: Timing(samples))
+        return WebSocketInterval(name: name, samplesNanoseconds: samples, timing: Timing(samples))
     }
-    let report = ConnectionReport(
+    let report = WebSocketReport(
         workloadSHA256: digest, measuredPasses: runs.count, environment: environment,
         bunVersion: warmup.bunVersion, attachmentsPerPass: warmup.attachmentCount,
         freshShellsPerPass: warmup.freshShells, takeoversPerPass: warmup.takeovers, intervals: intervals
     )
     try writeReport(report, to: output)
-    print("\nScripted connection lifecycle   macOS loopback   peer-observed   \(runs.count) measured passes")
+    print("\nScripted WebSocket lifecycle   macOS loopback   peer-observed   \(runs.count) measured passes")
     printLoad(environment)
     print("Interval                                        p50 ms    p95 ms")
     for interval in intervals {

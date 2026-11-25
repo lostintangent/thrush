@@ -2,54 +2,39 @@ import Foundation
 import QuartzCore
 import ThrushCore
 
-/// Applies a session’s output, orders its input and owns its terminal independently of the pane.
-package actor TerminalWorker {
-    /// An attachment or screen update for a host running headlessly or driving its own view.
-    ///
-    /// A `TerminalPane` consumes these events when it presents the shell.
+/// Applies a session’s output, orders its input and owns its terminal independently of its view.
+package actor SessionActor {
+    /// Changes a session sends to its visible view or headless reader.
     package enum Event: Equatable, Sendable {
-        /// The connection lost its transport or failed to open it. Read the next event to retry.
+        /// Read the next event to retry the WebSocket.
         case reconnecting
-        /// Another attachment took over this shell. A user can reclaim it with ``TerminalWorker/attach(userInitiated:)``.
+        /// Another WebSocket attachment took over the shell.
         case displaced
-        /// The shell is ready. A resumed presentation gets the retained or replayed screen on its next output event.
+        /// The shell opened. A resumed WebSocket delivers its replay next.
         case ready(resumed: Bool)
-        /// The terminal has an updated screen to display.
+        /// The app transport kept reading while hidden. Display its current screen.
+        case screen
+        /// The terminal applied new program output.
         case output
-        /// The server restored a stalled live stream on the same socket. Replace the
-        /// displayed screen and its row cache together from the updated terminal.
-        case resynchronized
-        /// The shell ended. All preceding output has been applied.
+        /// The terminal applied the WebSocket server's complete replay.
+        case replay
+        /// The shell ended after its final output.
         case exit
     }
 
-    /// The current phase of the shell attachment.
     package enum State: Equatable, Sendable {
-        /// The worker is opening a channel or waiting for the server to accept an attachment.
-        case connecting
-        /// The connection will retry a failed attachment when the host reads the next event.
-        case reconnecting
-        /// The server resumed a shell and the connection is restoring its screen and input modes.
-        case replaying
-        /// The connection accepts input and processes live shell output.
-        case active
-        /// The tab has no active attachment and can attach under the same client ID.
-        case detached
-        /// Another attachment took over the shell. Reattaching requires a user action.
-        case displaced
-        /// The worker is closing its transport.
-        case closing
-        /// The channel ended or the host closed the session.
-        case ended
+        case idle, connecting, active, closing, ended
+        // Only the WebSocket protocol has retries, replay and attachment takeover.
+        case reconnecting, awaitingReplay, displaced
     }
 
-    enum ConnectionError: Error {
-        case unexpectedMessage, concurrentRead, inactiveAttachment, inputBufferFull
+    enum TransportError: Error {
+        case unexpectedMessage, concurrentRead, inactiveTransport, inputBufferFull
     }
 
     enum Transport {
         case webSocket(WebSocketTransport)
-        case hostChannel(HostChannelState)
+        case app(AppTransport)
     }
 
     let transport: Transport
@@ -80,19 +65,19 @@ package actor TerminalWorker {
         terminal = Terminal(size: initialSize, palette: palette)
     }
 
-    /// Begins presenting a shell. Returns true when a new attachment begins.
+    /// Shows the session. Returns true when it starts opening a transport.
     /// Only a user action can reclaim a displaced shell or restart an ended one.
     @discardableResult
-    package func attach(userInitiated: Bool = false) -> Bool {
+    package func show(userInitiated: Bool = false) -> Bool {
         switch transport {
         case .webSocket(let socket): socket.attach(to: self, userInitiated: userInitiated)
-        case .hostChannel(let host): host.attach(to: self, userInitiated: userInitiated)
+        case .app(let app): app.show(in: self, userInitiated: userInitiated)
         }
     }
 
-    func beginAttachment(userInitiated: Bool) -> Bool {
+    func beginOpening(userInitiated: Bool) -> Bool {
         switch state {
-        case .detached: break
+        case .idle: break
         case .displaced where userInitiated: break
         case .ended where userInitiated && exitedNaturally: hasSeenReady = false
         default: return false
@@ -102,12 +87,12 @@ package actor TerminalWorker {
         return true
     }
 
-    /// The pane owns one event reader while visible.
+    /// The view owns one event reader while visible.
     package func nextEvent() async throws -> Event {
         try Task.checkCancellation()
         return switch transport {
         case .webSocket(let socket): try await socket.nextEvent(in: self)
-        case .hostChannel(let host): try await host.nextEvent(in: self)
+        case .app(let app): try await app.nextEvent(in: self)
         }
     }
 
@@ -115,37 +100,38 @@ package actor TerminalWorker {
     package func send(_ input: Terminal.Input, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
         switch transport {
         case .webSocket(let socket): try await socket.send(input, in: self, notify: onWriteStarted)
-        case .hostChannel(let host): try await host.send(input, in: self, notify: onWriteStarted)
+        case .app(let app): try await app.send(input, in: self, notify: onWriteStarted)
         }
     }
 
-    /// Remembers the latest measured grid, including while a channel is opening.
+    /// Remembers the latest measured grid, including while the transport is opening.
     package func sendResize(to size: Terminal.Size) async throws {
         requestedSize = size
         switch transport {
         case .webSocket(let socket): try await socket.resize(in: self)
-        case .hostChannel(let host): try await host.resize(in: self)
+        case .app(let app): try await app.resize(in: self)
         }
     }
 
-    package func detach() {
+    package func hide() {
         switch transport {
         case .webSocket(let socket): socket.detach(from: self)
-        case .hostChannel(let host): host.detach(from: self)
+        case .app(let app): app.hide(in: self)
         }
     }
 
     package func closeShell() async throws {
         switch transport {
         case .webSocket(let socket): try await socket.close(in: self)
-        case .hostChannel(let host): await host.close(in: self)
+        case .app(let app): await app.close(in: self)
         }
     }
 
     func releaseSession() async {
         switch transport {
-        case .webSocket: break  // Releasing its worker drops the socket.
-        case .hostChannel(let host): await host.release(in: self)
+        // A suspended reader may still own this actor after the app releases its session.
+        case .webSocket(let socket): socket.detach(from: self)
+        case .app(let app): await app.release(in: self)
         }
     }
 
@@ -180,7 +166,7 @@ package actor TerminalWorker {
     }
 
     /// Keystrokes, terminal replies and resizes reach the transport in the order accepted.
-    func orderWrite(_ operation: @escaping @Sendable (isolated TerminalWorker) async throws -> Void) -> Task<Void, Error> {
+    func orderWrite(_ operation: @escaping @Sendable (isolated SessionActor) async throws -> Void) -> Task<Void, Error> {
         let previous = lastWrite
         let next = Task {
             try await previous?.value

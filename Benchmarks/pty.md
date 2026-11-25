@@ -8,7 +8,7 @@ scripts/check-pty.sh --readers
 scripts/check-pty.sh --recovery
 ```
 
-The reports are `.build/benchmarks/pty-smoke.json`, `pty-readers.json` and `pty-recovery.json` in the same directory. The smoke check exercises four numbered logs and the 30-second orphan timeout. The reader comparison measures three clients against the same producer. The recovery check requires an actual interrupted stream, in-band screen repair during silence, successful input and a complete final screen before exit. [Recovery procedure](pty-recovery.md)
+The reports are `.build/benchmarks/pty-smoke.json`, `pty-readers.json` and `pty-recovery.json` in the same directory. The smoke check exercises four numbered logs and the 30-second orphan timeout. The reader comparison measures three clients against the same producer. The recovery check requires missing live output and an in-band replay during silence, successful input and a complete final screen before exit. [Recovery procedure](pty-recovery.md)
 
 To use the server with a demo app or a separate client, supply an empty data directory and a loopback port. Port zero selects a free port and prints the origin. Control-C stops the server and leaves its data directory available for inspection.
 
@@ -21,7 +21,7 @@ To check a different implementation, point any of the three commands at a dispos
 
 ## Numbered logs
 
-A real shell prints a fresh nonce before starting the producer on an 80 × 24 PTY. It writes 64-byte numbered lines and waits for a second attachment to acknowledge its final screen. An independent oracle checks the payload, order and all 24 expected rows. The adapter counts live output and in-band screen repairs separately.
+A real shell prints a fresh nonce before starting the producer on an 80 × 24 PTY. It writes 64-byte numbered lines and waits for a second attachment to acknowledge its final screen. An independent oracle checks the payload, order and all 24 expected rows. The session counts live output and in-band replays separately.
 
 On an M1 Max running macOS 27.2.1, the standalone server and client restored the expected visible rows before and after reconnect in all four cases. Thrush applied every received byte. The measurements used a clean Release build at `6b33bf2`. [Smoke report](pty-smoke.json)
 
@@ -36,7 +36,7 @@ The three bursts use the same 8 MiB payload. The rate-limited reader caps its pu
 
 ## Reader comparison
 
-Three clients each run the same 8 MiB producer six times, with the order rotated. Bun and a bare URLSession count incoming frame lengths. The third client uses the session’s `TerminalWorker` to parse and apply each frame. The producer starts after the reader is ready and exits after a one-second drain interval.
+Three clients each run the same 8 MiB producer six times, with the order rotated. Bun and a bare URLSession count incoming frame lengths. The third client uses a Thrush session to parse and apply each frame. The producer starts after the reader is ready and exits after a one-second drain interval.
 
 | Client | Paced runs fully received | Unpaced runs fully received | Missing live bytes in each unpaced run |
 | --- | ---: | ---: | ---: |

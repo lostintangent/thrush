@@ -2,7 +2,7 @@ import Foundation
 import Synchronization
 import Thrush
 
-/// The same native socket with and without Thrush's parser, measured over identical raw payloads.
+/// The same native socket with and without Thrush's parser, measured over identical WebSocket payloads.
 enum ReaderComparison {
     struct Result: Encodable {
         var reader: String
@@ -52,36 +52,36 @@ enum ReaderComparison {
         var result = Result(reader: reader)
         if reader == "thrush" || reader == "silent" {
             let lastFrame = Mutex(Data())
-            let connection = try TerminalWorker(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
-                                                    onOutput: { data in lastFrame.withLock { $0 = data } })
-            guard try await connection.nextEvent() == .ready(resumed: false) else { throw PTYCheckFailure("Expected fresh PTY") }
+            let session = try SessionActor(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
+                                           onOutput: { data in lastFrame.withLock { $0 = data } })
+            guard try await session.nextEvent() == .ready(resumed: false) else { throw PTYCheckFailure("Expected fresh PTY") }
             if PTYCheck.fixtureCommand != nil {
-                try await PTYCheck.enterFixture(connection)
+                try await PTYCheck.enterFixture(session)
                 result.setupBytes = try await readSetup(id: id) {
-                    guard try await connection.nextEvent() == .output else { throw PTYCheckFailure("Missing fixture setup fence") }
+                    guard try await session.nextEvent() == .output else { throw PTYCheckFailure("Missing fixture setup fence") }
                     return lastFrame.withLock { $0 }
                 }
             }
             try Data().write(to: ready)
             if reader == "silent" {
-                try await SilentRecoveryCheck.run(connection, id: id, directory: directory, setupBytes: result.setupBytes)
+                try await SilentRecoveryCheck.run(session, id: id, directory: directory, setupBytes: result.setupBytes)
                 return
             }
             drain: while true {
-                switch try await connection.nextEvent() {
+                switch try await session.nextEvent() {
                 case .output: result.binaryFrames += 1
-                case .resynchronized:
+                case .replay:
                     result.replayFrames += 1
                     result.replayBytes += lastFrame.withLock { $0.count }
                 case .exit: break drain
                 default: throw PTYCheckFailure("Unexpected lifecycle transition during the burst")
                 }
             }
-            guard await connection.state == .ended else { throw PTYCheckFailure("Expected shell exit") }
-            result.receivedBytes = await connection.receivedBytes - result.setupBytes
-            result.appliedBytes = await connection.appliedBytes - result.setupBytes
+            guard await session.state == .ended else { throw PTYCheckFailure("Expected shell exit") }
+            result.receivedBytes = await session.receivedBytes - result.setupBytes
+            result.appliedBytes = await session.appliedBytes - result.setupBytes
         } else {
-            // Match the adapter’s ephemeral URLSession and endpoint for a transport-only reader.
+            // Match the session’s ephemeral URLSession and endpoint for a transport-only reader.
             var endpoint = URLComponents(url: url.appending(path: "socket"), resolvingAgainstBaseURL: false)!
             endpoint.scheme = url.scheme == "https" ? "wss" : "ws"
             endpoint.queryItems = [
