@@ -10,8 +10,8 @@ import { exercise, liveFixture, names, type Workflow } from "./workflows";
 const { values } = parseArgs({ args: Bun.argv.slice(2), options: {
     workflow: { type: "string" }, upstream: { type: "string" }, work: { type: "string" }, report: { type: "string" },
 }, strict: true });
-const workflow = values.workflow as Workflow | "lifecycle";
-assert(workflow === "lifecycle" || Object.hasOwn(names, workflow), "Expected --workflow shell|vim|codex|lifecycle");
+const workflow = values.workflow as Workflow | "lifecycle" | "recovery";
+assert(workflow === "lifecycle" || workflow === "recovery" || Object.hasOwn(names, workflow), "Expected --workflow shell|vim|codex|lifecycle|recovery");
 assert(values.upstream && values.work && values.report, "Supply --upstream URL --work DISPOSABLE_PTY_DIR --report PATH");
 const upstream = new URL(values.upstream);
 const hosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -21,9 +21,10 @@ assert(hosts.has(upstream.hostname) && ["http:", "https:"].includes(upstream.pro
 const work = resolve(values.work);
 assert((await stat(work)).isDirectory(), "The disposable working directory must exist");
 const life = workflow === "lifecycle" ? await import("./lifecycle.ts") : undefined;
-const name = names[workflow === "lifecycle" ? "shell" : workflow];
+const recovery = workflow === "recovery" ? await import("./recovery.ts") : undefined;
+const name = names[workflow === "lifecycle" || workflow === "recovery" ? "shell" : workflow];
 const recorded: Recording = JSON.parse(await readFile(new URL("../../Fixtures/replays/" + name + ".json", import.meta.url), "utf8"));
-const fixture = life ? life.lifecycleFixture(recorded) : liveFixture(recorded);
+const fixture = life ? life.lifecycleFixture(recorded) : recovery ? recovery.recoveryFixture(recorded) : liveFixture(recorded);
 const run = new LiveRun(fixture, upstream, work);
 const report = resolve(values.report);
 const local = (request: Request) => {
@@ -94,7 +95,8 @@ try {
     assert.equal(run.ready[0], false, "Workflow must start with a fresh disposable PTY");
     await run.layout(-1);
     if (life) await life.runLifecycle(run);
-    else { assert(workflow !== "lifecycle"); await exercise(run, workflow); }
+    else if (recovery) await recovery.runRecovery(run);
+    else { assert(workflow !== "lifecycle" && workflow !== "recovery"); await exercise(run, workflow); }
     run.phase("close", fixture.events.length);
     await run.until(() => run.explicitCloses === 1 && !run.downstreamOpen &&
         run.closures.some(c => c.attachment === run.attachments && c.side === "upstream"), "explicit PTY close");

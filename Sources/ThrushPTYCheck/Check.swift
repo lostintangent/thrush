@@ -96,6 +96,10 @@ struct PTYCheck {
 
     static func main() async throws {
         let args = CommandLine.arguments
+        if args.count == 3, args[1] == "check-exit-screen" {
+            try ReaderComparison.checkExitScreen(URL(fileURLWithPath: args[2]))
+            return
+        }
         if args.dropFirst().first == "reader" {
             try await ReaderComparison.run(args)
             return

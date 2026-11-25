@@ -131,38 +131,54 @@ def peer(out, notices=False):
                 server.wait()
 
 
+def has_matching_installation(device, app):
+    try:
+        result = sim("get_app_container", device, APP_ID, "app", timeout=30, check=False)
+        if result.returncode:
+            return False
+        installed = Path(result.stdout.strip())
+        expected = plistlib.loads((app / "Info.plist").read_bytes())
+        actual = plistlib.loads((installed / "Info.plist").read_bytes())
+        provenance = ("CFBundleIdentifier", "CFBundleExecutable", "ThrushGitCommit", "ThrushWorktreeDirty", "ThrushToolchain")
+        return (all(actual.get(key) == expected[key] for key in provenance)
+                and filecmp.cmp(installed / actual["CFBundleExecutable"],
+                                app / expected["CFBundleExecutable"], shallow=False))
+    except (OSError, KeyError, ValueError, plistlib.InvalidFileException, subprocess.TimeoutExpired):
+        return False
+
+
+def install_and_locate_app(device, app):
+    for attempt in (1, 2):
+        print(f"Installing on {device} (attempt {attempt})", flush=True)
+        try:
+            sim("install", device, str(app), timeout=180)
+            break
+        except subprocess.TimeoutExpired:
+            # The host client may time out while MobileInstallation finishes its work.
+            if has_matching_installation(device, app):
+                print("Verified the installed bundle after the client timed out", flush=True)
+                break
+            if attempt == 2:
+                raise
+    for attempt in (1, 2):
+        print(f"Locating {APP_ID} data on {device} (attempt {attempt})", flush=True)
+        try:
+            result = sim("get_app_container", device, APP_ID, "data", timeout=90)
+            data = Path(result.stdout.strip())
+            if not data.is_absolute() or not data.is_dir():
+                raise RuntimeError(f"Missing Simulator data container for {APP_ID} on {device}: {data}")
+            documents = data / "Documents"
+            documents.mkdir(exist_ok=True)
+            return documents
+        except subprocess.TimeoutExpired:
+            if attempt == 2:
+                raise
+
+
 class Phone:
     def __init__(self, device, endpoint, app, out, scratch):
         self.device, self.endpoint, self.app, self.out, self.scratch = device, endpoint, app, out, scratch
-        for attempt in (1, 2):
-            print(f"Installing on {device} (attempt {attempt})", flush=True)
-            try:
-                sim("install", device, str(app), timeout=180)
-                break
-            except subprocess.TimeoutExpired:
-                # The host client may time out while MobileInstallation finishes its work.
-                if self.has_matching_installation():
-                    print("Verified the installed bundle after the client timed out", flush=True)
-                    break
-                if attempt == 2:
-                    raise
-        data = Path(sim("get_app_container", device, APP_ID, "data").stdout.strip())
-        self.state_path = data / "Documents/capture-state.json"
-
-    def has_matching_installation(self):
-        try:
-            result = sim("get_app_container", self.device, APP_ID, "app", timeout=30, check=False)
-            if result.returncode:
-                return False
-            installed = Path(result.stdout.strip())
-            expected = plistlib.loads((self.app / "Info.plist").read_bytes())
-            actual = plistlib.loads((installed / "Info.plist").read_bytes())
-            provenance = ("CFBundleIdentifier", "CFBundleExecutable", "ThrushGitCommit", "ThrushWorktreeDirty", "ThrushToolchain")
-            return (all(actual.get(key) == expected[key] for key in provenance)
-                    and filecmp.cmp(installed / actual["CFBundleExecutable"],
-                                    self.app / expected["CFBundleExecutable"], shallow=False))
-        except (OSError, KeyError, ValueError, plistlib.InvalidFileException, subprocess.TimeoutExpired):
-            return False
+        self.state_path = install_and_locate_app(device, app) / "capture-state.json"
 
     def launch(self, scene, appearance, orientation, keyboard):
         self.set_appearance(appearance)

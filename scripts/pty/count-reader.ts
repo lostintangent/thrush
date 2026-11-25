@@ -14,6 +14,8 @@ let receivedBytes = 0, binaryFrames = 0, exitSeen = false, attached = false;
 let tail = Buffer.alloc(0);
 let awaitingReplay = false, replayFrames = 0, replayBytes = 0, finalInReplay = false;
 let closeCode: number | null = null, exitBeforeClose = false;
+// Only the exit probe retains the last complete serialization and the live bytes following it.
+let finalScreenFrames: Buffer[] | null = null;
 socket.onclose = event => {
   closeCode = event.code;
   exitBeforeClose = exitSeen;
@@ -32,12 +34,20 @@ socket.onmessage = ({data}) => {
       awaitingReplay = false;
       replayFrames++;
       replayBytes += data.byteLength;
-      if (mode === "exit") finalInReplay = Buffer.from(data).includes("THRUSH-SHELL-EXIT");
+      if (mode === "exit") {
+        const snapshot = Buffer.from(data);
+        finalInReplay = snapshot.includes("THRUSH-SHELL-EXIT");
+        finalScreenFrames = [snapshot];
+      }
       return;
     }
     binaryFrames++;
     // The matched reader only counts bytes. For the exit probe retain a bounded suffix.
-    if (mode === "exit") tail = Buffer.concat([tail, Buffer.from(data).subarray(-final.length)]).subarray(-final.length);
+    if (mode === "exit") {
+      const frame = Buffer.from(data);
+      tail = Buffer.concat([tail, frame.subarray(-final.length)]).subarray(-final.length);
+      finalScreenFrames?.push(frame);
+    }
     return;
   }
   const control = JSON.parse(data);
@@ -83,6 +93,9 @@ if (mode === "exit") {
       }
     };
   });
+  if (finalScreenFrames !== null) {
+    writeFileSync(join(directory, "final-screen.bin"), Buffer.concat(finalScreenFrames));
+  }
   report({ exitSeen, finalMarkerSeen: tail.equals(final), finalInReplay, openAfterExit, pongAfterExit: pong,
            exitBeforeClose, closeCode, resumed });
   // Allow Python to independently identify the replacement shell by PID before closing it.
