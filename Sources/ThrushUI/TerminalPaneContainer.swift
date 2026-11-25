@@ -267,6 +267,11 @@ private typealias NoticeHost = UIView & UIContentView
     var mountedNoticeBacking: PaneNativeView? { backing.isHidden ? nil : backing }
     private var lastTheme: TerminalTheme?
     private var gridTop: NSLayoutConstraint!
+    private var gridHeight: NSLayoutConstraint!
+    #if os(iOS)
+    private var rotationConstraints: [NSLayoutConstraint] = []
+    var viewportSize: CGSize { viewport.bounds.size }
+    #endif
     private var coveredHeight: NSLayoutConstraint!
     private var hiddenBackingTop: NSLayoutConstraint!
     private var dividerHeight: NSLayoutConstraint!
@@ -312,6 +317,7 @@ private typealias NoticeHost = UIView & UIContentView
         for view in [viewport, rowCover, backing, divider, terminal] { view.translatesAutoresizingMaskIntoConstraints = false }
         backing.isHidden = true
         gridTop = terminal.topAnchor.constraint(equalTo: guide.topAnchor)
+        gridHeight = terminal.heightAnchor.constraint(equalTo: guide.heightAnchor)
         coveredHeight = rowCover.heightAnchor.constraint(equalToConstant: 0)
         dividerHeight = divider.heightAnchor.constraint(equalToConstant: 1)
         hiddenBackingTop = backing.topAnchor.constraint(equalTo: lowerEdge)
@@ -326,7 +332,7 @@ private typealias NoticeHost = UIView & UIContentView
             coveredHeight,
             terminal.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
             terminal.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
-            terminal.heightAnchor.constraint(equalTo: guide.heightAnchor),
+            gridHeight,
             gridTop,
             backing.leadingAnchor.constraint(equalTo: leadingAnchor),
             backing.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -427,6 +433,33 @@ private typealias NoticeHost = UIView & UIContentView
             }
         }
         onVisibility?()
+    }
+
+    // Keep the source drawable at its native height while the keyboard clips its viewport.
+    // A reader in history keeps the top row. At the live edge the cursor can lift into view.
+    func beginRotation() {
+        guard rotationConstraints.isEmpty else { return }
+        terminal.holdsGridGeometry = true
+        let preferredTop = terminal.topAnchor.constraint(equalTo: viewport.topAnchor, constant: gridTop.constant)
+        preferredTop.priority = .defaultHigh
+        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: terminal.bounds.height), preferredTop]
+        let cursor = terminal.cursorRect
+        if terminal.historyOffset == 0, terminal.snapshot?.cursorVisible == true, !cursor.isEmpty {
+            let inset = max(0, terminal.cellRect(row: 0, column: 0).minY)
+            rotationConstraints.append(terminal.topAnchor.constraint(lessThanOrEqualTo: rowCover.topAnchor,
+                                                                      constant: -cursor.maxY - inset))
+        }
+        NSLayoutConstraint.deactivate([gridTop, gridHeight])
+        NSLayoutConstraint.activate(rotationConstraints)
+    }
+
+    func endRotation() {
+        guard !rotationConstraints.isEmpty else { return }
+        NSLayoutConstraint.deactivate(rotationConstraints)
+        rotationConstraints.removeAll()
+        NSLayoutConstraint.activate([gridTop, gridHeight])
+        layoutIfNeeded()
+        terminal.holdsGridGeometry = false
     }
 
     override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible() }

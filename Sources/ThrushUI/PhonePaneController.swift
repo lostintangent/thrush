@@ -23,8 +23,9 @@ import UIKit
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardFinished(_:)),
-                                                name: UIResponder.keyboardDidChangeFrameNotification, object: nil)
+        for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)), name: name, object: nil)
+        }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
@@ -36,7 +37,7 @@ import UIKit
             keyboardEnd = nil
             lastBounds = nil
             settleDuration = coordinator.transitionDuration
-            pane.terminal.holdsGridGeometry = true
+            pane.beginRotation()
             let registered = coordinator.animate(alongsideTransition: nil) { [weak self, weak coordinator] _ in
                 guard let self, let coordinator, rotation === coordinator else { return }
                 coordinatorFinished = true
@@ -55,25 +56,31 @@ import UIKit
         checkGeometry()
     }
 
-    @objc private func keyboardFinished(_ note: Notification) {
+    @objc private func keyboardFrameChanged(_ note: Notification) {
         guard pane.terminal.holdsGridGeometry, let window = pane.window,
               let screen = window.windowScene?.screen,
               (note.object as? UIScreen).map({ $0 === screen }) != false,
-              let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-        keyboardEnd = end
+              let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
+        keyboardEnd = frame.cgRectValue
         checkGeometry()
     }
 
     private func checkGeometry() {
-        guard pane.terminal.holdsGridGeometry, coordinatorFinished else { return }
-        if !keyboardWasVisible || keyboardMatchesGuide() {
+        guard pane.terminal.holdsGridGeometry else { return }
+        // The keyboard may publish its destination before UIKit completes the rotation.
+        if keyboardWasVisible && keyboardMatchesGuide() {
+            finishRotation()
+            return
+        }
+        guard coordinatorFinished else { return }
+        if !keyboardWasVisible {
             finishRotation()
             return
         }
         // The keyboard can deliver its layout after the orientation coordinator finishes.
         // When UIKit sends no keyboard frame notification, wait for one system animation
         // interval without another change to the usable bounds.
-        let bounds = pane.terminal.bounds.size
+        let bounds = pane.viewportSize
         guard bounds != lastBounds else { return }
         lastBounds = bounds
         settleTask?.cancel()
@@ -85,17 +92,23 @@ import UIKit
     }
 
     private func keyboardMatchesGuide() -> Bool {
-        guard let keyboardEnd, let screen = pane.window?.windowScene?.screen else { return false }
-        let keyboard = pane.convert(keyboardEnd, from: screen.coordinateSpace)
-        let keyboardTop = min(pane.bounds.maxY - pane.safeAreaInsets.bottom, keyboard.minY)
-        return abs(keyboardTop - pane.keyboardLayoutGuide.layoutFrame.minY) <= 1
+        guard let keyboardEnd, let window = pane.window, let screen = window.windowScene?.screen else { return false }
+        // UIKit publishes partial keyboard frames while rotating the two keyboard windows.
+        // Match all four edges of the docked keyboard, clipped to this pane's coordinates.
+        let inWindow = window.convert(keyboardEnd, from: screen.coordinateSpace)
+        guard abs(inWindow.width - window.bounds.width) <= 1 else { return false }
+        let expected = pane.bounds.intersection(pane.convert(inWindow, from: window))
+        let guide = pane.keyboardLayoutGuide.layoutFrame
+        return !expected.isEmpty && abs(guide.minX - expected.minX) <= 1 && abs(guide.maxX - expected.maxX) <= 1
+            && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
     }
 
     func finishRotation() {
         settleTask?.cancel()
         settleTask = nil
         rotation = nil
-        pane.terminal.holdsGridGeometry = false
+        coordinatorFinished = false
+        pane.endRotation()
     }
 }
 #endif
