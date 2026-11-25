@@ -363,7 +363,11 @@ final class PaneWorkflowDriver {
             if let action = NativeWorkflowActions.newShellAction(in: view) { return action }
             try await Task.sleep(for: .milliseconds(25))
         }
-        throw Failure("The app toolbar has no enabled New Shell action")
+        var message = "The app toolbar has no enabled New Shell action."
+        #if os(iOS)
+        message += " " + NativeWorkflowActions.toolbarDescription(in: view)
+        #endif
+        throw Failure(message)
     }
 
     private func capture(_ entry: Entry, ended: Bool) async throws {
