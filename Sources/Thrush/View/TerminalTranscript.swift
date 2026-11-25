@@ -190,7 +190,9 @@ struct TerminalTranscript {
     }
 
     /// Like a terminal emulator's line translation, keep printed spaces and omit unused trailing cells.
-    func text(in selection: Selection) -> String {
+    /// Copied text keeps concealed characters, so selecting and copying reveals them as in other
+    /// terminals. Spoken text reads them as the blank cells they show.
+    func text(in selection: Selection, spoken: Bool = false) -> String {
         guard let source else { return "" }
         let range = selection.shifted(by: top)
         let a = min(range.anchor, range.head), b = max(range.anchor, range.head)
@@ -206,7 +208,7 @@ struct TerminalTranscript {
             let limit = min(end + 1, source.textEnd(in: y))
             while column < limit {
                 let cell = row[column]
-                result.append(cell.text.isEmpty ? " " : cell.text)
+                result.append(cell.transcriptText(spoken: spoken))
                 column += max(1, cell.width)
             }
         }
@@ -294,6 +296,14 @@ struct TerminalTranscript {
             return source.position(at: cellOffset, in: rows)
                 ?? .init(row: rows.upperBound, column: source.size.columns - 1)
         }
+    }
+}
+
+extension Terminal.Cell {
+    /// Concealed text reads as one space per UTF-16 unit, so spoken and copied text share every range.
+    func transcriptText(spoken: Bool) -> String {
+        if text.isEmpty { return " " }
+        return spoken && style.invisible ? String(repeating: " ", count: text.utf16.count) : text
     }
 }
 

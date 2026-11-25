@@ -147,6 +147,23 @@ private struct MacInputFixture {
 }
 
 @MainActor
+@Test func appKitVoiceOverReadsConcealedTextAsBlankAndCopyKeepsIt() throws {
+    let host = try MacInputFixture()
+    var terminal = Terminal(size: .init(columns: 12, rows: 2))
+    _ = terminal.receive("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
+    host.view.display(terminal)
+    let blank = String(repeating: " ", count: "s🐦cret".utf16.count)
+    #expect(host.input.accessibilityValue() as? String == "pw \(blank)!\n")
+    host.view.selection = .init(anchorRow: 0, anchorColumn: 3, headRow: 0, headColumn: 9)
+    #expect(host.input.accessibilitySelectedText() == blank)
+    #expect(host.input.accessibilitySelectedTextRange() == NSRange(location: 3, length: blank.utf16.count))
+    let board = NSPasteboard.withUniqueName()
+    defer { board.releaseGlobally() }
+    host.input.copySelection(to: board)
+    #expect(board.string(forType: .string) == "s🐦cret")
+}
+
+@MainActor
 @Test func appKitKeepsACollapsedAccessibilityCaretIndependentOfTheShell() throws {
     let host = try MacInputFixture()
     var shell = Terminal(size: .init(columns: 30, rows: 4))

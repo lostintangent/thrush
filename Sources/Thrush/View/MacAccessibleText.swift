@@ -3,6 +3,7 @@ import AppKit
 import ThrushCore
 
 /// Visible terminal cells, including wide continuations, mapped to AppKit's UTF-16 text ranges.
+/// VoiceOver reads concealed cells as the blanks they show.
 struct MacAccessibleText {
     struct Line {
         let range: NSRange
@@ -62,7 +63,7 @@ struct MacAccessibleText {
             var column = 0
             while offset - start < length, column < snapshot.size.columns {
                 let cell = row[column]
-                let value = cell.text.isEmpty ? " " : cell.text
+                let value = cell.transcriptText(spoken: true)
                 let count = value.utf16.count
                 let span = min(max(1, cell.width), snapshot.size.columns - column)
                 cells.append(contentsOf: repeatElement(NSRange(location: offset, length: count), count: span))

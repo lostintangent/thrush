@@ -336,7 +336,8 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         }
         guard target != terminal.historyOffset else { return false }
         terminal.setHistoryOffset(target)
-        let announcement = target == 0 ? "Latest output" : terminal.snapshot?.rows.first(where: { !$0.text.isEmpty })?.text
+        let first = terminal.snapshot?.rows.firstIndex { !$0.text.isEmpty }
+        let announcement = target == 0 ? "Latest output" : first.map { terminal.spokenLineText(row: $0) }
         UIAccessibility.post(notification: .pageScrolled, argument: announcement)
         return true
     }

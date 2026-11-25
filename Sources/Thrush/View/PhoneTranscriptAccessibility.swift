@@ -27,7 +27,7 @@ final class PhoneTranscriptAccessibility {
             while start < snapshot.rows.count {
                 var end = start
                 while end + 1 < snapshot.rows.count && snapshot.rows[end + 1].isWrapped { end += 1 }
-                let text = terminal.logicalLineText(row: start)
+                let text = terminal.spokenLineText(row: start)
                 if !text.isEmpty {
                     let generation = snapshot.rows[start].generation
                     let id = LineID(generation: generation, occurrence: occurrences[generation, default: 0])
@@ -59,7 +59,7 @@ final class PhoneTranscriptAccessibility {
         if let selected = terminal.selectedText, !selected.isEmpty {
             let element = selectionElement ?? UIAccessibilityElement(accessibilityContainer: view)
             element.accessibilityLabel = "Selected text"
-            element.accessibilityValue = selected
+            element.accessibilityValue = terminal.spokenSelectedText
             element.accessibilityTraits = [.staticText, .selected]
             if let selection = terminal.selection {
                 let endpoint = max(0, min(terminal.snapshot.map { $0.size.rows - 1 } ?? 0, selection.headRow))

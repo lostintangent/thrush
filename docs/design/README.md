@@ -92,7 +92,7 @@ Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-P
 
 SGR 5 blinking text fades its glyph, underline and strikethrough out and back in on a 1.2 s cycle: shown for 0.5 s, a 0.2 s ease out, hidden for 0.3 s and a 0.2 s ease in. That is 50 blinks a minute, slower than the 150 ECMA-48 allows for slow blink. Backgrounds, inverse paper, selection and the cursor hold still, and a block cursor keeps its glyph. Every pane follows one clock, so all blinking text fades together. With Reduce Motion, blinking text stays shown.
 
-SGR 8 concealed text keeps its cells, background, selection and cursor and draws no glyph, underline or strikethrough. Copy and VoiceOver still read its characters.
+SGR 8 concealed text keeps its cells, background, selection and cursor and draws no glyph, underline or strikethrough. VoiceOver reads it as blank, as a sighted reader sees it. Copy keeps its characters, so selecting and copying reveals it as in other terminals, with or without VoiceOver.
 
 ## Native surfaces and motion
 

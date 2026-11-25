@@ -485,7 +485,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     // for a displayed generation, and is reused as the user navigates by line or character.
     private var transcript: MacAccessibleText {
         if let accessibilityText { return accessibilityText }
-        let text = MacAccessibleText(snapshot: terminal.snapshot) { terminal.text(in: $0) }
+        let text = MacAccessibleText(snapshot: terminal.snapshot) { terminal.text(in: $0, spoken: true) }
         accessibilityText = text
         return text
     }
@@ -502,7 +502,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     override func accessibilityValue() -> Any? { transcript.string }
     override func accessibilityNumberOfCharacters() -> Int { transcript.string.length }
     override func accessibilityVisibleCharacterRange() -> NSRange { NSRange(location: 0, length: transcript.string.length) }
-    override func accessibilitySelectedText() -> String? { terminal.selectedText ?? "" }
+    override func accessibilitySelectedText() -> String? { terminal.spokenSelectedText ?? "" }
     override func accessibilitySelectedTextRange() -> NSRange {
         if let selection = terminal.selection { return transcript.range(for: selection) }
         guard let snapshot = terminal.snapshot else { return NSRange(location: 0, length: 0) }

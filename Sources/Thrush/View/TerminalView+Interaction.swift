@@ -6,16 +6,18 @@ extension TerminalView {
     package var historyOffset: Int { transcript.offset }
     var isPointerReporting: Bool { inputAvailability == .live && historyOffset == 0 && snapshot.map { $0.mouseTracking != .off } == true }
     var selectedText: String? { selection.map { transcript.text(in: $0) } }
-    func text(in selection: Selection) -> String { transcript.text(in: selection) }
+    /// VoiceOver reads what a sighted reader sees, so concealed text is blank. Copy keeps it.
+    var spokenSelectedText: String? { selection.map { transcript.text(in: $0, spoken: true) } }
+    func text(in selection: Selection, spoken: Bool = false) -> String { transcript.text(in: selection, spoken: spoken) }
 
     func selectWord(row: Int, column: Int) {
         updateSelection { $0.selectWord(row: row, column: column) }
     }
 
-    func logicalLineText(row: Int) -> String {
+    func spokenLineText(row: Int) -> String {
         var reader = transcript
         reader.selectLine(row: row)
-        return reader.selection.map { reader.text(in: $0) } ?? ""
+        return reader.selection.map { reader.text(in: $0, spoken: true) } ?? ""
     }
 
     func selectLine(row: Int) {

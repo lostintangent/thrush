@@ -32,6 +32,28 @@ import UIKit
     #expect(handles.allSatisfy { !$0.frame.isEmpty && !$0.isHidden && $0.tintColor.cgColor.alpha > 0 })
 }
 
+/// VoiceOver reads concealed text as the blank it shows, while copy keeps its characters.
+@MainActor
+@Test func phoneVoiceOverReadsConcealedTextAsBlank() throws {
+    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    view.layoutIfNeeded()
+    var terminal = Terminal(size: .init(columns: 12, rows: 3))
+    _ = terminal.receive("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
+    view.display(terminal)
+
+    let transcript = try #require(view.subviews.compactMap { $0 as? PhoneTranscriptView }.first)
+    let spoken = "pw \(String(repeating: " ", count: "s🐦cret".utf16.count))!"
+    let line = try #require(transcript.accessibilityElements?.first as? UIAccessibilityElement)
+    #expect(line.accessibilityLabel == spoken)
+    transcript.selectAccessibleLine(0)
+    #expect(view.selectedText == "pw s🐦cret!")
+    let selected = try #require(transcript.accessibilityElements?.compactMap { $0 as? UIAccessibilityElement }
+        .first(where: { $0.accessibilityTraits.contains(.selected) }))
+    #expect(selected.accessibilityValue == spoken)
+}
+
 /// Fresh bytes should preserve what a VoiceOver or touch reader scrolled back to.
 @MainActor
 @Test func phoneHistoryKeepsReaderAndOffersLatest() throws {
