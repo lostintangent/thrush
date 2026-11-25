@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import uuid
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_ID = "app.thrush.demo"
@@ -161,6 +162,45 @@ class Phone:
             raise RuntimeError("Missing simulator application PID: " + result.stdout)
         return int(match.group(1))
 
+    def warm_keyboard(self, appearance):
+        # A fresh runtime can cover its first keyboard with the system QuickPath
+        # introduction. Give that first attachment its own process before recording.
+        pid = self.launch("prompt", appearance, "portrait", "visible")
+        observed = None
+        since = time.monotonic()
+
+        def ready():
+            nonlocal observed, since
+            state = self.state()
+            if (state.get("pid") != pid or state.get("keyboardHeight", 0) <= 90
+                    or state.get("accessoryHeight", 0) < 44):
+                observed = None
+                return False
+            geometry = (state["keyboardHeight"], state["accessoryHeight"], state["gridFrame"])
+            if observed != geometry:
+                observed, since = geometry, time.monotonic()
+            return state if time.monotonic() - since >= 0.7 else False
+
+        print("Waiting for the first native keyboard attachment", flush=True)
+        state = wait_for("the warm-up keyboard and accessory", ready, 100)
+        save_json(self.out / "keyboard-warmup.json", state)
+        sim("terminate", self.device, APP_ID, timeout=45)
+
+    def interrupt_after_focus(self, pid, keyboard):
+        def ready():
+            state = self.state()
+            if state.get("pid") != pid or state.get("scene") != "notice-reconnecting" or not state.get("gpuCompleted") or not state.get("generation"):
+                return False
+            if keyboard == "visible":
+                return (state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44 and
+                        (state.get("keyboardLanguage") or "").lower().startswith("en"))
+            return state["keyboardHeight"] < 90
+
+        wait_for("the live shell and its requested keyboard", ready, 90)
+        with urlopen(Request(self.endpoint + "/interrupt-reconnecting", method="POST"), timeout=10) as response:
+            if response.status != 204:
+                raise RuntimeError("The notice peer did not interrupt the acknowledged terminal.")
+
     def set_appearance(self, style):
         sim("ui", self.device, "appearance", style)
         style_now = sim("ui", self.device, "appearance").stdout.strip()
@@ -208,6 +248,8 @@ class Phone:
                 if scene != "notice-connecting" and (not state.get("gpuCompleted") or not state["generation"]):
                     return False
             if keyboard == "visible":
+                if scene == "notice-reconnecting" and not (state.get("keyboardLanguage") or "").lower().startswith("en"):
+                    return False
                 return state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44
             if keyboard == "hidden":
                 return state["keyboardHeight"] < 90
@@ -244,6 +286,23 @@ class Phone:
                 last_error = "The displayed generation or layout changed during capture."
                 return False
             upright = self.oriented_image(candidate, orientation)
+            if keyboard == "visible":
+                metadata = self.scratch / "keyboard-frame.json"
+                save_json(metadata, state)
+                keys = run(sys.executable, str(ORACLE), str(upright), "keyboard", appearance,
+                           "--metadata", str(metadata), timeout=50, check=False)
+                if keys.returncode:
+                    last_error = (keys.stdout + keys.stderr).strip()
+                    return False
+            if scene in NOTICE_SCENES:
+                checker = self.scratch / "check-pane-capture"
+                if not checker.exists():
+                    run("xcrun", "swiftc", "scripts/check-pane-capture.swift", "-o", str(checker), timeout=120)
+                labels = [label for label in NOTICE_SCENES[scene][:3] if label]
+                proof = run(str(checker), str(upright), *labels, check=False, timeout=50)
+                if proof.returncode:
+                    last_error = (proof.stdout + proof.stderr).strip()
+                    return False
             if oracle:
                 command = [sys.executable, str(oracle), str(upright), scene, appearance]
                 if scene == "editor" and oracle == ORACLE:
@@ -305,14 +364,33 @@ class Phone:
                     raise RuntimeError("Simulator recording failed: " + log.read_text())
 
     def suite(self):
+        failures = {}
+
+        def attempt(label, action, *arguments):
+            try:
+                action(*arguments)
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+                failures[label] = str(error)
+                print(f"{label}: {error}", file=sys.stderr, flush=True)
+                save_json(self.out / "failures.json", failures)
+
+        attempt("render-benchmark", self.benchmark)
         for scene, appearance, orientation in [
             ("prompt", "dark", "portrait"), ("shell", "dark", "portrait"), ("editor", "dark", "portrait"),
             ("editor", "dark", "landscape"), ("prompt", "light", "portrait"), ("shell", "light", "portrait"),
             ("editor", "light", "portrait"),
             ("editor", "light", "landscape"),
         ]:
-            pid = self.launch(scene, appearance, orientation, "visible")
-            self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
+            attempt(f"{scene}-{appearance}-{orientation}", self.capture_scene, scene, appearance, orientation)
+        attempt("appearance-switch", self.capture_switch)
+        if failures:
+            raise RuntimeError("iPhone checks failed: " + ", ".join(failures))
+
+    def capture_scene(self, scene, appearance, orientation):
+        pid = self.launch(scene, appearance, orientation, "visible")
+        self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
+
+    def capture_switch(self):
         pid = self.launch("glyphs", "dark", "portrait", "visible")
         dark = self.frame("glyphs", "dark", "portrait", "visible", pid, ORACLE)
         with self.record_switch():
@@ -324,6 +402,8 @@ class Phone:
                 raise RuntimeError(f"System appearance changed {key}: {dark[key]} → {light[key]}")
         if light["rowsPrepared"] or light["glyphUploads"]:
             raise RuntimeError("Appearance change rebuilt rows or rasterized new glyphs.")
+
+    def benchmark(self):
         report = self.out / "render.json"
         result = run("scripts/benchmark-simulator.sh", self.device, str(self.app), str(report),
                      timeout=270, check=False)
@@ -341,7 +421,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
-    parser.add_argument("--scene", default="", help="A demo scene or 'notices' for all five mounted pane states. Leave empty for the full rendering proof.")
+    parser.add_argument("--scene", default="", help="A demo scene, 'notices' for all five mounted pane states, or 'render-benchmark'. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -352,6 +432,8 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
+    if args.scene == "render-benchmark" and (args.layout_only or args.oracle):
+        parser.error("The render benchmark produces its own checked JSON report.")
     oracle = None
     if args.oracle:
         oracle = (ROOT / args.oracle).resolve()
@@ -375,15 +457,26 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    with peer(out, notices=args.scene in NOTICE_SCENES or args.scene == "notices") as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
+    notices = args.scene in NOTICE_SCENES or args.scene == "notices"
+    with peer(out, notices=notices) as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
-            if args.scene:
+            opens_keyboard = (not args.scene or args.keyboard == "visible" or
+                              (args.scene in {"notices", "notice-reconnecting"} and args.keyboard == "any"))
+            if not args.layout_only and args.scene != "render-benchmark" and opens_keyboard:
+                phone.warm_keyboard(args.appearance if args.scene else "dark")
+            if args.scene == "render-benchmark":
+                phone.benchmark()
+            elif args.scene:
                 scenes = NOTICE_SCENES if args.scene == "notices" else [args.scene]
-                keyboard = "hidden" if (args.scene == "notices" or args.scene in NOTICE_SCENES) and args.keyboard == "any" else args.keyboard
                 for scene in scenes:
+                    keyboard = args.keyboard
+                    if scene in NOTICE_SCENES and keyboard == "any":
+                        keyboard = "visible" if scene == "notice-reconnecting" else "hidden"
                     pid = phone.launch(scene, args.appearance, args.orientation, keyboard)
+                    if scene == "notice-reconnecting":
+                        phone.interrupt_after_focus(pid, keyboard)
                     phone.frame(scene, args.appearance, args.orientation, keyboard, pid, oracle, layout_only=args.layout_only)
             else:
                 phone.suite()

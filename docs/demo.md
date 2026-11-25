@@ -45,7 +45,9 @@ To capture a single registered scene, pass its name, system appearance, orientat
 gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible
 ```
 
-Pass `-f scene=notices -f appearance=dark -f keyboard=hidden` to capture Connecting, Reconnecting, Previous shell ended, Open in another window and Ended in one simulator. The peer opens real terminal WebSockets, waits for a cursor-position reply before interrupting an established transcript, attaches a second client for takeover and sends the server exit message for Ended. Each PNG has a JSON sidecar with the mounted native status, its frame and its action. The transcript states also require a completed GPU frame. Use `notice-connecting`, `notice-reconnecting`, `notice-replacement`, `notice-displaced` or `notice-ended` for an individual capture.
+Run `gh workflow run headless.yml --ref main -f scene=render-benchmark` for the packaged simulator render benchmark alone.
+
+Pass `-f scene=notices -f appearance=dark` to capture Connecting, Reconnecting, Previous shell ended, Open in another window and Ended in one simulator. The suite leaves the keyboard down for opening, replacement, takeover and exit. Before interrupting the live shell for Reconnecting, it verifies the software keyboard and terminal keys are visible. The peer opens real terminal WebSockets, waits for a cursor-position reply before interrupting an established transcript, attaches a second client for takeover and sends the server exit message for Ended. Each PNG has a JSON sidecar with the mounted native status, its frame and its action. Vision checks the visible copy in the captured pixels. The transcript states also require a completed GPU frame. Use `notice-connecting`, `notice-reconnecting`, `notice-replacement`, `notice-displaced` or `notice-ended` for an individual capture.
 
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and accessory measurements for the PTY recorder.
 

@@ -1,46 +1,114 @@
-#if os(iOS)
+import Foundation
+import Thrush
 import ThrushUI
+#if os(iOS)
 import UIKit
+#endif
 
 /// Opt-in metadata for simulator captures. The screenshot oracle checks the framebuffer separately.
 @MainActor
 enum PhoneCapture {
-    private struct State: Encodable, Equatable {
+    struct State: Encodable, Equatable {
         let scene, appearance, orientation: String
         let pid: Int32
         var generation: UInt64 = 0
         var gpuCompleted = false
         var rowsPrepared = 0, glyphUploads = 0
         var cellGridPixels: CGRect?
-        var notice: VisiblePaneNotice?
         let columns, rows: Int
-        let windowPoints, gridFrame: CGRect
-        let displayScale, keyboardHeight, accessoryHeight: CGFloat
+        var windowPoints, gridFrame: CGRect
+        let displayScale: CGFloat
+        var keyboardHeight, accessoryHeight: CGFloat
         let selection: [Int]?
+        var notice: VisiblePaneNotice?
+        var keyboardLanguage: String?
     }
 
+    /// UIKit can move the completed drawable or its keyboard without changing a pixel inside it.
+    struct Drawing: Equatable {
+        let scene: String
+        let generation: UInt64
+        let size: Terminal.Size
+        let drawableSize: CGSize
+        let scale: CGFloat
+        let fontSize: CGFloat?
+        let theme: TerminalTheme
+        let selection: [Int]?
+        let historyOffset: Int
+
+        init?(state: State, generation: UInt64?, size: Terminal.Size?, drawableSize: CGSize,
+              fontSize: CGFloat?, theme: TerminalTheme, historyOffset: Int) {
+            guard let generation, let size else { return nil }
+            self.scene = state.scene
+            self.generation = generation
+            self.size = size
+            self.drawableSize = drawableSize
+            self.scale = state.displayScale
+            self.fontSize = fontSize
+            self.theme = theme
+            self.selection = state.selection
+            self.historyOffset = historyOffset
+        }
+
+        func fits(_ state: State) -> Bool {
+            size.columns == state.columns && size.rows == state.rows
+                && (state.gridFrame.width * scale).rounded() == drawableSize.width
+                && (state.gridFrame.height * scale).rounded() == drawableSize.height
+        }
+    }
+
+    struct Submission {
+        let time: Double
+        let drawing: Drawing
+        let cells: CGRect
+        var measurement: FrameMeasurement?
+
+        mutating func complete(_ frame: FrameMeasurement) {
+            guard frame.submittedAt == time, frame.gpuCompleted, frame.generation == drawing.generation else { return }
+            measurement = frame
+        }
+
+        func applying(to state: State, drawing current: Drawing?) -> State {
+            guard current == drawing, drawing.fits(state), let measurement else { return state }
+            var state = state
+            state.generation = measurement.generation
+            state.gpuCompleted = true
+            state.rowsPrepared = measurement.rowsPrepared
+            state.glyphUploads = measurement.glyphUploads
+            state.cellGridPixels = cells
+            return state
+        }
+    }
+
+    #if os(iOS)
     static func observe(_ session: DemoSession, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
-        let layout: () -> State? = { [weak session, weak root] in
+        let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak root] in
             guard let session, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let view = session.view
             let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
             let selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
-            let accessory = view.subviews.first(where: \.isFirstResponder)?.inputAccessoryView
-            return State(scene: session.options.scene.rawValue, appearance: appearance,
+            let input = view.subviews.first(where: \.isFirstResponder)
+            let accessory = input?.inputAccessoryView
+            var state = State(scene: session.options.scene.rawValue, appearance: appearance,
                 orientation: scene.effectiveGeometry.interfaceOrientation.isLandscape ? "landscape" : "portrait",
                 pid: ProcessInfo.processInfo.processIdentifier,
                 columns: view.gridSize?.columns ?? 0, rows: view.gridSize?.rows ?? 0,
                 windowPoints: root.bounds, gridFrame: view.convert(view.bounds, to: root),
                 displayScale: view.traitCollection.displayScale, keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
                 accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0, selection: selection)
+            if session.options.scene.capturesNotice {
+                state.notice = view.visiblePaneNotice
+                state.keyboardLanguage = input?.textInputMode?.primaryLanguage
+            }
+            let drawing = Drawing(state: state, generation: view.snapshot?.generation, size: view.snapshot?.size,
+                                  drawableSize: view.drawableSize, fontSize: view.fontSize,
+                                  theme: view.resolvedTheme, historyOffset: view.historyOffset)
+            return (state, drawing)
         }
-        let capturesNotice = session.options.scene.capturesNotice
         var lastWritten: State?
-        let write: (State) -> Void = { [weak view = session.view] layout in
-            var state = layout
-            if capturesNotice { state.notice = view?.visiblePaneNotice }
+        func write(_ state: State) {
             guard state != lastWritten else { return }
             do {
                 try JSONEncoder().encode(state).write(to: destination, options: .atomic)
@@ -49,36 +117,24 @@ enum PhoneCapture {
                 FileHandle.standardError.write(Data("Could not record capture state: \(error)\n".utf8))
             }
         }
-        var pending: (time: Double, layout: State, cells: CGRect)?
-        var completed: State?
+        var latest: Submission?
+        func writeLatest() {
+            guard let current = layout() else { return }
+            write(latest?.applying(to: current.state, drawing: current.drawing) ?? current.state)
+        }
         session.view.onFrameSubmitted = { time, size, cells in
-            completed = nil
-            guard let state = layout() else { pending = nil; return }
-            pending = size?.columns == state.columns && size?.rows == state.rows ? (time, state, cells) : nil
-            write(state)
+            latest = nil
+            guard let current = layout() else { return }
+            if let drawing = current.drawing, drawing.size == size {
+                latest = Submission(time: time, drawing: drawing, cells: cells)
+            }
+            write(current.state)
         }
         session.view.onFrame = { frame in
-            guard let pending, frame.gpuCompleted, frame.submittedAt == pending.time,
-                  layout() == pending.layout else { return }
-            var state = pending.layout
-            state.generation = frame.generation
-            state.gpuCompleted = true
-            state.rowsPrepared = frame.rowsPrepared
-            state.glyphUploads = frame.glyphUploads
-            state.cellGridPixels = pending.cells
-            completed = state
-            write(state)
+            latest?.complete(frame)
+            writeLatest()
         }
-        // A native-only scene can settle before the terminal has content. Changing host
-        // geometry invalidates the previous result until that geometry completes on the GPU.
-        return {
-            guard let state = layout() else { return }
-            if let pending, pending.layout == state, let completed {
-                write(completed)
-            } else {
-                write(state)
-            }
-        }
+        return writeLatest
     }
 
     static func orient(_ scene: UIScene) {
@@ -88,5 +144,5 @@ enum PhoneCapture {
             FileHandle.standardError.write(Data("Landscape capture request failed: \(error)\n".utf8))
         }
     }
+    #endif
 }
-#endif

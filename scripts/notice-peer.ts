@@ -2,7 +2,7 @@
 import type { ServerWebSocket } from "bun";
 
 const scenes = ["connecting", "reconnecting", "replacement", "displaced", "ended"] as const;
-type Scene = typeof scenes[number];
+type Scene = typeof scenes[number] | "prompt";
 type Attachment = { id: string; scene: Scene; url: string; index: number; acknowledged: boolean };
 type Socket = ServerWebSocket<Attachment>;
 type Session = { count: number; owner?: Socket; other?: WebSocket };
@@ -18,8 +18,18 @@ const server = Bun.serve({
     port: Number(process.env.THRUSH_PORT ?? 9138),
     fetch(request, server) {
         const url = new URL(request.url);
+        if (request.method === "POST" && url.pathname === "/interrupt-reconnecting") {
+            // The capture controller sends this only after it observes the requested native
+            // keyboard geometry on the original shell's GPU-completed frame.
+            const attached = [...sessions.values()].map(session => session.owner).filter(socket =>
+                socket?.data.scene === "reconnecting" && socket.data.index === 1 && socket.data.acknowledged);
+            if (attached.length !== 1) return new Response("Expected one acknowledged shell.", { status: 409 });
+            attached[0]!.close(1011, "terminal socket lost");
+            console.log("reconnecting interrupted after native keyboard checkpoint");
+            return new Response(null, { status: 204 });
+        }
         const id = url.searchParams.get("clientId") ?? "";
-        const scene = scenes.find(name => id.startsWith("thrush-notice-" + name + "-"));
+        const scene = id.startsWith("thrush-prompt-") ? "prompt" : scenes.find(name => id.startsWith("thrush-notice-" + name + "-"));
         if (!scene || url.pathname !== "/socket" || url.searchParams.get("service") !== "terminal")
             return new Response("Expected a notice scene terminal attachment.", { status: 400 });
         const session = sessions.get(id) ?? { count: 0 };
@@ -43,7 +53,7 @@ const server = Bun.serve({
             if (scene === "connecting" || (scene === "reconnecting" && index > 1)) return;
             if (scene === "displaced" && previous) previous.close(4000, "replaced");
             ready(socket, scene === "displaced" && index > 1);
-            if (index > 1 && scene === "replacement") {
+            if (scene === "prompt" || (index > 1 && scene === "replacement")) {
                 write(socket, prompt);
                 return;
             }
@@ -62,7 +72,7 @@ const server = Bun.serve({
             socket.data.acknowledged = true;
             console.log(scene, "transcript acknowledged");
             if (scene === "ended") socket.sendText(JSON.stringify({ type: "exit" }));
-            if (scene === "reconnecting" || scene === "replacement") socket.close(1011, "terminal socket lost");
+            if (scene === "replacement") socket.close(1011, "terminal socket lost");
             if (scene === "displaced") {
                 // A second window attaches with precisely the same terminal URL and client ID.
                 const other = new WebSocket(url);
