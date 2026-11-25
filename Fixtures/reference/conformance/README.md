@@ -8,7 +8,7 @@ scripts/check-conformance.sh ../toy-box --write             # regenerate the cas
 scripts/check-conformance.sh ../toy-box --report gaps.md    # also write the ranked gap report
 ```
 
-The Toy Box checkout must be at the pinned revision with `bun install --frozen-lockfile`. [Reference setup](../README.md)
+The Toy Box checkout must be at the pinned revision with the pinned xterm packages installed. `scripts/prepare-reference.sh <directory>` makes one without Toy Box's other dependencies, which is how CI runs it. A full checkout with `bun install --frozen-lockfile` also works. [Reference setup](../README.md)
 
 ## Corpora
 

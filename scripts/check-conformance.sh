@@ -5,7 +5,8 @@
 #
 #   scripts/check-conformance.sh [toy-box checkout] [--write] [--report <gaps.md>]
 #
-# The Toy Box checkout defaults to ../toy-box, at the pinned revision with its dependencies installed.
+# The Toy Box checkout defaults to ../toy-box, at the pinned revision with the pinned xterm packages installed.
+# scripts/prepare-reference.sh makes such a checkout.
 # --write regenerates the files instead of checking them. --report also writes the ranked gap report.
 set -eu
 cd "$(dirname "$0")/.."

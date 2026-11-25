@@ -78,13 +78,8 @@ jobs:
           bun-version: 1.4.5
       - name: Check conformance against the pinned reference
         run: |
-          toy_box="$RUNNER_TEMP/toy-box"
-          pin=$(python3 -c 'import json; print(json.load(open("Fixtures/reference/conformance/reference.json"))["reference"]["toyBox"])')
-          git init -q "$toy_box"
-          git -C "$toy_box" fetch -q --depth 1 https://github.com/lostintangent/toy-box "$pin"
-          git -C "$toy_box" checkout -q FETCH_HEAD
-          (cd "$toy_box" && bun install --frozen-lockfile)
-          scripts/check-conformance.sh "$toy_box"
+          scripts/prepare-reference.sh "$RUNNER_TEMP/toy-box"
+          scripts/check-conformance.sh "$RUNNER_TEMP/toy-box"
       - name: Verify the loopback exchange
         run: scripts/check-loopback.sh
       - name: Verify recorded shell, Vim and Codex workflows over WebSocket
