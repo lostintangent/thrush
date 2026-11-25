@@ -1,29 +1,29 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T17:01:10+00:00",
+  "recordedAt": "2026-11-25T17:01:33+00:00",
   "environment": {
-    "commit": "a1612a7ee6100dc916642a910ed9e43877de948f",
+    "commit": "f4ddc154195ba23b6c6fc52f7be74e0480d746d6",
     "worktreeDirty": false,
     "processor": "Apple M1 Max",
     "coreCount": 10,
     "os": "27.2.1",
     "loadAverage": {
-      "oneMinute": 199.1728515625,
-      "fiveMinutes": 222.47216796875,
-      "fifteenMinutes": 256.75390625
+      "oneMinute": 199.8828125,
+      "fiveMinutes": 220.93017578125,
+      "fifteenMinutes": 255.2138671875
     },
     "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
   },
   "environmentAfter": {
-    "commit": "a1612a7ee6100dc916642a910ed9e43877de948f",
+    "commit": "f4ddc154195ba23b6c6fc52f7be74e0480d746d6",
     "worktreeDirty": false,
     "processor": "Apple M1 Max",
     "coreCount": 10,
     "os": "27.2.1",
     "loadAverage": {
-      "oneMinute": 152.0263671875,
-      "fiveMinutes": 195.42529296875,
-      "fifteenMinutes": 240.369140625
+      "oneMinute": 149.078125,
+      "fiveMinutes": 191.99755859375,
+      "fifteenMinutes": 238.0986328125
     },
     "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
   },
@@ -124,64 +124,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 25578792,
-          "minimumWallNanoseconds": 22257917,
+          "medianWallNanoseconds": 26742167,
+          "minimumWallNanoseconds": 22647666,
           "roundMedianWallNanoseconds": [
-            25578792,
-            26245542,
-            25712958,
-            24316917,
-            25018750
+            26742167,
+            27497125,
+            25503833,
+            28196792,
+            23688250
           ],
-          "medianCPUNanoseconds": 50080000,
+          "medianCPUNanoseconds": 49228000,
           "samples": 15,
-          "mibPerSecond": 42.721146396905226,
+          "mibPerSecond": 40.862631576864665,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 8756250,
-          "minimumWallNanoseconds": 7864167,
+          "medianWallNanoseconds": 8020083,
+          "minimumWallNanoseconds": 7747583,
           "roundMedianWallNanoseconds": [
-            8925542,
-            8828291,
-            8756250,
-            8034417,
-            8298291
+            8134875,
+            7982291,
+            8029792,
+            8008584,
+            8020083
           ],
-          "medianCPUNanoseconds": 8594000,
+          "medianCPUNanoseconds": 7979000,
           "samples": 15,
-          "mibPerSecond": 124.79718117778596,
+          "mibPerSecond": 136.25237016723995,
           "history": 1000,
           "allocations": 20027
         },
         "xterm-node": {
-          "medianWallNanoseconds": 21478834,
-          "minimumWallNanoseconds": 19834375,
+          "medianWallNanoseconds": 20769833,
+          "minimumWallNanoseconds": 20025208,
           "roundMedianWallNanoseconds": [
-            26353875,
-            21467625,
-            20570042,
-            21272458,
-            21478834
+            22571000,
+            20336250,
+            20717500,
+            20769833,
+            22400834
           ],
-          "medianCPUNanoseconds": 22405000,
+          "medianCPUNanoseconds": 22234000,
           "samples": 15,
-          "mibPerSecond": 50.8759142925537,
+          "mibPerSecond": 52.61261935461822,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3770166,
-          "minimumWallNanoseconds": 3709000,
+          "medianWallNanoseconds": 3778625,
+          "minimumWallNanoseconds": 3719375,
           "roundMedianWallNanoseconds": [
-            4314208,
-            3844166,
-            3832958,
-            3755458,
-            3759291
+            3752708,
+            3734625,
+            3781833,
+            3778625,
+            3807708
           ],
-          "medianCPUNanoseconds": 3767000,
+          "medianCPUNanoseconds": 3761000,
           "samples": 15,
-          "mibPerSecond": 289.8427596259656,
+          "mibPerSecond": 289.1939045785142,
           "history": 784,
           "allocations": 134
         }
@@ -189,17 +189,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.453019904941873,
+          "median": 0.4709752133056498,
           "roundRange": [
-            0.43543716445232716,
-            0.4833552965186876
+            0.4613110834524194,
+            0.4747716451313534
           ]
         },
         "xterm": {
-          "median": 2.588344274742836,
+          "median": 2.593446357058876,
           "roundRange": [
-            2.349183954318344,
-            2.952635817522342
+            2.5476708378584543,
+            2.793092540314109
           ]
         }
       },
@@ -212,82 +212,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 28735208,
-          "minimumWallNanoseconds": 21079292,
+          "medianWallNanoseconds": 25545334,
+          "minimumWallNanoseconds": 20710250,
           "roundMedianWallNanoseconds": [
-            28735208,
-            26919333,
-            27105500,
-            29504625,
-            29594875
+            27592375,
+            21181416,
+            25579333,
+            34742750,
+            25545334
           ],
-          "medianCPUNanoseconds": 43075000,
+          "medianCPUNanoseconds": 44389000,
           "samples": 15,
-          "mibPerSecond": 38.02844641625661,
+          "mibPerSecond": 42.77710041638087,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3762458,
-          "minimumWallNanoseconds": 3717000,
+          "medianWallNanoseconds": 3805416,
+          "minimumWallNanoseconds": 3719541,
           "roundMedianWallNanoseconds": [
-            4353666,
-            3753791,
-            3761000,
-            3737666,
-            3787833
+            5883500,
+            3755458,
+            3805416,
+            3791708,
+            3835166
           ],
-          "medianCPUNanoseconds": 3766000,
+          "medianCPUNanoseconds": 3795000,
           "samples": 15,
-          "mibPerSecond": 290.43654910911647,
+          "mibPerSecond": 287.157913270977,
           "history": 784,
           "allocations": 134
         },
         "thrush": {
-          "medianWallNanoseconds": 8366209,
-          "minimumWallNanoseconds": 8044333,
+          "medianWallNanoseconds": 7859917,
+          "minimumWallNanoseconds": 7460500,
           "roundMedianWallNanoseconds": [
-            8313875,
-            8366209,
-            8169250,
-            8672291,
-            9078833
+            8857416,
+            7672209,
+            7671250,
+            8155000,
+            8024250
           ],
-          "medianCPUNanoseconds": 8367000,
+          "medianCPUNanoseconds": 7848000,
           "samples": 15,
-          "mibPerSecond": 130.61535011711857,
+          "mibPerSecond": 139.0288622243706,
           "history": 1000,
           "allocations": 19984
         },
         "xterm-node": {
-          "medianWallNanoseconds": 23689250,
-          "minimumWallNanoseconds": 19529041,
+          "medianWallNanoseconds": 21235000,
+          "minimumWallNanoseconds": 19678416,
           "roundMedianWallNanoseconds": [
-            28402167,
-            23689250,
-            20705083,
-            20719208,
-            21070083
+            21235000,
+            20427125,
+            21203709,
+            22110375,
+            21440000
           ],
-          "medianCPUNanoseconds": 22798000,
+          "medianCPUNanoseconds": 22530000,
           "samples": 15,
-          "mibPerSecond": 46.12874268657675,
+          "mibPerSecond": 51.460104435506864,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.4486848224805285,
+          "median": 0.4894884902118803,
           "roundRange": [
-            0.41721584701469894,
-            0.5236626723399137
+            0.46495499693439607,
+            0.6642456445536712
           ]
         },
         "xterm": {
-          "median": 2.5345145515194174,
+          "median": 2.6719008006978844,
           "roundRange": [
-            2.320792000469664,
-            3.4162369532859227
+            2.397426066473563,
+            2.7640487534626037
           ]
         }
       },
@@ -300,82 +300,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 8969166,
-          "minimumWallNanoseconds": 8332875,
+          "medianWallNanoseconds": 8319334,
+          "minimumWallNanoseconds": 7799458,
           "roundMedianWallNanoseconds": [
-            9123208,
-            9830292,
-            8590875,
-            8475834,
-            9108708
+            8367959,
+            8319334,
+            8182375,
+            8348667,
+            8244458
           ],
-          "medianCPUNanoseconds": 8885000,
+          "medianCPUNanoseconds": 8281000,
           "samples": 15,
-          "mibPerSecond": 121.83466307658797,
+          "mibPerSecond": 131.35129779474997,
           "history": 1000,
           "allocations": 20140
         },
         "xterm-node": {
-          "medianWallNanoseconds": 24055958,
-          "minimumWallNanoseconds": 21028792,
+          "medianWallNanoseconds": 23201166,
+          "minimumWallNanoseconds": 21813625,
           "roundMedianWallNanoseconds": [
-            24678792,
-            24196833,
-            21349625,
-            23377333,
-            28605667
+            25039333,
+            23034917,
+            22150750,
+            23913125,
+            22729709
           ],
-          "medianCPUNanoseconds": 24840000,
+          "medianCPUNanoseconds": 25023000,
           "samples": 15,
-          "mibPerSecond": 45.42555809616846,
+          "mibPerSecond": 47.09915517556266,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 6453291,
-          "minimumWallNanoseconds": 6236708,
+          "medianWallNanoseconds": 6633041,
+          "minimumWallNanoseconds": 6254333,
           "roundMedianWallNanoseconds": [
-            7259041,
-            6417625,
-            6570208,
-            6421875,
-            6409916
+            6760625,
+            6684291,
+            6508500,
+            7163833,
+            6277416
           ],
-          "medianCPUNanoseconds": 6433000,
+          "medianCPUNanoseconds": 6505000,
           "samples": 15,
-          "mibPerSecond": 169.33302987390283,
+          "mibPerSecond": 164.74424290276335,
           "history": 843,
           "allocations": 140
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 32096250,
-          "minimumWallNanoseconds": 27022167,
+          "medianWallNanoseconds": 29794375,
+          "minimumWallNanoseconds": 21929375,
           "roundMedianWallNanoseconds": [
-            29478625,
-            30712709,
-            32096250,
-            30374375,
-            48717333
+            29794375,
+            28744750,
+            30663167,
+            32644541,
+            28517000
           ],
-          "medianCPUNanoseconds": 54679000,
+          "medianCPUNanoseconds": 51729000,
           "samples": 15,
-          "mibPerSecond": 34.0461990945356,
+          "mibPerSecond": 36.67656454240065,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.7576688028576303,
+          "median": 0.8034646763791429,
           "roundRange": [
-            0.6528417467151535,
-            0.795667598502632
+            0.7614103922901906,
+            0.8580810565327375
           ]
         },
         "xterm": {
-          "median": 2.705056379291144,
+          "median": 2.768841472165921,
           "roundRange": [
-            2.4614561805488586,
-            3.1404746973994557
+            2.707129653676347,
+            2.9922867690914834
           ]
         }
       },
@@ -398,64 +398,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 22793792,
-          "minimumWallNanoseconds": 21203000,
+          "medianWallNanoseconds": 22030584,
+          "minimumWallNanoseconds": 20545792,
           "roundMedianWallNanoseconds": [
-            22406833,
-            30544167,
-            22459875,
-            22512292,
-            27470083
+            23137791,
+            21721167,
+            22068083,
+            22030584,
+            21310125
           ],
-          "medianCPUNanoseconds": 24491000,
+          "medianCPUNanoseconds": 23913000,
           "samples": 15,
-          "mibPerSecond": 47.940918197726305,
+          "mibPerSecond": 49.60174082030637,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 28596417,
-          "minimumWallNanoseconds": 20463542,
+          "medianWallNanoseconds": 27157042,
+          "minimumWallNanoseconds": 20544083,
           "roundMedianWallNanoseconds": [
-            29726833,
-            36365209,
-            28877542,
-            26754542,
-            25473792
+            23239750,
+            26371125,
+            28875416,
+            28059333,
+            27599917
           ],
-          "medianCPUNanoseconds": 42445000,
+          "medianCPUNanoseconds": 44254000,
           "samples": 15,
-          "mibPerSecond": 38.213015207044585,
+          "mibPerSecond": 40.23837786486423,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 8738583,
-          "minimumWallNanoseconds": 8012959,
+          "medianWallNanoseconds": 8260333,
+          "minimumWallNanoseconds": 7658541,
           "roundMedianWallNanoseconds": [
-            8792166,
-            8722125,
-            8150250,
-            8265542,
-            9761375
+            8559292,
+            8132958,
+            7836125,
+            9080042,
+            8255125
           ],
-          "medianCPUNanoseconds": 8666000,
+          "medianCPUNanoseconds": 8255000,
           "samples": 15,
-          "mibPerSecond": 125.04948659158909,
+          "mibPerSecond": 132.2894994291378,
           "history": 1000,
           "allocations": 20097
         },
         "ghostty": {
-          "medianWallNanoseconds": 6384583,
-          "minimumWallNanoseconds": 6282541,
+          "medianWallNanoseconds": 6736625,
+          "minimumWallNanoseconds": 6102291,
           "roundMedianWallNanoseconds": [
-            6379916,
-            6839916,
-            6326583,
-            6384583,
-            6426500
+            6800916,
+            6240166,
+            6418666,
+            6839541,
+            6755583
           ],
-          "medianCPUNanoseconds": 6383000,
+          "medianCPUNanoseconds": 6478000,
           "samples": 15,
-          "mibPerSecond": 171.15531549797194,
+          "mibPerSecond": 162.21109497530117,
           "history": 843,
           "allocations": 140
         }
@@ -463,17 +463,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.7724336770655814,
+          "median": 0.794565251425001,
           "roundRange": [
-            0.6583601183234944,
-            0.7842029321982888
+            0.7532499299012053,
+            0.819112252548294
           ]
         },
         "xterm": {
-          "median": 2.7557283518910465,
+          "median": 2.670758535824235,
           "roundRange": [
-            2.5484997667241496,
-            3.501918053226708
+            2.4262645481155265,
+            2.816198439917689
           ]
         }
       },
@@ -496,82 +496,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 21954250,
-          "minimumWallNanoseconds": 16005542,
+          "medianWallNanoseconds": 19270833,
+          "minimumWallNanoseconds": 15690292,
           "roundMedianWallNanoseconds": [
-            19704083,
-            24969833,
-            19659417,
-            21954250,
-            37390292
+            19607667,
+            17746625,
+            20772500,
+            18255916,
+            18906583
           ],
-          "medianCPUNanoseconds": 30229000,
+          "medianCPUNanoseconds": 31384000,
           "samples": 15,
-          "mibPerSecond": 45.97080089579039,
+          "mibPerSecond": 52.372124005558355,
           "history": 97
         },
         "xterm-node": {
-          "medianWallNanoseconds": 20521083,
-          "minimumWallNanoseconds": 18482958,
+          "medianWallNanoseconds": 19909084,
+          "minimumWallNanoseconds": 18432167,
           "roundMedianWallNanoseconds": [
-            20521083,
-            20800333,
-            19336375,
-            19295750,
-            30995166
+            21192666,
+            19539458,
+            19554000,
+            20966000,
+            18533333
           ],
-          "medianCPUNanoseconds": 21980000,
+          "medianCPUNanoseconds": 21623000,
           "samples": 15,
-          "mibPerSecond": 49.18134464766827,
+          "mibPerSecond": 50.69316376215029,
           "history": 97
         },
         "ghostty": {
-          "medianWallNanoseconds": 2930416,
-          "minimumWallNanoseconds": 2801833,
+          "medianWallNanoseconds": 2922250,
+          "minimumWallNanoseconds": 2788583,
           "roundMedianWallNanoseconds": [
-            2970333,
-            2952916,
-            2851416,
-            2916291,
-            2914000
+            2967125,
+            2957291,
+            2903833,
+            2922250,
+            2815916
           ],
-          "medianCPUNanoseconds": 2931000,
+          "medianCPUNanoseconds": 2923000,
           "samples": 15,
-          "mibPerSecond": 344.4065469088369,
+          "mibPerSecond": 345.3689641770575,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 4207792,
-          "minimumWallNanoseconds": 4152708,
+          "medianWallNanoseconds": 3746875,
+          "minimumWallNanoseconds": 3636917,
           "roundMedianWallNanoseconds": [
-            4185584,
-            4243250,
-            4200250,
-            4225708,
-            4192167
+            3795042,
+            3746875,
+            3716833,
+            3747458,
+            3739375
           ],
-          "medianCPUNanoseconds": 4210000,
+          "medianCPUNanoseconds": 3745000,
           "samples": 15,
-          "mibPerSecond": 239.85369418602588,
+          "mibPerSecond": 269.3589873071309,
           "history": 97,
           "allocations": 4296
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.6951058963061347,
+          "median": 0.781265394490417,
           "roundRange": [
-            0.6788681626093684,
-            0.7096579593194163
+            0.7530445595854922,
+            0.7892686572143452
           ]
         },
         "xterm": {
-          "median": 4.901981500029459,
+          "median": 5.0560810295838206,
           "roundRange": [
-            4.566276231107308,
-            7.393590474806944
+            4.736380316930775,
+            5.58876333695918
           ]
         }
       },
@@ -584,82 +584,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 19778917,
-          "minimumWallNanoseconds": 16247666,
+          "medianWallNanoseconds": 20250125,
+          "minimumWallNanoseconds": 16035750,
           "roundMedianWallNanoseconds": [
-            20006708,
-            21132000,
-            19430792,
-            19142166,
-            21602042
+            27081166,
+            20342542,
+            19469709,
+            22226666,
+            19347292
           ],
-          "medianCPUNanoseconds": 30207000,
+          "medianCPUNanoseconds": 28976000,
           "samples": 15,
-          "mibPerSecond": 51.026780463581815,
+          "mibPerSecond": 49.83941855007839,
           "history": 97
         },
         "ghostty": {
-          "medianWallNanoseconds": 3014291,
-          "minimumWallNanoseconds": 2914333,
+          "medianWallNanoseconds": 2958041,
+          "minimumWallNanoseconds": 2902041,
           "roundMedianWallNanoseconds": [
-            2924666,
-            3018541,
-            3073125,
-            3020458,
-            2979583
+            2960208,
+            2958041,
+            2939166,
+            3110416,
+            2907875
           ],
-          "medianCPUNanoseconds": 2981000,
+          "medianCPUNanoseconds": 2959000,
           "samples": 15,
-          "mibPerSecond": 334.8231659008391,
+          "mibPerSecond": 341.19015103793566,
           "history": 97,
           "allocations": 1330
         },
         "xterm-node": {
-          "medianWallNanoseconds": 19498625,
-          "minimumWallNanoseconds": 18880917,
+          "medianWallNanoseconds": 20663833,
+          "minimumWallNanoseconds": 18056708,
           "roundMedianWallNanoseconds": [
-            20237542,
-            19747792,
-            19172542,
-            19060375,
-            19623583
+            22333209,
+            20948250,
+            21322500,
+            19533041,
+            18187666
           ],
-          "medianCPUNanoseconds": 21931000,
+          "medianCPUNanoseconds": 22245000,
           "samples": 15,
-          "mibPerSecond": 51.76028851092866,
+          "mibPerSecond": 48.84158982345658,
           "history": 97
         },
         "thrush": {
-          "medianWallNanoseconds": 4206875,
-          "minimumWallNanoseconds": 3956667,
+          "medianWallNanoseconds": 3664709,
+          "minimumWallNanoseconds": 3480792,
           "roundMedianWallNanoseconds": [
-            4210792,
-            5019583,
-            4153750,
-            4163459,
-            4294875
+            3691791,
+            3669667,
+            3489125,
+            3671959,
+            3569250
           ],
-          "medianCPUNanoseconds": 4199000,
+          "medianCPUNanoseconds": 3668000,
           "samples": 15,
-          "mibPerSecond": 239.90597666115735,
+          "mibPerSecond": 275.39825278525694,
           "history": 97,
           "allocations": 3769
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.6945643479896418,
+          "median": 0.8147019682006024,
           "roundRange": [
-            0.6013529410710013,
-            0.7398435148961782
+            0.8018352068142536,
+            0.8470726388829505
           ]
         },
         "xterm": {
-          "median": 4.578014338558396,
+          "median": 5.580112205782252,
           "roundRange": [
-            3.934149908468492,
-            4.80611295927227
+            5.42054829445962,
+            7.335508971119979
           ]
         }
       },
@@ -672,82 +672,82 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 4425000,
-          "minimumWallNanoseconds": 4121458,
+          "medianWallNanoseconds": 4352875,
+          "minimumWallNanoseconds": 4278083,
           "roundMedianWallNanoseconds": [
-            4514875,
-            4427958,
-            4345583,
-            4422625,
-            4415208
+            4451666,
+            4314166,
+            4409375,
+            4323750,
+            4609291
           ],
-          "medianCPUNanoseconds": 4395000,
+          "medianCPUNanoseconds": 4355000,
           "samples": 15,
-          "mibPerSecond": 228.08010295286016,
+          "mibPerSecond": 231.85927819347128,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 4583542,
-          "minimumWallNanoseconds": 4411125,
+          "medianWallNanoseconds": 4092209,
+          "minimumWallNanoseconds": 4032000,
           "roundMedianWallNanoseconds": [
-            4601833,
-            4583542,
-            4873375,
-            4561083,
-            4590333
+            4094042,
+            4051500,
+            4096583,
+            4065250,
+            4095000
           ],
-          "medianCPUNanoseconds": 4580000,
+          "medianCPUNanoseconds": 4094000,
           "samples": 15,
-          "mibPerSecond": 220.1909474302638,
+          "mibPerSecond": 246.62827718877656,
           "history": 61,
           "allocations": 4715
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 38519209,
-          "minimumWallNanoseconds": 30488125,
+          "medianWallNanoseconds": 34001542,
+          "minimumWallNanoseconds": 30637667,
           "roundMedianWallNanoseconds": [
-            32399917,
-            43074083,
-            32782750,
-            40181375,
-            41252042
+            38288459,
+            32351208,
+            31776375,
+            44431958,
+            31154792
           ],
-          "medianCPUNanoseconds": 44106000,
+          "medianCPUNanoseconds": 44749000,
           "samples": 15,
-          "mibPerSecond": 26.20132868165611,
+          "mibPerSecond": 29.682608381890628,
           "history": 61
         },
         "xterm-node": {
-          "medianWallNanoseconds": 38107166,
-          "minimumWallNanoseconds": 36428167,
+          "medianWallNanoseconds": 40222917,
+          "minimumWallNanoseconds": 35998709,
           "roundMedianWallNanoseconds": [
-            37954042,
-            39651875,
-            37357125,
-            37604708,
-            39787792
+            40990959,
+            37626333,
+            40222917,
+            47962208,
+            36334917
           ],
-          "medianCPUNanoseconds": 41477000,
+          "medianCPUNanoseconds": 41895000,
           "samples": 15,
-          "mibPerSecond": 26.484636920163684,
+          "mibPerSecond": 25.091528184452816,
           "history": 61
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9660559453802321,
+          "median": 1.076354366553784,
           "roundRange": [
-            0.8916988739836356,
-            0.9811036167544541
+            1.0635877252321506,
+            1.1255899877899878
           ]
         },
         "xterm": {
-          "median": 8.24759220945219,
+          "median": 7.984995186967789,
           "roundRange": [
-            7.665555185061687,
-            8.667735434444516
+            7.608007814407815,
+            10.929698788512392
           ]
         }
       },
@@ -781,64 +781,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 38810583,
-          "minimumWallNanoseconds": 36532625,
+          "medianWallNanoseconds": 39482416,
+          "minimumWallNanoseconds": 35566750,
           "roundMedianWallNanoseconds": [
-            37401500,
-            43326792,
-            42012500,
-            37116375,
-            43044625
+            42467167,
+            37763791,
+            39473959,
+            54120000,
+            39482416
           ],
-          "medianCPUNanoseconds": 44636000,
+          "medianCPUNanoseconds": 43188000,
           "samples": 15,
-          "mibPerSecond": 26.0046198112099,
+          "mibPerSecond": 25.56212506262044,
           "history": 61
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 34850834,
-          "minimumWallNanoseconds": 26701375,
+          "medianWallNanoseconds": 35525916,
+          "minimumWallNanoseconds": 30280959,
           "roundMedianWallNanoseconds": [
-            33039125,
-            40113542,
-            34301875,
-            35991708,
-            34350417
+            42094708,
+            37282167,
+            35295417,
+            34027041,
+            31345250
           ],
-          "medianCPUNanoseconds": 45993000,
+          "medianCPUNanoseconds": 47093000,
           "samples": 15,
-          "mibPerSecond": 28.95926265541899,
+          "mibPerSecond": 28.40896362999919,
           "history": 61
         },
         "ghostty": {
-          "medianWallNanoseconds": 4377000,
-          "minimumWallNanoseconds": 4181833,
+          "medianWallNanoseconds": 4335291,
+          "minimumWallNanoseconds": 4288375,
           "roundMedianWallNanoseconds": [
-            4339000,
-            4814916,
-            4502958,
-            4308708,
-            4354208
+            4301958,
+            4366625,
+            4322458,
+            4471625,
+            4344458
           ],
-          "medianCPUNanoseconds": 4368000,
+          "medianCPUNanoseconds": 4336000,
           "samples": 15,
-          "mibPerSecond": 230.58132409559204,
+          "mibPerSecond": 232.79970261890293,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 4515917,
-          "minimumWallNanoseconds": 4278750,
+          "medianWallNanoseconds": 4043000,
+          "minimumWallNanoseconds": 3981083,
           "roundMedianWallNanoseconds": [
-            4636000,
-            4503625,
-            4436834,
-            4444583,
-            4519334
+            4069542,
+            4044833,
+            4069833,
+            3993417,
+            3992791
           ],
-          "medianCPUNanoseconds": 4504000,
+          "medianCPUNanoseconds": 4043000,
           "samples": 15,
-          "mibPerSecond": 223.48826507803534,
+          "mibPerSecond": 249.63009041959097,
           "history": 61,
           "allocations": 4188
         }
@@ -846,17 +846,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9694290780484919,
+          "median": 1.0795563129553185,
           "roundRange": [
-            0.9359361518550474,
-            1.0691200976990758
+            1.0571110950568885,
+            1.1197490770435443
           ]
         },
         "xterm": {
-          "median": 7.7311603273866005,
+          "median": 8.672448476387114,
           "roundRange": [
-            7.126644736842105,
-            8.906945405090344
+            7.85046099332522,
+            10.343844098426802
           ]
         }
       },
@@ -890,64 +890,64 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 3928500,
-          "minimumWallNanoseconds": 3850125,
+          "medianWallNanoseconds": 3859708,
+          "minimumWallNanoseconds": 3736750,
           "roundMedianWallNanoseconds": [
-            3870166,
-            4074541,
-            3925208,
-            3955666,
-            3921708
+            3940958,
+            3940875,
+            3820791,
+            3851416,
+            3740250
           ],
-          "medianCPUNanoseconds": 3923000,
+          "medianCPUNanoseconds": 3862000,
           "samples": 15,
-          "mibPerSecond": 258.81776619127453,
+          "mibPerSecond": 263.4307036911657,
           "history": 267,
           "allocations": 475
         },
         "xterm-node": {
-          "medianWallNanoseconds": 17252166,
-          "minimumWallNanoseconds": 16453042,
+          "medianWallNanoseconds": 17732000,
+          "minimumWallNanoseconds": 16469959,
           "roundMedianWallNanoseconds": [
-            17275333,
-            25900375,
-            16514583,
-            16846083,
-            17363459
+            18707416,
+            16821917,
+            17285667,
+            21785833,
+            17154042
           ],
-          "medianCPUNanoseconds": 19322000,
+          "medianCPUNanoseconds": 19752000,
           "samples": 15,
-          "mibPerSecond": 58.93553276049059,
+          "mibPerSecond": 57.34071703600394,
           "history": 267
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 18124875,
-          "minimumWallNanoseconds": 15184959,
+          "medianWallNanoseconds": 18149625,
+          "minimumWallNanoseconds": 15506917,
           "roundMedianWallNanoseconds": [
-            18536750,
-            18832666,
-            17967250,
-            16197542,
-            18261625
+            38575125,
+            16173875,
+            18149625,
+            36824333,
+            16671000
           ],
-          "medianCPUNanoseconds": 30367000,
+          "medianCPUNanoseconds": 35541000,
           "samples": 15,
-          "mibPerSecond": 56.09779899074736,
+          "mibPerSecond": 56.02130041157445,
           "history": 267
         },
         "thrush": {
-          "medianWallNanoseconds": 6246833,
-          "minimumWallNanoseconds": 5083916,
+          "medianWallNanoseconds": 5204416,
+          "minimumWallNanoseconds": 4683375,
           "roundMedianWallNanoseconds": [
-            6228833,
-            6639209,
-            6246833,
-            6273334,
-            5544750
+            5244958,
+            5190834,
+            6280125,
+            5204416,
+            5119917
           ],
-          "medianCPUNanoseconds": 6235000,
+          "medianCPUNanoseconds": 5205000,
           "samples": 15,
-          "mibPerSecond": 162.76497138348694,
+          "mibPerSecond": 195.36593433008082,
           "history": 267,
           "allocations": 2736
         }
@@ -955,17 +955,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.6283516783624599,
+          "median": 0.740028468131679,
           "roundRange": [
-            0.6137088017563538,
-            0.7072831056404707
+            0.6083941004358989,
+            0.7591988108269307
           ]
         },
         "xterm": {
-          "median": 2.773446165597954,
+          "median": 3.3504531421114834,
           "roundRange": [
-            2.6436728819227278,
-            3.901123612767726
+            2.7524399593957125,
+            4.186028365142218
           ]
         }
       },
@@ -978,82 +978,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 3905708,
-          "minimumWallNanoseconds": 3756375,
+          "medianWallNanoseconds": 3892583,
+          "minimumWallNanoseconds": 3734333,
           "roundMedianWallNanoseconds": [
-            3788000,
-            4573833,
-            3899041,
-            3906916,
-            3870208
+            3915041,
+            3976541,
+            3836208,
+            3880208,
+            3815166
           ],
-          "medianCPUNanoseconds": 3896000,
+          "medianCPUNanoseconds": 3892000,
           "samples": 15,
-          "mibPerSecond": 260.32811323386744,
+          "mibPerSecond": 261.2058868063756,
           "history": 267,
           "allocations": 475
         },
         "thrush": {
-          "medianWallNanoseconds": 6199084,
-          "minimumWallNanoseconds": 5990958,
+          "medianWallNanoseconds": 5153958,
+          "minimumWallNanoseconds": 5050250,
           "roundMedianWallNanoseconds": [
-            6217833,
-            6208416,
-            5995917,
-            6199458,
-            6171542
+            5268292,
+            5159167,
+            5137792,
+            5224875,
+            5057792
           ],
-          "medianCPUNanoseconds": 6193000,
+          "medianCPUNanoseconds": 5145000,
           "samples": 15,
-          "mibPerSecond": 164.01868316067694,
+          "mibPerSecond": 197.27859530140174,
           "history": 267,
           "allocations": 2571
         },
         "xterm-node": {
-          "medianWallNanoseconds": 17285958,
-          "minimumWallNanoseconds": 16586875,
+          "medianWallNanoseconds": 17520666,
+          "minimumWallNanoseconds": 16189916,
           "roundMedianWallNanoseconds": [
-            17137125,
-            18036000,
-            16995875,
-            16651958,
-            23081875
+            20656208,
+            17514042,
+            18135875,
+            17461084,
+            16304917
           ],
-          "medianCPUNanoseconds": 19237000,
+          "medianCPUNanoseconds": 19183000,
           "samples": 15,
-          "mibPerSecond": 58.8203207761133,
+          "mibPerSecond": 58.03235987047649,
           "history": 267
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 16251833,
-          "minimumWallNanoseconds": 14784333,
+          "medianWallNanoseconds": 16260500,
+          "minimumWallNanoseconds": 13284583,
           "roundMedianWallNanoseconds": [
-            15725791,
-            17019041,
-            15687125,
-            15776333,
-            17144209
+            15827208,
+            15604708,
+            16260500,
+            17229583,
+            15994667
           ],
-          "medianCPUNanoseconds": 32191000,
+          "medianCPUNanoseconds": 34905000,
           "samples": 15,
-          "mibPerSecond": 62.56313330825033,
+          "mibPerSecond": 62.52978656759767,
           "history": 267
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.6302028338606375,
+          "median": 0.7466647151149755,
           "roundRange": [
-            0.609215461399494,
-            0.736714968842294
+            0.7426413072083065,
+            0.7707719094962423
           ]
         },
         "xterm": {
-          "median": 2.6163012263178427,
+          "median": 3.162381331616642,
           "roundRange": [
-            2.529143352676085,
-            2.7779457710893
+            3.0042389449939373,
+            3.2976067370032776
           ]
         }
       },
@@ -1066,82 +1066,82 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 4489916,
-          "minimumWallNanoseconds": 4341708,
+          "medianWallNanoseconds": 4504083,
+          "minimumWallNanoseconds": 4270833,
           "roundMedianWallNanoseconds": [
-            4835000,
-            5295500,
-            4489916,
-            4449750,
-            4483333
+            4535208,
+            4394791,
+            4451583,
+            4516750,
+            4504083
           ],
-          "medianCPUNanoseconds": 4493000,
+          "medianCPUNanoseconds": 4497000,
           "samples": 15,
-          "mibPerSecond": 226.4553712101567,
+          "mibPerSecond": 225.74308565859508,
           "history": 231,
           "allocations": 477
         },
         "thrush": {
-          "medianWallNanoseconds": 6686958,
-          "minimumWallNanoseconds": 5605792,
+          "medianWallNanoseconds": 5665208,
+          "minimumWallNanoseconds": 5055833,
           "roundMedianWallNanoseconds": [
-            6626625,
-            6878166,
-            6490708,
-            6691958,
-            6819042
+            5708125,
+            5653750,
+            5670958,
+            5797750,
+            5115791
           ],
-          "medianCPUNanoseconds": 6690000,
+          "medianCPUNanoseconds": 5666000,
           "samples": 15,
-          "mibPerSecond": 152.05203838313653,
+          "mibPerSecond": 179.47542164072738,
           "history": 231,
           "allocations": 2736
         },
         "xterm-node": {
-          "medianWallNanoseconds": 25077000,
-          "minimumWallNanoseconds": 23327666,
+          "medianWallNanoseconds": 24958958,
+          "minimumWallNanoseconds": 23193250,
           "roundMedianWallNanoseconds": [
-            24963958,
-            27107041,
-            23908125,
-            25077000,
-            25186250
+            25510541,
+            24732166,
+            24292125,
+            25726416,
+            24193833
           ],
-          "medianCPUNanoseconds": 25820000,
+          "medianCPUNanoseconds": 26461000,
           "samples": 15,
-          "mibPerSecond": 40.545742891192006,
+          "mibPerSecond": 40.737501721122406,
           "history": 231
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 22726958,
-          "minimumWallNanoseconds": 16451667,
+          "medianWallNanoseconds": 20900458,
+          "minimumWallNanoseconds": 19835125,
           "roundMedianWallNanoseconds": [
-            22726958,
-            24331959,
-            20303792,
-            17205334,
-            29133333
+            24297958,
+            20655708,
+            22740041,
+            20639792,
+            20900458
           ],
-          "medianCPUNanoseconds": 32528000,
+          "medianCPUNanoseconds": 31400000,
           "samples": 15,
-          "mibPerSecond": 44.738305693283806,
+          "mibPerSecond": 48.648005439996666,
           "history": 231
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.6917451840384747,
+          "median": 0.7849790106010307,
           "roundRange": [
-            0.6574725599285061,
-            0.7698999995056822
+            0.7773231925713022,
+            0.8804274842345984
           ]
         },
         "xterm": {
-          "median": 3.429642993228076,
+          "median": 4.0099117291998985,
           "roundRange": [
-            2.5710463215698605,
-            4.272349840344142
+            3.559965848820663,
+            4.256731939121866
           ]
         }
       },
@@ -1154,64 +1154,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 6396959,
-          "minimumWallNanoseconds": 5594125,
+          "medianWallNanoseconds": 5706083,
+          "minimumWallNanoseconds": 5437500,
           "roundMedianWallNanoseconds": [
-            6789500,
-            5870875,
-            6501791,
-            6393083,
-            6637584
+            5660417,
+            5862208,
+            5680583,
+            5600959,
+            5706083
           ],
-          "medianCPUNanoseconds": 6398000,
+          "medianCPUNanoseconds": 5674000,
           "samples": 15,
-          "mibPerSecond": 158.94514791831898,
+          "mibPerSecond": 178.18976598875653,
           "history": 231,
           "allocations": 2571
         },
         "xterm-node": {
-          "medianWallNanoseconds": 26143167,
-          "minimumWallNanoseconds": 23440250,
+          "medianWallNanoseconds": 25680041,
+          "minimumWallNanoseconds": 23952375,
           "roundMedianWallNanoseconds": [
-            26143167,
-            25721000,
-            24429875,
-            32055459,
-            28887625
+            27263875,
+            25111916,
+            24572209,
+            34278583,
+            25191417
           ],
-          "medianCPUNanoseconds": 26494000,
+          "medianCPUNanoseconds": 26411000,
           "samples": 15,
-          "mibPerSecond": 38.8922120446395,
+          "mibPerSecond": 39.593612583501006,
           "history": 231
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 24520375,
-          "minimumWallNanoseconds": 15181125,
+          "medianWallNanoseconds": 22606292,
+          "minimumWallNanoseconds": 15649667,
           "roundMedianWallNanoseconds": [
-            24482375,
-            28962750,
-            24361292,
-            22835584,
-            36591334
+            25540708,
+            21805834,
+            22606292,
+            22551542,
+            23329291
           ],
-          "medianCPUNanoseconds": 40481000,
+          "medianCPUNanoseconds": 38076000,
           "samples": 15,
-          "mibPerSecond": 41.466151903566804,
+          "mibPerSecond": 44.97710612967495,
           "history": 231
         },
         "ghostty": {
-          "medianWallNanoseconds": 4546375,
-          "minimumWallNanoseconds": 4471750,
+          "medianWallNanoseconds": 4581250,
+          "minimumWallNanoseconds": 4379708,
           "roundMedianWallNanoseconds": [
-            4546375,
-            4788125,
-            4712791,
-            4488250,
-            4496000
+            4652708,
+            4385833,
+            4807916,
+            4503416,
+            4732791
           ],
-          "medianCPUNanoseconds": 4546000,
+          "medianCPUNanoseconds": 4542000,
           "samples": 15,
-          "mibPerSecond": 223.64314304966524,
+          "mibPerSecond": 221.9406481817019,
           "history": 231,
           "allocations": 477
         }
@@ -1219,17 +1219,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.7020478226232946,
+          "median": 0.821972656784827,
           "roundRange": [
-            0.6696185286103542,
-            0.8155726361062022
+            0.7481537673177069,
+            0.8463772116347917
           ]
         },
         "xterm": {
-          "median": 3.746858673248648,
+          "median": 4.026371555299726,
           "roundRange": [
-            3.571920464664701,
-            5.512748915870594
+            3.7197305179208926,
+            4.512160146505107
           ]
         }
       },
@@ -1242,64 +1242,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 12226584,
-          "minimumWallNanoseconds": 11269917,
+          "medianWallNanoseconds": 12159791,
+          "minimumWallNanoseconds": 11306125,
           "roundMedianWallNanoseconds": [
-            11400125,
-            14069500,
-            12226584,
-            11703291,
-            13449125
+            13022583,
+            12149167,
+            11789667,
+            12159791,
+            11519208
           ],
-          "medianCPUNanoseconds": 12655000,
+          "medianCPUNanoseconds": 12585000,
           "samples": 15,
-          "mibPerSecond": 81.79351756061641,
+          "mibPerSecond": 82.24280442898662,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 2798208,
-          "minimumWallNanoseconds": 2675875,
+          "medianWallNanoseconds": 2732750,
+          "minimumWallNanoseconds": 2587125,
           "roundMedianWallNanoseconds": [
-            2813875,
-            2926625,
-            2746083,
-            2794250,
-            2782000
+            2811334,
+            2709084,
+            2784375,
+            2738292,
+            2605459
           ],
-          "medianCPUNanoseconds": 2783000,
+          "medianCPUNanoseconds": 2734000,
           "samples": 15,
-          "mibPerSecond": 357.39134228418743,
+          "mibPerSecond": 365.9519945514048,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 14082084,
-          "minimumWallNanoseconds": 13203458,
+          "medianWallNanoseconds": 14749750,
+          "minimumWallNanoseconds": 13699750,
           "roundMedianWallNanoseconds": [
-            14054375,
-            15246167,
-            14897750,
-            13824375,
-            15354625
+            14903583,
+            14667000,
+            14061750,
+            14682583,
+            15375833
           ],
-          "medianCPUNanoseconds": 20112000,
+          "medianCPUNanoseconds": 19699000,
           "samples": 15,
-          "mibPerSecond": 71.01614456428122,
+          "mibPerSecond": 67.80150938899652,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 984625,
-          "minimumWallNanoseconds": 977250,
+          "medianWallNanoseconds": 992000,
+          "minimumWallNanoseconds": 930041,
           "roundMedianWallNanoseconds": [
-            978333,
-            987500,
-            993958,
-            977291,
-            1004583
+            1005583,
+            983333,
+            930750,
+            996708,
+            939416
           ],
-          "medianCPUNanoseconds": 985000,
+          "medianCPUNanoseconds": 992000,
           "samples": 15,
-          "mibPerSecond": 1015.6712587130648,
+          "mibPerSecond": 1008.1202753128543,
           "history": 828,
           "allocations": 2
         }
@@ -1307,17 +1307,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.349750738122931,
+          "median": 0.36055681551695884,
           "roundRange": [
-            0.3374193823943963,
-            0.361954828022314
+            0.3342760942760943,
+            0.36398893909049873
           ]
         },
         "xterm": {
-          "median": 4.45237234271506,
+          "median": 4.440648038996572,
           "roundRange": [
-            4.051397094753676,
-            4.834336808051761
+            4.234223838383838,
+            4.632172128960842
           ]
         }
       },
@@ -1330,64 +1330,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 2774250,
-          "minimumWallNanoseconds": 2726750,
+          "medianWallNanoseconds": 2737542,
+          "minimumWallNanoseconds": 2687542,
           "roundMedianWallNanoseconds": [
-            2730708,
-            2917291,
-            2775709,
-            2750250,
-            2846500
+            2741750,
+            2738459,
+            2713875,
+            2737542,
+            2736875
           ],
-          "medianCPUNanoseconds": 2774000,
+          "medianCPUNanoseconds": 2738000,
           "samples": 15,
-          "mibPerSecond": 360.4777194233943,
+          "mibPerSecond": 365.3114045776655,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 12184250,
-          "minimumWallNanoseconds": 11516750,
+          "medianWallNanoseconds": 12331625,
+          "minimumWallNanoseconds": 11676125,
           "roundMedianWallNanoseconds": [
-            12026542,
-            13413167,
-            11677583,
-            12131708,
-            12939000
+            13087333,
+            12143459,
+            12324291,
+            14424084,
+            11685209
           ],
-          "medianCPUNanoseconds": 13193000,
+          "medianCPUNanoseconds": 12797000,
           "samples": 15,
-          "mibPerSecond": 82.07770795168776,
+          "mibPerSecond": 81.09679893042089,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 14688041,
-          "minimumWallNanoseconds": 12477292,
+          "medianWallNanoseconds": 14665166,
+          "minimumWallNanoseconds": 12787167,
           "roundMedianWallNanoseconds": [
-            15078583,
-            14440291,
-            13986750,
-            13904500,
-            15094375
+            17146500,
+            14561875,
+            14182583,
+            15244375,
+            14647958
           ],
-          "medianCPUNanoseconds": 21868000,
+          "medianCPUNanoseconds": 22945000,
           "samples": 15,
-          "mibPerSecond": 68.08636448593461,
+          "mibPerSecond": 68.19256686970687,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 984250,
-          "minimumWallNanoseconds": 962625,
+          "medianWallNanoseconds": 993541,
+          "minimumWallNanoseconds": 935541,
           "roundMedianWallNanoseconds": [
-            963833,
-            996500,
-            984250,
-            993375,
-            981375
+            979375,
+            1053000,
+            1014333,
+            1132791,
+            940083
           ],
-          "medianCPUNanoseconds": 986000,
+          "medianCPUNanoseconds": 994000,
           "samples": 15,
-          "mibPerSecond": 1016.0582302365775,
+          "mibPerSecond": 1006.5566625940465,
           "history": 828,
           "allocations": 2
         }
@@ -1395,17 +1395,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.3529608438544143,
+          "median": 0.37375818709409975,
           "roundRange": [
-            0.3415840243568434,
-            0.3611944368693755
+            0.34348773692623885,
+            0.41379858281626364
           ]
         },
         "xterm": {
-          "median": 4.411129170075448,
+          "median": 4.541215420754456,
           "roundRange": [
-            4.20706313233844,
-            4.597815918946721
+            4.269544279515872,
+            5.268990941508843
           ]
         }
       },
@@ -1418,64 +1418,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 11040041,
-          "minimumWallNanoseconds": 10395167,
+          "medianWallNanoseconds": 12033875,
+          "minimumWallNanoseconds": 10426875,
           "roundMedianWallNanoseconds": [
-            11040041,
-            11277792,
-            10565042,
-            10622708,
-            11222125
+            14250875,
+            10591125,
+            12597708,
+            15821083,
+            11361583
           ],
-          "medianCPUNanoseconds": 11746000,
+          "medianCPUNanoseconds": 11943000,
           "samples": 15,
-          "mibPerSecond": 90.58438398103335,
+          "mibPerSecond": 83.1033489304444,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 8969333,
-          "minimumWallNanoseconds": 7553667,
+          "medianWallNanoseconds": 8705667,
+          "minimumWallNanoseconds": 6936917,
           "roundMedianWallNanoseconds": [
-            9250500,
-            8969333,
-            8447000,
-            10216583,
-            8716917
+            9412791,
+            8537709,
+            8565625,
+            10928750,
+            8705667
           ],
-          "medianCPUNanoseconds": 15740000,
+          "medianCPUNanoseconds": 16213000,
           "samples": 15,
-          "mibPerSecond": 111.49717745013498,
+          "mibPerSecond": 114.87405997844296,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 927166,
-          "minimumWallNanoseconds": 877333,
+          "medianWallNanoseconds": 942875,
+          "minimumWallNanoseconds": 908375,
           "roundMedianWallNanoseconds": [
-            889958,
-            961791,
-            925666,
-            934541,
-            938958
+            928833,
+            942875,
+            1092708,
+            921708,
+            964583
           ],
-          "medianCPUNanoseconds": 928000,
+          "medianCPUNanoseconds": 943000,
           "samples": 15,
-          "mibPerSecond": 1078.6151704337212,
+          "mibPerSecond": 1060.6446380595005,
           "history": 964,
           "allocations": 9
         },
         "thrush": {
-          "medianWallNanoseconds": 2550459,
-          "minimumWallNanoseconds": 2416041,
+          "medianWallNanoseconds": 2539417,
+          "minimumWallNanoseconds": 2481708,
           "roundMedianWallNanoseconds": [
-            2420375,
-            2585583,
-            2506750,
-            2578792,
-            2552042
+            2536375,
+            2490458,
+            4406416,
+            2539417,
+            2562000
           ],
-          "medianCPUNanoseconds": 2551000,
+          "medianCPUNanoseconds": 2539000,
           "samples": 15,
-          "mibPerSecond": 392.1079747254716,
+          "mibPerSecond": 393.8129551429921,
           "history": 1000,
           "allocations": 1071
         }
@@ -1483,17 +1483,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.3679241956049313,
+          "median": 0.36620491843674535,
           "roundRange": [
-            0.3623948732584869,
-            0.37198225699967863
+            0.2479811257039735,
+            0.37859502147797713
           ]
         },
         "xterm": {
-          "median": 3.468978949815187,
+          "median": 3.4281682325098437,
           "roundRange": [
-            3.3697018051261596,
-            3.9617708601546773
+            1.9438983972461974,
+            4.303645285512383
           ]
         }
       },
@@ -1506,64 +1506,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 2567625,
-          "minimumWallNanoseconds": 2521500,
+          "medianWallNanoseconds": 2521084,
+          "minimumWallNanoseconds": 2365500,
           "roundMedianWallNanoseconds": [
-            2575166,
-            2540250,
-            2572125,
-            2578583,
-            2551083
+            2617834,
+            2521084,
+            2371333,
+            2518417,
+            2521459
           ],
-          "medianCPUNanoseconds": 2569000,
+          "medianCPUNanoseconds": 2524000,
           "samples": 15,
-          "mibPerSecond": 389.48651501303794,
+          "mibPerSecond": 396.67671252142003,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 9025750,
-          "minimumWallNanoseconds": 7265459,
+          "medianWallNanoseconds": 9043708,
+          "minimumWallNanoseconds": 7596000,
           "roundMedianWallNanoseconds": [
-            8518541,
-            9378667,
-            8258916,
-            8493208,
-            10995625
+            12561292,
+            8030459,
+            8953375,
+            11044750,
+            8557667
           ],
-          "medianCPUNanoseconds": 13419000,
+          "medianCPUNanoseconds": 19522000,
           "samples": 15,
-          "mibPerSecond": 110.80024519960685,
+          "mibPerSecond": 110.5802302673142,
           "history": 1000
         },
         "xterm-node": {
-          "medianWallNanoseconds": 10495542,
-          "minimumWallNanoseconds": 10058250,
+          "medianWallNanoseconds": 10664542,
+          "minimumWallNanoseconds": 9960458,
           "roundMedianWallNanoseconds": [
-            10873959,
-            11095292,
-            10265167,
-            10657166,
-            10478000
+            12235708,
+            10502416,
+            10501375,
+            10747250,
+            10664542
           ],
-          "medianCPUNanoseconds": 11125000,
+          "medianCPUNanoseconds": 11317000,
           "samples": 15,
-          "mibPerSecond": 95.28381794006937,
+          "mibPerSecond": 93.77386418566793,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 945000,
-          "minimumWallNanoseconds": 925083,
+          "medianWallNanoseconds": 943041,
+          "minimumWallNanoseconds": 908041,
           "roundMedianWallNanoseconds": [
-            940791,
-            927458,
-            979541,
-            937958,
-            947541
+            948083,
+            943041,
+            932166,
+            955291,
+            909791
           ],
-          "medianCPUNanoseconds": 946000,
+          "medianCPUNanoseconds": 944000,
           "samples": 15,
-          "mibPerSecond": 1058.2595905929647,
+          "mibPerSecond": 1060.4579367284684,
           "history": 964,
           "allocations": 9
         }
@@ -1571,17 +1571,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.3653321766441464,
+          "median": 0.37406171313609543,
           "roundRange": [
-            0.36374939259275346,
-            0.3808294697963746
+            0.36081927169944067,
+            0.3930978905113706
           ]
         },
         "xterm": {
-          "median": 3.3079580112505367,
+          "median": 3.775671742433475,
           "roundRange": [
-            3.2109310395101325,
-            4.310179245442034
+            3.185319886207679,
+            4.798353142330645
           ]
         }
       },
@@ -1594,64 +1594,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 18888417,
-          "minimumWallNanoseconds": 14511875,
+          "medianWallNanoseconds": 18351416,
+          "minimumWallNanoseconds": 13894916,
           "roundMedianWallNanoseconds": [
-            17955584,
-            24171417,
-            17910500,
-            19958167,
-            25764167
+            24677208,
+            18461417,
+            17980625,
+            15522583,
+            18351416
           ],
-          "medianCPUNanoseconds": 26031000,
+          "medianCPUNanoseconds": 26100000,
           "samples": 15,
-          "mibPerSecond": 52.982436610981075,
+          "mibPerSecond": 54.53281405556265,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 6824291,
-          "minimumWallNanoseconds": 6354041,
+          "medianWallNanoseconds": 6692750,
+          "minimumWallNanoseconds": 6548000,
           "roundMedianWallNanoseconds": [
-            6453125,
-            8375208,
-            6706875,
-            6733791,
-            7025791
+            6982583,
+            6636750,
+            6692750,
+            8140208,
+            6648083
           ],
-          "medianCPUNanoseconds": 6815000,
+          "medianCPUNanoseconds": 6688000,
           "samples": 15,
-          "mibPerSecond": 146.6459089133622,
+          "mibPerSecond": 149.52812466987072,
           "history": 578,
           "allocations": 6
         },
         "xterm-node": {
-          "medianWallNanoseconds": 15276958,
-          "minimumWallNanoseconds": 13940917,
+          "medianWallNanoseconds": 15743333,
+          "minimumWallNanoseconds": 14003209,
           "roundMedianWallNanoseconds": [
-            14295208,
-            14969959,
-            14567583,
-            15276958,
-            17039750
+            17326167,
+            14336084,
+            14400625,
+            16335375,
+            14465667
           ],
-          "medianCPUNanoseconds": 16280000,
+          "medianCPUNanoseconds": 15627000,
           "samples": 15,
-          "mibPerSecond": 65.50743651872823,
+          "mibPerSecond": 63.56686709124918,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 7417792,
-          "minimumWallNanoseconds": 6965917,
+          "medianWallNanoseconds": 5376292,
+          "minimumWallNanoseconds": 5317625,
           "roundMedianWallNanoseconds": [
-            7278000,
-            7417792,
-            7278250,
-            7370250,
-            10797333
+            5503709,
+            5371416,
+            5379291,
+            5466167,
+            5322750
           ],
-          "medianCPUNanoseconds": 7378000,
+          "medianCPUNanoseconds": 5378000,
           "samples": 15,
-          "mibPerSecond": 134.9127012976742,
+          "mibPerSecond": 186.14211363227244,
           "history": 1000,
           "allocations": 1035
         }
@@ -1659,17 +1659,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.913644856008955,
+          "median": 1.248994035038279,
           "roundRange": [
-            0.6506968896856289,
-            1.1290702138857494
+            1.2355680513294818,
+            1.4891985554045457
           ]
         },
         "xterm": {
-          "median": 2.0015227561570432,
+          "median": 2.7177055093701563,
           "roundRange": [
-            1.578144343607815,
-            2.072786947525525
+            2.668958055008214,
+            3.148089224920867
           ]
         }
       },
@@ -1682,82 +1682,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 6852625,
-          "minimumWallNanoseconds": 6428875,
+          "medianWallNanoseconds": 6917625,
+          "minimumWallNanoseconds": 6684791,
           "roundMedianWallNanoseconds": [
-            6854375,
-            7329625,
-            6555000,
-            6797125,
-            6794333
+            6977833,
+            6729750,
+            6934291,
+            8222083,
+            6785916
           ],
-          "medianCPUNanoseconds": 6851000,
+          "medianCPUNanoseconds": 6865000,
           "samples": 15,
-          "mibPerSecond": 146.03956241356812,
+          "mibPerSecond": 144.66733255767366,
           "history": 578,
           "allocations": 6
         },
         "thrush": {
-          "medianWallNanoseconds": 7424083,
-          "minimumWallNanoseconds": 6901750,
+          "medianWallNanoseconds": 5392000,
+          "minimumWallNanoseconds": 5312166,
           "roundMedianWallNanoseconds": [
-            7431833,
-            7358583,
-            7501250,
-            7331208,
-            7423625
+            5380542,
+            5392000,
+            5837708,
+            5332000,
+            5371125
           ],
-          "medianCPUNanoseconds": 7425000,
+          "medianCPUNanoseconds": 5373000,
           "samples": 15,
-          "mibPerSecond": 134.79837932634607,
+          "mibPerSecond": 185.59984354307815,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 15758250,
-          "minimumWallNanoseconds": 14183917,
+          "medianWallNanoseconds": 15067958,
+          "minimumWallNanoseconds": 13996375,
           "roundMedianWallNanoseconds": [
-            15691292,
-            17545209,
-            14535708,
-            16265416,
-            15758250
+            16170667,
+            14865500,
+            14843417,
+            15590583,
+            14141458
           ],
-          "medianCPUNanoseconds": 16542000,
+          "medianCPUNanoseconds": 15663000,
           "samples": 15,
-          "mibPerSecond": 63.506693724511116,
+          "mibPerSecond": 66.41605693248398,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 19820291,
-          "minimumWallNanoseconds": 14410833,
+          "medianWallNanoseconds": 19776334,
+          "minimumWallNanoseconds": 13958375,
           "roundMedianWallNanoseconds": [
-            17846791,
-            22023959,
-            18267000,
-            23961334,
-            18786417
+            20903958,
+            19061875,
+            17785875,
+            20320292,
+            17495417
           ],
-          "medianCPUNanoseconds": 29559000,
+          "medianCPUNanoseconds": 26265000,
           "samples": 15,
-          "mibPerSecond": 50.49140582165405,
+          "mibPerSecond": 50.60363343298497,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.9222993842837964,
+          "median": 1.2634068281784543,
           "roundRange": [
-            0.8738543576070655,
-            0.9960647314843089
+            1.1878447842886284,
+            1.5420260690172543
           ]
         },
         "xterm": {
-          "median": 2.1227163279395174,
+          "median": 2.756954747774481,
           "roundRange": [
-            1.937771438093651,
-            2.384318964670236
+            2.542678907543851,
+            3.0053974116362254
           ]
         }
       },
@@ -1770,82 +1770,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 7575750,
-          "minimumWallNanoseconds": 6923208,
+          "medianWallNanoseconds": 5406917,
+          "minimumWallNanoseconds": 5109958,
           "roundMedianWallNanoseconds": [
-            7514333,
-            7591250,
-            7041041,
-            9123375,
-            7500875
+            5582708,
+            5170667,
+            5332417,
+            6615083,
+            5312667
           ],
-          "medianCPUNanoseconds": 7504000,
+          "medianCPUNanoseconds": 5407000,
           "samples": 15,
-          "mibPerSecond": 132.09970714243175,
+          "mibPerSecond": 185.08779705408412,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 19602083,
-          "minimumWallNanoseconds": 13115500,
+          "medianWallNanoseconds": 17653208,
+          "minimumWallNanoseconds": 13772834,
           "roundMedianWallNanoseconds": [
-            17572708,
-            20698750,
-            19327833,
-            19841166,
-            19602083
+            17493875,
+            17653208,
+            18373625,
+            18646167,
+            17407333
           ],
-          "medianCPUNanoseconds": 28728000,
+          "medianCPUNanoseconds": 27752000,
           "samples": 15,
-          "mibPerSecond": 51.05347000031973,
+          "mibPerSecond": 56.689659827509956,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 7544375,
-          "minimumWallNanoseconds": 7359583,
+          "medianWallNanoseconds": 7448208,
+          "minimumWallNanoseconds": 7266458,
           "roundMedianWallNanoseconds": [
-            7433208,
-            7803708,
-            7497833,
-            7566958,
-            7570166
+            7626500,
+            7448208,
+            7325666,
+            7502625,
+            7412208
           ],
-          "medianCPUNanoseconds": 7511000,
+          "medianCPUNanoseconds": 7446000,
           "samples": 15,
-          "mibPerSecond": 132.6490738310698,
+          "mibPerSecond": 134.36176277357953,
           "history": 935,
           "allocations": 15
         },
         "xterm-node": {
-          "medianWallNanoseconds": 15433042,
-          "minimumWallNanoseconds": 14460167,
+          "medianWallNanoseconds": 14778167,
+          "minimumWallNanoseconds": 14226041,
           "roundMedianWallNanoseconds": [
-            14543084,
-            15324541,
-            15294458,
-            15604375,
-            25364166
+            14550167,
+            14546750,
+            14710583,
+            15845750,
+            15576334
           ],
-          "medianCPUNanoseconds": 16168000,
+          "medianCPUNanoseconds": 15444000,
           "samples": 15,
-          "mibPerSecond": 64.84491886850806,
+          "mibPerSecond": 67.71843601336197,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.0092377222657356,
+          "median": 1.3737984107394452,
           "roundRange": [
-            0.8294033732034471,
-            1.0648756341569379
+            1.1341694427719198,
+            1.440473347055612
           ]
         },
         "xterm": {
-          "median": 2.0187111477029474,
+          "median": 2.7587082930686027,
           "roundRange": [
-            1.7103730801375587,
-            3.3814942923325613
+            2.3953970040889887,
+            2.9319236458825673
           ]
         }
       },
@@ -1858,82 +1858,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 7470708,
-          "minimumWallNanoseconds": 7295166,
+          "medianWallNanoseconds": 7504500,
+          "minimumWallNanoseconds": 7087000,
           "roundMedianWallNanoseconds": [
-            7364458,
-            7585291,
-            7420000,
-            7348166,
-            8287208
+            7417916,
+            7484250,
+            7930291,
+            7530458,
+            7245416
           ],
-          "medianCPUNanoseconds": 7461000,
+          "medianCPUNanoseconds": 7481000,
           "samples": 15,
-          "mibPerSecond": 133.95709702270216,
+          "mibPerSecond": 133.35390184346423,
           "history": 935,
           "allocations": 15
         },
         "thrush": {
-          "medianWallNanoseconds": 7422375,
-          "minimumWallNanoseconds": 6737875,
+          "medianWallNanoseconds": 5395583,
+          "minimumWallNanoseconds": 5165333,
           "roundMedianWallNanoseconds": [
-            7475583,
-            7401209,
-            7089042,
-            6985292,
-            7658750
+            5529333,
+            5358750,
+            5399875,
+            5450084,
+            5358667
           ],
-          "medianCPUNanoseconds": 7402000,
+          "medianCPUNanoseconds": 5388000,
           "samples": 15,
-          "mibPerSecond": 134.829398458617,
+          "mibPerSecond": 185.47659379612497,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-node": {
-          "medianWallNanoseconds": 14831417,
-          "minimumWallNanoseconds": 13772958,
+          "medianWallNanoseconds": 15540833,
+          "minimumWallNanoseconds": 14408875,
           "roundMedianWallNanoseconds": [
-            14831417,
-            15343542,
-            14379125,
-            14710041,
-            16001416
+            17368958,
+            15332250,
+            14801208,
+            20029250,
+            14603333
           ],
-          "medianCPUNanoseconds": 15397000,
+          "medianCPUNanoseconds": 15305000,
           "samples": 15,
-          "mibPerSecond": 67.47530302629056,
+          "mibPerSecond": 64.39515541955038,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 19153083,
-          "minimumWallNanoseconds": 14248291,
+          "medianWallNanoseconds": 19403125,
+          "minimumWallNanoseconds": 13954459,
           "roundMedianWallNanoseconds": [
-            19153083,
-            20294500,
-            17367000,
-            19648916,
-            18382875
+            21460500,
+            17525833,
+            17973958,
+            25403583,
+            19403125
           ],
-          "medianCPUNanoseconds": 28069000,
+          "medianCPUNanoseconds": 28371000,
           "samples": 15,
-          "mibPerSecond": 52.250301237888294,
+          "mibPerSecond": 51.57696795667076,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.0466858568477941,
+          "median": 1.3817141166998528,
           "roundRange": [
-            0.9851349386395684,
-            1.0820575159131711
+            1.3415571100528763,
+            1.4686064029259938
           ]
         },
         "xterm": {
-          "median": 2.0731129197945903,
+          "median": 2.8611616515045486,
           "roundRange": [
-            1.983981316239817,
-            2.105859139460455
+            2.7251801614095448,
+            3.6750351003764345
           ]
         }
       },
@@ -1946,82 +1946,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 13358750,
-          "minimumWallNanoseconds": 12340084,
+          "medianWallNanoseconds": 13744208,
+          "minimumWallNanoseconds": 12213042,
           "roundMedianWallNanoseconds": [
-            13358750,
-            12489250,
-            13819250,
-            13076917,
-            13981375
+            15556584,
+            12588667,
+            13266500,
+            14259084,
+            12621041
           ],
-          "medianCPUNanoseconds": 16605000,
+          "medianCPUNanoseconds": 16975000,
           "samples": 15,
-          "mibPerSecond": 74.86015884515065,
+          "mibPerSecond": 72.7606965037677,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 2984541,
-          "minimumWallNanoseconds": 2909833,
+          "medianWallNanoseconds": 2970708,
+          "minimumWallNanoseconds": 2941250,
           "roundMedianWallNanoseconds": [
-            3031791,
-            2936333,
-            2948791,
-            2984541,
-            3008958
+            3034583,
+            2962666,
+            2955750,
+            2982083,
+            2950083
           ],
-          "medianCPUNanoseconds": 2983000,
+          "medianCPUNanoseconds": 2972000,
           "samples": 15,
-          "mibPerSecond": 335.0726785032125,
+          "mibPerSecond": 336.6329329481916,
           "history": 671,
           "allocations": 2
         },
         "thrush": {
-          "medianWallNanoseconds": 5856875,
-          "minimumWallNanoseconds": 5673084,
+          "medianWallNanoseconds": 5720667,
+          "minimumWallNanoseconds": 5690250,
           "roundMedianWallNanoseconds": [
-            5791875,
-            6031750,
-            5856875,
-            5807167,
-            6126708
+            6777500,
+            5710625,
+            5743208,
+            5720667,
+            5692375
           ],
-          "medianCPUNanoseconds": 5858000,
+          "medianCPUNanoseconds": 5721000,
           "samples": 15,
-          "mibPerSecond": 170.74602872225483,
+          "mibPerSecond": 174.81145939322397,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 14012875,
-          "minimumWallNanoseconds": 13617125,
+          "medianWallNanoseconds": 15387083,
+          "minimumWallNanoseconds": 13239042,
           "roundMedianWallNanoseconds": [
-            13869959,
-            14053125,
-            14625125,
-            13624417,
-            14012875
+            14658208,
+            14977208,
+            14947792,
+            23228959,
+            15387083
           ],
-          "medianCPUNanoseconds": 18399000,
+          "medianCPUNanoseconds": 22351000,
           "samples": 15,
-          "mibPerSecond": 71.36566528800523,
+          "mibPerSecond": 64.99205515253647,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.5034751467292712,
+          "median": 0.518251696348185,
           "roundRange": [
-            0.48681278236001163,
-            0.5234558756879248
+            0.44774371080782,
+            0.5212823959164202
           ]
         },
         "xterm": {
-          "median": 2.2820371070401917,
+          "median": 2.2953277757285133,
           "roundRange": [
-            2.0705848219836698,
-            2.3594920499413083
+            2.20442893728795,
+            2.492556200177357
           ]
         }
       },
@@ -2034,82 +2034,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 3002958,
-          "minimumWallNanoseconds": 2905125,
+          "medianWallNanoseconds": 2975541,
+          "minimumWallNanoseconds": 2805416,
           "roundMedianWallNanoseconds": [
-            3031166,
-            2912083,
-            2979541,
-            3037041,
-            3002958
+            2957583,
+            3006291,
+            2996041,
+            3015291,
+            2878250
           ],
-          "medianCPUNanoseconds": 3004000,
+          "medianCPUNanoseconds": 2977000,
           "samples": 15,
-          "mibPerSecond": 333.01769354505,
+          "mibPerSecond": 336.0861594488721,
           "history": 671,
           "allocations": 2
         },
         "thrush": {
-          "medianWallNanoseconds": 5861583,
-          "minimumWallNanoseconds": 5677208,
+          "medianWallNanoseconds": 5801875,
+          "minimumWallNanoseconds": 5701500,
           "roundMedianWallNanoseconds": [
-            5779125,
-            6003291,
-            5679208,
-            5941208,
-            5922792
+            5820792,
+            5715875,
+            5780083,
+            6088375,
+            5801875
           ],
-          "medianCPUNanoseconds": 5858000,
+          "medianCPUNanoseconds": 5771000,
           "samples": 15,
-          "mibPerSecond": 170.6088861955305,
+          "mibPerSecond": 172.36464883725628,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 12689042,
-          "minimumWallNanoseconds": 11983750,
+          "medianWallNanoseconds": 13081959,
+          "minimumWallNanoseconds": 11955375,
           "roundMedianWallNanoseconds": [
-            12235334,
-            12607583,
-            12732000,
-            13752292,
-            12787875
+            14607042,
+            12396417,
+            13402375,
+            13651875,
+            12297167
           ],
-          "medianCPUNanoseconds": 13483000,
+          "medianCPUNanoseconds": 13807000,
           "samples": 15,
-          "mibPerSecond": 78.81116218014381,
+          "mibPerSecond": 76.44406674662841,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 14506292,
-          "minimumWallNanoseconds": 12509250,
+          "medianWallNanoseconds": 14629125,
+          "minimumWallNanoseconds": 12259500,
           "roundMedianWallNanoseconds": [
-            14410875,
-            14356875,
-            14506292,
-            14848292,
-            14693959
+            18295875,
+            13881417,
+            14629125,
+            17540542,
+            14244917
           ],
-          "medianCPUNanoseconds": 20886000,
+          "medianCPUNanoseconds": 21680000,
           "samples": 15,
-          "mibPerSecond": 68.9382336280461,
+          "mibPerSecond": 68.35939586083626,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.511182406002281,
+          "median": 0.5081066287886596,
           "roundRange": [
-            0.4850810996834903,
-            0.5246402315252409
+            0.4952538238856838,
+            0.5259546438646752
           ]
         },
         "xterm": {
-          "median": 2.1590957440342327,
+          "median": 2.242285503110436,
           "roundRange": [
-            2.100111921944147,
-            2.314729933710451
+            2.119516018528493,
+            2.5094595374650046
           ]
         }
       },
@@ -2122,82 +2122,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 5750083,
-          "minimumWallNanoseconds": 5583958,
+          "medianWallNanoseconds": 5570208,
+          "minimumWallNanoseconds": 5325959,
           "roundMedianWallNanoseconds": [
-            5593250,
-            5759917,
-            5768334,
-            5637584,
-            5822875
+            5706000,
+            5508167,
+            5624541,
+            5570208,
+            5329958
           ],
-          "medianCPUNanoseconds": 5751000,
+          "medianCPUNanoseconds": 5566000,
           "samples": 15,
-          "mibPerSecond": 173.91716727787343,
+          "mibPerSecond": 179.53335799536683,
           "history": 1000,
           "allocations": 1071
         },
         "ghostty": {
-          "medianWallNanoseconds": 3018916,
-          "minimumWallNanoseconds": 2989750,
+          "medianWallNanoseconds": 3026083,
+          "minimumWallNanoseconds": 2990958,
           "roundMedianWallNanoseconds": [
-            3018916,
-            3020750,
-            3004250,
-            3024541,
-            3098208
+            3008083,
+            3030333,
+            3067041,
+            2997625,
+            3017375
           ],
-          "medianCPUNanoseconds": 3020000,
+          "medianCPUNanoseconds": 3030000,
           "samples": 15,
-          "mibPerSecond": 331.25736091121985,
+          "mibPerSecond": 330.4728082384575,
           "history": 833,
           "allocations": 9
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 11873375,
-          "minimumWallNanoseconds": 9888500,
+          "medianWallNanoseconds": 12215416,
+          "minimumWallNanoseconds": 9673833,
           "roundMedianWallNanoseconds": [
-            15291208,
-            11577333,
-            10975708,
-            12062833,
-            12287500
+            14963334,
+            11465375,
+            12375542,
+            11953833,
+            12048333
           ],
-          "medianCPUNanoseconds": 17062000,
+          "medianCPUNanoseconds": 20090000,
           "samples": 15,
-          "mibPerSecond": 84.2252642549112,
+          "mibPerSecond": 81.86689237375595,
           "history": 1000
         },
         "xterm-node": {
-          "medianWallNanoseconds": 12605708,
-          "minimumWallNanoseconds": 11758500,
+          "medianWallNanoseconds": 12885583,
+          "minimumWallNanoseconds": 11462208,
           "roundMedianWallNanoseconds": [
-            13314834,
-            12206334,
-            11821708,
-            12605708,
-            12490583
+            12541334,
+            11819416,
+            13136792,
+            12678042,
+            12913958
           ],
-          "medianCPUNanoseconds": 13617000,
+          "medianCPUNanoseconds": 13449000,
           "samples": 15,
-          "mibPerSecond": 79.33216817116946,
+          "mibPerSecond": 77.60907263355148,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.5320753064422643,
+          "median": 0.545296229505661,
           "roundRange": [
-            0.5208176225579171,
-            0.5397427256067582
+            0.5271789344549597,
+            0.5661160932224982
           ]
         },
         "xterm": {
-          "median": 2.110211879870339,
+          "median": 2.200275898068838,
           "roundRange": [
-            1.9027518170757796,
-            2.733868144638627
+            2.0815227642880108,
+            2.622385909568875
           ]
         }
       },
@@ -2210,82 +2210,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 12539083,
-          "minimumWallNanoseconds": 12027708,
+          "medianWallNanoseconds": 12808583,
+          "minimumWallNanoseconds": 11682334,
           "roundMedianWallNanoseconds": [
-            14770000,
-            12539083,
-            12327875,
-            12906291,
-            12390917
+            12900583,
+            12704625,
+            12598583,
+            15071083,
+            12122167
           ],
-          "medianCPUNanoseconds": 13555000,
+          "medianCPUNanoseconds": 13277000,
           "samples": 15,
-          "mibPerSecond": 79.75369067838982,
+          "mibPerSecond": 78.07562686463102,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 11812333,
-          "minimumWallNanoseconds": 9947250,
+          "medianWallNanoseconds": 12903250,
+          "minimumWallNanoseconds": 9981292,
           "roundMedianWallNanoseconds": [
-            12389541,
-            11466500,
-            11664666,
-            13575083,
-            13009042
+            12979709,
+            12329917,
+            12903250,
+            17228167,
+            10749625
           ],
-          "medianCPUNanoseconds": 17769000,
+          "medianCPUNanoseconds": 20150000,
           "samples": 15,
-          "mibPerSecond": 84.66051092300363,
+          "mibPerSecond": 77.5028110726101,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3030250,
-          "minimumWallNanoseconds": 2838000,
+          "medianWallNanoseconds": 3027791,
+          "minimumWallNanoseconds": 2960250,
           "roundMedianWallNanoseconds": [
-            3214666,
-            2858250,
-            3085958,
-            3030250,
-            2998375
+            3018375,
+            3389083,
+            2973916,
+            2980833,
+            3055291
           ],
-          "medianCPUNanoseconds": 3031000,
+          "medianCPUNanoseconds": 3028000,
           "samples": 15,
-          "mibPerSecond": 330.0183638223435,
+          "mibPerSecond": 330.28638600638425,
           "history": 833,
           "allocations": 9
         },
         "thrush": {
-          "medianWallNanoseconds": 5714667,
-          "minimumWallNanoseconds": 5606333,
+          "medianWallNanoseconds": 5591708,
+          "minimumWallNanoseconds": 5282750,
           "roundMedianWallNanoseconds": [
-            5835625,
-            5637250,
-            5612084,
-            5826208,
-            5714667
+            6137041,
+            5612041,
+            5709125,
+            5534166,
+            5327750
           ],
-          "medianCPUNanoseconds": 5688000,
+          "medianCPUNanoseconds": 5592000,
           "samples": 15,
-          "mibPerSecond": 174.99499917889463,
+          "mibPerSecond": 178.84305599874963,
           "history": 1000,
           "allocations": 1071
         }
       },
-      "fastestXterm": "xterm-bun",
+      "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.5246806156859184,
+          "median": 0.5386237059025696,
           "roundRange": [
-            0.5070291365470753,
-            0.5508691871050658
+            0.4918290426933762,
+            0.6038949109602014
           ]
         },
         "xterm": {
-          "median": 2.1230872442968836,
+          "median": 2.2638154282907057,
           "roundRange": [
-            2.0340591600514437,
-            2.330003151277812
+            2.102085190566594,
+            2.723279894386977
           ]
         }
       },
@@ -2298,64 +2298,64 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 8791542,
-          "minimumWallNanoseconds": 7985709,
+          "medianWallNanoseconds": 8594375,
+          "minimumWallNanoseconds": 8348583,
           "roundMedianWallNanoseconds": [
-            8791542,
-            8838250,
-            8753250,
-            8847166,
-            8905041
+            8748375,
+            8594375,
+            8640292,
+            8593875,
+            8501459
           ],
-          "medianCPUNanoseconds": 8654000,
+          "medianCPUNanoseconds": 8580000,
           "samples": 15,
-          "mibPerSecond": 113.84516155961543,
+          "mibPerSecond": 116.456929020219,
           "history": 0,
           "allocations": 24
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 23626708,
-          "minimumWallNanoseconds": 21716791,
+          "medianWallNanoseconds": 23425667,
+          "minimumWallNanoseconds": 21415334,
           "roundMedianWallNanoseconds": [
-            24216583,
-            22776250,
-            23626708,
-            23557042,
-            23518500
+            23976666,
+            23409500,
+            21977208,
+            24190000,
+            21571333
           ],
-          "medianCPUNanoseconds": 35337000,
+          "medianCPUNanoseconds": 36172000,
           "samples": 15,
-          "mibPerSecond": 42.361996404583515,
+          "mibPerSecond": 42.72555054027467,
           "history": 0
         },
         "xterm-node": {
-          "medianWallNanoseconds": 25298833,
-          "minimumWallNanoseconds": 23959792,
+          "medianWallNanoseconds": 25204750,
+          "minimumWallNanoseconds": 24330833,
           "roundMedianWallNanoseconds": [
-            25615250,
-            24013750,
-            25460458,
-            25150750,
-            25906167
+            25031000,
+            25300000,
+            25165416,
+            26360375,
+            25188042
           ],
-          "medianCPUNanoseconds": 25482000,
+          "medianCPUNanoseconds": 25621000,
           "samples": 15,
-          "mibPerSecond": 39.56208254144152,
+          "mibPerSecond": 39.709757857076326,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 5914875,
-          "minimumWallNanoseconds": 5695291,
+          "medianWallNanoseconds": 5854083,
+          "minimumWallNanoseconds": 5678875,
           "roundMedianWallNanoseconds": [
-            5870208,
-            5960583,
-            5914875,
-            5870416,
-            5962458
+            5854083,
+            5851833,
+            5907500,
+            5955458,
+            5709208
           ],
-          "medianCPUNanoseconds": 5908000,
+          "medianCPUNanoseconds": 5856000,
           "samples": 15,
-          "mibPerSecond": 169.21313119011722,
+          "mibPerSecond": 170.97033290237675,
           "history": 0,
           "allocations": 0
         }
@@ -2363,17 +2363,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.6695598594099679,
+          "median": 0.6808910479237874,
           "roundRange": [
-            0.6635363233831036,
-            0.6757347271013624
+            0.6691623301470273,
+            0.6929886692557199
           ]
         },
         "xterm": {
-          "median": 2.6626653099987045,
+          "median": 2.723816449712748,
           "roundRange": [
-            2.5770090232794955,
-            2.7545319126041825
+            2.5373683505384195,
+            2.8147954211575104
           ]
         }
       },
@@ -2386,82 +2386,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 22392125,
-          "minimumWallNanoseconds": 21250542,
+          "medianWallNanoseconds": 24129792,
+          "minimumWallNanoseconds": 21419792,
           "roundMedianWallNanoseconds": [
-            23152541,
-            21691333,
-            22364792,
-            23952583,
-            22392125
+            23770583,
+            25330750,
+            24692250,
+            24129792,
+            21832959
           ],
-          "medianCPUNanoseconds": 35806000,
+          "medianCPUNanoseconds": 35730000,
           "samples": 15,
-          "mibPerSecond": 44.697612189470384,
+          "mibPerSecond": 41.47878768901715,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 8471625,
-          "minimumWallNanoseconds": 8066375,
+          "medianWallNanoseconds": 8528458,
+          "minimumWallNanoseconds": 8063583,
           "roundMedianWallNanoseconds": [
-            8193667,
-            8276375,
-            8709250,
-            8544917,
-            8754583
+            8393125,
+            8710084,
+            8596000,
+            8753375,
+            8138959
           ],
-          "medianCPUNanoseconds": 8467000,
+          "medianCPUNanoseconds": 8504000,
           "samples": 15,
-          "mibPerSecond": 118.14433704845818,
+          "mibPerSecond": 117.35703210922122,
           "history": 0,
           "allocations": 24
         },
         "ghostty": {
-          "medianWallNanoseconds": 5948083,
-          "minimumWallNanoseconds": 5892416,
+          "medianWallNanoseconds": 5960500,
+          "minimumWallNanoseconds": 5848666,
           "roundMedianWallNanoseconds": [
-            5907041,
-            5947791,
-            6492541,
-            5938250,
-            5964791
+            5985708,
+            5981708,
+            5860041,
+            6174666,
+            5903000
           ],
-          "medianCPUNanoseconds": 5943000,
+          "medianCPUNanoseconds": 5959000,
           "samples": 15,
-          "mibPerSecond": 168.26841847165625,
+          "mibPerSecond": 167.91787926317332,
           "history": 0,
           "allocations": 0
         },
         "xterm-node": {
-          "medianWallNanoseconds": 25079334,
-          "minimumWallNanoseconds": 24369667,
+          "medianWallNanoseconds": 25597500,
+          "minimumWallNanoseconds": 24350166,
           "roundMedianWallNanoseconds": [
-            24777792,
-            25298083,
-            24407917,
-            25401459,
-            26072084
+            25496333,
+            24573250,
+            25138416,
+            25794042,
+            26760875
           ],
-          "medianCPUNanoseconds": 25180000,
+          "medianCPUNanoseconds": 25168000,
           "samples": 15,
-          "mibPerSecond": 39.90833725282117,
+          "mibPerSecond": 39.100479318220316,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.7186468713657851,
+          "median": 0.7054040298741914,
           "roundRange": [
-            0.6813335369600129,
-            0.7454764761604041
+            0.6817171940437413,
+            0.7252770286716028
           ]
         },
         "xterm": {
-          "median": 2.6208736312697285,
+          "median": 2.8321492888524835,
           "roundRange": [
-            2.5577603182241804,
-            2.8256629174702854
+            2.6825247553157596,
+            2.908209610837278
           ]
         }
       },
@@ -2474,82 +2474,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 143002667,
-          "minimumWallNanoseconds": 137394208,
+          "medianWallNanoseconds": 143348250,
+          "minimumWallNanoseconds": 140148667,
           "roundMedianWallNanoseconds": [
-            140262541,
-            142974584,
-            142688500,
-            143054375,
-            146531875
+            141497709,
+            147351125,
+            142296792,
+            145297250,
+            144057583
           ],
-          "medianCPUNanoseconds": 142608000,
+          "medianCPUNanoseconds": 142006000,
           "samples": 15,
-          "mibPerSecond": 6.998991979276474,
+          "mibPerSecond": 6.982118856338633,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 9979333,
-          "minimumWallNanoseconds": 9716083,
+          "medianWallNanoseconds": 9768708,
+          "minimumWallNanoseconds": 9368625,
           "roundMedianWallNanoseconds": [
-            9753083,
-            10195000,
-            10757666,
-            9979333,
-            9767250
+            9389833,
+            9663250,
+            9900875,
+            10379500,
+            9817083
           ],
-          "medianCPUNanoseconds": 9816000,
+          "medianCPUNanoseconds": 9770000,
           "samples": 15,
-          "mibPerSecond": 100.29473105548684,
+          "mibPerSecond": 102.45720512355827,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 9962209,
-          "minimumWallNanoseconds": 9703167,
+          "medianWallNanoseconds": 10192458,
+          "minimumWallNanoseconds": 9850292,
           "roundMedianWallNanoseconds": [
-            9948500,
-            9962209,
-            10533042,
-            9811042,
-            10063166
+            9997959,
+            9968417,
+            10403875,
+            10245166,
+            10192458
           ],
-          "medianCPUNanoseconds": 9965000,
+          "medianCPUNanoseconds": 10111000,
           "samples": 15,
-          "mibPerSecond": 100.46712725542544,
+          "mibPerSecond": 98.19756130936665,
           "history": 0,
           "allocations": 24
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 97385875,
-          "minimumWallNanoseconds": 93740333,
+          "medianWallNanoseconds": 98559042,
+          "minimumWallNanoseconds": 94288875,
           "roundMedianWallNanoseconds": [
-            97548709,
-            94170625,
-            95929208,
-            97385875,
-            103152792
+            98007959,
+            96442833,
+            106451000,
+            102905542,
+            97151334
           ],
-          "medianCPUNanoseconds": 111839000,
+          "medianCPUNanoseconds": 110104000,
           "samples": 15,
-          "mibPerSecond": 10.277409525232942,
+          "mibPerSecond": 10.155075567274126,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.0171532238879417,
+          "median": 0.9631712978361059,
           "roundRange": [
-            0.9705941450235442,
-            1.0233674077707062
+            0.9391749856145639,
+            1.0131119398162998
           ]
         },
         "xterm": {
-          "median": 9.805368548022315,
+          "median": 9.802796650796427,
           "roundRange": [
-            9.107455187209924,
-            10.250530697794312
+            9.531688430798537,
+            10.231860724970263
           ]
         }
       },
@@ -2562,82 +2562,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 9813625,
-          "minimumWallNanoseconds": 9554875,
+          "medianWallNanoseconds": 9682000,
+          "minimumWallNanoseconds": 9400833,
           "roundMedianWallNanoseconds": [
-            9781125,
-            9814625,
-            9802083,
-            9976708,
-            10158916
+            9531041,
+            9750833,
+            9604833,
+            10278000,
+            9675541
           ],
-          "medianCPUNanoseconds": 9798000,
+          "medianCPUNanoseconds": 9678000,
           "samples": 15,
-          "mibPerSecond": 101.98825809506116,
+          "mibPerSecond": 103.37476960836031,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 10051958,
-          "minimumWallNanoseconds": 9664750,
+          "medianWallNanoseconds": 10006458,
+          "minimumWallNanoseconds": 9607709,
           "roundMedianWallNanoseconds": [
-            9884542,
-            10139541,
-            10276458,
-            9929333,
-            10095541
+            10011250,
+            10001541,
+            9976959,
+            10330458,
+            9824333
           ],
-          "medianCPUNanoseconds": 9991000,
+          "medianCPUNanoseconds": 10002000,
           "samples": 15,
-          "mibPerSecond": 99.57010558024064,
+          "mibPerSecond": 100.02285717365172,
           "history": 0,
           "allocations": 24
         },
         "xterm-node": {
-          "medianWallNanoseconds": 141763584,
-          "minimumWallNanoseconds": 138715750,
+          "medianWallNanoseconds": 141927375,
+          "minimumWallNanoseconds": 137855333,
           "roundMedianWallNanoseconds": [
-            142562709,
-            139701458,
-            139617250,
-            145185083,
-            144508958
+            139189125,
+            140091042,
+            141430750,
+            145684084,
+            142409750
           ],
-          "medianCPUNanoseconds": 141648000,
+          "medianCPUNanoseconds": 140595000,
           "samples": 15,
-          "mibPerSecond": 7.060166589384087,
+          "mibPerSecond": 7.052018818414309,
           "history": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 97479333,
-          "minimumWallNanoseconds": 92758667,
+          "medianWallNanoseconds": 97653583,
+          "minimumWallNanoseconds": 91694250,
           "roundMedianWallNanoseconds": [
-            95518333,
-            100760250,
-            95851084,
-            102626459,
-            99095583
+            95721416,
+            101525542,
+            100791208,
+            100933500,
+            96287042
           ],
-          "medianCPUNanoseconds": 111072000,
+          "medianCPUNanoseconds": 110251000,
           "samples": 15,
-          "mibPerSecond": 10.26755609158861,
+          "mibPerSecond": 10.249234985552395,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9895375020916498,
+          "median": 0.9749330628150202,
           "roundRange": [
-            0.9538386669803934,
-            1.0062775239088226
+            0.9520330628043451,
+            0.9949220063621574
           ]
         },
         "xterm": {
-          "median": 9.81577738132112,
+          "median": 9.800873199228894,
           "roundRange": [
-            9.327249135840384,
-            10.335685085795793
+            9.561385041827943,
+            10.15098993245141
           ]
         }
       },
@@ -2650,64 +2650,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 18399041,
-          "minimumWallNanoseconds": 14983958,
+          "medianWallNanoseconds": 18289458,
+          "minimumWallNanoseconds": 15594167,
           "roundMedianWallNanoseconds": [
-            15835084,
-            18631375,
-            16790959,
-            18860917,
-            18399041
+            16511000,
+            18441125,
+            18289458,
+            18478792,
+            18151666
           ],
-          "medianCPUNanoseconds": 21799000,
+          "medianCPUNanoseconds": 28553000,
           "samples": 15,
-          "mibPerSecond": 54.35122898076484,
+          "mibPerSecond": 54.67687945796318,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 6028416,
-          "minimumWallNanoseconds": 5497250,
+          "medianWallNanoseconds": 6035208,
+          "minimumWallNanoseconds": 5962958,
           "roundMedianWallNanoseconds": [
-            5900209,
-            6042125,
-            5831042,
-            6143833,
-            6109875
+            6000625,
+            6841875,
+            5967291,
+            6159292,
+            6026292
           ],
-          "medianCPUNanoseconds": 6027000,
+          "medianCPUNanoseconds": 6028000,
           "samples": 15,
-          "mibPerSecond": 165.8827941564551,
+          "mibPerSecond": 165.6961102943727,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 17067333,
-          "minimumWallNanoseconds": 16016625,
+          "medianWallNanoseconds": 17122458,
+          "minimumWallNanoseconds": 16558625,
           "roundMedianWallNanoseconds": [
-            16834250,
-            16909708,
-            17107208,
-            17067333,
-            17633667
+            17161167,
+            16978000,
+            16903250,
+            17905834,
+            17122458
           ],
-          "medianCPUNanoseconds": 20476000,
+          "medianCPUNanoseconds": 20956000,
           "samples": 15,
-          "mibPerSecond": 58.592077064265425,
+          "mibPerSecond": 58.403442450697234,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 2525250,
-          "minimumWallNanoseconds": 2432500,
+          "medianWallNanoseconds": 2508791,
+          "minimumWallNanoseconds": 2397916,
           "roundMedianWallNanoseconds": [
-            2464708,
-            2473458,
-            3762083,
-            2561291,
-            2546041
+            2529583,
+            2508791,
+            2479291,
+            3097750,
+            2423458
           ],
-          "medianCPUNanoseconds": 2521000,
+          "medianCPUNanoseconds": 2509000,
           "samples": 15,
-          "mibPerSecond": 396.00455020987243,
+          "mibPerSecond": 398.602550159611,
           "history": 680,
           "allocations": 2
         }
@@ -2715,17 +2715,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.4168881217962793,
+          "median": 0.41548015674114097,
           "roundRange": [
-            0.4093688892566771,
-            0.6451819417524346
+            0.3666817940988399,
+            0.5029392988674672
           ]
         },
         "xterm": {
-          "median": 2.853161642240131,
+          "median": 2.8412924564558106,
           "roundRange": [
-            2.777961738217819,
-            2.933816631744378
+            2.481483511464328,
+            2.9071253644087665
           ]
         }
       },
@@ -2738,64 +2738,64 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 2496250,
-          "minimumWallNanoseconds": 2465708,
+          "medianWallNanoseconds": 2505666,
+          "minimumWallNanoseconds": 2451458,
           "roundMedianWallNanoseconds": [
-            2578708,
-            2469375,
-            2472666,
-            2507708,
-            2484000
+            2506875,
+            2478875,
+            2505666,
+            2477583,
+            2538583
           ],
-          "medianCPUNanoseconds": 2497000,
+          "medianCPUNanoseconds": 2508000,
           "samples": 15,
-          "mibPerSecond": 400.6051038227262,
+          "mibPerSecond": 399.09967665981037,
           "history": 680,
           "allocations": 2
         },
         "xterm-node": {
-          "medianWallNanoseconds": 17687375,
-          "minimumWallNanoseconds": 16391042,
+          "medianWallNanoseconds": 17037000,
+          "minimumWallNanoseconds": 16057583,
           "roundMedianWallNanoseconds": [
-            18023250,
-            17648042,
-            18085958,
-            17398750,
-            17687375
+            18336125,
+            16982542,
+            16907292,
+            17037000,
+            17229875
           ],
-          "medianCPUNanoseconds": 20906000,
+          "medianCPUNanoseconds": 20579000,
           "samples": 15,
-          "mibPerSecond": 56.53809513381609,
+          "mibPerSecond": 58.69639551666845,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 18301042,
-          "minimumWallNanoseconds": 14091834,
+          "medianWallNanoseconds": 18932375,
+          "minimumWallNanoseconds": 14789916,
           "roundMedianWallNanoseconds": [
-            16324041,
-            18994750,
-            18301042,
-            18589833,
-            18291208
+            22682875,
+            17891333,
+            18683875,
+            19931208,
+            18183583
           ],
-          "medianCPUNanoseconds": 29101000,
+          "medianCPUNanoseconds": 25313000,
           "samples": 15,
-          "mibPerSecond": 54.642270665106416,
+          "mibPerSecond": 52.82012903386291,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 6175625,
-          "minimumWallNanoseconds": 5353167,
+          "medianWallNanoseconds": 5991958,
+          "minimumWallNanoseconds": 5491459,
           "roundMedianWallNanoseconds": [
-            6331000,
-            6062208,
-            7065833,
-            6175625,
-            6111375
+            5963458,
+            6306500,
+            5989458,
+            5991958,
+            5887625
           ],
-          "medianCPUNanoseconds": 6123000,
+          "medianCPUNanoseconds": 5993000,
           "samples": 15,
-          "mibPerSecond": 161.92862915372623,
+          "mibPerSecond": 166.89210612248624,
           "history": 1000,
           "allocations": 1035
         }
@@ -2803,17 +2803,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.40645517579922685,
+          "median": 0.41834603398170583,
           "roundRange": [
-            0.3499468498618634,
-            0.40733920710077914
+            0.39306667723777056,
+            0.43117267149317423
           ]
         },
         "xterm": {
-          "median": 2.84682514610646,
+          "median": 2.8433109844895443,
           "roundRange": [
-            2.5596356438087344,
-            2.9111574528620596
+            2.692863236343455,
+            3.074747067892488
           ]
         }
       },
@@ -2826,82 +2826,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 6159000,
-          "minimumWallNanoseconds": 5834959,
+          "medianWallNanoseconds": 6047667,
+          "minimumWallNanoseconds": 5754584,
           "roundMedianWallNanoseconds": [
-            6148708,
-            6303166,
-            6317750,
-            6159000,
-            6026709
+            6094125,
+            5907750,
+            5982250,
+            6047667,
+            6207208
           ],
-          "medianCPUNanoseconds": 6149000,
+          "medianCPUNanoseconds": 6048000,
           "samples": 15,
-          "mibPerSecond": 162.36572339949348,
+          "mibPerSecond": 165.35475422464242,
           "history": 1000,
           "allocations": 1071
         },
         "ghostty": {
-          "medianWallNanoseconds": 3565666,
-          "minimumWallNanoseconds": 3457208,
+          "medianWallNanoseconds": 3421458,
+          "minimumWallNanoseconds": 3264291,
           "roundMedianWallNanoseconds": [
-            3476875,
-            4101541,
-            3529791,
-            3600333,
-            3571708
+            3421458,
+            3378666,
+            3460916,
+            3270583,
+            3421666
           ],
-          "medianCPUNanoseconds": 3532000,
+          "medianCPUNanoseconds": 3422000,
           "samples": 15,
-          "mibPerSecond": 280.45545780717555,
+          "mibPerSecond": 292.2761262647329,
           "history": 900,
           "allocations": 9
         },
         "xterm-node": {
-          "medianWallNanoseconds": 20360833,
-          "minimumWallNanoseconds": 19301208,
+          "medianWallNanoseconds": 21055166,
+          "minimumWallNanoseconds": 19010709,
           "roundMedianWallNanoseconds": [
-            20360833,
-            21143792,
-            20573333,
-            19760209,
-            20345333
+            19505459,
+            19820750,
+            21296791,
+            24535959,
+            21055166
           ],
-          "medianCPUNanoseconds": 21212000,
+          "medianCPUNanoseconds": 20670000,
           "samples": 15,
-          "mibPerSecond": 49.1144193568839,
+          "mibPerSecond": 47.494780635663496,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 23574625,
-          "minimumWallNanoseconds": 18685417,
+          "medianWallNanoseconds": 21129459,
+          "minimumWallNanoseconds": 18453500,
           "roundMedianWallNanoseconds": [
-            21286834,
-            23574625,
-            22154917,
-            24077625,
-            27957083
+            18454542,
+            19851584,
+            21129459,
+            22343667,
+            21387917
           ],
-          "medianCPUNanoseconds": 35352000,
+          "medianCPUNanoseconds": 35050000,
           "samples": 15,
-          "mibPerSecond": 42.41893520755815,
+          "mibPerSecond": 47.32778489110774,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.5845645396980029,
+          "median": 0.5614354808934835,
           "roundRange": [
-            0.5587101420600689,
-            0.6507112457453921
+            0.540800774910391,
+            0.5785308203435162
           ]
         },
         "xterm": {
-          "median": 3.3114002161104414,
+          "median": 3.3920509833084376,
           "roundRange": [
-            3.2083469719110247,
-            3.3758611872582533
+            3.20069886981314,
+            4.0570949094915445
           ]
         }
       },
@@ -2914,82 +2914,82 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 6132291,
-          "minimumWallNanoseconds": 5653042,
+          "medianWallNanoseconds": 6007167,
+          "minimumWallNanoseconds": 5317584,
           "roundMedianWallNanoseconds": [
-            6267167,
-            6130250,
-            6143791,
-            6241292,
-            6056292
+            6027834,
+            5842250,
+            6029417,
+            6007167,
+            6152625
           ],
-          "medianCPUNanoseconds": 6135000,
+          "medianCPUNanoseconds": 6009000,
           "samples": 15,
-          "mibPerSecond": 163.07290218573783,
+          "mibPerSecond": 166.4695671715936,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 26001833,
-          "minimumWallNanoseconds": 17810667,
+          "medianWallNanoseconds": 22821416,
+          "minimumWallNanoseconds": 17279125,
           "roundMedianWallNanoseconds": [
-            26001833,
-            20982708,
-            27512041,
-            20541916,
-            37190958
+            18725042,
+            23121500,
+            23223958,
+            22826542,
+            20582959
           ],
-          "medianCPUNanoseconds": 41195000,
+          "medianCPUNanoseconds": 35505000,
           "samples": 15,
-          "mibPerSecond": 38.45923056337915,
+          "mibPerSecond": 43.818950165821455,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3568333,
-          "minimumWallNanoseconds": 3356000,
+          "medianWallNanoseconds": 3537083,
+          "minimumWallNanoseconds": 3288875,
           "roundMedianWallNanoseconds": [
-            4253625,
-            3568333,
-            3359291,
-            3625250,
-            3533500
+            3557458,
+            4100958,
+            3442166,
+            3291083,
+            3499958
           ],
-          "medianCPUNanoseconds": 3563000,
+          "medianCPUNanoseconds": 3522000,
           "samples": 15,
-          "mibPerSecond": 280.24584320395,
+          "mibPerSecond": 282.7218050629517,
           "history": 900,
           "allocations": 9
         },
         "xterm-node": {
-          "medianWallNanoseconds": 20417083,
-          "minimumWallNanoseconds": 19453959,
+          "medianWallNanoseconds": 20024625,
+          "minimumWallNanoseconds": 19076250,
           "roundMedianWallNanoseconds": [
-            20138625,
-            20151708,
-            20191041,
-            21120584,
-            21396125
+            19883083,
+            19390292,
+            20763375,
+            24078625,
+            19829042
           ],
-          "medianCPUNanoseconds": 20850000,
+          "medianCPUNanoseconds": 20705000,
           "samples": 15,
-          "mibPerSecond": 48.979106879150194,
+          "mibPerSecond": 49.93903708146747,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.5820860486929571,
+          "median": 0.5708953286860073,
           "roundRange": [
-            0.5467782025788313,
-            0.6787157578535884
+            0.5478594152618032,
+            0.7019483931704394
           ]
         },
         "xterm": {
-          "median": 3.2872571265445942,
+          "median": 3.318976764089178,
           "roundRange": [
-            3.2133538168043074,
-            3.5328753963646404
+            3.2228588610552404,
+            4.008316232926436
           ]
         }
       },
@@ -3002,82 +3002,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 30974375,
-          "minimumWallNanoseconds": 28815083,
+          "medianWallNanoseconds": 32256000,
+          "minimumWallNanoseconds": 28617500,
           "roundMedianWallNanoseconds": [
-            30974375,
-            30912667,
-            30595208,
-            33550792,
-            30525125
+            33541625,
+            32256000,
+            32883959,
+            32108708,
+            29595750
           ],
-          "medianCPUNanoseconds": 37658000,
+          "medianCPUNanoseconds": 38864000,
           "samples": 15,
-          "mibPerSecond": 32.31982033685544,
+          "mibPerSecond": 31.03565956865038,
           "history": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 34390250,
-          "minimumWallNanoseconds": 22534625,
+          "medianWallNanoseconds": 29301208,
+          "minimumWallNanoseconds": 20023375,
           "roundMedianWallNanoseconds": [
-            34455458,
-            33865416,
-            31205084,
-            22610791,
-            46752708
+            35273375,
+            23783583,
+            30572083,
+            29301208,
+            25923250
           ],
-          "medianCPUNanoseconds": 37272000,
+          "medianCPUNanoseconds": 38869000,
           "samples": 15,
-          "mibPerSecond": 29.109594581207954,
+          "mibPerSecond": 34.165357109044336,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2181041,
-          "minimumWallNanoseconds": 2164125,
+          "medianWallNanoseconds": 2193416,
+          "minimumWallNanoseconds": 2176208,
           "roundMedianWallNanoseconds": [
-            2170208,
-            2174500,
-            2189458,
-            2195416,
-            2477666
+            2193833,
+            2192333,
+            2192250,
+            2187000,
+            2210958
           ],
-          "medianCPUNanoseconds": 2184000,
+          "medianCPUNanoseconds": 2195000,
           "samples": 15,
-          "mibPerSecond": 458.99468879603216,
+          "mibPerSecond": 456.4050937197443,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 18531291,
-          "minimumWallNanoseconds": 18122208,
+          "medianWallNanoseconds": 18299000,
+          "minimumWallNanoseconds": 17782750,
           "roundMedianWallNanoseconds": [
-            18414625,
-            18446333,
-            18531291,
-            18412875,
-            18581959
+            17875209,
+            18181458,
+            18451875,
+            18471125,
+            18262708
           ],
-          "medianCPUNanoseconds": 18415000,
+          "medianCPUNanoseconds": 18253000,
           "samples": 15,
-          "mibPerSecond": 54.02139737843342,
+          "mibPerSecond": 54.707155311568215,
           "history": 0,
           "allocations": 49217
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.11814924281314237,
+          "median": 0.12058070370374037,
           "roundRange": [
-            0.11785241350285439,
-            0.13333717935767697
+            0.11840101780481697,
+            0.12273048108136805
           ]
         },
         "xterm": {
-          "median": 1.6758163804155546,
+          "median": 1.5863250343441453,
           "roundRange": [
-            1.642729111607662,
-            1.8221376075164797
+            1.3081229789162123,
+            1.9733125917576684
           ]
         }
       },
@@ -3090,82 +3090,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 32000208,
-          "minimumWallNanoseconds": 29676917,
+          "medianWallNanoseconds": 31641875,
+          "minimumWallNanoseconds": 29499458,
           "roundMedianWallNanoseconds": [
-            32025959,
-            30168292,
-            31812917,
-            40204458,
-            31606000
+            32141250,
+            31263458,
+            30334792,
+            31016167,
+            33684750
           ],
-          "medianCPUNanoseconds": 39047000,
+          "medianCPUNanoseconds": 37475000,
           "samples": 15,
-          "mibPerSecond": 31.283741500879827,
+          "mibPerSecond": 31.63801876615677,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 18530959,
-          "minimumWallNanoseconds": 18022208,
+          "medianWallNanoseconds": 18430667,
+          "minimumWallNanoseconds": 17821416,
           "roundMedianWallNanoseconds": [
-            19072041,
-            19048208,
-            18288875,
-            18262250,
-            18504292
+            18545750,
+            18507709,
+            17905875,
+            18609333,
+            18368875
           ],
-          "medianCPUNanoseconds": 18482000,
+          "medianCPUNanoseconds": 18370000,
           "samples": 15,
-          "mibPerSecond": 54.02236522386061,
+          "mibPerSecond": 54.31633239569608,
           "history": 0,
           "allocations": 49217
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 35508000,
-          "minimumWallNanoseconds": 22449125,
+          "medianWallNanoseconds": 28806958,
+          "minimumWallNanoseconds": 20467958,
           "roundMedianWallNanoseconds": [
-            23618625,
-            36577916,
-            28552417,
-            36310375,
-            34124792
+            37019458,
+            28806958,
+            25953834,
+            28584167,
+            23068291
           ],
-          "medianCPUNanoseconds": 42658000,
+          "medianCPUNanoseconds": 42879000,
           "samples": 15,
-          "mibPerSecond": 28.19325884438399,
+          "mibPerSecond": 34.75154284067018,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2252625,
-          "minimumWallNanoseconds": 2171583,
+          "medianWallNanoseconds": 2182833,
+          "minimumWallNanoseconds": 2164500,
           "roundMedianWallNanoseconds": [
-            2194916,
-            2187541,
-            2214916,
-            2924916,
-            2454666
+            2183875,
+            2182916,
+            2182833,
+            2195541,
+            2164583
           ],
-          "medianCPUNanoseconds": 2248000,
+          "medianCPUNanoseconds": 2183000,
           "samples": 15,
-          "mibPerSecond": 444.4087387143385,
+          "mibPerSecond": 458.61787642315596,
           "history": 0,
           "allocations": 0
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.12110728516652883,
+          "median": 0.11794631091292823,
           "roundRange": [
-            0.11484235157448931,
-            0.16016186395433202
+            0.11775608967014006,
+            0.12190596661710193
           ]
         },
         "xterm": {
-          "median": 1.7080361680414469,
+          "median": 1.5360124406393287,
           "roundRange": [
-            1.5837863593257697,
-            2.2015062766088516
+            1.2558358092153166,
+            1.9961154442392461
           ]
         }
       },
@@ -3178,82 +3178,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 39406083,
-          "minimumWallNanoseconds": 34230125,
+          "medianWallNanoseconds": 39751625,
+          "minimumWallNanoseconds": 35159542,
           "roundMedianWallNanoseconds": [
-            36668042,
-            37967166,
-            46258625,
-            47770625,
-            39406083
+            41848834,
+            39751625,
+            38160750,
+            105840333,
+            36014833
           ],
-          "medianCPUNanoseconds": 48022000,
+          "medianCPUNanoseconds": 48826000,
           "samples": 15,
-          "mibPerSecond": 25.40435787658435,
+          "mibPerSecond": 25.183529856864638,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 18826666,
-          "minimumWallNanoseconds": 18050000,
+          "medianWallNanoseconds": 18664042,
+          "minimumWallNanoseconds": 18292083,
           "roundMedianWallNanoseconds": [
-            18945750,
-            18826666,
-            18262458,
-            19227792,
-            18787958
+            19092458,
+            18659750,
+            18679875,
+            18664042,
+            18317334
           ],
-          "medianCPUNanoseconds": 18830000,
+          "medianCPUNanoseconds": 18664000,
           "samples": 15,
-          "mibPerSecond": 53.17384581244426,
+          "mibPerSecond": 53.63716150265772,
           "history": 0,
           "allocations": 49217
         },
         "ghostty": {
           "medianWallNanoseconds": 2945291,
-          "minimumWallNanoseconds": 2917125,
+          "minimumWallNanoseconds": 2906875,
           "roundMedianWallNanoseconds": [
-            3395916,
-            2945375,
-            2953166,
-            2933041,
-            2920458
+            2929875,
+            2953625,
+            3016125,
+            2916958,
+            2918583
           ],
-          "medianCPUNanoseconds": 2948000,
+          "medianCPUNanoseconds": 2931000,
           "samples": 15,
           "mibPerSecond": 339.89382884285004,
           "history": 0,
           "allocations": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 36022458,
-          "minimumWallNanoseconds": 28677000,
+          "medianWallNanoseconds": 35852916,
+          "minimumWallNanoseconds": 27520917,
           "roundMedianWallNanoseconds": [
-            34124166,
-            43748209,
-            32278625,
-            33320708,
-            47340334
+            41559333,
+            29182041,
+            40485125,
+            46898083,
+            35044083
           ],
-          "medianCPUNanoseconds": 48422000,
+          "medianCPUNanoseconds": 47896000,
           "samples": 15,
-          "mibPerSecond": 27.79061426198031,
+          "mibPerSecond": 27.922031085181096,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.15644697791951054,
+          "median": 0.1582885622797733,
           "roundRange": [
-            0.1525417479032434,
-            0.17924421044297534
+            0.15345719236360242,
+            0.16146387489209643
           ]
         },
         "xterm": {
-          "median": 1.8011514983571513,
+          "median": 2.1673124150991376,
           "roundRange": [
-            1.7329451036291634,
-            2.5197168313874236
+            1.563903106954809,
+            2.5127506142560114
           ]
         }
       },
@@ -3266,82 +3266,82 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 18615583,
-          "minimumWallNanoseconds": 17837250,
+          "medianWallNanoseconds": 18617083,
+          "minimumWallNanoseconds": 18191209,
           "roundMedianWallNanoseconds": [
-            18777083,
-            18006250,
-            17983875,
-            18886208,
-            18822583
+            18465250,
+            18677250,
+            18652250,
+            19048792,
+            18378917
           ],
-          "medianCPUNanoseconds": 18602000,
+          "medianCPUNanoseconds": 18613000,
           "samples": 15,
-          "mibPerSecond": 53.776786633348344,
+          "mibPerSecond": 53.7724537751906,
           "history": 0,
           "allocations": 49217
         },
         "xterm-node": {
-          "medianWallNanoseconds": 39732709,
-          "minimumWallNanoseconds": 30780708,
+          "medianWallNanoseconds": 38677959,
+          "minimumWallNanoseconds": 33499000,
           "roundMedianWallNanoseconds": [
-            35049042,
-            43554375,
-            35552250,
-            40131792,
-            39732709
+            38272708,
+            35308000,
+            43978292,
+            40015250,
+            37330500
           ],
-          "medianCPUNanoseconds": 47496000,
+          "medianCPUNanoseconds": 46253000,
           "samples": 15,
-          "mibPerSecond": 25.195519264653885,
+          "mibPerSecond": 25.88260241566487,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2934541,
-          "minimumWallNanoseconds": 2851416,
+          "medianWallNanoseconds": 2933791,
+          "minimumWallNanoseconds": 2917625,
           "roundMedianWallNanoseconds": [
-            2950791,
-            2868541,
-            2934791,
-            2941291,
-            2926166
+            2921083,
+            2941375,
+            2937625,
+            2945750,
+            2933791
           ],
-          "medianCPUNanoseconds": 2934000,
+          "medianCPUNanoseconds": 2935000,
           "samples": 15,
-          "mibPerSecond": 341.1389498549813,
+          "mibPerSecond": 341.2261592752813,
           "history": 0,
           "allocations": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 46825916,
-          "minimumWallNanoseconds": 27331666,
+          "medianWallNanoseconds": 36420208,
+          "minimumWallNanoseconds": 27255583,
           "roundMedianWallNanoseconds": [
-            48661292,
-            37334958,
-            38542250,
-            37863500,
-            46825916
+            36420208,
+            33862709,
+            41014916,
+            38785333,
+            35077291
           ],
-          "medianCPUNanoseconds": 55119000,
+          "medianCPUNanoseconds": 49157000,
           "samples": 15,
-          "mibPerSecond": 21.378892727830177,
+          "mibPerSecond": 27.48710921822266,
           "history": 0
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.1571485304719588,
+          "median": 0.15749440416035598,
           "roundRange": [
-            0.15546038500666992,
-            0.1631901356075929
+            0.15464235212395622,
+            0.15962806731212725
           ]
         },
         "xterm": {
-          "median": 2.110906298035716,
+          "median": 1.972364739172229,
           "roundRange": [
-            1.86658609327125,
-            2.4188476223533497
+            1.8130457642318865,
+            2.1989259204653595
           ]
         }
       },
@@ -3350,937 +3350,942 @@
   ],
   "profile": {
     "shell": {
-      "samples": 1884,
+      "samples": 2012,
       "functions": [
         {
           "name": "Terminal.Row.writeASCII(_:at:style:)",
           "image": "ThrushBench",
-          "share": 0.16348195329087048
+          "share": 0.17892644135188868
         },
         {
-          "name": "specialized Terminal.Screen.writeRun(style:joinsPrevious:next:)",
+          "name": "Terminal.Screen.writeASCII(_:style:)",
           "image": "ThrushBench",
-          "share": 0.06794055201698514
+          "share": 0.060139165009940355
         },
         {
           "name": "Terminal.receive(_:)",
           "image": "ThrushBench",
-          "share": 0.05467091295116773
+          "share": 0.05616302186878728
+        },
+        {
+          "name": "specialized Terminal.Screen.writeRun(style:joinsPrevious:next:)",
+          "image": "ThrushBench",
+          "share": 0.05069582504970179
         },
         {
           "name": "specialized static Hasher._hash(seed:_:)",
           "image": "libswiftCore.dylib",
-          "share": 0.05360934182590234
-        },
-        {
-          "name": "EscapeParser.consumeEscape(in:index:)",
-          "image": "ThrushBench",
-          "share": 0.048301486199575375
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.04617834394904458
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.04087048832271762
+          "share": 0.04771371769383698
         },
         {
           "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
           "image": "ThrushBench",
-          "share": 0.040339702760084924
+          "share": 0.04473161033797217
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.04324055666003976
         },
         {
           "name": "swift_isUniquelyReferenced_nonNull_native",
           "image": "libswiftCore.dylib",
-          "share": 0.030254777070063694
+          "share": 0.02882703777335984
         },
         {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
           "image": "ThrushBench",
-          "share": 0.022823779193205943
+          "share": 0.025347912524850896
         },
         {
           "name": "Terminal.Style.applySGR(_:)",
           "image": "ThrushBench",
-          "share": 0.021231422505307854
+          "share": 0.024353876739562623
         },
         {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.021231422505307854
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.02286282306163022
         },
         {
-          "name": "_xzm_free_main",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.018577494692144373
+          "name": "Terminal.Row.appendCombining(_:before:)",
+          "image": "ThrushBench",
+          "share": 0.020377733598409543
+        },
+        {
+          "name": "Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.019880715705765408
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.018389662027833
+        },
+        {
+          "name": "specialized _NativeDictionary.filter<A>(_:)",
+          "image": "ThrushBench",
+          "share": 0.017892644135188866
         },
         {
           "name": "static _DictionaryStorage.allocate(scale:age:seed:)",
           "image": "libswiftCore.dylib",
-          "share": 0.018046709129511677
+          "share": 0.01739562624254473
         },
         {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "name": "Terminal.apply(_:replies:rendition:)",
           "image": "ThrushBench",
-          "share": 0.01592356687898089
+          "share": 0.014910536779324055
         },
         {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.015392781316348195
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.015392781316348195
-        },
-        {
-          "name": "_DictionaryStorage.deinit",
+          "name": "swift_release",
           "image": "libswiftCore.dylib",
-          "share": 0.014861995753715499
-        },
-        {
-          "name": "_xzm_xzone_malloc_tiny",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.014861995753715499
-        },
-        {
-          "name": "Terminal.writeNonASCII(in:index:replies:)",
-          "image": "ThrushBench",
-          "share": 0.014331210191082803
-        }
-      ]
-    },
-    "vim": {
-      "samples": 2047,
-      "functions": [
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.31314118221787984
-        },
-        {
-          "name": "EscapeParser.consumeEscape(in:index:)",
-          "image": "ThrushBench",
-          "share": 0.13922813873961895
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.06399609184171959
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.057156814851001464
-        },
-        {
-          "name": "Terminal.Style.applySGR(_:)",
-          "image": "ThrushBench",
-          "share": 0.04396678065461651
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.040058622374206154
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.03761602344894968
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.0361504640937958
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.021983390327308255
-        },
-        {
-          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.016609672691744015
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.01612115290669272
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.01612115290669272
-        },
-        {
-          "name": "Terminal.Screen.eraseDisplay(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.012212994626282364
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.011235955056179775
+          "share": 0.013916500994035786
         },
         {
           "name": "_xzm_free_main",
           "image": "libsystem_malloc.dylib",
-          "share": 0.010258915486077186
-        },
-        {
-          "name": "_xzm_xzone_malloc_tiny",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.010258915486077186
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.007816316560820713
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.006839276990718124
-        },
-        {
-          "name": "xzm_malloc_zone_size",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.006839276990718124
-        },
-        {
-          "name": "ControlParameters.subscript.getter",
-          "image": "ThrushBench",
-          "share": 0.006350757205666829
-        }
-      ]
-    },
-    "codex": {
-      "samples": 2043,
-      "functions": [
-        {
-          "name": "EscapeParser.consumeEscape(in:index:)",
-          "image": "ThrushBench",
-          "share": 0.3509544787077827
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.10327949094468918
-        },
-        {
-          "name": "Terminal.Style.applySGR(_:)",
-          "image": "ThrushBench",
-          "share": 0.08027410670582477
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.06656877141458639
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.05188448360254528
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.04405286343612335
-        },
-        {
-          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.03132648066568772
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.02936857562408223
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.02741067058247675
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.024963289280469897
-        },
-        {
-          "name": "Terminal.Row.fillWithBlanks(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.01957905041605482
-        },
-        {
-          "name": "specialized UnsafeMutableBufferPointer.initialize<A>(from:)",
-          "image": "ThrushBench",
-          "share": 0.015173764072442487
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.011747430249632892
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.011257953989231522
-        },
-        {
-          "name": "Terminal.consume(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.00881057268722467
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.00881057268722467
+          "share": 0.01341948310139165
         },
         {
           "name": "specialized _SmallString.init(_:appending:)",
           "image": "libswiftCore.dylib",
-          "share": 0.00783162016642193
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.007342143906020558
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.007342143906020558
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.006852667645619187
+          "share": 0.01341948310139165
         }
       ]
     },
-    "ascii": {
-      "samples": 2171,
+    "vim": {
+      "samples": 2092,
       "functions": [
         {
           "name": "Terminal.Row.writeASCII(_:at:style:)",
           "image": "ThrushBench",
-          "share": 0.6269000460617227
+          "share": 0.31166347992351817
         },
         {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
           "image": "ThrushBench",
-          "share": 0.10225702441271303
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.0327038231229848
-        },
-        {
-          "name": "Terminal.consume(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.02809765085214187
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.025333947489636112
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.021188392445877474
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.020727775218793182
+          "share": 0.0965583173996176
         },
         {
           "name": "Terminal.receive(_:)",
           "image": "ThrushBench",
-          "share": 0.018424689083371717
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.014739751266697375
-        },
-        {
-          "name": "specialized Array.replaceSubrange<A>(_:with:)",
-          "image": "ThrushBench",
-          "share": 0.014739751266697375
-        },
-        {
-          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
-          "image": "ThrushBench",
-          "share": 0.009212344541685858
-        },
-        {
-          "name": "specialized _ArrayBufferProtocol.replaceSubrange<A>(_:with:elementsOf:)",
-          "image": "ThrushBench",
-          "share": 0.008751727314601566
-        },
-        {
-          "name": "EscapeParser.consume(ascii:)",
-          "image": "ThrushBench",
-          "share": 0.008291110087517274
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.008291110087517274
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.007369875633348687
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.005988023952095809
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.0055274067250115156
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.004145555043758637
-        },
-        {
-          "name": "specialized TerminalControlFunction.C0.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.0036849378166743437
-        },
-        {
-          "name": "DYLD-STUB$$memmove",
-          "image": "ThrushBench",
-          "share": 0.0032243205895900505
-        }
-      ]
-    },
-    "sgr": {
-      "samples": 2158,
-      "functions": [
-        {
-          "name": "EscapeParser.consumeEscape(in:index:)",
-          "image": "ThrushBench",
-          "share": 0.39156626506024095
+          "share": 0.08365200764818356
         },
         {
           "name": "Terminal.Style.applySGR(_:)",
           "image": "ThrushBench",
-          "share": 0.16635773864689526
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.060704355885078776
+          "share": 0.06405353728489484
         },
         {
           "name": "Terminal.Screen.writeASCII(_:style:)",
           "image": "ThrushBench",
-          "share": 0.051899907321594066
+          "share": 0.05927342256214149
         },
         {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "name": "Terminal.apply(_:replies:rendition:)",
           "image": "ThrushBench",
-          "share": 0.05143651529193698
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.03985171455050973
-        },
-        {
-          "name": "ControlParameters.subscript.getter",
-          "image": "ThrushBench",
-          "share": 0.038461538461538464
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.037534754402224285
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.03104726598702502
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.020852641334569044
+          "share": 0.05783938814531549
         },
         {
           "name": "specialized static TextScanner.endOfASCII(in:from:)",
           "image": "ThrushBench",
-          "share": 0.020852641334569044
-        },
-        {
-          "name": "specialized static Terminal.Style.extendedColor(_:index:)",
-          "image": "ThrushBench",
-          "share": 0.018072289156626505
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.015755329008341055
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.013901760889712697
-        },
-        {
-          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.012974976830398516
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.008341056533827619
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.005560704355885079
-        },
-        {
-          "name": "DYLD-STUB$$memcpy",
-          "image": "ThrushBench",
-          "share": 0.004170528266913809
-        }
-      ]
-    },
-    "wide": {
-      "samples": 2180,
-      "functions": [
-        {
-          "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
-          "image": "ThrushBench",
-          "share": 0.368348623853211
-        },
-        {
-          "name": "specialized Terminal.Screen.writeRun(style:joinsPrevious:next:)",
-          "image": "ThrushBench",
-          "share": 0.19678899082568807
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.07064220183486239
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.06284403669724771
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.051834862385321104
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.0426605504587156
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.04174311926605505
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.03577981651376147
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.022935779816513763
-        },
-        {
-          "name": "Terminal.writeNonASCII(in:index:replies:)",
-          "image": "ThrushBench",
-          "share": 0.014220183486238533
-        },
-        {
-          "name": "Terminal.consume(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.010091743119266056
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.00963302752293578
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.008256880733944955
-        },
-        {
-          "name": "EscapeParser.consume(ascii:)",
-          "image": "ThrushBench",
-          "share": 0.006422018348623854
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.005963302752293578
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.005963302752293578
-        },
-        {
-          "name": "specialized Array.replaceSubrange<A>(_:with:)",
-          "image": "ThrushBench",
-          "share": 0.005963302752293578
-        },
-        {
-          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
-          "image": "ThrushBench",
-          "share": 0.005963302752293578
-        },
-        {
-          "name": "specialized _ArrayBufferProtocol.replaceSubrange<A>(_:with:elementsOf:)",
-          "image": "ThrushBench",
-          "share": 0.004128440366972477
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.003669724770642202
-        }
-      ]
-    },
-    "cursor": {
-      "samples": 2214,
-      "functions": [
-        {
-          "name": "specialized UnsafeMutableBufferPointer.initialize<A>(from:)",
-          "image": "ThrushBench",
-          "share": 0.26151761517615174
-        },
-        {
-          "name": "EscapeParser.consumeEscape(in:index:)",
-          "image": "ThrushBench",
-          "share": 0.2023486901535682
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.08807588075880758
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.07226738934056007
+          "share": 0.04349904397705545
         },
         {
           "name": "Terminal.Screen.eraseDisplay(_:style:)",
           "image": "ThrushBench",
-          "share": 0.053297199638663056
+          "share": 0.02198852772466539
         },
         {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "name": "Terminal.Row.ensureLength(_:)",
           "image": "ThrushBench",
-          "share": 0.04652213188798555
+          "share": 0.017208413001912046
         },
         {
-          "name": "Terminal.receive(_:)",
+          "name": "specialized TerminalControlFunction.init(_:)",
           "image": "ThrushBench",
-          "share": 0.045167118337850046
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.04200542005420054
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.03568202348690153
+          "share": 0.017208413001912046
         },
         {
           "name": "swift_isUniquelyReferenced_nonNull_native",
           "image": "libswiftCore.dylib",
-          "share": 0.032520325203252036
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.025293586269196026
+          "share": 0.016252390057361378
         },
         {
           "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
           "image": "ThrushBench",
-          "share": 0.017615176151761516
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.015808491418247517
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.014001806684733513
-        },
-        {
-          "name": "specialized Array.append<A>(contentsOf:)",
-          "image": "ThrushBench",
-          "share": 0.01038843721770551
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.00993676603432701
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.0076784101174345075
-        },
-        {
-          "name": "Terminal.Row.fillWithBlanks(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.005871725383920506
-        },
-        {
-          "name": "Terminal.Screen.eraseLine(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.0036133694670280035
-        },
-        {
-          "name": "ControlParameters.subscript.getter",
-          "image": "ThrushBench",
-          "share": 0.0031616982836495033
-        }
-      ]
-    },
-    "scroll": {
-      "samples": 2206,
-      "functions": [
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.28377153218495016
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.16636446056210336
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.05757026291931097
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.053037171350861285
-        },
-        {
-          "name": "Terminal.consume(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.0471441523118767
-        },
-        {
-          "name": "EscapeParser.consume(ascii:)",
-          "image": "ThrushBench",
-          "share": 0.04623753399818677
+          "share": 0.01577437858508604
         },
         {
           "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
           "image": "ThrushBench",
-          "share": 0.04397098821396192
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.040344514959202174
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.032638259292837715
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.03218495013599275
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.028558476881233003
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.025838621940163193
-        },
-        {
-          "name": "specialized Array.replaceSubrange<A>(_:with:)",
-          "image": "ThrushBench",
-          "share": 0.025385312783318223
-        },
-        {
-          "name": "specialized _ArrayBufferProtocol.replaceSubrange<A>(_:with:elementsOf:)",
-          "image": "ThrushBench",
-          "share": 0.023118766999093383
-        },
-        {
-          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
-          "image": "ThrushBench",
-          "share": 0.021758839528558477
+          "share": 0.015296367112810707
         },
         {
           "name": "Terminal.Row.clearWideEdges(_:style:)",
           "image": "ThrushBench",
-          "share": 0.014052583862194016
-        },
-        {
-          "name": "specialized TerminalControlFunction.C0.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.013599274705349048
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.009066183136899365
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.008612873980054397
-        },
-        {
-          "name": "Terminal.Row.ensureLength(_:)",
-          "image": "ThrushBench",
-          "share": 0.007252946509519492
-        }
-      ]
-    },
-    "region": {
-      "samples": 1866,
-      "functions": [
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.15487674169346194
-        },
-        {
-          "name": "Terminal.Buffer.deleteRows(_:at:through:blank:)",
-          "image": "ThrushBench",
-          "share": 0.15112540192926044
-        },
-        {
-          "name": "swift_retain",
-          "image": "libswiftCore.dylib",
-          "share": 0.14094319399785638
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.09967845659163987
-        },
-        {
-          "name": "swift_bridgeObjectRelease",
-          "image": "libswiftCore.dylib",
-          "share": 0.05091103965702037
-        },
-        {
-          "name": "swift_bridgeObjectRetain",
-          "image": "libswiftCore.dylib",
-          "share": 0.05037513397642015
-        },
-        {
-          "name": "DYLD-STUB$$swift_bridgeObjectRelease",
-          "image": "ThrushBench",
-          "share": 0.04930332261521972
-        },
-        {
-          "name": "DYLD-STUB$$swift_bridgeObjectRetain",
-          "image": "ThrushBench",
-          "share": 0.03697749196141479
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.02679528403001072
+          "share": 0.011472275334608031
         },
         {
           "name": "_xzm_xzone_malloc_tiny",
           "image": "libsystem_malloc.dylib",
-          "share": 0.016613076098606645
+          "share": 0.010038240917782026
         },
         {
-          "name": "EscapeParser.consume(ascii:)",
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
           "image": "ThrushBench",
-          "share": 0.015541264737406217
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.013933547695605574
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.01339764201500536
-        },
-        {
-          "name": "_xzm_free_main",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.012861736334405145
-        },
-        {
-          "name": "Terminal.consume(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.01232583065380493
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.011789924973204717
-        },
-        {
-          "name": "malloc_size",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.00857449088960343
-        },
-        {
-          "name": "xzm_malloc_zone_size",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.00857449088960343
+          "share": 0.007170172084130019
         },
         {
           "name": "swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
           "image": "libswiftCore.dylib",
-          "share": 0.008038585209003215
+          "share": 0.007170172084130019
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.006692160611854685
+        },
+        {
+          "name": "specialized static Hasher._hash(seed:_:)",
+          "image": "libswiftCore.dylib",
+          "share": 0.00621414913957935
+        },
+        {
+          "name": "outlined init with copy of [Terminal.StoredCell]",
+          "image": "ThrushBench",
+          "share": 0.0057361376673040155
+        }
+      ]
+    },
+    "codex": {
+      "samples": 2128,
+      "functions": [
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.3016917293233083
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.10902255639097744
+        },
+        {
+          "name": "Terminal.Style.applySGR(_:)",
+          "image": "ThrushBench",
+          "share": 0.09633458646616541
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.07142857142857142
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.06343984962406016
+        },
+        {
+          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
+          "image": "ThrushBench",
+          "share": 0.03853383458646616
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.03524436090225564
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.03430451127819549
+        },
+        {
+          "name": "Terminal.Row.fillWithBlanks(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.03101503759398496
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.02725563909774436
+        },
+        {
+          "name": "specialized UnsafeMutableBufferPointer.initialize<A>(from:)",
+          "image": "ThrushBench",
+          "share": 0.020206766917293232
+        },
+        {
+          "name": "specialized _SmallString.init(_:appending:)",
+          "image": "libswiftCore.dylib",
+          "share": 0.01268796992481203
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.011748120300751879
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.010338345864661654
+        },
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.008458646616541353
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.007518796992481203
+        },
+        {
+          "name": "specialized Terminal.Screen.writeRun(style:joinsPrevious:next:)",
+          "image": "ThrushBench",
+          "share": 0.007518796992481203
+        },
+        {
+          "name": "Terminal.setPrivateMode(_:enabled:)",
+          "image": "ThrushBench",
+          "share": 0.006578947368421052
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.006578947368421052
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.005169172932330827
+        }
+      ]
+    },
+    "ascii": {
+      "samples": 2183,
+      "functions": [
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.6486486486486487
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.08016491067338526
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.027943197434722858
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.025194686211635363
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.021071919377004124
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.020613834173156206
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.017865322950068714
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.015574896930829134
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.015116811726981219
+        },
+        {
+          "name": "EscapeParser.consume(ascii:)",
+          "image": "ThrushBench",
+          "share": 0.013742556115437472
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.012368300503893724
+        },
+        {
+          "name": "specialized Array.replaceSubrange<A>(_:with:)",
+          "image": "ThrushBench",
+          "share": 0.011910215300045808
+        },
+        {
+          "name": "specialized _ArrayBufferProtocol.replaceSubrange<A>(_:with:elementsOf:)",
+          "image": "ThrushBench",
+          "share": 0.011910215300045808
+        },
+        {
+          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
+          "image": "ThrushBench",
+          "share": 0.010535959688502062
+        },
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.008703618873110398
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.005955107650022904
+        },
+        {
+          "name": "DYLD-STUB$$memmove",
+          "image": "ThrushBench",
+          "share": 0.005497022446174988
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.005038937242327073
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.004122766834631242
+        },
+        {
+          "name": "Terminal.Row.ensureLength(_:)",
+          "image": "ThrushBench",
+          "share": 0.0036646816307833257
+        }
+      ]
+    },
+    "sgr": {
+      "samples": 2173,
+      "functions": [
+        {
+          "name": "Terminal.Style.applySGR(_:)",
+          "image": "ThrushBench",
+          "share": 0.29636447307869307
+        },
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.23423838011965026
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.08421537045559135
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.08191440404970088
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.0621260929590428
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.031293143120110445
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.030832949838932353
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.030372756557754257
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.023469857340082834
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.020708697653014266
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.019328117809479982
+        },
+        {
+          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
+          "image": "ThrushBench",
+          "share": 0.018867924528301886
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.016566958122411414
+        },
+        {
+          "name": "Terminal.Row.ensureLength(_:)",
+          "image": "ThrushBench",
+          "share": 0.008283479061205707
+        },
+        {
+          "name": "_xzm_free_main",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.006442705936493327
+        },
+        {
+          "name": "mach_absolute_time",
+          "image": "libsystem_kernel.dylib",
+          "share": 0.004601932811780948
+        },
+        {
+          "name": "specialized Span<A>.subscript.getter",
+          "image": "ThrushBench",
+          "share": 0.0041417395306028535
+        },
+        {
+          "name": "specialized Span<>.count.getter",
+          "image": "ThrushBench",
+          "share": 0.0036815462494247586
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.0027611596870685687
+        }
+      ]
+    },
+    "wide": {
+      "samples": 2301,
+      "functions": [
+        {
+          "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.3646240764884833
+        },
+        {
+          "name": "specialized Terminal.Screen.writeRun(style:joinsPrevious:next:)",
+          "image": "ThrushBench",
+          "share": 0.18122555410691005
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.07996523250760539
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.06910039113428944
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.04606692742285962
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.041720990873533245
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.03911342894393742
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.0343328987396784
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.02824858757062147
+        },
+        {
+          "name": "Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.015210777922642329
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.014341590612777053
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.01086484137331595
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.01086484137331595
+        },
+        {
+          "name": "EscapeParser.consume(ascii:)",
+          "image": "ThrushBench",
+          "share": 0.006953498478922208
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.006953498478922208
+        },
+        {
+          "name": "specialized Array.replaceSubrange<A>(_:with:)",
+          "image": "ThrushBench",
+          "share": 0.006084311169056932
+        },
+        {
+          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
+          "image": "ThrushBench",
+          "share": 0.005649717514124294
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.004345936549326379
+        },
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.003476749239461104
+        },
+        {
+          "name": "Terminal.Row.ensureLength(_:)",
+          "image": "ThrushBench",
+          "share": 0.003042155584528466
+        }
+      ]
+    },
+    "cursor": {
+      "samples": 2187,
+      "functions": [
+        {
+          "name": "specialized UnsafeMutableBufferPointer.initialize<A>(from:)",
+          "image": "ThrushBench",
+          "share": 0.26245999085505256
+        },
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.1929583904892547
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.09053497942386832
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.07590306355738455
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.05029721079103795
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.04572473708276177
+        },
+        {
+          "name": "Terminal.Screen.eraseDisplay(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.04343850022862369
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.040237768632830365
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.03383630544124371
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.03063557384545039
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.027434842249657063
+        },
+        {
+          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
+          "image": "ThrushBench",
+          "share": 0.01828989483310471
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.01783264746227709
+        },
+        {
+          "name": "Terminal.Row.ensureLength(_:)",
+          "image": "ThrushBench",
+          "share": 0.01600365797896662
+        },
+        {
+          "name": "specialized Array.append<A>(contentsOf:)",
+          "image": "ThrushBench",
+          "share": 0.012345679012345678
+        },
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.01188843164151806
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.009144947416552356
+        },
+        {
+          "name": "Terminal.Screen.eraseLine(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.006401463191586648
+        },
+        {
+          "name": "Terminal.Row.fillWithBlanks(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.003657978966620942
+        },
+        {
+          "name": "ControlParameters.subscript.getter",
+          "image": "ThrushBench",
+          "share": 0.003200731595793324
+        }
+      ]
+    },
+    "scroll": {
+      "samples": 2169,
+      "functions": [
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.27708621484555096
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.15721530659289995
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.06408483171968649
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.05855232826187183
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.0557860765329645
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.04979253112033195
+        },
+        {
+          "name": "EscapeParser.consume(ascii:)",
+          "image": "ThrushBench",
+          "share": 0.047487321346242506
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.03642231443061319
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.033656062701705854
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.0318118948824343
+        },
+        {
+          "name": "specialized Array.replaceSubrange<A>(_:with:)",
+          "image": "ThrushBench",
+          "share": 0.029045643153526972
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.02351313969571231
+        },
+        {
+          "name": "specialized _ArrayBufferProtocol.replaceSubrange<A>(_:with:elementsOf:)",
+          "image": "ThrushBench",
+          "share": 0.021668971876440755
+        },
+        {
+          "name": "specialized static Terminal.Style.__derived_struct_equals(_:_:)",
+          "image": "ThrushBench",
+          "share": 0.021668971876440755
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.02120792992162287
+        },
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.01429230059935454
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.012448132780082987
+        },
+        {
+          "name": "specialized TerminalControlFunction.C0.init(rawValue:)",
+          "image": "ThrushBench",
+          "share": 0.007837713231904103
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.007376671277086215
+        },
+        {
+          "name": "DYLD-STUB$$memmove",
+          "image": "ThrushBench",
+          "share": 0.006915629322268326
+        }
+      ]
+    },
+    "region": {
+      "samples": 1757,
+      "functions": [
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.1684689812179852
+        },
+        {
+          "name": "swift_retain",
+          "image": "libswiftCore.dylib",
+          "share": 0.1531018782014798
+        },
+        {
+          "name": "Terminal.Buffer.deleteRows(_:at:through:blank:)",
+          "image": "ThrushBench",
+          "share": 0.13887307911212293
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.09675583380762663
+        },
+        {
+          "name": "DYLD-STUB$$swift_bridgeObjectRelease",
+          "image": "ThrushBench",
+          "share": 0.05463858850313034
+        },
+        {
+          "name": "swift_bridgeObjectRetain",
+          "image": "libswiftCore.dylib",
+          "share": 0.045532157085941945
+        },
+        {
+          "name": "swift_bridgeObjectRelease",
+          "image": "libswiftCore.dylib",
+          "share": 0.043255549231644846
+        },
+        {
+          "name": "DYLD-STUB$$swift_bridgeObjectRetain",
+          "image": "ThrushBench",
+          "share": 0.03870233352305066
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.0199203187250996
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.01593625498007968
+        },
+        {
+          "name": "_xzm_free_main",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.014797951052931132
+        },
+        {
+          "name": "_xzm_xzone_malloc_tiny",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.01195219123505976
+        },
+        {
+          "name": "Terminal.consume(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.011383039271485486
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.011383039271485486
+        },
+        {
+          "name": "swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
+          "image": "libswiftCore.dylib",
+          "share": 0.011383039271485486
         },
         {
           "name": "<deduplicated_symbol>",
           "image": "libsystem_malloc.dylib",
-          "share": 0.007502679528403001
+          "share": 0.010813887307911212
+        },
+        {
+          "name": "Terminal.apply(_:replies:rendition:)",
+          "image": "ThrushBench",
+          "share": 0.010244735344336939
+        },
+        {
+          "name": "malloc_size",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.010244735344336939
+        },
+        {
+          "name": "outlined init with copy of [Terminal.Row]",
+          "image": "ThrushBench",
+          "share": 0.009675583380762664
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.008537279453614115
         }
       ]
     }
