@@ -1,5 +1,7 @@
 # Disposable Toy Box PTY
 
+The measurements on this page record the historical pinned server, Toy Box `b9d0eca3`. It required a reconnect to repair a screen after a burst and could skip an exit control. The candidate restores the retained screen on the same connection. Its exit behavior depends on whether the socket makes progress before closing. [Candidate results and reproduction](pty-recovery.md) · [Candidate measurements](pty-candidate.json)
+
 Run the macOS headless check from the Thrush checkout. It builds the Release Swift client, starts a private Toy Box server, runs four numbered logs over real WebSockets and PTYs, and checks the server's 30-second orphan timeout. The JSON report is written to `.build/benchmarks/pty-smoke.json`. The check removes its temporary server data on exit.
 
 ```sh
@@ -25,7 +27,7 @@ The paced case targets 1 MiB/s. Three further cases use the same unpaced 8 MiB p
 
 The producer timestamps each completed 8 KiB write. The Swift client timestamps each binary frame immediately after applying it. Both clocks use macOS system uptime. The peak byte gap is the largest observed cumulative difference between PTY payload written and live payload applied. It spans the server, transport and client and includes permanently skipped bytes. The adapter pulls one binary frame at a time. The first-to-last application rate covers the received portion of the log. Command-to-exit time also includes shell startup for the producer, replay and acknowledgement. [Reference parser rates](headless.json) · [Toy Box send guard](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/src/features/terminal/server/runtime.ts)
 
-## Mac result
+## Historical pinned-server result
 
 On November 24, 2026, an Apple M1 Max running macOS 27.2.1 and Bun 1.4.6 produced the following results. The Swift client ran from the dirty development worktree based on `43aa100e774cc43025d594f75e2b3b9bea527ac4` during implementation of this check. The production server was built from the exact Toy Box revision above. [Captured report](pty-smoke.json)
 
@@ -44,7 +46,7 @@ The continuously reading client reached marker 131,072 and all its final visible
 
 The same disposable server passed fresh attach, resize confirmed by `stty size`, foreground return with the original shell PID and environment, takeover with displaced-owner suppression, explicit close observed through shell-process exit, real orphan expiry measured at 30.069 seconds, and a final output marker visible at exit. GUI presentation, three interactive workflows, and physical iPhone behavior remain separate acceptance checks.
 
-## Count-only readers and exit under backpressure
+## Historical pinned-server reader and exit checks
 
 ```sh
 scripts/check-pty.sh --readers --toy-box ../toy-box
@@ -78,4 +80,4 @@ The earlier instrumented live run lost 497,664 bytes at an average producer rate
 | Continuous | 8,388,627 / 8,388,627 | Received | Received | Received | Fresh PTY |
 | Suspended | 8,388,627 / 1,597,440 | Missing | Missing | Received | Fresh PTY |
 
-In the suspended case the shell wrote its final marker and died before the reader resumed. The reader remained connected, drained what reached it, and received the reply to its own ping. The server had already deleted the shell and its replay when the same client ID reattached. Toy Box sends the exit control through the same 1 MiB guard as output. A healthy socket can therefore outlive a shell without telling the host it exited. [Exit and send implementation](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/src/features/terminal/server/runtime.ts)
+In the suspended case the shell wrote its final marker and died before the reader resumed. The reader remained connected, drained what reached it, and received the reply to its own ping. The server had already deleted the shell and its replay when the same client ID reattached. The pinned server sent the exit control through the same 1 MiB guard as output. Its socket could therefore outlive a shell without telling the host it exited. [Exit and send implementation](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/src/features/terminal/server/runtime.ts)
