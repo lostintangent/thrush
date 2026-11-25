@@ -64,6 +64,8 @@ extension Terminal {
         var columns: Int
         // Narrowing an alternate screen leaves the original row slots available on widening.
         var storageColumns: Int
+        // Cells up to the last one written. Columns past the end are blank in the default style.
+        // The first write reserves the full width, so extending a row never reallocates.
         var cells: [StoredCell]
         var clusters: [Int: String] = [:]
 
@@ -114,9 +116,14 @@ extension Terminal {
         }
 
         mutating func ensureLength(_ length: Int) {
-            if cells.count < length {
-                cells.append(contentsOf: repeatElement(StoredCell(), count: length - cells.count))
-            }
+            guard cells.count < length else { return }
+            reserveWidth()
+            cells.append(contentsOf: repeatElement(StoredCell(), count: length - cells.count))
+        }
+
+        // Also gives a row shared with a snapshot its own full-width copy before it grows.
+        private mutating func reserveWidth() {
+            cells.reserveCapacity(storageColumns)
         }
 
         mutating func discardClusters(in range: Range<Int>) {
@@ -146,10 +153,18 @@ extension Terminal {
             let range = column..<end
             clearWideEdges(range, style: style)
             discardClusters(in: range)
-            ensureLength(end)
-            var target = cells.mutableSpan
-            for offset in bytes.indices {
-                target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), style: style)
+            if end > cells.count { reserveWidth() }
+            ensureLength(column)
+            // Text past the stored cells is appended rather than filled with blanks and then overwritten.
+            let overwritten = min(end, cells.count) - column
+            do {
+                var target = cells.mutableSpan
+                for offset in 0..<overwritten {
+                    target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), style: style)
+                }
+            }
+            for offset in overwritten..<bytes.count {
+                cells.append(StoredCell(glyph: UInt32(bytes[offset]), style: style))
             }
         }
 
