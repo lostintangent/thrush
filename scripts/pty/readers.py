@@ -86,6 +86,9 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
     if result.get("appliedBytes", result["receivedBytes"]) != result["receivedBytes"]:
         raise RuntimeError("Thrush applied-byte count diverged")
     if probe:
+        if result["replayFrames"]:
+            screen = subprocess.run([binary, "check-exit-screen", run / "final-screen.bin"], capture_output=True, timeout=10)
+            result["finalScreenMatchesExpected"] = screen.returncode == 0
         new_pid = int((run / "replacement-pid").read_text())
         result.update({"shellFinalWriteSucceeded": True, "shellPIDDead": True,
                        "replacementShellHasNewPID": new_pid != pid, "afterDeathReadWindowSeconds": 3})
@@ -165,6 +168,8 @@ def main():
         raise RuntimeError(f"Could not establish natural exit and fresh attachment. See {path}")
     if args.recovery and not all(e["exitBeforeClose"] and e["closeCode"] == 1000 for e in exits):
         raise RuntimeError(f"Expected exit followed by a server close with code 1000. See {path}")
+    if args.recovery and not exits[1].get("finalScreenMatchesExpected", False):
+        raise RuntimeError(f"Saturated exit must replay the complete final screen before exit. See {path}")
     if args.recovery and not (exits[1]["missingBinaryBytes"] > 0 and not exits[1]["openAfterExit"]):
         raise RuntimeError(f"The exit case must exercise actual backpressure. See {path}")
     print(path)
