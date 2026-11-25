@@ -9,6 +9,7 @@ Thrush is a first-party Swift terminal emulator for macOS and iOS. [docs/plan.md
 - Every new operation lands with its correctness checkpoint and its `ThrushBench` workload in the same change.
 - Reference expectations come from outside Thrush. Never generate a fixture's expected output with Thrush itself.
 - Build and test from the command line. There is no checked-in Xcode project.
+- Write plans, specs, designs and reviews as Markdown. Never use `.brief` files. Visuals such as SVG or PNG mockups live beside the Markdown that explains them.
 
 ## Naming
 
