@@ -31,7 +31,7 @@ jobs:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
         if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink }}
-        run: python3 scripts/pty/check-window.py --output "$RUNNER_TEMP/window-lifecycle"
+        run: python3 scripts/pty/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
         run: python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output "$RUNNER_TEMP/window-lifecycle"

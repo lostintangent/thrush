@@ -27,6 +27,27 @@ def build_cover(scratch):
     return cover
 
 
+def sample_server(pids, host, root, out):
+    from check import wait_for
+
+    def ticking():
+        pid = pids.read_text().strip() if pids.exists() else ""
+        return pid.isdecimal() and subprocess.run(
+            ["/usr/bin/pgrep", "-P", pid, "-x", "sleep"], stdout=subprocess.DEVNULL).returncode == 0
+
+    wait_for("the PTY shell's live tick loop", ticking, host)
+    # Only the listener is our direct child. Each shell has a separate supervisor.
+    pid = int(subprocess.check_output(["/usr/bin/pgrep", "-P", str(os.getpid()), "-x", "ThrushServer"]))
+    sample = root / "server-sample.txt"
+    subprocess.run(["/usr/bin/sample", str(pid), "5", "1", "-file", sample], check=True, timeout=25)
+    _, marker, stacks = sample.read_text().partition("Call graph:")
+    stacks = stacks.partition("Binary Images:")[0].strip()
+    if not marker or not stacks:
+        raise RuntimeError("System sample contained no server call graph.")
+    (out / "server-sample.txt").write_text(
+        f"ThrushServer PID {pid}, 5 seconds at 1 ms during live shell ticks.\nCall graph:\n{stacks}\n")
+
+
 def main():
     sys.dont_write_bytecode = True
     from check import local_endpoint, server
@@ -35,7 +56,10 @@ def main():
     parser.add_argument("--app", type=Path, default=ROOT / ".build/demo/mac/Thrush.app")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--endpoint", type=local_endpoint, help="Optional disposable loopback terminal. The check runs a shell loop and closes it.")
+    parser.add_argument("--sample-server", action="store_true", help="Save a system stack sample while the local ThrushServer carries the shell’s live ticks.")
     args = parser.parse_args()
+    if args.sample_server and args.endpoint:
+        parser.error("--sample-server needs the server started by this check.")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
@@ -61,9 +85,21 @@ def main():
         report = out / "window-lifecycle.json"
         with server(root, shell, out / "server.log", server_binary, args.endpoint) as endpoint:
             shutil.copyfile(root / "data" / "source.json", out / "server.json")
-            subprocess.run(["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
-                            "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
-                            "--window-lifecycle-check", report, cover], check=True, timeout=195)
+            launch = ["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
+                      "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
+                      "--window-lifecycle-check", report, cover]
+            with subprocess.Popen(launch) as host:
+                try:
+                    if args.sample_server:
+                        sample_server(pids, host, root, out)
+                finally:
+                    try:
+                        status = host.wait(timeout=195)
+                    except subprocess.TimeoutExpired:
+                        host.kill()
+                        raise
+                if status:
+                    raise subprocess.CalledProcessError(status, launch)
         if not report.exists():
             raise RuntimeError("The native window check did not finish. " + (out / "host.log").read_text()[-1200:])
         result = json.loads(report.read_text())
