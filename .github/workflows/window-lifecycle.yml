@@ -34,10 +34,11 @@ on:
         default: false
 permissions:
   contents: read
-# A newer push to main supersedes a running check. Each dispatch runs on its own.
+# Every push to main runs to completion, and a newer push waits rather than cancelling it.
+# Each dispatch runs on its own.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 jobs:
   window-lifecycle:
     runs-on: xcode-27
