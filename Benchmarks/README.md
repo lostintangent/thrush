@@ -10,7 +10,11 @@ The separate burst measurement makes every recorded chunk available at once. It 
 
 A table entry of `sub-tick` means both clock reads returned the same timestamp. The JSON preserves that measured interval as zero.
 
-## Recorded Mac baseline
+Before the replays, each run samples the Mac’s one-, five- and fifteen-minute load averages, active logical core count and thermal state. The runner marks the report `contended` when the one-minute load exceeds the core count. Use contended runs for correctness and collect timing baselines when the machine settles.
+
+## Provisional Mac baseline
+
+The shared Mac was under heavy load during these runs. Its one-minute load average was near 299 shortly afterward, across ten active cores. Use these numbers as provisional timing evidence.
 
 Five consecutive Release runs measured clean revision `174bc3770612` on an Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
 

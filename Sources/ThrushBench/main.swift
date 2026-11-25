@@ -36,6 +36,12 @@ func printTable(_ report: Report) {
     let revision = report.environment.commit.prefix(12)
     let state = report.environment.worktreeDirty ? " (dirty)" : ""
     print("ThrushBench   \(report.columns) × \(report.rows)   \(report.environment.processor)   \(revision)\(state)")
+    let environment = report.environment
+    let load = environment.loadAverage
+    let loadValues = String(format: "%.2f / %.2f / %.2f", load.oneMinute, load.fiveMinutes, load.fifteenMinutes)
+    let contention = environment.contended ? "contended" : "within core count"
+    print("Load (1/5/15 min) \(loadValues)   \(environment.coreCount) active cores"
+          + "   \(contention)   thermal \(environment.thermalState)")
     print("\(replay.measuredReplays) measured replays after \(replay.warmupReplays) warmups\n")
     row("Operation", "Bytes", "p50 ns", "p95 ns")
     for operation in replay.operations {
