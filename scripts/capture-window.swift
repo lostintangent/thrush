@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import ImageIO
 import ScreenCaptureKit
 import UniformTypeIdentifiers
@@ -12,6 +13,16 @@ func fail(_ message: String) -> Never {
 guard CommandLine.arguments.count == 3, let pid = Int32(CommandLine.arguments[1]), pid > 0 else {
     fail("Usage: capture-window.swift PID OUTPUT.png")
 }
+
+// ScreenCaptureKit can block inside either await when the desktop is locked. A process
+// alarm can stop the one-shot helper even if the main actor never runs again.
+signal(SIGALRM) { _ in _exit(124) }
+var alarmSignal = sigset_t()
+sigemptyset(&alarmSignal)
+sigaddset(&alarmSignal, SIGALRM)
+pthread_sigmask(SIG_UNBLOCK, &alarmSignal, nil)
+alarm(15)
+
 @MainActor
 func capture(pid: Int32, to url: URL) async throws {
     _ = NSApplication.shared
