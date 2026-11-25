@@ -11,6 +11,7 @@ Every benchmark checks what it measured. Replays compare each checkpoint with th
 | [Connection](connection.md) | `swift run -c release ThrushBench --connection` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback | Foreground ready and replay to Up p95 0.872 ms |
 | [Real PTY](pty.md) | `scripts/check-pty.sh --toy-box ../toy-box` | Numbered logs, reader comparisons and exit delivery against a disposable Toy Box server | A paced 1 MiB/s log arrives intact. Faster bursts expose the server's 1 MiB send guard, which Toy Box is fixing |
 | [PTY recovery](pty-recovery.md) | `scripts/check-pty.sh --recovery --working-tree --toy-box ../toy-box` | Silent repair and exit order after a stalled reader, against a Toy Box candidate | Awaiting the server candidate |
+| [Native PTY workflows](live-workflows.md) | `python3 scripts/live-workflow/launch.py --help` | Native Shell, Vim, Codex and lifecycle checks against real PTYs on Mac and iPhone Simulator | Native checkpoints and live wire reports accompany the captures |
 
 Build the sample app with `scripts/build-demo.sh mac` before the rendering and input benchmarks. Run them from a logged-in, unlocked graphical session, since a locked display returns no presentation timestamps.
 

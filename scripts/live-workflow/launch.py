@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""Run a packaged Thrush host against real processes on an isolated Toy Box PTY."""
+import argparse
+from contextlib import ExitStack, contextmanager
+import importlib.util
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.dont_write_bytecode = True
+ROOT = Path(__file__).resolve().parents[2]
+WORKFLOWS = ("shell", "vim", "codex", "lifecycle")
+ORIGIN = re.compile(r"http://127\.0\.0\.1:[0-9]+")
+CODEX_VERSION = "codex-cli 0.166.0"
+
+
+def load(path):
+    spec = importlib.util.spec_from_file_location(path.stem.replace("-", "_"), path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def private_environment(root):
+    home, temp = root / "tools-home", root / "tools-tmp"
+    home.mkdir(mode=0o700)
+    temp.mkdir(mode=0o700)
+    return {"PATH": os.environ["PATH"], "HOME": str(home), "CFFIXED_USER_HOME": str(home),
+            "TMPDIR": str(temp), "LC_ALL": "en_US.UTF-8", "DEVELOPER_DIR": os.environ.get(
+                "DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer"),
+            "LIBDISPATCH_COOPERATIVE_POOL_STRICT": "1", "GIT_TERMINAL_PROMPT": "0"}
+
+
+def executable(path, contents):
+    path.write_text(contents)
+    path.chmod(0o700)
+
+
+@contextmanager
+def service(argv, log, env):
+    with log.open("xb") as output, subprocess.Popen(
+        argv, cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True
+    ) as process:
+        try:
+            yield process
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+
+
+def wait_for(process, log, read, seconds):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        result = read()
+        if result:
+            return result
+        if process.poll() is not None:
+            raise RuntimeError(f"{process.args[0]} exited with status {process.returncode}. See {log}")
+        time.sleep(0.05)
+    raise TimeoutError(f"Timed out waiting for {process.args[0]}. See {log}")
+
+
+def configure_workspace(work, home, env, codex, responses):
+    bin_dir = home / "bin"
+    bin_dir.mkdir()
+    (home / "inputrc").write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
+    vim = load(ROOT / "Fixtures/reference/m2/capture.py")
+    executable(bin_dir / "vim", vim.VIM)
+    (home / "vimrc").write_text(vim.VIMRC)
+    (work / "scratch.txt").write_text("first line\nsecond line\n")
+    shutil.copyfile(ROOT / "Fixtures/reference/m2/build-log.py", work / "build")
+    (work / "build").chmod(0o700)
+    subprocess.run(["/usr/bin/git", "init", "-q", work], env=env, check=True)
+    if responses:
+        # Run the installed CLI itself and keep its profile, model traffic and tools local.
+        if not codex:
+            raise ValueError("Pass --codex-bin pointing to the installed native Codex 0.166.0 executable")
+        binary = Path(codex).absolute()
+        version = subprocess.check_output([binary, "--version"], env=env, text=True, timeout=15).strip()
+        if version != CODEX_VERSION:
+            raise ValueError(f"Expected {CODEX_VERSION}, found {version}")
+        executable(bin_dir / "codex", f'#!/bin/sh\nexec {shlex.quote(str(binary))} --no-daemon -s read-only -a never "$@"\n')
+        profile = home / ".codex"
+        profile.mkdir(mode=0o700)
+        (profile / "config.toml").write_text(
+            'model = "gpt-6.1-sol"\nmodel_provider = "thrush"\ncheck_for_update_on_startup = false\nweb_search = "disabled"\n'
+            '[model_providers.thrush]\nname = "Thrush local Responses"\n'
+            f'base_url = {json.dumps(responses)}\nwire_api = "responses"\nrequires_openai_auth = false\n'
+            f'[projects.{json.dumps(str(work))}]\ntrust_level = "trusted"\n[analytics]\nenabled = false\n'
+        )
+
+
+@contextmanager
+def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False):
+    """Yield the production endpoint, PTY cwd, pinned xterm modules and isolated tool environment."""
+    # Codex keys workspace trust by the canonical path of its PTY's current directory.
+    root = root.resolve()
+    env = private_environment(root)
+    bash = Path(bash).absolute()
+    bash_version = subprocess.check_output([bash, "--version"], env=env, text=True).splitlines()[0]
+    if not bash_version.startswith("GNU bash, version "):
+        raise ValueError("Pass --bash pointing to GNU Bash with Readline bracketed paste")
+    shell = root / "shell"
+    executable(shell, '#!/bin/sh\ncd "$HOME/workspace" || exit 1\nexport PATH="$HOME/bin:/usr/bin:/bin" INPUTRC="$HOME/inputrc" HISTFILE=/dev/null\n'
+               f"export PS1='thrush$ ' SHELL={shlex.quote(str(bash))}\nexec {shlex.quote(str(bash))} --noprofile --norc -i\n")
+    log = output / "toy-box.log"
+    args = [sys.executable, "-B", ROOT / "scripts/serve-pty.py", "--toy-box", toy_box, "--data-dir", root / "data", "--shell", shell]
+    if working_tree:
+        args.append("--working-tree")
+    with ExitStack() as stack:
+        responses = None
+        if "codex" in workflows:
+            provider = load(ROOT / "Fixtures/reference/m4/songbird_stream.py")
+            responses = stack.enter_context(provider.local_responses(provider.QUESTION, provider.MODEL))
+        process = stack.enter_context(service(args, log, env))
+        listener = wait_for(process, log, lambda: re.search(r"Listening on: (http://127\.0\.0\.1:\d+)/",
+                                                            log.read_text(errors="replace")), 900)
+        home = root / "data/home"
+        # Keep the Codex header and footer at ~/workspace on every machine.
+        work = home / "workspace"
+        work.mkdir(mode=0o700)
+        configure_workspace(work, home, env, codex, responses)
+        source = json.loads((root / "data/source.json").read_text())
+        bun = subprocess.check_output(["bun", "--version"], env=env, text=True).strip()
+        key = source["toyBoxRevision"]
+        if working_tree:
+            key += "-worktree-" + source["toyBoxWorktreeSHA256"]
+        modules = ROOT / ".build/pty-server" / f"{key}-bun-{bun}" / "node_modules"
+        for name, version in {"@xterm/headless": "6.0.0", "@xterm/addon-unicode11": "0.9.0"}.items():
+            if json.loads((modules / name / "package.json").read_text())["version"] != version:
+                raise ValueError(f"The controller requires {name} {version}")
+        metadata = dict(source, bun=bun, bash=bash_version, workflows=list(workflows))
+        if responses:
+            metadata.update(codex=CODEX_VERSION, responses="local published songbird stream")
+        (output / "server.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        yield listener[1], work, modules, env
+
+
+def controller_origins(log):
+    for line in log.read_text(errors="replace").splitlines():
+        if not line.startswith("{"):
+            continue
+        try:
+            info = json.loads(line)
+        except ValueError:
+            continue
+        endpoint, driver = info.get("endpoint", ""), info.get("driver", "")
+        if ORIGIN.fullmatch(endpoint) and ORIGIN.fullmatch(driver) and endpoint != driver:
+            return endpoint, driver
+
+
+def verify_controller(name, output, driver):
+    # The controller commits its wire and workflow checks before releasing the app's completed event.
+    controller = json.loads((output / "controller-report.json").read_bytes())
+    native = json.loads((driver / "workflow-report.json").read_bytes())
+    if controller.get("completed") is not True or controller.get("workflow") != name:
+        raise RuntimeError(controller.get("error") or f"Incomplete live {name} controller report in {output}")
+    if controller.get("checkpoints") != native["checkpoints"]:
+        raise RuntimeError(f"Live {name} controller acknowledgements differ from native checkpoints in {output}")
+
+
+def run_workflow(name, upstream, work, modules, env, app, output, appearance, device, documents, pane):
+    output.mkdir()
+    log = output / "controller.log"
+    controller = ["bun", ROOT / "scripts/live-workflow/controller.ts", "--workflow", name,
+                  "--upstream", upstream, "--work", work, "--report", output / "controller-report.json"]
+    with service(controller, log, dict(env, THRUSH_XTERM_MODULES=str(modules))) as proxy:
+        endpoint, control = wait_for(proxy, log, lambda: controller_origins(log), 30)
+        driver = Path(tempfile.mkdtemp(prefix="thrush-live-", dir=documents)) if device else output
+        try:
+            options = ["--endpoint", endpoint, "--workflow-driver", control, "--workflow-output", str(driver),
+                       "--appearance", appearance,
+                       "--keyboard" if device else "--hide-keyboard"]
+            if device:
+                pane.ensure_demo_idle(device)
+                command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
+            else:
+                command = [app / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
+            with pane.running([*command, *options], output / "app.log", **({} if device else {"env": env})) as host:
+                try:
+                    pane.await_report(name if name != "lifecycle" else "live-lifecycle", host, proxy,
+                                      driver, output, "simulator" if device else "mac", device or str(host.pid),
+                                      verify_fixture=False)
+                    verify_controller(name, output, driver)
+                finally:
+                    if device and host.poll() is None:
+                        # simctl --console is the console reader. Explicitly release our app
+                        # before the next workflow uses this reserved device.
+                        subprocess.run(["xcrun", "simctl", "terminate", device, pane.BUNDLE_ID],
+                                       timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        finally:
+            if device:
+                shutil.copytree(driver, output, dirs_exist_ok=True)
+                shutil.rmtree(driver)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--platform", required=True, choices=("mac", "simulator"))
+    parser.add_argument("--appearance", choices=("dark", "light"), default="dark", help="Native terminal appearance (default: dark)")
+    parser.add_argument("--output", type=Path, required=True, help="New or empty native evidence directory")
+    parser.add_argument("--toy-box", type=Path, default=ROOT.parent / "toy-box", help="Local checkout containing the pinned revision")
+    parser.add_argument("--working-tree", action="store_true", help="Build the current Toy Box files instead of the pinned revision")
+    parser.add_argument("--workflow", action="append", choices=WORKFLOWS, help="Repeat to select workflows; default: all four")
+    parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
+    parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
+    parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
+    parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")
+    args = parser.parse_args()
+    workflows = args.workflow or list(WORKFLOWS)
+    if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
+        parser.error("Choose each workflow once and use --device only with --platform simulator")
+    if args.bash is None:
+        parser.error("Pass --bash pointing to GNU Bash with Readline bracketed paste")
+    out = args.output.resolve()
+    toy_box = args.toy_box.resolve()
+    app = args.app.resolve() if args.app else ROOT / ".build/demo" / args.platform / "Thrush.app"
+    bash = Path(args.bash).absolute()
+    codex = Path(args.codex_bin).absolute() if args.codex_bin else None
+    os.chdir(ROOT)
+    out.mkdir(parents=True, exist_ok=True)
+    if any(out.iterdir()):
+        parser.error("The output directory must be empty")
+    os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
+    pane = load(ROOT / "scripts/check-pane-workflows.py")
+    with tempfile.TemporaryDirectory(prefix="thrush-live-") as scratch, ExitStack() as stack:
+        endpoint, work, modules, env = stack.enter_context(live_pty(
+            Path(scratch), out, toy_box, bash, codex, workflows, args.working_tree))
+        if not args.app:
+            with (out / "build.log").open("xb") as log:
+                subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], env=env, stdout=log,
+                               stderr=subprocess.STDOUT, timeout=900, check=True)
+        with (app / ("Contents/Info.plist" if args.platform == "mac" else "Info.plist")).open("rb") as file:
+            info = plistlib.load(file)
+        (out / "source.json").write_text(json.dumps(dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
+            toolchain=info["ThrushToolchain"], platform=args.platform, appearance=args.appearance), indent=2) + "\n")
+        device = documents = None
+        if args.platform == "simulator":
+            if args.device:
+                device = stack.enter_context(pane.reserve_phone(args.device))
+            else:
+                simulator = load(ROOT / "scripts/capture-simulator.py")
+                device = stack.enter_context(simulator.disposable_phone(out))
+            pane.ensure_demo_idle(device)
+            try:
+                pane.simctl("install", device, str(app), timeout=180)
+            except subprocess.TimeoutExpired:
+                try:
+                    pane.simctl("get_app_container", device, pane.BUNDLE_ID, "app")
+                except subprocess.SubprocessError:
+                    pane.simctl("install", device, str(app), timeout=180)
+            documents = Path(pane.simctl("get_app_container", device, pane.BUNDLE_ID, "data")) / "Documents"
+            documents.mkdir(exist_ok=True)
+        for name in workflows:
+            print(f"Running live {name} in the packaged {args.platform} host", flush=True)
+            run_workflow(name, endpoint, work, modules, env, app, out / name, args.appearance, device, documents, pane)
+    print(out)
+
+
+if __name__ == "__main__":
+    def interrupted(signum, _frame):
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, interrupted)
+    main()
