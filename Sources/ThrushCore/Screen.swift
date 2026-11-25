@@ -197,26 +197,42 @@ extension Terminal {
                     return
                 }
             }
-            let blank = Row(columns: size.columns, generation: generation, style: eraseStyle, wrapped: wrapped ?? false)
-            deleteRows(1, at: scrollTop, through: scrollBottom, blank: blank)
+            deleteRows(1, at: scrollTop, through: scrollBottom, generation: generation, style: eraseStyle,
+                       wrapped: wrapped ?? false)
         }
 
-        /// Removes rows at `top` and moves the rows below them up, filling the freed rows above `bottom` with blanks.
-        mutating func deleteRows(_ count: Int, at top: Int, through bottom: Int, blank: Row) {
+        /// Removes rows at `top` and moves the rows below them up. The removed rows rotate down to the
+        /// freed rows above `bottom` and are cleared there, so scrolling a region never allocates a row.
+        mutating func deleteRows(_ count: Int, at top: Int, through bottom: Int, generation: UInt64,
+                                 style: Style = .init(), wrapped: Bool = false) {
             let count = min(count, bottom - top + 1)
-            for y in top..<(bottom + 1 - count) {
-                rows[index(of: y)] = rows[index(of: y + count)]
+            rotate(top...bottom, by: -count)
+            for y in (bottom + 1 - count)...bottom {
+                rows[index(of: y)].clear(columns: size.columns, generation: generation, style: style, wrapped: wrapped)
             }
-            for y in (bottom + 1 - count)...bottom { rows[index(of: y)] = blank }
         }
 
-        /// Opens blank rows at `top` and moves the rows below them down, discarding those pushed past `bottom`.
-        mutating func insertRows(_ count: Int, at top: Int, through bottom: Int, blank: Row) {
+        /// Opens rows at `top` and moves the rows below them down. The rows pushed past `bottom` rotate
+        /// up to the opened rows and are cleared there.
+        mutating func insertRows(_ count: Int, at top: Int, through bottom: Int, generation: UInt64,
+                                 style: Style = .init()) {
             let count = min(count, bottom - top + 1)
-            for y in stride(from: bottom, through: top + count, by: -1) {
-                rows[index(of: y)] = rows[index(of: y - count)]
+            rotate(top...bottom, by: count)
+            for y in top..<(top + count) {
+                rows[index(of: y)].clear(columns: size.columns, generation: generation, style: style)
             }
-            for y in top..<(top + count) { rows[index(of: y)] = blank }
+        }
+
+        /// Moves the rows in `region` down by `offset`, or up when it's negative, and wraps the rows pushed
+        /// past one margin around to the other.
+        private mutating func rotate(_ region: ClosedRange<Int>, by offset: Int) {
+            if head + region.lowerBound < rows.count, head + region.upperBound >= rows.count {
+                // The region crosses the end of the ring, so put the rows back in screen order first.
+                rows.rotate(rows.indices, by: -head)
+                head = 0
+            }
+            let first = index(of: region.lowerBound)
+            rows.rotate(first..<(first + region.count), by: offset)
         }
     }
 
@@ -373,22 +389,20 @@ extension Terminal {
                 return
             }
             revision &+= 1
-            let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            active.insertRows(1, at: scrollTop, through: scrollBottom, blank: blank)
+            active.insertRows(1, at: scrollTop, through: scrollBottom, generation: revision, style: style.eraseStyle)
         }
 
         /// SU moves the region's rows up without saving them to history.
         mutating func scrollUp(_ count: Int, style: Style) {
             revision &+= 1
-            let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            active.deleteRows(count, at: scrollTop, through: scrollBottom, blank: blank)
+            active.deleteRows(count, at: scrollTop, through: scrollBottom, generation: revision,
+                              style: style.eraseStyle)
         }
 
         /// SD opens rows at the top margin. As in the reference, they keep the default background.
         mutating func scrollDown(_ count: Int) {
             revision &+= 1
-            active.insertRows(count, at: scrollTop, through: scrollBottom,
-                              blank: Row(columns: size.columns, generation: revision))
+            active.insertRows(count, at: scrollTop, through: scrollBottom, generation: revision)
         }
 
         /// IL and DL act only inside the scroll region, and return to the first column there.
@@ -396,8 +410,7 @@ extension Terminal {
             active.column = min(column, size.columns - 1)
             guard (scrollTop...scrollBottom).contains(row) else { return }
             revision &+= 1
-            let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            active.insertRows(count, at: row, through: scrollBottom, blank: blank)
+            active.insertRows(count, at: row, through: scrollBottom, generation: revision, style: style.eraseStyle)
             active.column = 0
         }
 
@@ -405,8 +418,7 @@ extension Terminal {
             active.column = min(column, size.columns - 1)
             guard (scrollTop...scrollBottom).contains(row) else { return }
             revision &+= 1
-            let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            active.deleteRows(count, at: row, through: scrollBottom, blank: blank)
+            active.deleteRows(count, at: row, through: scrollBottom, generation: revision, style: style.eraseStyle)
             active.column = 0
         }
 
@@ -603,6 +615,41 @@ extension Terminal {
             alternateCapacity = isAlternate ? size.rows : max(alternateCapacity, size.rows)
             active.resize(to: size, revision: &revision)
             normalWhileAlternate?.resize(to: size, revision: &revision)
+        }
+    }
+}
+
+extension Array {
+    /// Moves the elements in `range` toward its end by `offset`, or toward its start when it's negative,
+    /// and wraps the elements pushed past one end around to the other.
+    ///
+    /// The shorter side waits in temporary storage while the rest slides over its slots, then fills the
+    /// slots the slide left behind. Each typed move hands its elements to the destination and leaves the
+    /// source uninitialized, so every element keeps its one owner and nothing is retained or released.
+    /// Nothing between the moves can throw or read the array, and taking the buffer first copies it when
+    /// a snapshot shares it.
+    fileprivate mutating func rotate(_ range: Range<Int>, by offset: Int) {
+        let count = range.count
+        guard count > 1 else { return }
+        var offset = offset % count
+        // Rotating the other way by the rest of the range is the same rotation, so set aside the shorter side.
+        if offset > count / 2 { offset -= count } else if offset < -(count / 2) { offset += count }
+        guard offset != 0 else { return }
+        let shift = abs(offset)
+        withUnsafeMutableBufferPointer { buffer in
+            let first = buffer.baseAddress! + range.lowerBound, last = first + count - shift
+            withUnsafeTemporaryAllocation(of: Element.self, capacity: shift) { aside in
+                let aside = aside.baseAddress!
+                if offset < 0 {
+                    aside.moveInitialize(from: first, count: shift)
+                    first.moveInitialize(from: first + shift, count: count - shift)
+                    last.moveInitialize(from: aside, count: shift)
+                } else {
+                    aside.moveInitialize(from: last, count: shift)
+                    (first + shift).moveInitialize(from: first, count: count - shift)
+                    first.moveInitialize(from: aside, count: shift)
+                }
+            }
         }
     }
 }

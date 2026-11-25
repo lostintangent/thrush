@@ -131,6 +131,47 @@ import ThrushFixtures
     #expect(recycled.rows[1].text == "X")
 }
 
+@Test func scrollRegionsReuseRowsAndLeaveEarlierSnapshotsIntact() {
+    var terminal = Terminal(size: .init(columns: 3, rows: 4))
+    // Rows two through four scroll. The second row's combined glyph is a cluster that must not outlive its line.
+    _ = terminal.receive("top\r\ne\u{301}\r\nb\r\nc\u{1b}[2;4r".utf8)
+    let full = terminal.snapshot()
+
+    // A line feed at the bottom margin rotates the second row down to the bottom, cleared.
+    _ = terminal.receive("\u{1b}[4;1H\u{1b}[41m\n".utf8)
+    let scrolled = terminal.snapshot()
+    #expect(scrolled.rows.map(\.text) == ["top", "b", "c", ""])
+    var red = Terminal.Style()
+    red.background = .indexed(1)
+    #expect((0..<3).allSatisfy { scrolled.rows[3][$0] == Terminal.Cell(text: "", width: 1, style: red) })
+    #expect(scrolled.rows[1].generation == full.rows[2].generation)
+    #expect(scrolled.rows[3].generation != full.rows[1].generation)
+
+    // A reverse index at the top margin rotates the red bottom row up, cleared in the default style.
+    _ = terminal.receive("\u{1b}[2;1HM\u{1b}[2;1H\u{1b}[0m\u{1b}M".utf8)
+    let reversed = terminal.snapshot()
+    #expect(reversed.rows.map(\.text) == ["top", "", "M", "c"])
+    #expect((0..<3).allSatisfy { reversed.rows[1][$0] == Terminal.Cell(text: "", width: 1, style: .init()) })
+
+    #expect(full.rows.map(\.text) == ["top", "e\u{301}", "b", "c"])
+    #expect(scrolled.rows.map(\.text) == ["top", "b", "c", ""])
+}
+
+@Test func scrollRegionsThatCrossTheEndOfTheRowRingKeepScreenOrder() {
+    var terminal = Terminal(size: .init(columns: 3, rows: 5))
+    // Three full-screen scrolls leave the second through fifth rows spanning the end of the row ring.
+    _ = terminal.receive("a\r\nb\r\nc\r\nd\r\ne\r\nf\r\ng\r\nh\u{1b}[2;5r".utf8)
+    let full = terminal.snapshot()
+
+    _ = terminal.receive("\u{1b}[3T".utf8)
+    #expect(terminal.snapshot().rows.map(\.text) == ["d", "", "", "", "e"])
+    _ = terminal.receive("\u{1b}[5;1H\ni".utf8)
+    #expect(terminal.snapshot().rows.map(\.text) == ["d", "", "", "e", "i"])
+    _ = terminal.receive("\u{1b}[2;1H\u{1b}[3M".utf8)
+    #expect(terminal.snapshot().rows.map(\.text) == ["d", "i", "", "", ""])
+    #expect(full.rows.map(\.text) == ["d", "e", "f", "g", "h"])
+}
+
 @Test func synchronizedOutputKeepsParsingAndAnswersQueriesBeforeRelease() throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let start = "\u{1b}[?2026h", end = "\u{1b}[?2026l"
