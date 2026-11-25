@@ -121,6 +121,13 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     private var hasSubmittedContent = false
     private var metrics: GridMetrics?
     private var snapshot: Terminal.Snapshot?
+    private lazy var synchronizedOutput: SynchronizedOutputGate = {
+        let gate = SynchronizedOutputGate { [weak self] snapshot, receivedAt in
+            self?.accept(snapshot, receivedAt: receivedAt)
+        }
+        gate.setActive(active && window != nil)
+        return gate
+    }()
     private var received: Double?
     private var active = true
     private var dirty = true
@@ -198,12 +205,18 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     #if os(macOS)
     public override func layout() { super.layout(); updateGeometry() }
     public override func viewDidChangeBackingProperties() { super.viewDidChangeBackingProperties(); updateGeometry() }
-    public override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); updateGeometry(); invalidateFrame() }
+    public override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); updateAttachment() }
     public override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); resolveTheme() }
     #else
     public override func layoutSubviews() { super.layoutSubviews(); updateGeometry() }
-    public override func didMoveToWindow() { super.didMoveToWindow(); updateGeometry(); invalidateFrame() }
+    public override func didMoveToWindow() { super.didMoveToWindow(); updateAttachment() }
     #endif
+
+    private func updateAttachment() {
+        synchronizedOutput.setActive(active && window != nil)
+        updateGeometry()
+        invalidateFrame()
+    }
 
     private func resolveTheme() {
         #if os(macOS)
@@ -274,6 +287,10 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
 
     package func display(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval? = nil) {
+        synchronizedOutput.submit(next, receivedAt: receivedAt, synchronizedOutputID: next.synchronizedOutputID)
+    }
+
+    private func accept(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
         if let last = snapshot, last.generation == next.generation { return }
         snapshot = next
         received = receivedAt
@@ -282,6 +299,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
 
     /// Call when replacing the underlying terminal. Row revisions belong to a single terminal.
     public func reset() {
+        synchronizedOutput.reset()
         snapshot = nil
         selection = nil
         received = nil
@@ -292,6 +310,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     public func setRenderingActive(_ newValue: Bool) {
         guard active != newValue else { return }
         active = newValue
+        synchronizedOutput.setActive(active && window != nil)
         if active { invalidateFrame() } else { releaseDrawables() }
     }
 

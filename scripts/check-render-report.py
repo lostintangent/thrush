@@ -11,7 +11,7 @@ def check(path):
     report = json.loads(Path(path).read_bytes())
     columns, rows = report["columns"], report["rows"]
     version = report["schemaVersion"]
-    assert columns >= 24 and rows >= 2 and version in (1, 2)
+    assert columns >= 24 and rows >= 2 and version in (1, 2, 3)
     environment = report["environment"]
     assert environment["commit"] != "unknown" and environment["toolchain"] != "unknown"
     assert environment["hardwareModel"] != "unknown"
@@ -23,7 +23,7 @@ def check(path):
     assert report["workloadSHA256"] == hashlib.sha256(tape.encode()).hexdigest()
     samples = report["samples"]
     assert [s["operation"] for s in samples] == ["cold"] + ["cursor", "oneRow", "scroll", "full"] * 10
-    if version == 2:
+    if version >= 2:
         assert 0 < samples[0]["shaderCompileSeconds"] <= samples[0]["firstFrameSeconds"]
         assert all("shaderCompileSeconds" not in s and "firstFrameSeconds" not in s for s in samples[1:])
     assert samples[0]["glyphUploads"] > 0 and samples[0]["rowsPrepared"] == rows
@@ -52,9 +52,33 @@ def check(path):
     for state in ["foregroundIdle", "inactiveRenderer", "background"]:
         assert report[state]["seconds"] >= 1 and report[state]["additionalSubmissions"] == 0, state
     assert report["displayIntervalSeconds"] > 0
+    if version >= 3:
+        check_synchronized_output(report["synchronizedOutput"])
     drawn = sum("presentedTime" in s for s in samples)
     print(f'{environment["destination"]}, {columns} × {rows}, {drawn}/{len(samples)} '
           'confirmed presentations, zero settled, inactive and background submissions')
+
+
+def check_synchronized_output(sync):
+    begin, end, rewrite = "\x1b[?2026h", "\x1b[?2026l", "\x1b[1;1H\x1b[K"
+    packets = [rewrite + "ready", begin + rewrite + "partial", rewrite + "replaced",
+               begin + rewrite + "last partial", rewrite + "complete" + end,
+               begin + rewrite + "unfinished", rewrite + "watchdog"]
+    assert sync["workloadSHA256"] == hashlib.sha256("".join(packets).encode()).hexdigest()
+    close, watchdog = sync["close"], sync["watchdog"]
+    held = sync["heldGenerations"]
+    assert len(held) == 3 and held[0] < held[1] < held[2] < close["generation"] < watchdog["generation"]
+    assert 0.09 <= close["receivedAt"] - sync["holdOpenedAt"] < 1
+    assert sync["submissionsDuringHold"] == 0
+    for release in (close, watchdog):
+        assert release["submissions"] == 1 and release["generation"] == release["expectedGeneration"]
+        assert release["receivedAt"] <= release["submittedAt"]
+        if "presentedTime" in release:
+            assert release["presentedTime"] >= release["submittedAt"]
+    assert close["submittedAt"] <= sync["truncatedOpenedAt"] < watchdog["receivedAt"]
+    delay = watchdog["submittedAt"] - sync["truncatedOpenedAt"]
+    assert delay >= 1 and math.isclose(delay, sync["watchdogToSubmissionSeconds"])
+    assert sync["idle"]["seconds"] >= 1 and sync["idle"]["additionalSubmissions"] == 0
 
 
 if __name__ == "__main__":

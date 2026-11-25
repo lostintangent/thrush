@@ -63,7 +63,7 @@ enum RenderBenchmark {
     }
 
     private struct Report: Encodable {
-        let schemaVersion = 2
+        let schemaVersion = 3
         let recordedAt: Date
         let workloadSHA256: String
         let environment: RenderEnvironment
@@ -76,6 +76,7 @@ enum RenderBenchmark {
         let foregroundIdle: IdleObservation
         let inactiveRenderer: IdleObservation
         let background: IdleObservation?
+        let synchronizedOutput: SynchronizedRenderCheck.Result
     }
 
     private static func quantile(_ values: [Double], _ q: Double) -> Double? {
@@ -183,12 +184,14 @@ enum RenderBenchmark {
             background = nil
         }
 
+        let synchronizedOutput = try await SynchronizedRenderCheck.run(on: view, continuing: collector.terminal)
         let samples = collector.samples.filter { $0.operation != "restore" }
         let workloads = summarize(samples, interval: interval)
         let report = Report(recordedAt: Date(), workloadSHA256: workloadSHA256,
                             environment: environment, columns: size.columns, rows: size.rows,
                             displayIntervalSeconds: interval, samples: samples, workloads: workloads,
-                            themeSwitches: switches, foregroundIdle: foregroundIdle, inactiveRenderer: inactive, background: background)
+                            themeSwitches: switches, foregroundIdle: foregroundIdle, inactiveRenderer: inactive,
+                            background: background, synchronizedOutput: synchronizedOutput)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -206,6 +209,9 @@ enum RenderBenchmark {
         }
         print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)")
         if let background { print("Additional submissions   background \(background.additionalSubmissions)") }
+        print(String(format: "Synchronized output   %d partial   %d close   watchdog submission %.3f ms   %d idle",
+                     synchronizedOutput.submissionsDuringHold, synchronizedOutput.close.submissions,
+                     synchronizedOutput.watchdogToSubmissionSeconds * 1000, synchronizedOutput.idle.additionalSubmissions))
         print("Report \(reportURL.path)")
         guard foregroundIdle.additionalSubmissions == 0, inactive.additionalSubmissions == 0,
               (background?.additionalSubmissions ?? 0) == 0,
