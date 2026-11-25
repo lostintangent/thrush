@@ -78,6 +78,10 @@ func run() throws {
         try runConnectionBenchmark(arguments: arguments)
         return
     }
+    if arguments.first == "--workload" {
+        try WorkloadRun.run(arguments: arguments)
+        return
+    }
     let output = try outputURL(arguments: arguments)
     let fixture = try FirstBytesFixture.load()
     let environment = try Environment.read()
