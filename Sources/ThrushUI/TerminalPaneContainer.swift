@@ -518,6 +518,8 @@ private typealias NoticeHost = UIView & UIContentView
             existing.rootView = content
             #else
             existing.configuration = UIHostingConfiguration { content }.margins(.all, 0)
+            // A retained host otherwise keeps the previous notice’s height after adding a button.
+            existing.invalidateIntrinsicContentSize()
             #endif
         } else {
             #if os(macOS)
