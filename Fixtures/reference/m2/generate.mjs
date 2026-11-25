@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { applyPalette, reference, server, terminal, write } from './xterm-reference.mjs';
+import { pointerInput, encodePointer } from '../m4/pointer.mjs';
 import { hardwareKeys } from '../m4/hardware-keys.mjs';
 
 const { evaluateKeyboardEvent } = await import(server.resolve('@xterm/xterm/src/common/input/Keyboard.ts'));
@@ -145,6 +146,7 @@ const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,ent
   home:36,end:35,pageUp:33,pageDown:34,delete:46,'[':219,'\\':220,']':221};
 function encodedInput(t, action) {
   switch (action.kind) {
+    case 'pointer': return encodePointer(t, action);
     case 'text': return utf8(action.value);
     case 'paste': return utf8(bracketTextForPaste(prepareTextForTerminal(action.value), t.modes.bracketedPasteMode));
     case 'key': {
@@ -195,12 +197,12 @@ async function verifyStyledPaints(recording, events, cells, lines) {
 
 async function generate(name) {
   const directory = workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
-  const captureBytes = ['shell-edges','prompt-bom','hardware-keys'].includes(name) ? null
+  const captureBytes = ['shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
     : await readFile(new URL(directory + name + '.capture.json', import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
-    : name === 'hardware-keys' ? hardwareKeys() : shellEdges();
+    : name === 'pointer-input' ? pointerInput() : name === 'hardware-keys' ? hardwareKeys() : shellEdges();
   let t = terminal(recording.columns, recording.rows);
   let palette;
   const cells = new Pool(), lines = new Pool();
@@ -270,7 +272,7 @@ async function generate(name) {
   console.log(name, events.length, sha256(data));
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
-const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys', ...workflows];
+const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', ...workflows];
 const requested = process.argv.slice(3);
 for (const name of requested.length ? requested : all) {
   assert(all.includes(name), 'Unknown replay: ' + name);

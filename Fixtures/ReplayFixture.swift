@@ -5,7 +5,7 @@ import Thrush
 /// Development-only playback data and independent expected screens for the recorded workflows.
 package struct ReplayFixture: Sendable {
     package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light",
-                                "hardware-keys", "shell-workflow", "vim-resume", "codex-session"]
+                                "hardware-keys", "pointer-input", "shell-workflow", "vim-resume", "codex-session"]
 
     package struct Grid: Decodable, Sendable {
         package let columns: Int
@@ -40,13 +40,40 @@ package struct ReplayFixture: Sendable {
     }
 
     fileprivate struct Action: Decodable, Sendable {
-        enum Kind: String, Decodable { case text, paste, key }
+        enum Kind: String, Decodable { case text, paste, key, pointer }
         let kind: Kind
         let value: String
         let modifiers: [String]?
+        let pointer: PointerFields?
+
+        struct PointerFields: Decodable, Sendable {
+            let button: String
+            let column: Int
+            let row: Int
+        }
+
+        private func modifierFlags() throws -> Terminal.Input.Modifiers {
+            var flags: Terminal.Input.Modifiers = []
+            for modifier in modifiers ?? [] {
+                switch modifier {
+                case "shift": flags.insert(.shift)
+                case "alt": flags.insert(.alt)
+                case "control": flags.insert(.control)
+                default: throw Failure("Unknown recorded modifier \(modifier)")
+                }
+            }
+            return flags
+        }
 
         func terminalInput() throws -> Terminal.Input {
             switch kind {
+            case .pointer:
+                guard let pointer, let action = Terminal.Input.Pointer.Action(rawValue: value),
+                      let button = Terminal.Input.Pointer.Button(rawValue: pointer.button) else {
+                    throw Failure("Invalid pointer event.")
+                }
+                return .pointer(.init(action, button: button, row: pointer.row, column: pointer.column,
+                                      modifiers: try modifierFlags()))
             case .text: return .text(value)
             case .paste: return .paste(value)
             case .key:
@@ -57,16 +84,7 @@ package struct ReplayFixture: Sendable {
                 ]
                 guard let key = named[value] ?? (value.count == 1 ? value.first.map { .character($0) } : nil)
                 else { throw Failure("Unknown recorded key \(value)") }
-                var flags: Terminal.Input.Modifiers = []
-                for modifier in modifiers ?? [] {
-                    switch modifier {
-                    case "shift": flags.insert(.shift)
-                    case "alt": flags.insert(.alt)
-                    case "control": flags.insert(.control)
-                    default: throw Failure("Unknown recorded modifier \(modifier)")
-                    }
-                }
-                return .key(key, modifiers: flags)
+                return .key(key, modifiers: try modifierFlags())
             }
         }
     }

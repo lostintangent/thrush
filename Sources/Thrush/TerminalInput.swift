@@ -2,6 +2,7 @@ extension Terminal {
     public enum Input: Sendable {
         case text(String)
         case paste(String)
+        case pointer(Pointer)
         case key(Key, modifiers: Modifiers = [])
 
         public enum Key: Sendable {
@@ -26,6 +27,7 @@ extension Terminal {
         switch input {
         case .text(let text):
             return Array(text.utf8)
+        case .pointer(let event): return encodePointer(event)
         case .paste(let text):
             var bytes: [UInt8] = []
             if modes.bracketedPaste { bytes.append(contentsOf: "\u{1b}[200~".utf8) }
