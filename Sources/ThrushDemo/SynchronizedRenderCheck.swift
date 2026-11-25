@@ -12,7 +12,7 @@ enum SynchronizedRenderCheck {
         let generation: UInt64
         let receivedAt: Double
         let submittedAt: Double
-        let presentedTime: Double?
+        var presentedTime: Double?
         let submissions: Int
     }
 
@@ -33,16 +33,9 @@ enum SynchronizedRenderCheck {
         let receipt: Double
     }
 
-    static func run(on view: TerminalView, continuing previous: Terminal) async throws -> Result {
+    static func run(on view: TerminalView, continuing previous: Terminal, frames: RenderFrameObservations) async throws -> Result {
         var terminal = previous
         var hash = SHA256()
-        var frames: [Double: FrameMeasurement] = [:]
-        let priorCallback = view.onFrame
-        view.onFrame = { frame in
-            if let receipt = frame.receivedAt { frames[receipt] = frame }
-        }
-        defer { view.onFrame = priorCallback }
-
         let begin = "\u{1b}[?2026h"
         let end = "\u{1b}[?2026l"
         let rewrite = "\u{1b}[1;1H\u{1b}[K"
@@ -57,18 +50,10 @@ enum SynchronizedRenderCheck {
         }
 
         func collect(_ update: Update, since count: Int) async throws -> Release {
-            let deadline = update.receipt + 15
-            while frames[update.receipt] == nil {
-                guard CACurrentMediaTime() < deadline else {
-                    throw RenderBenchmark.Failure("No submission for synchronized-output generation \(update.generation).")
-                }
-                try await Task.sleep(for: .milliseconds(5))
-            }
-            guard let frame = frames[update.receipt], frame.generation == update.generation else {
-                throw RenderBenchmark.Failure("The synchronized-output receipt and submitted generation did not match.")
-            }
+            let frame = try await frames.frame(for: "synchronized output", generation: update.generation,
+                                               after: update.receipt, receivedAt: update.receipt, initialSubmissions: count)
             return Release(expectedGeneration: update.generation, generation: frame.generation,
-                           receivedAt: update.receipt, submittedAt: frame.submittedAt, presentedTime: frame.presentedTime,
+                           receivedAt: update.receipt, submittedAt: frame.submittedAt, presentedTime: nil,
                            submissions: view.submissionCount - count)
         }
 
@@ -83,7 +68,7 @@ enum SynchronizedRenderCheck {
         try await Task.sleep(for: .milliseconds(50))
         let partials = view.submissionCount - before
         let closing = feed(rewrite + "complete" + end)
-        let close = try await collect(closing, since: before + partials)
+        var close = try await collect(closing, since: before + partials)
 
         // Omit DECRST. The latest receipt belongs to the text chunk, while the one-second
         // watchdog is measured from the first open. submittedAt includes native draw scheduling.
@@ -91,12 +76,14 @@ enum SynchronizedRenderCheck {
         let truncated = feed(begin + rewrite + "unfinished")
         try await Task.sleep(for: .milliseconds(50))
         let final = feed(rewrite + "watchdog")
-        let watchdog = try await collect(final, since: beforeTruncated)
+        var watchdog = try await collect(final, since: beforeTruncated)
         let idleCount = view.submissionCount
         let idleStart = CACurrentMediaTime()
         try await Task.sleep(for: .seconds(1))
         let idle = RenderBenchmark.IdleObservation(seconds: CACurrentMediaTime() - idleStart,
                                                   additionalSubmissions: view.submissionCount - idleCount)
+        close.presentedTime = try frames.presentationTime(for: close.submittedAt)
+        watchdog.presentedTime = try frames.presentationTime(for: watchdog.submittedAt)
         let watchdogDelay = watchdog.submittedAt - truncated.receipt
         let result = Result(workloadSHA256: hash.finalize().map { String(format: "%02x", $0) }.joined(),
                             holdOpenedAt: first.receipt, heldGenerations: [first.generation, second.generation, third.generation],

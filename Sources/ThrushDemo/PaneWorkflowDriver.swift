@@ -143,9 +143,10 @@ final class PaneWorkflowDriver {
                                             drawableSize: view.drawableSize, drawableGrid: grid, layout: layout)
         }
         let originalCompletionHook = view.onFrameCompleted
-        view.onFrameCompleted = { [weak self] time, succeeded in
-            originalCompletionHook?(time, succeeded)
-            guard let self, let frame = inFlight.removeValue(forKey: time), succeeded,
+        view.onFrameCompleted = { [weak self] measurement in
+            originalCompletionHook?(measurement)
+            let time = measurement.submittedAt
+            guard let self, let frame = inFlight.removeValue(forKey: time), measurement.gpuCompleted,
                   time >= firstSubmission, time >= (lastFrame?.submittedAt ?? -Double.infinity) else { return }
             lastFrame = frame
         }

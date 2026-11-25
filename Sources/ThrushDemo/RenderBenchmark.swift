@@ -24,7 +24,7 @@ enum RenderBenchmark {
         let generation: UInt64
         let receivedAt: Double
         let submittedAt: Double
-        let presentedTime: Double?
+        var presentedTime: Double?
         let cpuPreparationSeconds: Double
         let shaderCompileSeconds: Double?
         let firstFrameSeconds: Double?
@@ -57,7 +57,7 @@ enum RenderBenchmark {
         let theme: String
         let generation: UInt64
         let submittedAt: Double
-        let presentedTime: Double?
+        var presentedTime: Double?
         let rowsPrepared: Int
         let glyphUploads: Int
     }
@@ -109,7 +109,9 @@ enum RenderBenchmark {
         throw Failure("Build the packaged demo in Release to measure rendering.")
         #else
         guard size.columns >= 24, size.rows >= 2 else { throw Failure("Render benchmark needs at least 24 × 2.") }
-        let collector = FrameCollector(view: view, size: size)
+        let frames = RenderFrameObservations(view: view)
+        defer { frames.stop() }
+        let collector = FrameCollector(view: view, size: size, frames: frames)
         view.reset()
         // Keep the same glyphs and styles for every warm frame. Neither cursor motion nor
         // reflow to a different viewport is allowed to hide the cost of a new glyph upload.
@@ -145,7 +147,7 @@ enum RenderBenchmark {
             }
             let name = theme == .slateDark ? "Slate Dark" : theme == .slateLight ? "Slate Light" : "Custom"
             switches.append(.init(theme: name, generation: frame.generation, submittedAt: frame.submittedAt,
-                                  presentedTime: frame.presentedTime, rowsPrepared: frame.rowsPrepared,
+                                  presentedTime: nil, rowsPrepared: frame.rowsPrepared,
                                   glyphUploads: frame.glyphUploads))
         }
         try await collector.observeMutation {
@@ -181,8 +183,10 @@ enum RenderBenchmark {
             background = nil
         }
 
-        let synchronizedOutput = try await SynchronizedRenderCheck.run(on: view, continuing: collector.terminal)
-        let samples = collector.samples.filter { $0.operation != "restore" }
+        let synchronizedOutput = try await SynchronizedRenderCheck.run(on: view, continuing: collector.terminal, frames: frames)
+        var samples = collector.samples.filter { $0.operation != "restore" }
+        for i in samples.indices { samples[i].presentedTime = try frames.presentationTime(for: samples[i].submittedAt) }
+        for i in switches.indices { switches[i].presentedTime = try frames.presentationTime(for: switches[i].submittedAt) }
         let workloads = summarize(samples, interval: interval)
         let report = Report(recordedAt: Date(), workloadSHA256: workloadSHA256,
                             environment: environment, columns: size.columns, rows: size.rows,
@@ -228,64 +232,28 @@ enum RenderBenchmark {
         return IdleObservation(seconds: CACurrentMediaTime() - start, additionalSubmissions: view.submissionCount - before)
     }
 
-    /// A layout redraw can finish just after the requested content. Retain the first
-    /// matching callback even if Metal delivers several before the waiting task resumes.
-    static func measureFrame(on view: TerminalView, for operation: String, generation: UInt64,
-                             after start: Double, receivedAt receipt: Double? = nil,
-                             update: () -> Void) async throws -> FrameMeasurement {
-        let initialSubmissions = view.submissionCount
-        var gpuCompletions = 0
-        var callbacks = 0
-        var last: FrameMeasurement?
-        var match: FrameMeasurement?
-        let priorFrame = view.onFrame
-        let priorCompletion = view.onFrameCompleted
-        view.onFrame = { frame in
-            callbacks += 1
-            last = frame
-            if match == nil, frame.generation == generation, frame.submittedAt >= start,
-               receipt == nil || frame.receivedAt == receipt {
-                match = frame
-            }
-        }
-        view.onFrameCompleted = { submittedAt, succeeded in
-            gpuCompletions += 1
-            priorCompletion?(submittedAt, succeeded)
-        }
-        defer {
-            view.onFrame = priorFrame
-            view.onFrameCompleted = priorCompletion
-        }
-        update()
-        let deadline = start + 15
-        while true {
-            if let match { return match }
-            guard CACurrentMediaTime() < deadline else {
-                let lastSummary = last.map { "generation \($0.generation), receipt \(String(describing: $0.receivedAt))" } ?? "none"
-                throw Failure("No frame for \(operation), expected generation \(generation), receipt \(String(describing: receipt)). "
-                    + "Submissions \(view.submissionCount - initialSubmissions), GPU completions \(gpuCompletions), "
-                    + "frame callbacks \(callbacks), last callback \(lastSummary).")
-            }
-            try await Task.sleep(for: .milliseconds(5))
-        }
-    }
-
     @MainActor
     private final class FrameCollector {
         let view: TerminalView
+        let frames: RenderFrameObservations
         var terminal: Terminal
         var hash = SHA256()
         var samples: [Sample] = []
 
-        init(view: TerminalView, size: Terminal.Size) {
+        init(view: TerminalView, size: Terminal.Size, frames: RenderFrameObservations) {
             self.view = view
+            self.frames = frames
             terminal = Terminal(size: size)
         }
 
         @discardableResult
         func observeMutation(_ mutation: () -> Void) async throws -> FrameMeasurement {
-            try await measureFrame(on: view, for: "viewport or theme change", generation: terminal.snapshot().generation,
-                                   after: CACurrentMediaTime(), update: mutation)
+            let start = CACurrentMediaTime()
+            let initialSubmissions = view.submissionCount
+            let generation = terminal.snapshot().generation
+            mutation()
+            return try await frames.frame(for: "viewport or theme change", generation: generation, after: start,
+                                          initialSubmissions: initialSubmissions)
         }
 
         func apply(_ string: String, as operation: String) async throws {
@@ -294,14 +262,12 @@ enum RenderBenchmark {
             let receipt = CACurrentMediaTime()
             _ = terminal.receive(bytes)
             let expected = terminal.snapshot().generation
-            let frame = try await measureFrame(on: view, for: operation, generation: expected, after: receipt, receivedAt: receipt) {
-                view.display(terminal, receivedAt: receipt)
-            }
-            if let presented = frame.presentedTime, presented <= 0 || presented < receipt {
-                throw Failure("Invalid drawable presentation timestamp for \(operation).")
-            }
+            let initialSubmissions = view.submissionCount
+            view.display(terminal, receivedAt: receipt)
+            let frame = try await frames.frame(for: operation, generation: expected, after: receipt,
+                                               receivedAt: receipt, initialSubmissions: initialSubmissions)
             samples.append(Sample(operation: operation, generation: expected, receivedAt: receipt,
-                                  submittedAt: frame.submittedAt, presentedTime: frame.presentedTime,
+                                  submittedAt: frame.submittedAt, presentedTime: nil,
                                   cpuPreparationSeconds: frame.cpuPreparationSeconds,
                                   shaderCompileSeconds: frame.shaderCompileSeconds, firstFrameSeconds: frame.firstFrameSeconds,
                                   gpuSeconds: frame.gpuSeconds,

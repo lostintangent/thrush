@@ -70,8 +70,8 @@ final class MacWindowLifecycleCheck {
             if let generation = session.view.snapshot?.generation { inFlight[time] = generation }
             if let phase, isObscured(phase) { hiddenSubmissions += 1 }
         }
-        session.view.onFrameCompleted = { [weak self] time, succeeded in
-            guard let self, let generation = inFlight.removeValue(forKey: time), succeeded else { return }
+        session.view.onFrameCompleted = { [weak self] frame in
+            guard let self, let generation = inFlight.removeValue(forKey: frame.submittedAt), frame.gpuCompleted else { return }
             completed += 1
             lastCompleted = max(lastCompleted ?? 0, generation)
         }

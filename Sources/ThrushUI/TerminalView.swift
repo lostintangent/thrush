@@ -44,13 +44,16 @@ private final class Presentation {
         self.report = report
     }
 
+    var measurement: FrameMeasurement {
+        .init(generation: generation, gpuCompleted: gpuCompleted, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
+              firstFrameSeconds: firstFrame, gpuSeconds: gpu, presentedTime: presented, receivedAt: received,
+              submittedAt: submitted, glyphUploads: uploads, rowsPrepared: rows)
+    }
+
     func resolve() {
         guard completed, presentationKnown, !delivered else { return }
         delivered = true
-        report(.init(generation: generation, gpuCompleted: gpuCompleted, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
-                     firstFrameSeconds: firstFrame, gpuSeconds: gpu,
-                     presentedTime: presented, receivedAt: received, submittedAt: submitted,
-                     glyphUploads: uploads, rowsPrepared: rows))
+        report(measurement)
     }
 }
 
@@ -144,7 +147,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     /// Capture the native layout at submission and match the GPU result using submittedAt.
     package var onFrameSubmitted: ((Double, Terminal.Size?, CGRect) -> Void)?
     /// Command-buffer completion can precede or outlive the drawable's presentation callback.
-    package var onFrameCompleted: (@MainActor (_ submittedAt: Double, _ succeeded: Bool) -> Void)?
+    package var onFrameCompleted: (@MainActor (FrameMeasurement) -> Void)?
     package private(set) var submissionCount = 0
     private var renderer: MetalRenderer?
     private var preparingDeviceID: UInt64?
@@ -574,7 +577,8 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             let finalRevision = finalFrameWaiter == nil ? nil : finalFrameRevision
             let report = onFrame
             let reportCompletion = onFrameCompleted
-            let presentation: Presentation? = (report != nil || finalRevision != nil) ?
+            let observesPresentation = report != nil || finalRevision != nil
+            let presentation: Presentation? = (observesPresentation || reportCompletion != nil) ?
                 Presentation(cpu: submitted - started, shaderCompile: first ? firstCompilation : nil,
                              firstFrame: first ? submitted - firstContentStart : nil, submitted: submitted, received: received,
                              generation: snapshot?.generation ?? 0, uploads: frame.glyphUploads,
@@ -589,7 +593,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             // The Simulator SDK exposes no drawable presentation handler or timestamp.
             presentation?.presentationKnown = true
             #else
-            if let presentation {
+            if observesPresentation, let presentation {
                 drawable.addPresentedHandler { output in
                     let time = output.presentedTime
                     Task { @MainActor in
@@ -604,11 +608,11 @@ public final class TerminalView: MTKView, MTKViewDelegate {
                 let gpu = command.gpuEndTime - command.gpuStartTime
                 let completed = command.status == .completed
                 Task { @MainActor in
-                    reportCompletion?(submitted, completed)
                     if let presentation {
                         presentation.gpu = gpu > 0 ? gpu : nil
                         presentation.gpuCompleted = completed
                         presentation.completed = true
+                        reportCompletion?(presentation.measurement)
                         if !completed { presentation.presentationKnown = true }
                         presentation.resolve()
                     }
