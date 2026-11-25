@@ -14,10 +14,6 @@
       "shellVimCodex": "Headless WebSocket driver at iPhone grid sizes. Real Bash, system Vim, native Codex 0.166.0 and a local Responses stream. The independent reference checks the transmitted screen.",
       "lifecycle": "Swift TerminalConnection using Apple URLSession at 47×25 and 47×42. An independent comparator checked upstream, forwarded, observed, accepted and applied frames through the success footer."
     },
-    "referencePackages": {
-      "@xterm/headless": "6.0.0",
-      "@xterm/addon-unicode11": "0.9.0"
-    },
     "workflows": {
       "shell": {
         "checkpoints": 7,
@@ -85,19 +81,24 @@
         "nativeTraceSHA256": "47f62eae4f5de608419d505587dde80be4291b80fd4410a0b21bb0ec1d41a0ec",
         "comparisonSHA256": "24e1e3bd3b01ec0caecea5ff1bead4d833b737affe7c335f867c6603c46c2675"
       }
+    },
+    "referenceManifest": {
+      "path": "Fixtures/reference/package.json",
+      "sha256": "df178b7c716058c42a0a360b28a394e8cda92f3855fe1e0c56faee65b61d4183"
     }
   },
-  "historicalPackagedRuns": {
-    "scope": "Prior hosted packaged-app checks with native framebuffers. The one-time local compatibility run used headless clients.",
+  "packagedAppChecks": {
     "mac": {
       "runID": 45583895283,
       "attempt": 1,
-      "report": "live-workflows-mac-hosted.json"
+      "report": "https://github.com/lostintangent/thrush/blob/6b1fa7ff8d186ce81173586309e5577a48c12861/Benchmarks/live-workflows-mac-hosted.json",
+      "runURL": "https://github.com/lostintangent/thrush/actions/runs/45583895283/attempts/1"
     },
     "iPhoneSimulator": {
       "runID": 45581538459,
       "attempt": 2,
-      "report": "live-workflows-iphone.json"
+      "report": "https://github.com/lostintangent/thrush/blob/6b1fa7ff8d186ce81173586309e5577a48c12861/Benchmarks/live-workflows-iphone.json",
+      "runURL": "https://github.com/lostintangent/thrush/actions/runs/45581538459/attempts/2"
     }
   }
 }
