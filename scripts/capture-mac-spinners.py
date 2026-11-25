@@ -113,7 +113,7 @@ def capture(out, label, path, process, appearance, focus_pid, waiting, helper=No
 
     image = out / (label + ".png")
     fields = ("pid", "windowID", "scene", "appearance", "keyWindow", "activeApp", "visible", "frontmostPID",
-              "reduceMotion", "windowFrame", "scale", "spinnerFrame", "cursorCellFrame", "firstCellFrame",
+              "reduceMotion", "windowFrame", "scale", "spinnerFrame", "cursorSpinnerLabel", "cursorCellFrame", "firstCellFrame",
               "gridFrame", "rows", "columns", "hasTranscript", "shellEnded", "newShellButtonFrame")
     for attempt in (1, 2):
         before = wait(label, settled)
@@ -205,9 +205,10 @@ def main():
                         subprocess.run(["open", "-a", bundle], check=True, timeout=20)
                         active_after = grab("active-live" if opening else "active", not opening)
                         row, column = (0, 0) if opening else (8, len("~/thrush % "))
+                        ax_label = "Connecting" if opening else "Reconnecting"
                         for label, before, after in (("active", active_before, active_after), ("inactive", inactive_before, inactive_after)):
                             paused, live = (before, after) if opening else (after, before)
-                            results[name + "-" + label] = proof["measure"](*paused, appearance, row, column)
+                            results[name + "-" + label] = proof["measure"](*paused, appearance, row, column, ax_label)
                             results[name + "-" + label].update(proof["compare"](*paused, *live, appearance))
                 except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
                     errors[name] = str(error)

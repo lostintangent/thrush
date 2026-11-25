@@ -58,7 +58,7 @@ def check(movie, views, appearance, still, work):
         if not previous < actual < end:
             raise ValueError(f"Movie timestamp {actual} is outside the measured outage interval.")
         previous = actual
-        result = measure(frame, state, appearance, 8, len("~/thrush % git"))
+        result = measure(frame, state, appearance, 8, len("~/thrush % git"), "Reconnecting")
         print(f"Movie frame {actual}s: cursor spinner at {result['region']}, contrast {result['contrast']:.2f}:1.", flush=True)
         if fraction == 0.5:
             shutil.copyfile(frame, still)

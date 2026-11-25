@@ -24,6 +24,7 @@ enum PhoneCapture {
         var keyboardHeight, accessoryHeight: CGFloat
         let selection: [Int]?
         var cursorSpinner: CGRect?
+        var cursorSpinnerLabel: String?
         var cursorCellFrame, firstCellFrame: CGRect?
         var keyboardLanguage: String?
         var toolbar: Toolbar?
@@ -106,6 +107,10 @@ enum PhoneCapture {
                 accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0, selection: selection)
             if session.options.scene.capturesSessionState {
                 state.cursorSpinner = view.cursorSpinnerFrameInWindow
+                state.cursorSpinnerLabel = view.subviews.first {
+                    $0 is UIActivityIndicatorView && !$0.isHidden && $0.isAccessibilityElement
+                        && $0.accessibilityIdentifier == "terminal.cursorSpinner"
+                }?.accessibilityLabel
                 state.cursorCellFrame = view.cursorCellFrameInWindow
                 state.firstCellFrame = view.cellFrameInWindow(row: 0, column: 0)
                 state.keyboardLanguage = input?.textInputMode?.primaryLanguage

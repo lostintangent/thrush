@@ -76,6 +76,13 @@ import XCTest
         print("VOICEOVER Settings moved to: \(try reader.moveForward().utterance)")
     }
 
+    func testOpeningSpinnerAccessibilityLabel() throws {
+        _ = try launch("spinner-opening")
+        let spinner = app.descendants(matching: .any)["terminal.cursorSpinner"]
+        XCTAssertTrue(spinner.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(spinner.label, "Connecting")
+    }
+
     func testTranscriptKeepsVoiceOverFocusThroughReconnect() async throws {
         let endpoint = try launch("spinner-reconnecting")
         let row = app.staticTexts["Test run passed."]
@@ -89,6 +96,7 @@ import XCTest
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
         let spinner = app.descendants(matching: .any)["terminal.cursorSpinner"]
         XCTAssertTrue(spinner.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(spinner.label, "Reconnecting")
         try await Task.sleep(for: .seconds(2))
         XCTAssertTrue(row.exists)
         let beforeInterruption = try focused.get()

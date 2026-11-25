@@ -213,12 +213,7 @@ final class PaneWorkflowDriver {
                 previousReceived += await session.actor.receivedBytes
                 previousApplied += await session.actor.appliedBytes
                 previousAttachments += await session.actor.socketAttempts
-                var action = NativeWorkflowActions.newShellAction(in: view)
-                while action == nil, ContinuousClock.now < until {
-                    try await Task.sleep(for: .milliseconds(25))
-                    action = NativeWorkflowActions.newShellAction(in: view)
-                }
-                guard let action else { throw Failure("The app toolbar has no enabled New Shell action") }
+                let action = try await newShellToolbarAction()
                 session = try await newSession(previousAttachments, previousReceived, previousApplied, action)
                 checkKeyboardAfterShellAction = true
             case .failed:
@@ -362,9 +357,19 @@ final class PaneWorkflowDriver {
         }
     }
 
+    private func newShellToolbarAction() async throws -> @MainActor () throws -> Void {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while ContinuousClock.now < deadline {
+            if let action = NativeWorkflowActions.newShellAction(in: view) { return action }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        throw Failure("The app toolbar has no enabled New Shell action")
+    }
+
     private func capture(_ entry: Entry, ended: Bool) async throws {
         if ended {
             guard session.hasEnded else { throw Failure("The session has not published its end") }
+            _ = try await newShellToolbarAction()
             try await NativeWorkflowActions.verifyKeyboardDown(view)
             guard view.cursorSpinnerFrameInWindow == nil else { throw Failure("The ended terminal still shows a connecting cursor") }
         }

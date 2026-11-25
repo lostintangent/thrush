@@ -26,7 +26,10 @@ def grid_pixels(state, image):
     return scale, grid
 
 
-def measure(image, state, appearance, row, column):
+def measure(image, state, appearance, row, column, expected_label):
+    label = state.get("cursorSpinnerLabel")
+    if label != expected_label:
+        raise ValueError(f"Expected native spinner label {expected_label!r}, observed {label!r}.")
     pixels = Capture(image, appearance)
     scale, grid = grid_pixels(state, pixels)
     spinner = state.get("cursorSpinner") or state.get("spinnerFrame")
@@ -57,7 +60,7 @@ def measure(image, state, appearance, row, column):
     ratio, point, ink, background = contrast["measure_pixels"](pixels, region)
     if ratio < 3:
         raise ValueError(f"Leading spoke contrast {ratio:.3f}:1 is below 3:1 at {point}.")
-    return dict(expectedCursorCell=[row, column], spinnerPoints=spinner, cellPoints=state["cursorCellFrame"],
+    return dict(accessibilityLabel=label, expectedCursorCell=[row, column], spinnerPoints=spinner, cellPoints=state["cursorCellFrame"],
                 imagePixels=[pixels.width, pixels.height], region=region, contrast=ratio, ink=ink, background=background)
 
 
@@ -65,7 +68,7 @@ def compare(wait_image, waiting, live_image, live, appearance):
     if any(waiting.get(k) != live.get(k) for k in ("pid", "gridFrame", "rows", "columns", "firstCellFrame",
                                                     "cursorCellFrame", "keyboardHeight", "accessoryHeight")):
         raise ValueError("The cursor, terminal grid or keyboard layout changed during the handshake.")
-    if live.get("cursorSpinner") or live.get("spinnerFrame"):
+    if live.get("cursorSpinner") or live.get("spinnerFrame") or live.get("cursorSpinnerLabel") is not None:
         raise ValueError("The reference frame still has a mounted cursor spinner.")
     a, b = Capture(wait_image, appearance), Capture(live_image, appearance)
     scale, (left, top, right, bottom) = grid_pixels(waiting, a)
