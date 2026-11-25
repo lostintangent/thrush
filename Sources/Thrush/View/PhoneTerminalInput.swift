@@ -5,7 +5,6 @@ import UIKit
 /// UIKit owns the editable document only until its input method commits. The terminal owns all echo.
 final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDelegate {
     private weak var terminalView: TerminalView?
-    private var accessoryChoice: TerminalKeyboardAccessory = .standard
     private lazy var terminalKeyCommands = makeKeyCommands()
     private var editingDepth = 0
     private var cursorRect = CGRect.zero
@@ -50,32 +49,13 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private var acceptsInput: Bool { terminalView?.acceptsTerminalInput == true }
     override var canBecomeFirstResponder: Bool { acceptsInput && super.canBecomeFirstResponder }
 
-    func setAccessory(_ choice: TerminalKeyboardAccessory) {
-        guard accessoryChoice != choice else { return }
-        if case .custom(let previous) = accessoryChoice { previous.onKeyPress = nil }
-        accessory.clearModifier()
-        accessoryChoice = choice
-        switch choice {
-        case .standard: inputAccessoryView = accessory
-        case .none: inputAccessoryView = nil
-        case .custom(let custom):
-            custom.onKeyPress = { [weak self, weak custom] input, flags in
-                guard let self, let custom, case .custom(let current) = accessoryChoice, current === custom,
-                      !flags.contains(.command) else { return }
-                let code: UIKeyboardHIDUsage = switch input {
-                case "\r", "\n": .keyboardReturnOrEnter
-                case "\u{8}", "\u{7f}": .keyboardDeleteOrBackspace
-                case "\u{f728}": .keyboardDeleteForward
-                case "\u{1b}": .keyboardEscape
-                default: Self.navigation[input] ?? .keyboardErrorUndefined
-                }
-                if let (key, modifiers) = Self.hardwareKey(code, characters: input, flags: flags, acceptsCharacter: true) {
-                    sendKey(key, modifiers: modifiers)
-                }
-            }
-            inputAccessoryView = custom
+    var showsKeyRow = true {
+        didSet {
+            guard showsKeyRow != oldValue else { return }
+            accessory.clearModifier()
+            inputAccessoryView = showsKeyRow ? accessory : nil
+            if isFirstResponder { reloadInputViews() }
         }
-        if isFirstResponder { reloadInputViews() }
     }
 
     func synchronize(cursorRect: CGRect, pointSize: CGFloat, theme: TerminalTheme) {
@@ -297,7 +277,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
     }
 
-    static func hardwareKey(_ code: UIKeyboardHIDUsage, characters: String, flags: UIKeyModifierFlags, acceptsCharacter: Bool = false)
+    static func hardwareKey(_ code: UIKeyboardHIDUsage, characters: String, flags: UIKeyModifierFlags)
         -> (Terminal.Input.Key, Terminal.Input.Modifiers)? {
         var modifiers = Terminal.Input.Modifiers()
         if flags.contains(.shift) { modifiers.insert(.shift) }
@@ -319,8 +299,8 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case .keyboardTab: key = .tab
         case .keyboardReturnOrEnter, .keypadEnter: key = .enter
         default:
-            // The accessory supplies a committed character. Physical printable keys go through the input method.
-            guard acceptsCharacter || modifiers.contains(.control), characters.count == 1,
+            // Physical printable keys go through the input method.
+            guard modifiers.contains(.control), characters.count == 1,
                   let character = characters.first else { return nil }
             key = .character(character)
         }

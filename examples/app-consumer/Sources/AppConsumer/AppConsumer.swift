@@ -1,9 +1,6 @@
 import Foundation
 import SwiftUI
 import Thrush
-#if os(iOS)
-import UIKit
-#endif
 
 // The host owns its session and terminal endpoint. The standalone demo peer listens here.
 struct ServerAPI: Sendable {
@@ -32,9 +29,6 @@ struct AppConsumer: App {
 
 @MainActor private final class WindowModel: ObservableObject {
     let tab = ShellTab(tabID: UUID().uuidString, api: ServerAPI(session: .shared))
-    #if os(iOS)
-    let interruptButton = InterruptButton()
-    #endif
 }
 
 private struct ShellWindow: View {
@@ -42,7 +36,7 @@ private struct ShellWindow: View {
 
     var body: some View {
         NavigationStack {
-            pane.navigationTitle(title)
+            model.tab.pane.navigationTitle(title)
         }
     }
 
@@ -51,28 +45,4 @@ private struct ShellWindow: View {
         let name = session.title.isEmpty ? "Terminal" : session.title
         return session.hasEnded ? "\(name) (Ended)" : name
     }
-
-    @ViewBuilder private var pane: some View {
-        #if os(iOS)
-        TerminalPane(model.tab.session, theme: .slateDark, keyboardAccessory: .custom(model.interruptButton))
-        #else
-        model.tab.pane
-        #endif
-    }
 }
-
-#if os(iOS)
-/// A host can supply a UIKit control with terminal shortcuts of its own.
-private final class InterruptButton: UIButton, TerminalInputAccessory {
-    var onKeyPress: ((String, UIKeyModifierFlags) -> Void)?
-
-    init() {
-        super.init(frame: CGRect(x: 0, y: 0, width: 0, height: 44))
-        setTitle("Interrupt (Control-C)", for: .normal)
-        setTitleColor(.label, for: .normal)
-        addAction(UIAction { [weak self] _ in self?.onKeyPress?("c", .control) }, for: .touchUpInside)
-    }
-
-    required init?(coder: NSCoder) { nil }
-}
-#endif

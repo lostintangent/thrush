@@ -2,33 +2,6 @@
 import ThrushCore
 import UIKit
 
-/// Adopt this protocol on a custom keyboard accessory view to send keys to its terminal.
-@MainActor public protocol TerminalInputAccessory: AnyObject {
-    /// The pane installs this handler while your view is the active accessory.
-    /// Pass a UIKit key-command input, such as `UIKeyCommand.inputUpArrow`, or one character.
-    /// For example, `onKeyPress?("c", .control)` sends Control-C and `onKeyPress?("\r", [])` sends Return.
-    var onKeyPress: ((_ input: String, _ modifiers: UIKeyModifierFlags) -> Void)? { get set }
-}
-
-/// The controls attached to the system keyboard for this viewport.
-public enum TerminalKeyboardAccessory: Equatable {
-    /// The built-in Escape, Control, Tab and arrow keys.
-    case standard
-    /// Hides the terminal key row above the software keyboard.
-    case none
-    /// Displays a host-supplied view whose controls send terminal input.
-    case custom(UIView & TerminalInputAccessory)
-
-    /// Compares the selected accessory, using view identity for custom accessories.
-    public static func == (lhs: Self, rhs: Self) -> Bool {
-        switch (lhs, rhs) {
-        case (.standard, .standard), (.none, .none): true
-        case let (.custom(a), .custom(b)): a === b
-        default: false
-        }
-    }
-}
-
 /// The input view follows the keyboard's presentation and supplies one material for the whole row.
 final class TerminalKeyAccessory: UIInputView {
     private(set) var controlArmed = false

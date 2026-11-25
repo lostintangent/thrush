@@ -39,7 +39,7 @@ The pane paints its whole frame, fits its grid to the safe area inside it and re
 | Another window took the shell | **Open in another window**, with **Use Here** |
 | The shell exited | **Ended**, with **New Shell** |
 
-On iPhone, a host can choose which tab accepts input, set the appearance and customize the keyboard accessory. Each argument after the session is optional.
+An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row of Esc, Ctrl, Tab and arrow keys above the keyboard. Each argument after the session is optional.
 
 ```swift
 TerminalPane(
@@ -47,11 +47,11 @@ TerminalPane(
     isActive: isSelectedTab,        // false while a tab stays in the hierarchy but is hidden
     theme: .slateDark,              // nil follows the system appearance
     fontSize: 15,
-    keyboardAccessory: .none        // .standard, .none or .custom(view)
+    showsKeyRow: false              // iPhone only. The row is shown by default
 )
 ```
 
-To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values. On iPhone, a custom accessory is a `UIView` that conforms to `TerminalInputAccessory`. Its buttons call `onKeyPress` with a UIKit key string and modifiers, for example `onKeyPress?(UIKeyCommand.inputUpArrow, [])` or `onKeyPress?("c", .control)`.
+To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
 SwiftUI observes `session.title` and `session.hasEnded` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(session.title.isEmpty ? "Terminal" : session.title)`. The session ends when the shell exits or the host calls `try await session.close()`. On shell exit, the pane keeps its last screen and offers **New Shell**. A host that closes ended tabs can observe `session.hasEnded` with `.onChange`. [Pane states and behavior](docs/design/pane-states.md)
 

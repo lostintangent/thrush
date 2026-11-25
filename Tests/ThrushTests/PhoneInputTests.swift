@@ -107,47 +107,18 @@ import UIKit
 }
 
 @MainActor
-@Test func customAccessoryKeysFollowTerminalModesAndDisconnectOnReplacement() throws {
-    final class HostAccessory: UIView, TerminalInputAccessory {
-        var onKeyPress: ((String, UIKeyModifierFlags) -> Void)?
-    }
-
-    var terminal = Terminal(size: .init(columns: 40, rows: 20))
+@Test func hidingTheKeyRowRemovesItsAccessoryAndDisarmsControl() throws {
     let view = TerminalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
-    let first = HostAccessory(), second = HostAccessory()
-    var sent: [[UInt8]] = []
-    view.onInput = { sent.append(terminal.encode($0)) }
-    view.keyboardAccessory = .custom(first)
-    #expect(view.phoneInput.inputAccessoryView === first)
-    let firstPress = try #require(first.onKeyPress)
-    firstPress(UIKeyCommand.inputEscape, [])
-    firstPress(UIKeyCommand.inputUpArrow, [])
-    _ = terminal.receive("\u{1b}[?1h".utf8)
-    firstPress(UIKeyCommand.inputUpArrow, [])
-    firstPress("t", .control)
-    firstPress(UIKeyCommand.inputRightArrow, [.control, .shift])
-    firstPress("🐦", [])
-    firstPress("x", .command)
-    firstPress("two keys", [])
-    #expect(sent == [[27], [27, 91, 65], [27, 79, 65], [20], Array("\u{1b}[1;6C".utf8), Array("🐦".utf8)])
-    view.keyboardAccessory = .custom(second)
-    #expect(first.onKeyPress == nil)
-    sent.removeAll()
-    firstPress("x", [])
-    second.onKeyPress?("\t", .shift)
-    second.onKeyPress?("\r", [])
-    second.onKeyPress?("\u{8}", [])
-    second.onKeyPress?(UIKeyCommand.inputDelete, [])
-    second.onKeyPress?("\u{f728}", [])
-    view.setInputAvailability(.blocked, dismissKeyboard: false)
-    second.onKeyPress?("x", [])
-    view.keyboardAccessory = .none
-    #expect(second.onKeyPress == nil && view.phoneInput.inputAccessoryView == nil)
-    view.keyboardAccessory = .standard
-    #expect(view.phoneInput.inputAccessoryView is TerminalKeyAccessory)
-    #expect(sent == [[27, 91, 90], [13], [127], [127], Array("\u{1b}[3~".utf8)])
+    let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
+    let buttons = row.subviews.compactMap { $0 as? UIStackView }.first?.arrangedSubviews.compactMap { $0 as? UIButton }
+    try #require(buttons?.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
+    #expect(row.controlArmed)
+    view.showsKeyRow = false
+    #expect(view.phoneInput.inputAccessoryView == nil && !row.controlArmed)
+    view.showsKeyRow = true
+    #expect(view.phoneInput.inputAccessoryView === row)
 }
 
 @MainActor

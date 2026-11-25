@@ -190,9 +190,9 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     #if os(macOS)
     private lazy var macInput = MacTerminalInput(terminal: self)
     #else
-    /// Choose the standard terminal keys, hide the accessory, or supply native controls.
-    package var keyboardAccessory: TerminalKeyboardAccessory = .standard {
-        didSet { if oldValue != keyboardAccessory { phoneInput.setAccessory(keyboardAccessory) } }
+    package var showsKeyRow: Bool {
+        get { phoneInput.showsKeyRow }
+        set { phoneInput.showsKeyRow = newValue }
     }
     lazy var phoneInput = PhoneTerminalInput(terminalView: self)
     private lazy var phoneTranscript = PhoneTranscriptView(terminal: self)

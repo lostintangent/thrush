@@ -49,7 +49,7 @@ When a host places `TerminalPane(session).ignoresSafeArea()` under a navigation 
 
 ## The ontology
 
-An app imports `Thrush`, keeps one observable `TerminalSession` per tab and presents it with `TerminalPane`. Both factories receive the measured `Terminal.Size`. A WebSocket factory captures the tab ID and returns a fresh, suspended task on each attachment. A byte-stream factory opens a local or remote channel for a new shell. A host can customize `TerminalTheme` with `Terminal.Palette` and `Terminal.RGB`, and replace the iPhone keyboard accessory. The session owns the terminal model and drives I/O until the host closes it or the program ends.
+An app imports `Thrush`, keeps one observable `TerminalSession` per tab and presents it with `TerminalPane`. Both factories receive the measured `Terminal.Size`. A WebSocket factory captures the tab ID and returns a fresh, suspended task on each attachment. A byte-stream factory opens a local or remote channel for a new shell. A host can customize `TerminalTheme` with `Terminal.Palette` and `Terminal.RGB`, and hide the iPhone key row. The session owns the terminal model and drives I/O until the host closes it or the program ends.
 
 | Type | Responsibility | Operations |
 | --- | --- | --- |

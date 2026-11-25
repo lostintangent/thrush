@@ -14,12 +14,12 @@ import ThrushCore
     /// The font size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
     package var fontSize: CGFloat?
     #if os(iOS)
-    /// The controls above the iPhone software keyboard. Defaults to the standard terminal keys.
-    package var keyboardAccessory: TerminalKeyboardAccessory = .standard
+    /// Whether Esc, Ctrl, Tab and the arrow keys sit above the iPhone software keyboard.
+    package var showsKeyRow = true
     #endif
 
     /// Creates a pane for a session, using the system appearance unless a theme is supplied.
-    /// The pane manages attachment and, on iPhone, supplies the standard terminal keys.
+    /// The pane manages attachment and, on iPhone, shows the key row above the keyboard.
     ///
     /// - Parameters:
     ///   - session: The session whose output and input the pane presents.
@@ -35,12 +35,12 @@ import ThrushCore
     }
 
     #if os(iOS)
-    /// Creates a pane with the specified iPhone keyboard accessory.
-    /// Pass `.none` to hide the key row or `.custom(_:)` to supply a native view.
+    /// Creates a pane that shows or hides the key row of Esc, Ctrl, Tab and arrow keys
+    /// above the iPhone software keyboard. The row is shown by default.
     public init(_ session: TerminalSession, isActive: Bool = true, theme: TerminalTheme? = nil,
-                fontSize: CGFloat? = nil, keyboardAccessory: TerminalKeyboardAccessory) {
+                fontSize: CGFloat? = nil, showsKeyRow: Bool) {
         self.init(session, isActive: isActive, theme: theme, fontSize: fontSize)
-        self.keyboardAccessory = keyboardAccessory
+        self.showsKeyRow = showsKeyRow
     }
     #endif
 
@@ -140,7 +140,7 @@ import ThrushCore
             if workerChanged && previousTheme == view.resolvedTheme { next.onResolvedTheme?(view.resolvedTheme) }
             if view.fontSize != next.fontSize { view.fontSize = next.fontSize }
             #if os(iOS)
-            if view.keyboardAccessory != next.keyboardAccessory { view.keyboardAccessory = next.keyboardAccessory }
+            view.showsKeyRow = next.showsKeyRow
             #endif
             updateActivity()
         }

@@ -80,7 +80,7 @@ python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output 
 
 Keep one `TerminalSession` for each terminal tab and pass it to `TerminalPane(session)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the screen palette, routes native input and owns attachment, reconnect, takeover and exit. SwiftUI can read `session.title` for the tab title and observe `session.hasEnded` when the shell exits or the host closes the session. The pane keeps the final transcript readable. Call `try await session.close()` to end a shell from the host. Both native sample apps embed this pane.
 
-Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, set `keyboardAccessory: .none` to hide the standard terminal keys or pass a custom native accessory.
+Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, pass `showsKeyRow: false` to hide the key row above the keyboard.
 
 To change individual colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it to the pane. The pane uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Slate palettes and cell metrics](design/README.md)
 
