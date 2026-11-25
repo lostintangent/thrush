@@ -118,13 +118,34 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     #expect(resumed.receive(query) == replies)
 }
 
-@Test func partialColorQueryKeepsItsLengthLimit() {
-    var original = Terminal(size: .init(columns: 4, rows: 2))
-    _ = original.receive("\u{1b}]10;?;?;".utf8)
-    _ = original.receive(Array(repeating: UInt8(ascii: "x"), count: 10_000_000 - 4))
-    var resumed = Terminal(size: original.size)
-    #expect(resumed.receive(original.replayBytes()).isEmpty)
-    let end = Array("!\u{07}".utf8)
-    #expect(original.receive(end).isEmpty)
-    #expect(resumed.receive(end).isEmpty)
+@Test func partialStatusRequestGetsTheSameAnswerAfterReplay() {
+    let e = "\u{1b}"
+    let cases = [
+        (e + "[2;3r" + e + "P$", "qr" + e + "\\", e + "P1$r2;3r" + e + "\\"),
+        (e + "P1;2$qr", e + "\\", e + "P1$r1;3r" + e + "\\"),
+        (e + "P$q\"", "p" + e + "\\", e + "P1$r61;1\"p" + e + "\\"),
+        (e + "P$qm\u{07}", e + "\\", e + "P0$r" + e + "\\"),
+        (e + "P+q544e", e + "\\", ""),
+    ]
+    for (prefix, suffix, reply) in cases {
+        var original = Terminal(size: .init(columns: 6, rows: 3))
+        _ = original.receive(Array(prefix.utf8))
+        var resumed = Terminal(size: original.size)
+        #expect(resumed.receive(original.replayBytes()).isEmpty)
+        #expect(String(decoding: original.receive(Array(suffix.utf8)), as: UTF8.self) == reply)
+        #expect(String(decoding: resumed.receive(Array(suffix.utf8)), as: UTF8.self) == reply)
+    }
+}
+
+@Test func partialControlStringsKeepTheirLengthLimit() {
+    // Each start is filled to exactly the limit, so one more character makes it overlong.
+    for (start, length, end) in [("\u{1b}]10;?;?;", 4, "!\u{07}"), ("\u{1b}P$q", 0, "!\u{1b}\\")] {
+        var original = Terminal(size: .init(columns: 4, rows: 2))
+        _ = original.receive(start.utf8)
+        _ = original.receive(Array(repeating: UInt8(ascii: "x"), count: 10_000_000 - length))
+        var resumed = Terminal(size: original.size)
+        #expect(resumed.receive(original.replayBytes()).isEmpty)
+        #expect(original.receive(Array(end.utf8)).isEmpty)
+        #expect(resumed.receive(Array(end.utf8)).isEmpty)
+    }
 }

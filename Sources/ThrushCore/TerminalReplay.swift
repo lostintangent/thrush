@@ -67,13 +67,16 @@ extension Terminal {
         }
 
         mutating func draw(_ buffer: Buffer) {
+            // A replay describes this shell. Its host may also display older shells above it.
             let history = buffer.history
+            let start = history.previousShellCount
+            let count = history.currentShellCount
             let rows = buffer.visible
             setStyle(.init())
             output += csi + "H"
             var previous: Row?
-            for index in 0..<(history.count + rows.count) {
-                let row = index < history.count ? history[index] : rows[index - history.count]
+            for index in 0..<(count + rows.count) {
+                let row = index < count ? history[start + index] : rows[index - count]
                 if index == 0 && row.isWrapped {
                     // The retained history can start in the middle of an evicted soft-wrapped line.
                     output += csi + "\(buffer.size.columns)Gxx" + csi + "H"
@@ -90,7 +93,7 @@ extension Terminal {
                 }
                 draw(row, columns: buffer.size.columns)
                 // A saved cursor can have scrolled into history. Save it while its row is visible.
-                if index == min(buffer.saved.row, history.count + rows.count - 1) {
+                if index == min(buffer.saved.row, count + rows.count - 1) {
                     let saved = buffer.saved
                     setStyle(saved.style)
                     output += csi + "\(min(saved.column, buffer.size.columns - 1) + 1)G"
@@ -264,7 +267,11 @@ private extension EscapeParser {
             return esc + "]" + String(oscIdentifier) + ";" + payload
         case .invalidOSC: return esc + "]!"
         case .discardedOSC: return esc + "]999;"
-        case .dcsPayload, .discardedDCS: return esc + "Pq"
+        case .dcsPayload:
+            // DECRQSS is the only device control string the terminal collects.
+            guard let payload = string.payload else { return esc + "Pq" }
+            return esc + "P$q" + payload
+        case .discardedDCS: return esc + "Pq"
         case .ignoredString: return esc + "_"
         default: return ""
         }

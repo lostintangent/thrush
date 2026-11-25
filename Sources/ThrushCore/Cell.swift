@@ -153,6 +153,9 @@ extension Terminal {
             return Cell(text: text, width: cell.width, style: style(of: cell))
         }
 
+        // A printed space or an erased cell with a background belongs to the transcript.
+        var hasContent: Bool { cells.prefix(columns).contains { $0.glyph != 0 || $0.stylePosition != 0 } }
+
         package var trimmedLength: Int {
             var length = cells.count
             while length > 0 {

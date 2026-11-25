@@ -40,10 +40,11 @@ on:
         type: string
         required: false
 
-# Pushes supersede each other. Each dispatched capture keeps its own group.
+# Every push to main runs to completion, and a newer push waits rather than cancelling it.
+# A newer pull request push supersedes the running check. Each dispatched capture keeps its own group.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

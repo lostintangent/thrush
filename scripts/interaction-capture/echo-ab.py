@@ -141,7 +141,8 @@ def main():
         git(ROOT, "worktree", "add", "--detach", str(baseline), baseline_sha)
         try:
             git(baseline, "diff", "--exit-code", args.product_parent, "HEAD", "--", *PRODUCTS, "Package.swift")
-            product_diff = git(ROOT, "diff", "--name-only", baseline_sha, "HEAD").splitlines()
+            changes = git(ROOT, "diff", "--name-only", baseline_sha, "HEAD").splitlines()
+            product_diff = [f for f in changes if not f.startswith("Tests/")]
             if not product_diff or any(not f.startswith(tuple(d + "/" for d in PRODUCTS)) for f in product_diff):
                 raise ValueError("The two capture commits must differ only in measured product files")
             roots = {"baseline": baseline, "candidate": ROOT}

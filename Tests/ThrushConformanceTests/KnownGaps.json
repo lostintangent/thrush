@@ -27,26 +27,8 @@
  "DECRQM ?6": [
   "DECRQM ?6 · after DECSET"
  ],
- "DECRQSS \" p": [
-  "DECRQSS \" p"
- ],
  "DECRQSS \" q": [
-  "DECRQSS \" q"
- ],
- "DECRQSS m": [
-  "DECRQSS m",
-  "DECRQSS m · after a rendition"
- ],
- "DECRQSS r": [
-  "DECRQSS r",
-  "DECRQSS r · with a region"
- ],
- "DECRQSS SP q": [
-  "DECRQSS SP q",
-  "DECRQSS SP q · after DECSCUSR 6"
- ],
- "DECRQSS unknown": [
-  "DECRQSS unknown"
+  "DECRQSS \" q · after DECSCA 1"
  ],
  "DECRST 6": [
   "DECRST 6"
@@ -174,7 +156,6 @@
   "stream 45",
   "stream 47",
   "stream 48",
-  "stream 49",
   "stream 50",
   "stream 51",
   "stream 52",
@@ -313,11 +294,8 @@
   "stream 240",
   "stream 241",
   "stream 242",
-  "stream 244",
   "stream 245",
   "stream 246",
-  "stream 248",
-  "stream 250",
   "stream 254",
   "stream 255",
   "stream 256",
@@ -329,13 +307,11 @@
   "stream 265",
   "stream 266",
   "stream 267",
-  "stream 268",
   "stream 273",
   "stream 274",
   "stream 275",
   "stream 276",
   "stream 277",
-  "stream 279",
   "stream 280",
   "stream 283",
   "stream 284",
@@ -350,12 +326,10 @@
   "stream 293",
   "stream 294",
   "stream 296",
-  "stream 297",
   "stream 298",
   "stream 299",
   "stream 301",
   "stream 303",
-  "stream 304",
   "stream 306",
   "stream 307",
   "stream 308",
