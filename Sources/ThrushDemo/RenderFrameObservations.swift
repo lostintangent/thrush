@@ -33,6 +33,10 @@ final class RenderFrameObservations {
         view.onFrameCompleted = previousCompletion
     }
 
+    func completions(since start: Double) -> [FrameMeasurement] {
+        completions.filter { $0.submittedAt >= start }
+    }
+
     func presentationTime(for submission: Double) throws -> Double? {
         guard let time = presentations[submission]?.presentedTime else { return nil }
         guard time.isFinite, time >= submission else {

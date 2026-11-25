@@ -11,7 +11,7 @@ def check(path):
     report = json.loads(Path(path).read_bytes())
     columns, rows = report["columns"], report["rows"]
     version = report["schemaVersion"]
-    assert columns >= 24 and rows >= 2 and version in (1, 2, 3)
+    assert columns >= 24 and rows >= 2 and version in (1, 2, 3, 4)
     environment = report["environment"]
     assert environment["commit"] != "unknown" and environment["toolchain"] != "unknown"
     assert environment["hardwareModel"] != "unknown"
@@ -54,9 +54,24 @@ def check(path):
     assert report["displayIntervalSeconds"] > 0
     if version >= 3:
         check_synchronized_output(report["synchronizedOutput"])
+    blinking = ""
+    if version >= 4:
+        blink = report["textBlink"]
+        check_text_blink(blink)
+        blinking = f', {blink["submissions"]} blink frames in {blink["seconds"]:.1f} s'
     drawn = sum("presentedTime" in s for s in samples)
     print(f'{environment["destination"]}, {columns} × {rows}, {drawn}/{len(samples)} '
-          'confirmed presentations, zero settled, inactive and background submissions')
+          f'confirmed presentations{blinking}, zero settled, inactive and background submissions')
+
+
+def check_text_blink(blink):
+    # Two full periods of 1.2 s, each fading out and back in for 0.4 s.
+    assert blink["seconds"] >= 2.4
+    assert 0 < blink["minimumSubmissions"] <= blink["submissions"] <= blink["maximumSubmissions"]
+    assert blink["maximumSubmissions"] <= blink["seconds"] * 60
+    assert blink["rowsPrepared"] == 0 and blink["glyphUploads"] == 0
+    for state in ("reducedMotion", "steady"):
+        assert blink[state]["seconds"] >= 1.2 and blink[state]["additionalSubmissions"] == 0, state
 
 
 def check_synchronized_output(sync):

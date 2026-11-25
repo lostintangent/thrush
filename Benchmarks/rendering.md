@@ -24,6 +24,8 @@ The receipt-to-presentation measure includes local parsing, scheduling and rende
 
 After the redraws, a selection spans the two wide glyphs while the view switches between Slate Light, Slate Dark and a custom palette. The checker requires each switch to keep the generation and grid, with zero glyph uploads and zero row preparations. A separate final measurement counts all Metal submissions during one second at a settled prompt, one second with updates pending on the suspended renderer, and an actual native hide or background interval. The terminal cursor stays steady.
 
+Schema version 4 adds blinking text. After the settled prompt, four blinking digits replace part of the first row for two 1.2 s blink cycles. The checker requires the submissions to fall between ten per second of fading and the display rate during the fades, plus one frame at each fade boundary, with zero rows prepared and zero glyph uploads. With Reduce Motion, the next 1.2 s must submit nothing after one redraw. The same digits without blink must then submit nothing for another 1.2 s. These bytes are outside the hashed workload.
+
 The JSON includes the commit and worktree state from app packaging, the device model, OS, toolchain, load average, core count, thermal and power state and grid dimensions. A simulator run measures a shared Mac's graphics stack. Use the Mac and physical iPhone for device timing baselines. Use five quiet passes to estimate variance before setting timing gates.
 
 For a capture of a running demo, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.

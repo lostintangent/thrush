@@ -52,6 +52,19 @@ enum RenderBenchmark {
         let additionalSubmissions: Int
     }
 
+    /// Blinking text submits frames only during its fades, and none under Reduce Motion
+    /// or once the text stops blinking.
+    private struct BlinkObservation: Encodable {
+        let seconds: Double
+        let submissions: Int
+        let minimumSubmissions: Int
+        let maximumSubmissions: Int
+        let rowsPrepared: Int
+        let glyphUploads: Int
+        let reducedMotion: IdleObservation
+        let steady: IdleObservation
+    }
+
     private struct ThemeSwitch: Encodable {
         let theme: String
         let generation: UInt64
@@ -62,7 +75,7 @@ enum RenderBenchmark {
     }
 
     private struct Report: Encodable {
-        let schemaVersion = 3
+        let schemaVersion = 4
         let recordedAt: Date
         let workloadSHA256: String
         let environment: RenderEnvironment
@@ -73,6 +86,7 @@ enum RenderBenchmark {
         let workloads: [Workload]
         let themeSwitches: [ThemeSwitch]
         let foregroundIdle: IdleObservation
+        let textBlink: BlinkObservation
         let inactiveRenderer: IdleObservation
         let background: IdleObservation?
         let synchronizedOutput: SynchronizedRenderCheck.Result
@@ -154,6 +168,7 @@ enum RenderBenchmark {
             view.selection = nil
         }
         let foregroundIdle = try await observeIdle(view)
+        let textBlink = try await observeBlink(collector, interval: interval)
         view.setRenderingActive(false)
         // Exercise the same suspension switch the host calls on backgrounding. Keep an
         // update pending, so a renderer that merely suppresses its timer fails this check.
@@ -190,7 +205,8 @@ enum RenderBenchmark {
         let report = Report(recordedAt: Date(), workloadSHA256: workloadSHA256,
                             environment: environment, columns: size.columns, rows: size.rows,
                             displayIntervalSeconds: interval, samples: samples, workloads: workloads,
-                            themeSwitches: switches, foregroundIdle: foregroundIdle, inactiveRenderer: inactive,
+                            themeSwitches: switches, foregroundIdle: foregroundIdle, textBlink: textBlink,
+                            inactiveRenderer: inactive,
                             background: background, synchronizedOutput: synchronizedOutput)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -208,27 +224,66 @@ enum RenderBenchmark {
             print(String(format: "Runtime shader compile %.3f ms   first content submission %.3f ms", compile * 1_000, first * 1_000))
         }
         print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)")
+        print(String(format: "Blinking text   %d submissions in %.3f s, allowed %d to %d   %d rows   %d uploads   Reduce Motion %d   steady %d",
+                     textBlink.submissions, textBlink.seconds, textBlink.minimumSubmissions, textBlink.maximumSubmissions,
+                     textBlink.rowsPrepared, textBlink.glyphUploads, textBlink.reducedMotion.additionalSubmissions,
+                     textBlink.steady.additionalSubmissions))
         if let background { print("Additional submissions   background \(background.additionalSubmissions)") }
         print(String(format: "Synchronized output   %d partial   %d close   watchdog submission %.3f ms   %d idle",
                      synchronizedOutput.submissionsDuringHold, synchronizedOutput.close.submissions,
                      synchronizedOutput.watchdogToSubmissionSeconds * 1000, synchronizedOutput.idle.additionalSubmissions))
         print("Report \(reportURL.path)")
         guard foregroundIdle.additionalSubmissions == 0, inactive.additionalSubmissions == 0,
+              (textBlink.minimumSubmissions...textBlink.maximumSubmissions).contains(textBlink.submissions),
+              textBlink.rowsPrepared == 0, textBlink.glyphUploads == 0,
+              textBlink.reducedMotion.additionalSubmissions == 0, textBlink.steady.additionalSubmissions == 0,
               (background?.additionalSubmissions ?? 0) == 0,
               switches.allSatisfy({ $0.rowsPrepared == 0 && $0.glyphUploads == 0 }),
               samples[0].glyphUploads > 0, samples[0].rowsPrepared == size.rows,
               samples.dropFirst().allSatisfy({ $0.glyphUploads == 0 }),
               samples.filter({ ["oneRow", "cursor"].contains($0.operation) }).allSatisfy({ $0.rowsPrepared <= 1 }),
               samples.filter({ $0.operation == "full" }).allSatisfy({ $0.rowsPrepared == size.rows })
-        else { throw Failure("Draw cache, atlas warmup or settled frame checkpoint failed. See \(reportURL.path).") }
+        else { throw Failure("Draw cache, atlas warmup, blink pacing or settled frame checkpoint failed. See \(reportURL.path).") }
         #endif
     }
 
-    private static func observeIdle(_ view: TerminalView) async throws -> IdleObservation {
+    private static func observeIdle(_ view: TerminalView, for seconds: Double = 1) async throws -> IdleObservation {
         let before = view.submissionCount
         let start = CACurrentMediaTime()
-        try await Task.sleep(for: .seconds(1))
+        try await Task.sleep(for: .seconds(seconds))
         return IdleObservation(seconds: CACurrentMediaTime() - start, additionalSubmissions: view.submissionCount - before)
+    }
+
+    /// Blinks digits the warm rounds already uploaded, then restores them. The bytes stay
+    /// outside the hashed workload, and the screen afterwards matches the screen before.
+    private static func observeBlink(_ collector: FrameCollector, interval: Double) async throws -> BlinkObservation {
+        let view = collector.view
+        let systemSetting = view.reducesMotion
+        view.reducesMotion = false
+        defer { view.reducesMotion = systemSetting }
+        try await collector.show("\u{1b}[1;8H\u{1b}[5m0123\u{1b}[0m\u{1b}[1;1H")
+        let before = view.submissionCount
+        let start = CACurrentMediaTime()
+        try await Task.sleep(for: .seconds(2 * TextBlink.period))
+        let seconds = CACurrentMediaTime() - start
+        let submissions = view.submissionCount - before
+        let blinkFrames = collector.frames.completions(since: start)
+        // The pacer draws at up to 60 Hz during the fades, plus the frame that ends each one.
+        // Fewer than 10 frames a second would no longer read as a fade.
+        let cycles = seconds / TextBlink.period
+        let fading = cycles * (TextBlink.fadeOut + TextBlink.fadeIn)
+        let minimum = Int(fading * 10)
+        let maximum = Int((fading * min(1 / interval, 60)).rounded(.up)) + 2 * Int(cycles.rounded(.up)) + 1
+        try await collector.observeMutation { view.reducesMotion = true }
+        let reducedMotion = try await observeIdle(view, for: TextBlink.period)
+        view.reducesMotion = false
+        try await collector.show("\u{1b}[1;8H0123\u{1b}[1;1H")
+        let steady = try await observeIdle(view, for: TextBlink.period)
+        return BlinkObservation(seconds: seconds, submissions: submissions, minimumSubmissions: minimum,
+                                maximumSubmissions: maximum,
+                                rowsPrepared: blinkFrames.map(\.rowsPrepared).reduce(0, +),
+                                glyphUploads: blinkFrames.map(\.glyphUploads).reduce(0, +),
+                                reducedMotion: reducedMotion, steady: steady)
     }
 
     @MainActor
@@ -253,6 +308,16 @@ enum RenderBenchmark {
             mutation()
             return try await frames.frame(for: "viewport or theme change", generation: generation, after: start,
                                           initialSubmissions: initialSubmissions)
+        }
+
+        /// Draws bytes that belong to no measured workload.
+        func show(_ string: String) async throws {
+            let start = CACurrentMediaTime()
+            _ = terminal.receive(string.utf8)
+            let initialSubmissions = view.submissionCount
+            view.display(terminal)
+            _ = try await frames.frame(for: "blink setup", generation: terminal.snapshot().generation, after: start,
+                                       initialSubmissions: initialSubmissions)
         }
 
         func apply(_ string: String, as operation: String) async throws {
