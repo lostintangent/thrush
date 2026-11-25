@@ -57,7 +57,9 @@ def fetch(urls, path, sha256):
     for url in urls:
         try:
             log(f"Downloading {url}")
-            with urllib.request.urlopen(url, timeout=600) as response:
+            # The Ghostty release host rejects Python's default User-Agent.
+            request = urllib.request.Request(url, headers={"User-Agent": "thrush-comparison"})
+            with urllib.request.urlopen(request, timeout=600) as response:
                 data = response.read()
         except OSError as error:
             log(f"  {error}")
