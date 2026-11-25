@@ -37,6 +37,19 @@ def real_shell(out):
                 peer.kill()
 
 
+def build_cover(scratch):
+    cover = scratch / "Thrush Cover.app"
+    contents = cover / "Contents"
+    (contents / "MacOS").mkdir(parents=True)
+    with (contents / "Info.plist").open("wb") as f:
+        plistlib.dump(dict(CFBundleIdentifier="app.thrush.lifecycle-cover", CFBundleName="Thrush Cover",
+                           CFBundleExecutable="Cover", CFBundlePackageType="APPL"), f)
+    subprocess.run(["xcrun", "swiftc", "-parse-as-library", ROOT / "scripts/pty/cover-window.swift",
+                    "-o", contents / "MacOS/Cover"], check=True)
+    subprocess.run(["codesign", "--force", "--sign", "-", cover], check=True)
+    return cover
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, default=ROOT / ".build/demo/mac/Thrush.app")
@@ -54,15 +67,7 @@ def main():
         info = plistlib.load(f)
     (out / "source.json").write_text(json.dumps({"commit": info["ThrushGitCommit"], "dirty": info["ThrushWorktreeDirty"]}) + "\n")
     with tempfile.TemporaryDirectory() as scratch:
-        cover = Path(scratch) / "Thrush Cover.app"
-        contents = cover / "Contents"
-        (contents / "MacOS").mkdir(parents=True)
-        with (contents / "Info.plist").open("wb") as f:
-            plistlib.dump(dict(CFBundleIdentifier="app.thrush.lifecycle-cover", CFBundleName="Thrush Cover",
-                               CFBundleExecutable="Cover", CFBundlePackageType="APPL"), f)
-        subprocess.run(["xcrun", "swiftc", "-parse-as-library", ROOT / "scripts/pty/cover-window.swift",
-                        "-o", contents / "MacOS/Cover"], check=True)
-        subprocess.run(["codesign", "--force", "--sign", "-", cover], check=True)
+        cover = build_cover(Path(scratch))
         peer = contextlib.nullcontext(args.endpoint) if args.endpoint else real_shell(out)
         report = out / "window-lifecycle.json"
         with peer as endpoint:
