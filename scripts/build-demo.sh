@@ -37,14 +37,14 @@ if [[ "$platform" == mac ]]; then
     iconset="$stage/thrush.iconset"
     mkdir "$iconset"
     for size in 16 32 128 256 512; do
-        sips -z "$size" "$size" docs/Thrush-channel-white.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
+        sips -z "$size" "$size" docs/Thrush-app-icon.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
         double=$((size * 2))
-        sips -z "$double" "$double" docs/Thrush-channel-white.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+        sips -z "$double" "$double" docs/Thrush-app-icon.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
     done
     iconutil -c icns "$iconset" -o "$resources/Thrush.icns"
 else
-    sips -z 180 180 docs/Thrush-channel-white.png --out "$resources/Icon60@3x.png" >/dev/null
-    sips -z 120 120 docs/Thrush-channel-white.png --out "$resources/Icon60@2x.png" >/dev/null
+    sips -z 180 180 docs/Thrush-app-icon.png --out "$resources/Icon60@3x.png" >/dev/null
+    sips -z 120 120 docs/Thrush-app-icon.png --out "$resources/Icon60@2x.png" >/dev/null
 fi
 
 commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)
