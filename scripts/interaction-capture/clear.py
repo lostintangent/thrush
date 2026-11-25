@@ -30,9 +30,9 @@ def until(what, predicate, deadline=100):
 
 
 @contextlib.contextmanager
-def record_mac(out, pid, binary):
+def record_mac(out, pid, window_id, binary):
     movie, ready, stop = out / "clear.mov", out / "recording-start", out / "recording-stop"
-    with panes["running"]([binary, str(pid), movie, ready, stop], out / "recorder.log") as recording:
+    with panes["running"]([binary, str(pid), movie, ready, stop, str(window_id)], out / "recorder.log") as recording:
         def started():
             if recording.poll() is not None:
                 raise RuntimeError("Window recorder exited: " + (out / "recorder.log").read_text())
@@ -80,7 +80,7 @@ def one(platform, mode, out, device, docs, bundle, binary):
                     window = json.loads((driver / "ready").read_text())
                     pid = window["pid"]
                     subprocess.run(["open", "-a", bundle], check=True)
-                    recorder = record_mac(out, pid, binary)
+                    recorder = record_mac(out, pid, window["windowID"], binary)
                 # The seed includes 128 numbered lines. Let the software keyboard and
                 # its resulting PTY resize settle before recording its unchanged geometry.
                 time.sleep(1)
@@ -111,6 +111,12 @@ def one(platform, mode, out, device, docs, bundle, binary):
         raise RuntimeError("Did not observe the typed clear and the final row-zero prompt")
     if device and not (final["keyboardHeight"] > 90 and "scrollHeight" in final):
         raise RuntimeError("Keyboard or transcript geometry missing")
+    if not device:
+        captured = json.loads((out / "clear.frames.json").read_text())
+        width, height = final["window"]
+        scale = round(captured["width"] / width)
+        if scale < 1 or abs(captured["width"] - scale * width) > 2 or abs(captured["height"] - scale * height) > 2:
+            raise RuntimeError(f"Captured {captured['width']}×{captured['height']} pixels for a {width}×{height} point window")
     before = live[-1]
     stable = frames[frames.index(before):]
     summary = {"frames": len(frames), "historyBefore": before["history"], "historyAfter": final["history"],

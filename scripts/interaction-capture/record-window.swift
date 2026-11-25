@@ -231,8 +231,15 @@ func makeMovie(_ recording: Recording, raw: URL, output: URL) async throws {
     await writer.finishWriting()
     guard writer.status == .completed else { throw writer.error ?? failure("Cannot finalize movie") }
 }
-guard CommandLine.arguments.count == 5, let pid = Int32(CommandLine.arguments[1]) else {
-    fatalError("Usage: record-window PID OUTPUT.mov READY-FILE STOP-FILE")
+guard (5...6).contains(CommandLine.arguments.count), let pid = Int32(CommandLine.arguments[1]) else {
+    fatalError("Usage: record-window PID OUTPUT.mov READY-FILE STOP-FILE [WINDOW-ID]")
+}
+let expectedID: CGWindowID?
+if CommandLine.arguments.count == 6 {
+    guard let id = CGWindowID(CommandLine.arguments[5]), id > 0 else { throw failure("Invalid window ID") }
+    expectedID = id
+} else {
+    expectedID = nil
 }
 let output = URL(fileURLWithPath: CommandLine.arguments[2])
 let ready = URL(fileURLWithPath: CommandLine.arguments[3])
@@ -245,12 +252,13 @@ repeat {
     let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
     target = content.windows.first { window in
         let matchesTitle = title.map { window.title?.contains($0) == true } ?? true
+        let matchesID = expectedID.map { window.windowID == $0 } ?? true
         return window.owningApplication?.processID == pid && window.windowLayer == 0 &&
-            !window.frame.isEmpty && matchesTitle
+            !window.frame.isEmpty && matchesTitle && matchesID
     }
     if target == nil { try await Task.sleep(for: .milliseconds(150)) }
 } while target == nil && ContinuousClock.now < searchUntil
-guard let window = target else { fatalError("No matching native window for PID \(pid)") }
+guard let window = target else { fatalError("No matching native window for PID \(pid), requested ID \(String(describing: expectedID))") }
 log("Selected PID \(pid), window \(window.windowID), title=\(window.title ?? "") frame=\(window.frame) onScreen=\(window.isOnScreen)")
 let filter = SCContentFilter(desktopIndependentWindow: window)
 let configuration = SCStreamConfiguration()
