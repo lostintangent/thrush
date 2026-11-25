@@ -93,10 +93,6 @@ import ThrushCore
         private var isPresented = false
         private var drawingVisible = false
         private var epoch: UInt64 = 0
-        private lazy var output = OutputPresentation { [weak self] screen, receipt in
-            self?.view?.display(screen, receivedAt: receipt)
-            if let receipt { self?.pane?.onOutput?(screen.generation, receipt) }
-        }
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
         private var noticeTimer: Task<Void, Never>?
@@ -212,8 +208,6 @@ import ThrushCore
         }
 
         private func stop() {
-            output.flush()
-            output.reset()
             epoch &+= 1
             reader?.cancel()
             reader = nil
@@ -263,7 +257,6 @@ import ThrushCore
                 if reader == nil, phase != .displaced, phase != .exited {
                     await start(session, userInitiated: false, stamp: stamp)
                 } else if phase == .live, let screen {
-                    output.flush()
                     view?.display(screen)
                 }
             }
@@ -335,33 +328,28 @@ import ThrushCore
             case .replacedShell(let screen, let discardedInput):
                 openedShell(screen, discardedOnReplacement: discardedInput)
             case .awaitingReplay:
-                output.flush()
                 pane?.onReady?(true)
             case .screen(let screen):
-                output.reset(synchronizedOutputID: screen.synchronizedOutputID)
                 view?.replaceDisplayedSnapshot(screen, receivedAt: nil)
                 hasScreen = true
                 becomeLive()
             case .output(let screen, let time):
+                view?.display(screen, receivedAt: time)
                 hasScreen = true
-                output.submit(screen, receivedAt: time)
+                if let time { pane?.onOutput?(screen.generation, time) }
             case .replay(let screen, let time):
-                output.reset(synchronizedOutputID: screen.synchronizedOutputID)
                 view?.replaceDisplayedSnapshot(screen, receivedAt: time)
                 hasScreen = true
                 if phase != .live { becomeLive() }
                 if let time { pane?.onOutput?(screen.generation, time) }
             case .reconnecting:
-                output.flush()
                 phase = .reconnecting
                 view?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
                 delay(hasScreen ? .reconnecting : .connecting(retainingTranscript: false))
             case .displaced:
-                output.flush()
                 blockInput(.displaced)
                 return false
             case .ended(let final, let canRestart):
-                output.flush()
                 await finishExit(final, canRestart: canRestart, stamp: stamp)
                 return false
             }
@@ -369,7 +357,6 @@ import ThrushCore
         }
 
         private func openedShell(_ screen: Terminal.Snapshot, discardedOnReplacement: Bool? = nil) {
-            output.reset(synchronizedOutputID: screen.synchronizedOutputID)
             deliveredExit = false
             clearReplacement()
             view?.reset()

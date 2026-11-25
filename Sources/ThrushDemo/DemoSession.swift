@@ -146,8 +146,8 @@ final class DemoSession: ObservableObject {
         }
         pane.onOutput = { [weak self] generation, receivedAt in
             guard let self else { return }
-            markSessionUsable(session)
             interaction?.received(generation: generation, at: receivedAt)
+            markSessionUsable(session)
             onOutput?(generation, receivedAt)
             let first = onFirstOutput
             onFirstOutput = nil

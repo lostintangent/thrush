@@ -12,6 +12,7 @@ final class InteractionBenchmark {
         let keyAt: Double
         let sentAt: Double
         let receivedAt: Double
+        let acceptedAt: Double
         let submittedAt: Double?
         let presentedAt: Double?
     }
@@ -41,6 +42,7 @@ final class InteractionBenchmark {
         let returnToLatestMilliseconds: Double
         let keyToSendP95Milliseconds: Double
         let keyToReceiptP95Milliseconds: Double
+        let keyToAcceptanceP95Milliseconds: Double
         let receiptToPresentationP95Milliseconds: Double?
         let keyToVisibleEchoP95Milliseconds: Double?
         let samples: [Sample]
@@ -49,13 +51,33 @@ final class InteractionBenchmark {
 
     private let view: TerminalView
     private var sentAt: Double?
-    private var receipt: (generation: UInt64, time: Double)?
+    private struct OutputObservation {
+        let snapshot: Terminal.Snapshot
+        let receivedAt: Double
+        let acceptedAt: Double
+
+        func containsEcho(endingIn suffix: String) -> Bool {
+            guard snapshot.rows.indices.contains(snapshot.cursorRow) else { return false }
+            let last = snapshot.history.count + snapshot.cursorRow
+            var first = last
+            while first > 0 && snapshot.row(atAbsoluteIndex: first).isWrapped { first -= 1 }
+            return (first...last).map { snapshot.row(atAbsoluteIndex: $0).text }.joined().hasSuffix(suffix)
+        }
+    }
+    private var outputs: [OutputObservation]?
     private var frame: FrameMeasurement?
 
     init(view: TerminalView) { self.view = view }
 
     func writeStarted(at time: Double) { sentAt = time }
-    func received(generation: UInt64, at time: Double) { receipt = (generation, time) }
+    func received(generation: UInt64, at time: Double) {
+        // TerminalPane calls this on the main actor as soon as view.display returns.
+        // Read the accepted native snapshot here. Check its text outside the delivery callback.
+        let acceptedAt = CACurrentMediaTime()
+        guard outputs != nil, view.historyOffset == 0, let snapshot = view.snapshot,
+              snapshot.generation == generation else { return }
+        outputs?.append(.init(snapshot: snapshot, receivedAt: time, acceptedAt: acceptedAt))
+    }
 
     func run(reportURL: URL) async throws {
         guard let size = view.gridSize else { throw RenderBenchmark.Failure("Missing native grid.") }
@@ -123,6 +145,7 @@ final class InteractionBenchmark {
                             historyScrollMilliseconds: historyMilliseconds, returnToLatestMilliseconds: latestMilliseconds,
                             keyToSendP95Milliseconds: p95(samples.map { $0.sentAt - $0.keyAt })!,
                             keyToReceiptP95Milliseconds: p95(samples.map { $0.receivedAt - $0.keyAt })!,
+                            keyToAcceptanceP95Milliseconds: p95(samples.map { $0.acceptedAt - $0.keyAt })!,
                             receiptToPresentationP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.receivedAt } }) : nil,
                             keyToVisibleEchoP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.keyAt } }) : nil,
                             samples: samples, anchoredReplay: try measureAnchoredReplay())
@@ -182,31 +205,38 @@ final class InteractionBenchmark {
     private func echo(marker: String, expectedSuffix: String, probe: NativeInteractionProbe,
                       action: () throws -> Void) async throws -> Sample {
         sentAt = nil
-        receipt = nil
+        outputs = []
+        defer { outputs = nil }
         frame = nil
         let keyAt = CACurrentMediaTime()
         try action()
         let deadline = keyAt + 10
+        var echo: OutputObservation?
         while CACurrentMediaTime() < deadline {
-            if let sentAt, let receipt,
+            if echo == nil, let observed = outputs, !observed.isEmpty {
+                echo = observed.first { $0.containsEcho(endingIn: expectedSuffix) }
+                outputs = echo == nil ? [] : nil
+            }
+            if let sentAt, let echo,
                probe.transcript.trimmingCharacters(in: .newlines).hasSuffix(expectedSuffix) {
                 let matched = frame.flatMap { measurement in
-                    measurement.generation == receipt.generation && measurement.receivedAt == receipt.time ? measurement : nil
+                    measurement.generation == echo.snapshot.generation && measurement.receivedAt == echo.receivedAt ? measurement : nil
                 }
                 // A sleeping display can deliver the wire echo with no drawable. Give the
                 // normal draw path a chance to finish and retain those samples as unavailable.
-                if matched != nil || CACurrentMediaTime() - receipt.time >= 0.35 {
-                    guard keyAt <= sentAt, sentAt <= receipt.time,
-                          matched.map({ $0.submittedAt >= receipt.time }) ?? true,
+                if matched != nil || CACurrentMediaTime() - echo.acceptedAt >= 0.35 {
+                    guard keyAt <= sentAt, sentAt <= echo.receivedAt, echo.receivedAt <= echo.acceptedAt,
+                          matched.map({ $0.submittedAt >= echo.acceptedAt }) ?? true,
                           matched.flatMap({ frame in frame.presentedTime.map { $0 >= frame.submittedAt } }) ?? true else {
                         throw RenderBenchmark.Failure("Nonmonotonic timing for \(marker).")
                     }
-                    return Sample(marker: marker, generation: receipt.generation, keyAt: keyAt, sentAt: sentAt,
-                                  receivedAt: receipt.time, submittedAt: matched?.submittedAt, presentedAt: matched?.presentedTime)
+                    return Sample(marker: marker, generation: echo.snapshot.generation, keyAt: keyAt, sentAt: sentAt,
+                                  receivedAt: echo.receivedAt, acceptedAt: echo.acceptedAt,
+                                  submittedAt: matched?.submittedAt, presentedAt: matched?.presentedTime)
                 }
             }
             try await Task.sleep(for: .milliseconds(2))
         }
-        throw RenderBenchmark.Failure("Missing socket write, echo transcript, or matching native frame for \(marker).")
+        throw RenderBenchmark.Failure("Missing socket write or accepted native snapshot containing \(marker).")
     }
 }
