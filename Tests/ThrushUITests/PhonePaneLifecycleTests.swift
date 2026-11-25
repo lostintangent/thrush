@@ -18,9 +18,9 @@ import UIKit
 
     init() throws {
         let options = NWParameters.tcp
-        options.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)
+        options.requiredInterfaceType = .loopback
         options.defaultProtocolStack.applicationProtocols.insert(NWProtocolWebSocket.Options(), at: 0)
-        listener = try NWListener(using: options)
+        listener = try NWListener(using: options, on: .any)
         listener.newConnectionHandler = { [weak self] socket in
             MainActor.assumeIsolated { self?.accept(socket) }
         }
@@ -67,17 +67,17 @@ import UIKit
 }
 
 @MainActor @Test func iPhoneSceneInterruptionKeepsItsSocketUntilBackground() async throws {
-    func waitFor(_ condition: () async -> Bool) async throws {
+    func waitFor(_ label: String, _ condition: () async -> Bool) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         while !(await condition()) {
-            try #require(ContinuousClock.now < deadline, "The pane did not finish its scene transition.")
+            try #require(ContinuousClock.now < deadline, "Timed out waiting for \(label).")
             try await Task.sleep(for: .milliseconds(10))
         }
     }
 
     let peer = try ScenePeer()
     defer { peer.stop() }
-    try await waitFor { peer.port != nil }
+    try await waitFor("the loopback peer") { (peer.port ?? 0) > 0 }
     let port = try #require(peer.port)
     let address = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
     let session = URLSession(configuration: .ephemeral)
@@ -101,8 +101,16 @@ import UIKit
     defer { window.isHidden = true }
     host.view.setNeedsLayout()
     host.view.layoutIfNeeded()
-    try await waitFor { terminal.superview is TerminalPaneContainer }
-    let container = try #require(terminal.superview as? TerminalPaneContainer)
+    func mountedPane() -> TerminalPaneContainer? {
+        var ancestor = terminal.superview
+        while let view = ancestor {
+            if let container = view as? TerminalPaneContainer { return container }
+            ancestor = view.superview
+        }
+        return nil
+    }
+    try await waitFor("the mounted terminal pane") { mountedPane() != nil }
+    let container = try #require(mountedPane())
     func deliver(_ name: Notification.Name) {
         if let scene = window.windowScene {
             NotificationCenter.default.post(name: name, object: scene)
@@ -114,7 +122,7 @@ import UIKit
     }
 
     deliver(UIScene.didActivateNotification)
-    try await waitFor { await connection.state == .active }
+    try await waitFor("the first ready socket") { await connection.state == .active }
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
 
@@ -136,14 +144,14 @@ import UIKit
     // Repeated notification and window layout must not produce another close.
     deliver(UIScene.didEnterBackgroundNotification)
     host.view.layoutIfNeeded()
-    try await waitFor { await connection.state == .detached && peer.closes == 1 }
+    try await waitFor("the background close frame") { await connection.state == .detached && peer.closes == 1 }
     #expect(!container.isDrawingVisible)
     #expect(!container.isShellPresented)
     #expect(peer.opens == 1)
 
     deliver(UIScene.willEnterForegroundNotification)
     deliver(UIScene.didActivateNotification)
-    try await waitFor { await connection.state == .active && peer.opens == 2 }
+    try await waitFor("the foreground reattachment") { await connection.state == .active && peer.opens == 2 }
     #expect(peer.closes == 1)
 }
 #endif

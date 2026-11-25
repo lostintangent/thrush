@@ -31,7 +31,6 @@ final class MacWindowLifecycleCheck {
     private var hiddenSubmissions = 0
     private var readyEvents = 0
     private var lastCompleted: UInt64?
-    private var marker: Marker?
 
     private init(_ session: DemoSession, _ window: NSWindow, _ coverURL: URL) {
         self.session = session
@@ -62,17 +61,6 @@ final class MacWindowLifecycleCheck {
 
     private func observe() {
         session.onReady = { [weak self] _ in self?.readyEvents += 1 }
-        session.onOutput = { [weak self] _, _ in
-            guard let self, let rows = session.view.snapshot?.rows else { return }
-            for row in rows.reversed() {
-                let fields = row.text.split(separator: " ")
-                if fields.count == 3, fields[0] == "thrush-cover",
-                   let pid = Int(fields[1]), let tick = Int(fields[2]) {
-                    marker = Marker(pid: pid, tick: tick)
-                    return
-                }
-            }
-        }
         session.view.onFrameSubmitted = { [weak self] _, _, _ in
             if let self, let phase, isObscured(phase) { hiddenSubmissions += 1 }
         }
@@ -94,9 +82,9 @@ final class MacWindowLifecycleCheck {
         }
     }
 
-    private func wait(_ description: String, timeout: Double = 12, until predicate: () -> Bool) async throws {
+    private func wait(_ description: String, timeout: Double = 12, until predicate: () async -> Bool) async throws {
         let deadline = CACurrentMediaTime() + timeout
-        while !predicate() {
+        while !(await predicate()) {
             guard CACurrentMediaTime() < deadline else {
                 throw RenderBenchmark.Failure("\(description); frontmost=\(frontmost ?? "none"), windowVisible=\(visible), ready=\(readyEvents).")
             }
@@ -112,9 +100,9 @@ final class MacWindowLifecycleCheck {
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
         try NativeWorkflowActions.input(.text(command + "\r"), view: session.view)
-        try await wait("The real shell must write its PID") { marker != nil }
+        try await wait("The real shell must write its PID") { self.marker(in: await connection.snapshot()) != nil }
         var intervals: [Interval] = []
-        for step in Phase.allCases { intervals.append(try await measure(step)) }
+        for step in Phase.allCases { intervals.append(try await measure(step, connection: connection)) }
         let attempts = await connection.socketAttempts
         guard attempts == 1, readyEvents == 1 else {
             throw RenderBenchmark.Failure("Expected one socket and one ready, observed \(attempts) and \(readyEvents).")
@@ -123,7 +111,7 @@ final class MacWindowLifecycleCheck {
         return Report(socketAttempts: attempts, readyEvents: readyEvents, intervals: intervals)
     }
 
-    private func measure(_ step: Phase) async throws -> Interval {
+    private func measure(_ step: Phase, connection: TerminalConnection) async throws -> Interval {
         phase = step
         hiddenSubmissions = 0
         switch step {
@@ -144,7 +132,8 @@ final class MacWindowLifecycleCheck {
             }
         }
         try await wait("WindowServer did not confirm \(step.rawValue)") { isObscured(step) }
-        let first = try requireMarker()
+        let initialModel = await connection.snapshot()
+        guard let first = marker(in: initialModel) else { throw RenderBenchmark.Failure("Missing shell PID marker.") }
         let other = frontmost
         let start = CACurrentMediaTime()
         repeat {
@@ -154,8 +143,10 @@ final class MacWindowLifecycleCheck {
             try await Task.sleep(for: .milliseconds(100))
         } while CACurrentMediaTime() - start < 32
         let elapsed = CACurrentMediaTime() - start
-        let final = try requireMarker()
-        guard let generation = session.view.snapshot?.generation, final.pid == first.pid, final.tick >= first.tick + 20,
+        let hiddenModel = await connection.snapshot()
+        let generation = hiddenModel.generation
+        guard let final = marker(in: hiddenModel), generation > initialModel.generation, final.pid == first.pid,
+              final.tick >= first.tick + 20,
               hiddenSubmissions == 0 else { throw RenderBenchmark.Failure("Shell or terminal output stalled while \(step.rawValue).") }
         phase = nil
         switch step {
@@ -168,16 +159,23 @@ final class MacWindowLifecycleCheck {
         try await wait("A completed frame must include the output parsed during \(step.rawValue)") {
             visible && (lastCompleted ?? 0) >= generation
         }
-        let revealed = try requireMarker()
-        guard revealed.pid == final.pid, revealed.tick >= final.tick else { throw RenderBenchmark.Failure("Revealed stale output.") }
+        guard let revealed = marker(in: session.view.snapshot), revealed.pid == final.pid, revealed.tick >= final.tick else {
+            throw RenderBenchmark.Failure("The native display did not present the parsed shell output after reveal.")
+        }
         return Interval(phase: step.rawValue, durationSeconds: elapsed, shellPID: final.pid, firstTick: first.tick,
                         finalTick: final.tick, hiddenSubmissions: hiddenSubmissions, hiddenGeneration: generation,
                         revealedGeneration: lastCompleted!, frontmostBundle: other)
     }
 
-    private func requireMarker() throws -> Marker {
-        guard let marker else { throw RenderBenchmark.Failure("Missing shell PID marker.") }
-        return marker
+    private func marker(in snapshot: Terminal.Snapshot?) -> Marker? {
+        guard let snapshot else { return nil }
+        for row in snapshot.rows.reversed() {
+            let fields = row.text.split(separator: " ")
+            if fields.count == 3, fields[0] == "thrush-cover", let pid = Int(fields[1]), let tick = Int(fields[2]) {
+                return Marker(pid: pid, tick: tick)
+            }
+        }
+        return nil
     }
 }
 #endif
