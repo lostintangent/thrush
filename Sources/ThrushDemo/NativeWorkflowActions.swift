@@ -34,15 +34,59 @@ enum NativeWorkflowActions {
         }
     }
 
+    /// Drive the app's mounted toolbar item, using the same action as a person activating it.
+    static func newShellAction(in view: TerminalView) -> (@MainActor () throws -> Void)? {
+        #if os(macOS)
+        guard let toolbar = view.window?.toolbar, toolbar.isVisible else { return nil }
+        for item in toolbar.visibleItems ?? [] {
+            guard let button = item.view as? NSButton, button.window != nil, button.isEnabled,
+                  button.accessibilityIdentifier() == "demo.newShell" else { continue }
+            return { button.performClick(nil) }
+        }
+        #else
+        guard let window = view.window else { return nil }
+        func descendants(of root: UIView) -> [UIView] {
+            [root] + root.subviews.flatMap { descendants(of: $0) }
+        }
+        for bar in descendants(of: window).compactMap({ $0 as? UINavigationBar }) where !bar.isHidden {
+            for element in descendants(of: bar) where element.accessibilityIdentifier == "demo.newShell" {
+                if let control = element as? UIControl, control.isEnabled {
+                    return { control.performPrimaryAction() }
+                }
+                return {
+                    guard element.accessibilityActivate() else { throw Failure("The toolbar item did not activate") }
+                }
+            }
+            for item in bar.topItem?.rightBarButtonItems ?? [] where item.isEnabled &&
+                    (item.accessibilityIdentifier == "demo.newShell" || item.title == "New Shell") {
+                if let action = item.action {
+                    return {
+                        guard UIApplication.shared.sendAction(action, to: item.target, from: item, for: nil) else {
+                            throw Failure("The toolbar item did not send its action")
+                        }
+                    }
+                }
+                if let element = (bar.accessibilityElements ?? []).compactMap({ $0 as? UIAccessibilityElement })
+                    .first(where: { $0.accessibilityIdentifier == "demo.newShell" }) {
+                    return {
+                        guard element.accessibilityActivate() else { throw Failure("The toolbar accessibility action failed") }
+                    }
+                }
+            }
+        }
+        #endif
+        return nil
+    }
+
     static func verifyKeyboardDown(_ view: TerminalView) async throws {
         #if os(iOS)
-        guard let root = view.window?.rootViewController?.viewIfLoaded,
-              let input = view.subviews.compactMap({ $0 as? UITextView }).first else {
-            throw Failure("Missing the terminal's native iPhone keyboard.")
+        guard let root = view.window?.rootViewController?.viewIfLoaded else {
+            throw Failure("The iPhone terminal has no window")
         }
         let deadline = ContinuousClock.now.advanced(by: .seconds(4))
         while ContinuousClock.now < deadline {
-            if !input.isFirstResponder, input.inputAccessoryView?.window == nil,
+            let input = view.subviews.compactMap { $0 as? UITextView }.first
+            if input?.isFirstResponder != true, input?.inputAccessoryView?.window == nil,
                root.keyboardLayoutGuide.layoutFrame.height <= root.safeAreaInsets.bottom + 1 { return }
             try await Task.sleep(for: .milliseconds(20))
         }

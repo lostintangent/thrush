@@ -4,14 +4,15 @@ import Thrush
 struct DemoOptions {
     enum Scene: String, CaseIterable {
         case shell, editor, log, vim, prompt, glyphs, styles
-        case noticeConnecting = "notice-connecting"
-        case noticeReconnecting = "notice-reconnecting"
-        case noticeReplacement = "notice-replacement"
-        case noticeDisplaced = "notice-displaced"
-        case noticeEnded = "notice-ended"
-        case noticeMotion = "notice-motion"
+        case spinnerOpening = "spinner-opening", spinnerReconnecting = "spinner-reconnecting"
+        case displaced = "shell-displaced", ended = "shell-ended", reconnectTyping = "reconnect-typing"
 
-        var capturesNotice: Bool { rawValue.hasPrefix("notice-") }
+        var capturesSessionState: Bool {
+            switch self {
+            case .spinnerOpening, .spinnerReconnecting, .displaced, .ended, .reconnectTyping: true
+            default: false
+            }
+        }
     }
     enum Appearance: String { case system, light, dark }
 
@@ -71,6 +72,7 @@ final class DemoSession: ObservableObject {
     @Published private(set) var terminalSession: TerminalSession?
     private(set) var endpointError: String?
 
+    var onShellEndedChange: (() -> Void)?
     var onThemeChange: ((TerminalTheme) -> Void)?
     var onBenchmarkFinished: ((Bool) -> Void)?
     var onFirstOutput: (() -> Void)?
@@ -78,6 +80,7 @@ final class DemoSession: ObservableObject {
     private(set) var hasUsableSession = false
     var onReady: ((Bool) -> Void)?
     var onOutput: ((UInt64, CFTimeInterval) -> Void)?
+    private var nextShellTrace: (any WebSocketFrameTrace)?
     private var interaction: InteractionBenchmark?
     private var benchmarkTask: Task<Void, Never>?
     private var benchmarkStarted = false
@@ -108,21 +111,47 @@ final class DemoSession: ObservableObject {
         prepareSession()
     }
 
-    private func prepareSession() {
-        hasUsableSession = false
+    /// The app keeps a finished screen until the user chooses New Shell in its toolbar.
+    func newShell() {
+        guard terminalSession?.hasEnded == true else { return }
+        do { _ = try openShell(trace: nextShellTrace) }
+        catch { endpointError = String(describing: error) }
+    }
+
+    private func openShell(trace: (any WebSocketFrameTrace)?) throws -> TerminalSession {
         let id = options.runsWorkflowDriver ? PaneWorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
+        let next = try TerminalSession(baseURL: options.endpoint, clientID: id, frameTrace: trace)
+        endpointError = nil
+        hasUsableSession = false
+        terminalSession = next
+        onShellEndedChange?()
+        return next
+    }
+
+    private func prepareSession() {
         do {
-            endpointError = nil
             let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
-            let next = try TerminalSession(baseURL: options.endpoint, clientID: id, frameTrace: trace)
-            terminalSession = next
+            let next = try openShell(trace: trace)
             if options.runsWorkflowDriver {
-                PaneWorkflowDriver.startIfRequested(view: view, session: next, setActive: setActive,
-                                                    activateAction: view.activatePaneAction(named:))
+                PaneWorkflowDriver.startIfRequested(view: view, session: next, setActive: setActive) { sockets, received, applied, activate in
+                    let previous = self.terminalSession
+                    self.nextShellTrace = trace?.continuing(after: sockets, received: received, applied: applied)
+                    defer { self.nextShellTrace = nil }
+                    try activate()
+                    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+                    while self.terminalSession === previous, .now < deadline {
+                        try await Task.sleep(for: .milliseconds(10))
+                    }
+                    guard let next = self.terminalSession, next !== previous else {
+                        throw URLError(.timedOut, userInfo: [NSLocalizedDescriptionKey: "The app’s New Shell button did not open a new session."])
+                    }
+                    return next
+                }
             }
         } catch {
             endpointError = String(describing: error)
             terminalSession = nil
+            onShellEndedChange?()
         }
     }
 
@@ -155,7 +184,9 @@ final class DemoSession: ObservableObject {
             }
         }
         return pane.onChange(of: session.hasEnded) {
-            if self.terminalSession === session, session.hasEnded { self.hasUsableSession = false }
+            guard self.terminalSession === session else { return }
+            if session.hasEnded { self.hasUsableSession = false }
+            self.onShellEndedChange?()
         }
     }
 

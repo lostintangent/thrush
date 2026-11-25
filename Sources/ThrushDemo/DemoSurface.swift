@@ -4,14 +4,35 @@ import Thrush
 @MainActor
 struct DemoSurface: View {
     @ObservedObject var session: DemoSession
+    #if os(iOS)
+    @Environment(\.dismiss) private var dismiss
+    #endif
 
     @ViewBuilder var body: some View {
         if let terminalSession = session.terminalSession {
             #if os(iOS)
-            if session.options.checksToolbar {
-                PhoneToolbarProof(session: terminalSession)
-            } else {
-                session.pane(terminalSession)
+            NavigationStack {
+                Group {
+                    if session.options.checksToolbar {
+                        // The integration check mounts the public pane exactly as an app would.
+                        TerminalPane(terminalSession)
+                    } else {
+                        session.pane(terminalSession)
+                    }
+                }
+                .ignoresSafeArea()
+                .navigationTitle(terminalSession.title.isEmpty ? "Terminal" : terminalSession.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarVisibility(terminalSession.hasEnded || session.options.checksToolbar ? .visible : .hidden, for: .navigationBar)
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        if terminalSession.hasEnded {
+                            Button("New Shell", action: session.newShell)
+                                .accessibilityIdentifier("demo.newShell")
+                        }
+                        if session.options.checksToolbar { Button("Close") { dismiss() } }
+                    }
+                }
             }
             #else
             session.pane(terminalSession)

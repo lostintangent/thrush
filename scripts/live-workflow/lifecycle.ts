@@ -14,10 +14,11 @@ const steps = {
     verify: { name: "Read the retained shell variable", text: "echo FORE:$TAG:$$" },
     runVerify: { name: "Run the variable check", enter: true },
     retained: { name: "Foreground preserved the shell variable", checkpoint: true },
-    reclaim: { name: "Use the shell in this window" },
-    reclaimed: { name: "Use Here restored the other owner's output", checkpoint: true },
+    reclaim: { name: "Tap the displaced terminal grid" },
+    reclaimed: { name: "A grid tap restored the other owner's output", checkpoint: true },
     orphan: { name: "Leave the shell beyond orphan expiry" },
     returnAfterExpiry: { name: "Return after orphan expiry" },
+    replaceSession: { name: "Open a session for the replacement shell" },
     focusReplacement: { name: "Focus the replacement shell for typing" },
     identifyReplacement: { name: "Identify the replacement shell", text: "echo FRESH:${TAG-unset}:$$" },
     runIdentifyReplacement: { name: "Run the replacement identity command", enter: true },
@@ -25,11 +26,11 @@ const steps = {
     quit: { name: "Print the final line and exit", text: "echo FINAL:$$; exit" },
     runQuit: { name: "Exit the real shell", enter: true },
     ended: { name: "Final output survives shell exit", checkpoint: true },
-    newShell: { name: "Start a new shell from Ended" },
+    newShell: { name: "Have the app create a new session" },
     focusNewShell: { name: "Focus the new shell for typing" },
     identifyNewShell: { name: "Identify the new shell", text: "echo NEW:${TAG-unset}:$$" },
     runIdentifyNewShell: { name: "Run the new shell identity command", enter: true },
-    restarted: { name: "New Shell opened a fresh session", checkpoint: true },
+    restarted: { name: "The app opened a fresh session", checkpoint: true },
 } as const satisfies Record<string, Step>;
 const keys = Object.keys(steps) as (keyof typeof steps)[];
 const index = (key: keyof typeof steps) => keys.indexOf(key);
@@ -187,12 +188,12 @@ export async function runLifecycle(run: LiveRun) {
         await delay(350);
         assert.equal(run.attachments, 2, "The displaced pane reconnected without its user");
         const before = run.inputBytes;
-        run.phase("useHere", index("reclaim"));
+        run.phase("reclaim", index("reclaim"));
         await waitReady(3, true);
         await screen("reclaimed", new RegExp("^OTHER:acorn:" + original + "$"));
-        assert.equal(await within(owner.closed, "the second owner to close"), 4000, "Use Here must displace the second owner");
+        assert.equal(await within(owner.closed, "the second owner to close"), 4000, "The grid tap must displace the second owner");
         reclaimBytes = run.inputBytes - before;
-        assert.equal(reclaimBytes, 0, "Use Here sent terminal input");
+        assert.equal(reclaimBytes, 0, "A reclaim tap sent terminal input");
     } finally {
         if (owner.socket.readyState < WebSocket.CLOSING) owner.socket.close();
     }
@@ -201,8 +202,14 @@ export async function runLifecycle(run: LiveRun) {
     await waitForDeath(original, 40_000);
     const orphanMs = performance.now() - detachedAt;
     assert(orphanMs >= 29_000, "The real PTY expired before its 30-second orphan window");
+    run.expectExpiryOnNextAttachment();
     run.phase("resume", index("returnAfterExpiry"));
     await waitReady(4, false);
+    await run.until(() => run.closures.some(c => c.attachment === 4 && c.side === "upstream"),
+                    "the old session released the replacement shell");
+    run.phase("newShell", index("replaceSession"));
+    await waitReady(5, true);
+    await run.until(() => run.perAttachment[4].replayBytes > 0, "the new session received the replacement shell replay");
     await run.prepareFreshShell();
     const replacementFocus = await focus("focusReplacement");
     await command("identifyReplacement", "runIdentifyReplacement");
@@ -218,9 +225,9 @@ export async function runLifecycle(run: LiveRun) {
     await waitForDeath(replacement, 5_000);
     const beforeNew = run.inputBytes;
     run.phase("newShell", index("newShell"));
-    await waitReady(5, false);
+    await waitReady(6, false);
     const restartBytes = run.inputBytes - beforeNew;
-    assert.equal(restartBytes, 0, "New Shell sent terminal input");
+    assert.equal(restartBytes, 0, "The app toolbar sent terminal input");
     await run.prepareFreshShell();
     const newShellFocus = await focus("focusNewShell");
     await command("identifyNewShell", "runIdentifyNewShell");
@@ -228,13 +235,13 @@ export async function runLifecycle(run: LiveRun) {
     await screen("restarted", newShell);
     const restarted = pidOnScreen(run, newShell);
     assert.notEqual(restarted, replacement);
-    assert(!matchingRow(run, /^FINAL:[0-9]+$/), "New Shell inherited the ended shell's screen");
-    assert.deepEqual(run.ready, [false, true, true, false, false]);
+    assert(!matchingRow(run, /^FINAL:[0-9]+$/), "The new session inherited the ended shell's screen");
+    assert.deepEqual(run.ready, [false, true, true, false, true, false]);
     run.beforeComplete = async () => {
         await waitForDeath(restarted, 5_000);
         assert.equal(run.explicitCloses, 1, "The final shell needs one explicit close");
         run.evidence.lifecycle = { originalPID: original, replacementPID: replacement, restartedPID: restarted,
-            observedOrphanLifetimeMs: Math.round(orphanMs), useHereInputBytes: reclaimBytes, newShellInputBytes: restartBytes,
+            observedOrphanLifetimeMs: Math.round(orphanMs), reclaimTapInputBytes: reclaimBytes, newSessionInputBytes: restartBytes,
             focusGrids: [replacementFocus, newShellFocus],
             displacedCloseCode: 4000, finalRowBeforeNewShell: "FINAL:" + replacement, explicitlyClosedPIDDead: true };
     };

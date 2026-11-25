@@ -18,6 +18,8 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     private var dragAnchor: (row: Int, column: Int)?
     private var initialSelection: TerminalView.Selection?
     private var clickCount = 0
+    private var displacedClick: TimeInterval?
+    private var singleClick: Task<Void, Never>?
     private var remoteButtons: Set<Int> = []
     private var wheelRemainder: CGFloat = 0
     private let history = MacHistoryScrollView()
@@ -342,6 +344,11 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     // MARK: - Pointer and selection
 
     override func mouseDown(with event: NSEvent) {
+        cancelDisplacedClick()
+        if terminal.onDisplacedTap != nil, event.clickCount == 1,
+           event.modifierFlags.intersection([.shift, .option, .command, .control]).isEmpty {
+            displacedClick = event.timestamp
+        }
         window?.makeFirstResponder(self)
         if report(event, .press, .left) { remoteButtons.insert(0); return }
         guard let hit = terminal.cell(at: convert(event.locationInWindow, from: nil)) else { return }
@@ -365,6 +372,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     override func mouseDragged(with event: NSEvent) {
+        cancelDisplacedClick()
         if remoteButtons.contains(0) { _ = report(event, .move, .left); return }
         guard let dragAnchor, let hit = terminal.cell(at: convert(event.locationInWindow, from: nil)) else { return }
         if clickCount > 1, let initialSelection {
@@ -387,12 +395,30 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     override func mouseUp(with event: NSEvent) {
-        if remoteButtons.remove(0) != nil { _ = report(event, .release, .left) }
+        if let pressed = displacedClick, event.timestamp - pressed <= NSEvent.doubleClickInterval,
+           event.modifierFlags.intersection([.shift, .option, .command, .control]).isEmpty,
+           bounds.contains(convert(event.locationInWindow, from: nil)) {
+            // A second click selects a word and cancels this single click.
+            singleClick = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval)) } catch { return }
+                self?.terminal.tapDisplacedGrid()
+            }
+        } else if remoteButtons.remove(0) != nil {
+            _ = report(event, .release, .left)
+        }
+        displacedClick = nil
         dragAnchor = nil
         initialSelection = nil
     }
 
+    func cancelDisplacedClick() {
+        displacedClick = nil
+        singleClick?.cancel()
+        singleClick = nil
+    }
+
     override func rightMouseDown(with event: NSEvent) {
+        cancelDisplacedClick()
         if report(event, .press, .right) { remoteButtons.insert(1) }
         else { super.rightMouseDown(with: event) }
     }
@@ -432,6 +458,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     // MARK: - History
 
     override func scrollWheel(with event: NSEvent) {
+        cancelDisplacedClick()
         if terminal.isPointerReporting, !event.modifierFlags.contains(.shift) {
             if event.phase.contains(.began) { wheelRemainder = 0 }
             let divisor = event.hasPreciseScrollingDeltas ? max(1, terminal.cellRect(row: 0, column: 0).height) : 1
@@ -476,7 +503,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         }
         if latest.isHidden, offset > 0 { latest.apply(terminal.resolvedTheme) }
         latest.isHidden = offset == 0
-        latest.frame = CGRect(x: max(0, bounds.maxX - 120), y: max(0, bounds.maxY - terminal.noticeBottomInset - 56), width: 104, height: 44)
+        latest.frame = CGRect(x: max(0, bounds.maxX - 120), y: max(0, bounds.maxY - 56), width: 104, height: 44)
     }
 
     @objc private func historyDidScroll() {
@@ -499,12 +526,18 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     override func accessibilityCustomActions() -> [NSAccessibilityCustomAction]? {
-        guard terminal.historyOffset > 0 else { return nil }
-        return [NSAccessibilityCustomAction(name: "Return to latest output") { [weak self] in
-            guard let self else { return false }
-            returnToLatest()
-            return true
-        }]
+        var actions: [NSAccessibilityCustomAction] = []
+        if terminal.onDisplacedTap != nil {
+            actions.append(NSAccessibilityCustomAction(name: "Reconnect") { [weak terminal] in terminal?.tapDisplacedGrid() ?? false })
+        }
+        if terminal.historyOffset > 0 {
+            actions.append(NSAccessibilityCustomAction(name: "Return to latest output") { [weak self] in
+                guard let self else { return false }
+                returnToLatest()
+                return true
+            })
+        }
+        return actions.isEmpty ? nil : actions
     }
 
     override func accessibilityValue() -> Any? { transcript.string }

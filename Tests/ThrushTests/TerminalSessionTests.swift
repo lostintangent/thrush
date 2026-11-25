@@ -45,9 +45,9 @@ import Testing
     titleChanges.observe { _ = session.title }
     endChanges.observe { _ = session.hasEnded }
 
-    func attach(resumed: Bool, userInitiated: Bool = false) async throws {
+    func attach(resumed: Bool) async throws {
         peer.resumeNextAttachment = resumed
-        try #require(await session.actor.show(userInitiated: userInitiated))
+        try #require(await session.actor.show())
         let event = try await session.actor.nextEvent()
         try #require(event == .ready(resumed: resumed))
     }
@@ -96,12 +96,9 @@ import Testing
     #expect(try await session.actor.nextEvent() == .exit)
     #expect(session.title == "Finished" && session.hasEnded && endChanges.count == 1)
     endChanges.observe { _ = session.hasEnded }
-    try await attach(resumed: false, userInitiated: true)
-    #expect(session.title.isEmpty && !session.hasEnded && endChanges.count == 2)
-
-    endChanges.observe { _ = session.hasEnded }
-    try await session.close()
-    #expect(session.hasEnded && endChanges.count == 3)
+    #expect(await session.actor.show(userInitiated: true) == false)
+    #expect(session.hasEnded && session.title == "Finished")
+    #expect(endChanges.count == 1)
 }
 
 @MainActor @Test func releasingSessionInterruptsQuietWebSocketReadAndPreservesTheShell() async throws {

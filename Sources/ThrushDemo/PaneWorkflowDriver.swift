@@ -15,7 +15,7 @@ final class PaneWorkflowDriver {
         init(_ description: String) { self.description = description }
     }
     private enum Phase: String, Decodable {
-        case attaching, layout, playing, focus, input, resize, detach, resume, useHere, newShell, checkpoint, close, completed, failed
+        case attaching, layout, playing, focus, input, resize, detach, resume, reclaim, newShell, checkpoint, close, completed, failed
     }
     private struct State: Decodable {
         let phase: Phase
@@ -25,7 +25,7 @@ final class PaneWorkflowDriver {
         let attachments: Int
         let error: String?
         let capture: Bool?
-        let endedNotice: Bool?
+        let ended: Bool?
     }
     private struct Entry: Codable {
         let name: String, eventIndex: Int
@@ -48,11 +48,16 @@ final class PaneWorkflowDriver {
         let layout: WorkflowCapture.Layout
     }
 
+    typealias NewSession = @MainActor (Int, Int, Int, @MainActor () throws -> Void) async throws -> TerminalSession
+
     private let control: URL, output: URL
     private let view: TerminalView
-    private let session: TerminalSession
+    private var session: TerminalSession
     private let setActive: (Bool) -> Void
-    private let activateAction: (String) -> Bool
+    private let newSession: NewSession
+    private var previousReceived = 0
+    private var previousApplied = 0
+    private var previousAttachments = 0
     private let http = URLSession(configuration: .ephemeral)
     private var lastFrame: SubmittedFrame?
     private var inFlight: [Double: SubmittedFrame] = [:]
@@ -63,22 +68,23 @@ final class PaneWorkflowDriver {
     private var lastCheckpoint: ReplayFixture.Event?
 
     private init(control: URL, output: URL, view: TerminalView, session: TerminalSession,
-                 setActive: @escaping (Bool) -> Void, activateAction: @escaping (String) -> Bool) {
+                 setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
         self.control = control
         self.output = output
         self.view = view
         self.session = session
         self.setActive = setActive
-        self.activateAction = activateAction
+        self.newSession = newSession
     }
 
     static func startIfRequested(view: TerminalView, session: TerminalSession, setActive: @escaping (Bool) -> Void,
-                                 activateAction: @escaping (String) -> Bool) {
+                                 newSession: @escaping NewSession) {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--workflow-driver"), i + 1 < args.count,
               let j = args.firstIndex(of: "--workflow-output"), j + 1 < args.count else { return }
         let folder = URL(fileURLWithPath: args[j + 1], isDirectory: true)
         Task {
+            var currentDriver: PaneWorkflowDriver?
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 guard let url = URL(string: args[i + 1]), url.scheme == "http",
@@ -86,10 +92,11 @@ final class PaneWorkflowDriver {
                     throw Failure("The fixture control listener must use a loopback HTTP address.")
                 }
                 let driver = PaneWorkflowDriver(control: url, output: folder, view: view,
-                                                session: session, setActive: setActive, activateAction: activateAction)
+                                                session: session, setActive: setActive, newSession: newSession)
+                currentDriver = driver
                 try await driver.run()
             } catch {
-                await session.actor.finishFrameTrace("failure")
+                await (currentDriver?.session ?? session).actor.finishFrameTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
@@ -190,13 +197,29 @@ final class PaneWorkflowDriver {
                 try await confirmLayout(eventIndex: -1)
                 // The peer can select a source recorded at the settled handset geometry.
                 fixture = try ReplayFixture.decode(await get("fixture"))
-            case .useHere, .newShell:
-                let title = state.phase == .useHere ? "Use shell in this window" : "New Shell"
+            case .reclaim:
                 let until = ContinuousClock.now.advanced(by: .seconds(10))
-                while !activateAction(title) {
-                    guard ContinuousClock.now < until else { throw Failure("No enabled pane button named " + title) }
+                while !view.tapDisplacedGrid() {
+                    guard ContinuousClock.now < until else { throw Failure("The terminal did not accept a reclaim tap") }
                     try await Task.sleep(for: .milliseconds(25))
                 }
+            case .newShell:
+                let until = ContinuousClock.now.advanced(by: .seconds(10))
+                while !session.hasEnded {
+                    guard ContinuousClock.now < until else { throw Failure("The previous session did not end") }
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+                firstSubmission = CACurrentMediaTime()
+                previousReceived += await session.actor.receivedBytes
+                previousApplied += await session.actor.appliedBytes
+                previousAttachments += await session.actor.socketAttempts
+                var action = NativeWorkflowActions.newShellAction(in: view)
+                while action == nil, ContinuousClock.now < until {
+                    try await Task.sleep(for: .milliseconds(25))
+                    action = NativeWorkflowActions.newShellAction(in: view)
+                }
+                guard let action else { throw Failure("The app toolbar has no enabled New Shell action") }
+                session = try await newSession(previousAttachments, previousReceived, previousApplied, action)
                 checkKeyboardAfterShellAction = true
             case .failed:
                 throw Failure(state.error ?? "The peer rejected the workflow.")
@@ -246,7 +269,7 @@ final class PaneWorkflowDriver {
                     }
                     entries.append(entry)
                     lastCheckpoint = expected
-                    if state.capture ?? shouldCapture(event.name) { try await capture(entry, endedNotice: state.endedNotice == true) }
+                    if state.capture ?? shouldCapture(event.name) { try await capture(entry, ended: state.ended == true) }
                     let (status, body) = try await request("ack", post: JSONEncoder().encode(entry))
                     guard status == 204 else { throw httpFailure("ack", status, body) }
                     try log.write(contentsOf: Data("ack \(state.eventIndex) \(entry.receivedBytes) bytes\n".utf8))
@@ -282,8 +305,8 @@ final class PaneWorkflowDriver {
         var copied: String?
         var copiedAt: Double?
         while ContinuousClock.now < deadline {
-            let applied = await session.actor.appliedBytes
-            let received = await session.actor.receivedBytes
+            let applied = await session.actor.appliedBytes + previousApplied
+            let received = await session.actor.receivedBytes + previousReceived
             if applied == state.outputBytes, received == state.outputBytes {
                 let snapshot = await session.actor.snapshot()
                 let accepted = view.snapshot
@@ -339,30 +362,11 @@ final class PaneWorkflowDriver {
         }
     }
 
-    private func capture(_ entry: Entry, endedNotice: Bool) async throws {
-        var notice: VisiblePaneNotice?
-        if endedNotice {
-            let until = ContinuousClock.now.advanced(by: .seconds(12))
-            var previous: CGRect?
-            var unchangedSince = ContinuousClock.now
-            while ContinuousClock.now < until {
-                if let panel = view.visiblePaneNotice, panel.title == "Ended", panel.action == "New Shell" {
-                    try await NativeWorkflowActions.verifyKeyboardDown(view)
-                    if let settled = view.visiblePaneNotice, settled.title == panel.title, settled.action == panel.action,
-                       lastFrame?.drawableSize == view.drawableSize {
-                        if settled.frameInWindow != previous {
-                            previous = settled.frameInWindow
-                            unchangedSince = .now
-                        } else if unchangedSince.duration(to: .now) >= .milliseconds(500) {
-                            notice = settled
-                            break
-                        }
-                    }
-                }
-                try await Task.sleep(for: .milliseconds(20))
-            }
-            guard notice != nil else { throw Failure("No settled Ended panel and completed drawable for the final shell.") }
-            guard session.hasEnded else { throw Failure("The terminal session has not published its end.") }
+    private func capture(_ entry: Entry, ended: Bool) async throws {
+        if ended {
+            guard session.hasEnded else { throw Failure("The session has not published its end") }
+            try await NativeWorkflowActions.verifyKeyboardDown(view)
+            guard view.cursorSpinnerFrameInWindow == nil else { throw Failure("The ended terminal still shows a connecting cursor") }
         }
         let base = String(format: "capture-%03d", entry.eventIndex)
         guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration,
@@ -372,7 +376,7 @@ final class PaneWorkflowDriver {
         // UIKit may finish moving the keyboard after Metal completes the unchanged final drawable.
         // Map its actual submitted pixels through the settled window geometry before capturing.
         let layout: WorkflowCapture.Layout
-        if endedNotice {
+        if ended {
             guard frame.drawableSize == view.drawableSize,
                   let settled = WorkflowCapture.Layout(view: view, drawableGrid: frame.drawableGrid) else {
                 throw Failure("Final framebuffer geometry changed before capture.")
@@ -382,7 +386,7 @@ final class PaneWorkflowDriver {
             layout = frame.layout
         }
         let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
-                                     snapshot: accepted, layout: layout, copied: entry.copiedText, endedNotice: notice)
+                                     snapshot: accepted, layout: layout, copied: entry.copiedText, ended: ended)
         try save(marker, as: base + ".json")
         let ack = output.appending(path: base + ".done")
         let deadline = ContinuousClock.now.advanced(by: .seconds(180))

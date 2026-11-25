@@ -47,9 +47,12 @@ const attachments: Attachment[] = [
         end: "detach",
     },
     {
-        name: "after expiry", resumed: false, output: ["new$ "],
+        name: "after expiry", resumed: false, output: [], exchanges: [], end: "detach",
+    },
+    {
+        name: "replacement session", resumed: true, output: ["new$ "],
         exchanges: [
-            { input: "\x1b[A", output: ["N"], observation: "Post-expiry ready to Up" },
+            { input: "\x1b[A", output: ["N"], observation: "Post-expiry successor replay to Up" },
             { input: { type: "close" }, observation: "Up echo to explicit close" },
         ], end: "close",
     },
@@ -61,7 +64,7 @@ const attachments: Attachment[] = [
         exchanges: [{ input: "once", output: ["seen"], observation: "Ready to last write before loss" }], end: "lost",
     },
     {
-        name: "automatic resume", resumed: true, output: ["\x1b[?1h\x1b[?2004h"],
+        name: "automatic resume", resumed: true, output: ["\x1b]2;Original shell\x07\x1b[?1h\x1b[?2004h"],
         exchanges: [
             { input: "\x1bOA", observation: "Recovery ready and replay to held Up" },
             { input: "\x1b[200~a\rb\x1b[201~", observation: "Held Up to bracketed paste" },
@@ -70,12 +73,15 @@ const attachments: Attachment[] = [
         ], end: "lost",
     },
     {
-        name: "automatic replacement", resumed: false, output: [],
-        exchanges: [{ input: "clean", output: ["done"], observation: "Replacement ready to fresh input" }], end: "exit",
+        name: "automatic replacement", resumed: false, output: [], exchanges: [], end: "detach",
+    },
+    {
+        name: "new session after loss", resumed: true, output: ["\x1bc"],
+        exchanges: [{ input: "clean", output: ["done"], observation: "Successor replay to fresh input" }], end: "exit",
     },
     {
         name: "user restart", resumed: false, output: [],
-        exchanges: [{ input: "pause", observation: "User restart ready to input" }], end: "lost",
+        exchanges: [{ input: "pause", observation: "New session ready to input" }], end: "lost",
     },
     {
         name: "visible again", resumed: true, output: ["$ "],
@@ -107,6 +113,8 @@ let takeovers = 0;
 let freshShells = 0;
 const detached = Promise.withResolvers<void>();
 const foreground = Promise.withResolvers<void>();
+const expiredReplacementDetached = Promise.withResolvers<void>();
+const automaticReplacementDetached = Promise.withResolvers<void>();
 const leftAfterReclaim = Promise.withResolvers<void>();
 const explicitlyClosed = Promise.withResolvers<void>();
 const allowFreshReady = Promise.withResolvers<void>();
@@ -235,6 +243,8 @@ const server = Bun.serve({
             const script = attachments[attachmentCount++];
             assert(script, "Unexpected additional attachment");
             if (script.name === "foreground") await foreground.promise;
+            if (script.name === "replacement session") await expiredReplacementDetached.promise;
+            if (script.name === "new session after loss") await automaticReplacementDetached.promise;
             if (script.name === "reclaimed") assert(checkpoints.has("/check/owner-b"), "Displaced owner reconnected before user input");
             if (script.name === "after explicit close") assert(checkpoints.has("/check/closed"));
             if (script.name === "before outage") await originalLifecycleEnded.promise;
@@ -318,6 +328,10 @@ const server = Bun.serve({
                     if (script.name === "fresh") {
                         recordInterval(socket, "Resize echo to detach");
                         detached.resolve();
+                    } else if (script.name === "after expiry") {
+                        expiredReplacementDetached.resolve();
+                    } else if (script.name === "automatic replacement") {
+                        automaticReplacementDetached.resolve();
                     } else {
                         recordInterval(socket, "Reclaim echo to detach");
                         leftAfterReclaim.resolve();
@@ -350,7 +364,7 @@ try {
     if (observe) {
         console.log(JSON.stringify({ bunVersion: Bun.version, attachmentCount, freshShells, takeovers, observations }));
     } else {
-        console.log("Lifecycle peer verified fourteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, orphan expiry, explicit close and shell restart.");
+        console.log("Lifecycle peer verified sixteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, orphan expiry, explicit close and app-created successor sessions.");
     }
 } finally {
     clearTimeout(timeout);

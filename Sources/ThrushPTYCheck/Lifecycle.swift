@@ -51,11 +51,18 @@ struct PTYLifecycle {
         guard orphanAge >= .seconds(29), await orphan.show() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
-        _ = try await freshShell(orphan)
-        try await orphan.send(.text("printf '\\r\\nEXIT-%s\\n' final; exit\r"))
-        while try await orphan.nextEvent() == .output {}
-        guard await orphan.state == .ended,
-              await orphan.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
+        guard try await orphan.nextEvent() == .exit, await orphan.state == .ended,
+              !(await orphan.show(userInitiated: true)) else { throw PTYCheckFailure("Expired shell restarted its session") }
+        let successor = try connect()
+        guard try await successor.nextEvent() == .ready(resumed: true), try await successor.nextEvent() == .replay else {
+            throw PTYCheckFailure("The new session did not resume the replacement PTY")
+        }
+        try await PTYCheck.enterFixture(successor)
+        try await row("THRUSH-\(token)", in: successor)
+        try await successor.send(.text("printf '\\r\\nEXIT-%s\\n' final; exit\r"))
+        while try await successor.nextEvent() == .output {}
+        guard await successor.state == .ended,
+              await successor.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
             throw PTYCheckFailure("Real shell exit preceded its last bytes")
         }
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")

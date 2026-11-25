@@ -36,7 +36,7 @@ def record(phone, appearance, wait_for, save_json):
 
             def ready():
                 terminal = phone.state()
-                return (running()["appReady"] and terminal.get("scene") == "notice-motion" and terminal.get("gpuCompleted")
+                return (running()["appReady"] and terminal.get("scene") == "reconnect-typing" and terminal.get("gpuCompleted")
                         and (terminal.get("keyboardLanguage") or "").lower().startswith("en")
                         and terminal.get("keyboardHeight", 0) > 90 and terminal.get("accessoryHeight", 0) >= 44)
 
@@ -50,7 +50,7 @@ def record(phone, appearance, wait_for, save_json):
                 nonlocal reconnecting, final, first_visible, last_visible
                 terminal = phone.state()
                 proof = state()
-                if ((terminal.get("notice") or {}).get("title") == "Reconnecting" and
+                if (terminal.get("cursorSpinner") and
                         proof["interrupted"] and not proof["resumed"]):
                     reconnecting = terminal
                     last_visible = time.monotonic() - recording_started
@@ -58,7 +58,7 @@ def record(phone, appearance, wait_for, save_json):
                         first_visible = last_visible
                 if not proof["complete"] and test.poll() is not None:
                     raise RuntimeError("Native typing stopped before the remote echo. See reconnect-ui.log.")
-                if proof["complete"] and terminal.get("gpuCompleted") and not terminal.get("notice"):
+                if proof["complete"] and terminal.get("gpuCompleted") and not terminal.get("cursorSpinner"):
                     final = terminal
                     return True
                 return False
@@ -77,26 +77,20 @@ def record(phone, appearance, wait_for, save_json):
             if (proof["attachments"] != 2 or not proof["replayAcknowledged"] or
                     bytes.fromhex(proof["liveBytesHex"]) != b"git" or bytes.fromhex(proof["heldBytesHex"]) != b" status"):
                 raise RuntimeError("Peer bytes or attachment count disagreed with the native proof.")
-            if not reconnecting or reconnecting["notice"].get("detail") != "Typing waits for this shell to resume.":
-                raise RuntimeError("The mounted reconnect instructions did not appear during recording.")
+            if not reconnecting:
+                raise RuntimeError("The cursor spinner did not appear during recording.")
             for observed in [reconnecting, final]:
                 if any(observed.get(key) != initial.get(key) for key in ("pid", "keyboardHeight", "accessoryHeight", "keyboardLanguage")):
                     raise RuntimeError("The native keyboard moved or changed during reconnect.")
             save_json(phone.out / "reconnect-wire.json", proof)
             views = phone.out / "reconnect-view.json"
             save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final,
-                                  noticeIntervalSeconds=[first_visible, last_visible]))
+                                  spinnerIntervalSeconds=[first_visible, last_visible]))
             still = phone.out / "reconnect-typing-held.png"
             with (phone.out / "reconnect-cursor.log").open("w") as log:
                 subprocess.run([sys.executable, HERE / "reconnect-cursor.py",
                                 phone.out / "reconnect-typing.mov", views, appearance, still],
                                stdout=log, stderr=subprocess.STDOUT, check=True, timeout=240)
-                checker = phone.scratch / "check-pane-capture"
-                subprocess.run(["xcrun", "swiftc", HERE.parent / "check-pane-capture.swift", "-o", checker],
-                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
-                subprocess.run([checker, still,
-                                "Reconnecting", "Typing waits for this shell to resume."],
-                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=90)
         finally:
             if test.poll() is None:
                 test.terminate()
