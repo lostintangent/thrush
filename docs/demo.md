@@ -1,9 +1,9 @@
 # Run the Thrush demo
 
-Start the mock peer from the repository root and leave it running. The Mac app and iPhone Simulator connect to the same loopback address.
+Start a real shell server from the repository root and leave it running. The Mac app and iPhone Simulator share the loopback address it prints. Each app gets an interactive shell in a private working directory.
 
 ```sh
-bun scripts/demo-peer.ts
+swift run ThrushServer
 ```
 
 Build and open the Mac app from a second terminal.
@@ -22,11 +22,18 @@ xcrun simctl install "$udid" .build/demo/simulator/Thrush.app
 xcrun simctl launch "$udid" app.thrush.demo
 ```
 
-Both commands build the shared SwiftPM package in Release. Thrush embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The development peer defaults to port 9138. Use `THRUSH_PORT` on the peer and pass `--endpoint http://127.0.0.1:PORT` to the app to choose another port.
+Both commands build the shared SwiftPM package in Release. Thrush embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The server defaults to port 9138. Use `swift run ThrushServer --port 0` to choose an available port, then pass the URL to either app.
+
+```sh
+open -n .build/demo/mac/Thrush.app --args --endpoint http://127.0.0.1:PORT
+xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --endpoint http://127.0.0.1:PORT
+```
+
+The same `--endpoint` accepts the base URL of another server implementing the [terminal protocol](protocol.md).
 
 ## Scenes and appearance
 
-The initial shell scene shows the numbered build transcript from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer and a wide-glyph sample with a selection. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the host's custom palette.
+For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build transcript from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer and a wide-glyph sample with a selection. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the host's custom palette.
 
 For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone host uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
 

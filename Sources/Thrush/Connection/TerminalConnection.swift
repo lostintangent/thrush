@@ -133,7 +133,10 @@ package actor TerminalConnection {
         self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput,
                   frameTrace: frameTrace, observer: observer) { id, size in
             let url = try Self.url(for: endpoint, clientID: id, size: size)
-            return owner.session.webSocketTask(with: url)
+            let task = owner.session.webSocketTask(with: url)
+            // A single repaint can include a thousand rows of colored scrollback.
+            task.maximumMessageSize = 64 * 1024 * 1024
+            return task
         }
     }
 

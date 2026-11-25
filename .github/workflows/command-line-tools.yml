@@ -1,6 +1,6 @@
 name: Command Line Tools build
 
-# Toy Box builds its Mac app with Command Line Tools, which have no Metal compiler and no SwiftUI macro plugin.
+# Command Line Tools builds have no Metal compiler or SwiftUI macro plugin.
 on:
   push:
     branches: [main]

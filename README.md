@@ -57,20 +57,25 @@ SwiftUI observes `shell.title` and `shell.hasExited` directly. The title starts 
 
 ### The socket
 
-The factory receives the shell’s client ID and a `Terminal.Size`. Use `size.columns` and `size.rows` when constructing the endpoint. Return a fresh, suspended `URLSessionWebSocketTask` from the host’s own session for each attachment to preserve its authentication and configuration. The connection speaks the Toy Box terminal protocol. Binary frames carry PTY output. The server sends JSON `ready`, with `resumed` telling a resumed shell from a fresh one, and `exit`. The client sends keystrokes as binary frames and JSON `resize` and `close`. The client ID names the shell, so reattaching with the same ID resumes it.
+For each attachment, the factory receives the shell’s stable client ID and its grid size in columns and rows. Return a fresh, suspended `URLSessionWebSocketTask` from your app’s session so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
 
 Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ## Try the sample apps
 
-Start the mock shell, then build and open the Mac app from a second terminal.
+From the repository root, start the local server. It prints its loopback URL and opens a real shell when the app connects.
 
 ```sh
-bun scripts/demo-peer.ts
+swift run ThrushServer
+```
+
+In a second terminal, build and open the Mac app. The same server works with the iPhone Simulator.
+
+```sh
 scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 ```
 
-`scripts/build-demo.sh simulator` builds the iPhone app for the iOS Simulator. To run a real shell, start a disposable Toy Box server with `scripts/serve-pty.py` and pass the URL it prints to either app with `--endpoint`. [Running the sample apps](docs/demo.md) · [A disposable Toy Box server](Benchmarks/pty.md)
+`scripts/build-demo.sh simulator` builds the iPhone app. Pass `--endpoint URL` to either app to use another server. A scripted peer supplies the recorded demo scenes for offline playback. [Running the sample apps](docs/demo.md)
 
 ## Benchmarks
 
@@ -84,7 +89,7 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 | Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
 | Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [Connection](Benchmarks/connection.md) |
-| Real shells | Bash, Vim, Codex and every lifecycle branch on Mac and iPhone against a Toy Box server, 34 of 34 checkpoints on each with every byte applied | [Live workflows](Benchmarks/live-workflows.md) |
+| Real shells | Bash, Vim, Codex and shell lifecycle on Mac and iPhone, with 34 checkpoints per platform and end-to-end byte counts | [Live workflows](Benchmarks/live-workflows.md) |
 
 The timings come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.
 

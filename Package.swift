@@ -13,6 +13,8 @@ let package = Package(
         .executableTarget(name: "ThrushDemo", dependencies: ["Thrush", "ThrushReplay"]),
         .testTarget(name: "ThrushDemoTests", dependencies: ["ThrushDemo", "Thrush", "ThrushCore"]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
+        .target(name: "ThrushPTY"),
+        .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore", "ThrushPTY"]),
         .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush"]),
         .target(name: "ThrushReplay", dependencies: ["ThrushCore"]),
         .target(
