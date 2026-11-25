@@ -466,4 +466,12 @@ for (const [variant, [setup, steps]] of Object.entries(resizes)) {
 // Narrowing with the cursor above rows that make room for the added ones.
 addSized([5, 3], 'resize', 'narrower above text', `\r\nabc\r\n12345${CSI}H`, { resize: [2, 3] }, { checkpoint: 'resize 1' }, '*');
 
+// The two recorded clear programs erase history on opposite sides of CUP and ED 2.
+// Split each CSI inside its header and observe each completed function before the prompt.
+for (const [name, functions] of [['system', ['3J', 'H', '2J']], ['Homebrew', ['H', '2J', '3J']]]) {
+  addSized([6, 3], 'ED 2', `${name} clear across reads`, 'old\r\n1234567\r\nmore\r\nlast',
+    { checkpoint: 'populated history' },
+    ...functions.flatMap(final => [ESC, '[', final, { checkpoint: `CSI ${final}` }]), 'new$ ');
+}
+
 export const functionCases = cases;

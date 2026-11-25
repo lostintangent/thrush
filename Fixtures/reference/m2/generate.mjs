@@ -163,8 +163,9 @@ async function verifyStyledPaints(recording, events, cells, lines) {
 
 async function generate(name) {
   const directory = phone ? '../m4/phone/' : workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
+  const capture = name === 'zsh-clear' ? '../conformance/programs/zsh-clear.capture.json' : directory + name + '.capture.json';
   const captureBytes = ['shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
-    : await readFile(new URL(directory + name + '.capture.json', import.meta.url));
+    : await readFile(new URL(capture, import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
@@ -248,7 +249,7 @@ async function generate(name) {
   console.log(name, events.length, sha256(data));
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
-const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', ...workflows];
+const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows];
 const phone = process.argv[2] === '--phone';
 const available = phone ? ['vim-resume', 'codex-session'] : all;
 const requested = process.argv.slice(phone ? 3 : 2);
