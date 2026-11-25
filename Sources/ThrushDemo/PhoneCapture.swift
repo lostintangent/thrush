@@ -1,6 +1,5 @@
 import Foundation
 import Thrush
-import ThrushUI
 #if os(iOS)
 import UIKit
 #endif

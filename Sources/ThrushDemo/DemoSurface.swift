@@ -1,5 +1,5 @@
 import SwiftUI
-import ThrushUI
+import Thrush
 
 @MainActor
 struct DemoSurface: View {

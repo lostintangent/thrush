@@ -1,6 +1,5 @@
 import Thrush
 import ThrushReplay
-import ThrushUI
 
 #if os(macOS)
 import AppKit

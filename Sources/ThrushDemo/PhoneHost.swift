@@ -1,6 +1,5 @@
 #if os(iOS)
 import Thrush
-import ThrushUI
 import SwiftUI
 import UIKit
 

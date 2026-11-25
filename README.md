@@ -13,17 +13,16 @@ The terminal pixels are unretouched captures from the sample apps. The Mac windo
 
 ## Add a terminal to an app
 
-Add the package and depend on its `ThrushUI` and `ThrushConnection` products.
+Add the package and link the `Thrush` product to your app target.
 
 ```swift
-.package(url: "https://github.com/lostintangent/thrush", from: "0.1.0")
+.package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
 Create one connection per shell in a model that outlives the view, and give it a socket factory. Then show it with one view.
 
 ```swift
-import ThrushConnection
-import ThrushUI
+import Thrush
 
 let terminal = TerminalConnection(clientID: clientID) { id, size in
     api.terminalSocket(clientID: id, size: size)
@@ -61,30 +60,7 @@ To close a tab, end its shell with `try await terminal.closeShell()`. [Pane stat
 
 The factory returns a fresh, suspended `URLSessionWebSocketTask` from the host's own session for each attachment, so the host keeps its authentication and configuration. The connection speaks the Toy Box terminal protocol. Binary frames carry PTY output. The server sends JSON `ready`, with `resumed` telling a resumed shell from a fresh one, and `exit`. The client sends keystrokes as binary frames and JSON `resize` and `close`. The client ID names the shell, so reattaching with the same ID resumes it.
 
-### Use the emulator on its own
-
-The `Thrush` product is the emulator alone. It uses only the Swift standard library, so it runs anywhere Swift does, with no view.
-
-```swift
-import Thrush
-
-var terminal = Terminal(size: .init(columns: 80, rows: 24))
-let reply = terminal.receive("thrush$ \u{1b}[6n".utf8)  // the bytes of "\u{1b}[1;9R"
-let prompt = terminal.text(inRow: 0)                    // "thrush$ "
-```
-
-`receive` applies output in order regardless of how it was chunked, and returns any reply the program asked for. `encode` turns keys, text and paste into bytes under the terminal's current modes. `resize(to:)` reflows the grid. [The headless consumer](examples/headless-consumer)
-
-## Products
-
-| Product | What it is |
-| --- | --- |
-| `Thrush` | The emulator: grids, 1,000 rows of history, styles, modes, Unicode 11 widths and replies. Swift standard library only. |
-| `ThrushUI` | `TerminalPane` for SwiftUI and the `TerminalView` it hosts. One Metal renderer, Core Text shaping, Slate themes, native input and accessibility. No resource bundle, since the shader compiles from embedded source. |
-| `ThrushConnection` | `TerminalConnection`, which attaches, resumes and reconnects one shell over the host's WebSocket. |
-| `ThrushBench` | The Release benchmark for parsing, replays, rendering and the connection. |
-
-Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools. There's no Xcode project.
+Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ## Try the sample apps
 

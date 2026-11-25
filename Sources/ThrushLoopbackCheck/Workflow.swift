@@ -1,6 +1,5 @@
 import Foundation
 import Thrush
-import ThrushConnection
 import ThrushFixtures
 
 extension LoopbackCheck {

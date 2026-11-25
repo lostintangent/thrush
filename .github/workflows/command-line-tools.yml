@@ -7,15 +7,17 @@ on:
     paths:
       - Package.swift
       - Sources/Thrush/**
-      - Sources/ThrushUI/**
-      - Sources/ThrushConnection/**
+      - Sources/ThrushCore/**
+      - examples/app-consumer/**
+      - scripts/check-app-consumer.sh
       - .github/workflows/command-line-tools.yml
   pull_request:
     paths:
       - Package.swift
       - Sources/Thrush/**
-      - Sources/ThrushUI/**
-      - Sources/ThrushConnection/**
+      - Sources/ThrushCore/**
+      - examples/app-consumer/**
+      - scripts/check-app-consumer.sh
       - .github/workflows/command-line-tools.yml
 
 # A newer push supersedes a running build.
@@ -37,7 +39,5 @@ jobs:
           persist-credentials: false
       - name: Show the toolchain
         run: swift --version
-      - name: Build the libraries Toy Box links
-        run: |
-          swift build -c release --target ThrushConnection
-          swift build -c release --target ThrushUI
+      - name: Link the public Thrush product in an external Mac app
+        run: scripts/check-app-consumer.sh mac

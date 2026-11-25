@@ -21,24 +21,24 @@ cat > "$package/Package.swift" <<'SWIFT'
 import PackageDescription
 
 let package = Package(
-    name: "ThrushUIVerification",
+    name: "ThrushVerification",
     platforms: [.iOS("27.0")],
-    products: [.library(name: "ThrushUI", targets: ["ThrushUI"])],
+    products: [.library(name: "Thrush", targets: ["Thrush"])],
     targets: [
-        .target(name: "Thrush"),
-        .target(name: "ThrushConnection", dependencies: ["Thrush"]),
-        .target(name: "ThrushUI", dependencies: ["Thrush", "ThrushConnection"]),
-        .target(name: "ThrushReplay", dependencies: ["Thrush"]),
-        .target(name: "ThrushFixtures", dependencies: ["Thrush", "ThrushReplay"], path: "Fixtures",
-                exclude: ["reference"], resources: [.copy("first-bytes.json"), .copy("replays")]),
-        .testTarget(name: "ThrushUITests", dependencies: ["ThrushUI", "Thrush", "ThrushConnection", "ThrushFixtures"]),
+        .target(name: "ThrushCore"),
+        .target(name: "Thrush", dependencies: ["ThrushCore"]),
+        .target(name: "ThrushReplay", dependencies: ["ThrushCore"]),
+        .target(name: "ThrushFixtures", dependencies: ["ThrushCore", "ThrushReplay"], path: "Fixtures",
+                exclude: ["reference"], resources: [.copy("first-bytes.json"), .copy("replays"),
+                    .copy("reference/m4/phone/vim-resume.json")]),
+        .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
     ],
     swiftLanguageModes: [.v6]
 )
 SWIFT
 
 cd "$package"
-xcodebuild -scheme ThrushUIVerification \
+xcodebuild -scheme ThrushVerification \
     -destination "platform=iOS Simulator,id=$1" \
     -derivedDataPath "$root/.build/ios-ui/$1" \
     -parallel-testing-enabled NO test

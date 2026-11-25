@@ -1,5 +1,5 @@
 import Dispatch
-import Thrush
+import ThrushCore
 import ThrushFixtures
 
 struct Timing: Encodable {

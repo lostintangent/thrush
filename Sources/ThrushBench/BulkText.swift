@@ -1,7 +1,7 @@
 import CryptoKit
 import Dispatch
 import Foundation
-import Thrush
+import ThrushCore
 
 struct BenchmarkGrid: Hashable, Encodable, CustomStringConvertible {
     let columns: Int

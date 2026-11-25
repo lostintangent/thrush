@@ -1,7 +1,6 @@
 import Foundation
 import Synchronization
 import Thrush
-import ThrushConnection
 
 /// The same native socket with and without Thrush's parser, measured over identical raw payloads.
 enum ReaderComparison {

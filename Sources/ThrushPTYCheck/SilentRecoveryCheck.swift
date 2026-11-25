@@ -1,5 +1,5 @@
 import Foundation
-import ThrushConnection
+import Thrush
 
 /// One socket receives live bytes, repairs its screen in-band during silence, then accepts a live echo.
 enum SilentRecoveryCheck {

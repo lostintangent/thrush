@@ -1,7 +1,6 @@
 import Foundation
 import Synchronization
 import Thrush
-import ThrushConnection
 
 /// Two host instances share a shell ID. The peer controls orphan time and acknowledges each
 /// expected write on the socket that owns the shell.

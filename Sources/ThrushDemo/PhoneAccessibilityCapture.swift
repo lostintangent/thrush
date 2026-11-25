@@ -1,5 +1,5 @@
 #if os(iOS)
-import ThrushUI
+import Thrush
 import UIKit
 
 /// In-process observations for the explicit simulator VoiceOver proof on the notice peer.

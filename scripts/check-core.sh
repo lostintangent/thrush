@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-# The Xcode toolchain ships the parser modules used to inspect inactive #if branches.
+# Inspect every ThrushCore import, including inactive #if branches, with the Xcode parser.
 swift=$(xcrun --find swift)
 host="$(dirname "$swift")/../lib/swift/host"
 if [ ! -d "$host/SwiftSyntax.swiftmodule" ]; then

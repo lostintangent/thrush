@@ -1,7 +1,6 @@
 import Darwin
 import Foundation
 import Thrush
-import ThrushConnection
 
 /// Run against the same disposable server as the numbered log, without observing binary frames.
 struct PTYLifecycle {

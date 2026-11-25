@@ -1,8 +1,8 @@
 import Foundation
 import Testing
-import Thrush
+import ThrushCore
 @testable import ThrushDemo
-@testable import ThrushUI
+@testable import Thrush
 
 @Test @MainActor func keyboardCanSettleAroundAnUnchangedCompletedDrawable() throws {
     let size = Terminal.Size(columns: 47, rows: 25)

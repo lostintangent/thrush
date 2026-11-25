@@ -53,14 +53,15 @@ final class Imports: SyntaxVisitor {
 }
 
 let manifest = try readPackage(["dump-package"], as: Manifest.self)
-guard manifest.products.first(where: { $0.name == "Thrush" })?.targets == ["Thrush"],
-      let core = manifest.targets.first(where: { $0.name == "Thrush" }),
+guard !manifest.products.contains(where: { $0.name == "ThrushCore" || $0.targets.contains("ThrushCore") })
+else { fail("ThrushCore is an internal target and must not be exported as a product.") }
+guard let core = manifest.targets.first(where: { $0.name == "ThrushCore" }),
       core.dependencies.isEmpty, core.resources.isEmpty, core.pluginUsages?.isEmpty != false
-else { fail("The Thrush product must contain only the dependency-free, resource-free core.") }
+else { fail("ThrushCore must be a dependency-free, resource-free target without plugins.") }
 
 let description = try readPackage(["describe", "--type", "json"], as: Description.self)
-guard let target = description.targets.first(where: { $0.name == "Thrush" }), !target.sources.isEmpty
-else { fail("SwiftPM did not list the Thrush sources.") }
+guard let target = description.targets.first(where: { $0.name == "ThrushCore" }), !target.sources.isEmpty
+else { fail("SwiftPM did not list the ThrushCore sources.") }
 for source in target.sources {
     let path = "\(target.path)/\(source)"
     guard path.hasSuffix(".swift") else { fail("Unexpected non-Swift source in the core: \(path)") }
@@ -72,4 +73,4 @@ for source in target.sources {
         fail("\(path):\(location.line): unexpected core import: \(declaration.path.trimmedDescription)")
     }
 }
-print("Thrush has zero imports across \(target.sources.count) Swift sources and zero target dependencies.")
+print("ThrushCore has zero imports across \(target.sources.count) Swift sources and zero target dependencies.")

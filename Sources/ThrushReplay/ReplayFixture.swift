@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import Thrush
+import ThrushCore
 
 /// Development-only playback data and independent expected screens for the recorded workflows.
 package struct ReplayFixture: Sendable {

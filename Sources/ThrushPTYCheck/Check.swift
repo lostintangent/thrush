@@ -1,7 +1,6 @@
 import Foundation
 import Synchronization
 import Thrush
-import ThrushConnection
 
 struct PTYCheckFailure: Error, CustomStringConvertible {
     let description: String

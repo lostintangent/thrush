@@ -1,7 +1,6 @@
 #if os(iOS)
 import SwiftUI
-import ThrushConnection
-import ThrushUI
+import Thrush
 import UIKit
 
 /// The integration host uses only the public pane. Its capture reads the mounted UIKit views.

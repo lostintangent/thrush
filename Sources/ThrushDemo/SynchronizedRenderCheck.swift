@@ -2,7 +2,6 @@ import CryptoKit
 import Foundation
 import QuartzCore
 import Thrush
-import ThrushUI
 
 /// Exercise DEC synchronized output at the native view boundary, after the ordinary draw workloads.
 @MainActor

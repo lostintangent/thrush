@@ -41,4 +41,4 @@ const source = [
   '    static let double: [ClosedRange<UInt32>] = [', rangesFor(2), '    ]',
   '}', ''
 ].join('\n');
-await writeFile(new URL('../../Sources/Thrush/Unicode11Widths.swift', import.meta.url), source);
+await writeFile(new URL('../../Sources/ThrushCore/Unicode11Widths.swift', import.meta.url), source);

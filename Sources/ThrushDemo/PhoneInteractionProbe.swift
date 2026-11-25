@@ -1,5 +1,5 @@
 #if os(iOS)
-import ThrushUI
+import Thrush
 import UIKit
 
 /// Drive the system text client, accessible output and keyboard edit path of the packaged viewport.

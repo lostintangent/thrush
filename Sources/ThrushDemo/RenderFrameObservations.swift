@@ -1,5 +1,5 @@
 import QuartzCore
-import ThrushUI
+import Thrush
 
 /// Observe the finite packaged-renderer workload. A GPU result can arrive even when
 /// the window server never calls the drawable's presentation handler.

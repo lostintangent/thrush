@@ -1,7 +1,6 @@
 import Foundation
 import Synchronization
 import Thrush
-import ThrushConnection
 
 /// The clock records requested backoff without wall-clock delays. One sleep intentionally ignores
 /// task cancellation until the driver releases it, like a timer callback already in flight.

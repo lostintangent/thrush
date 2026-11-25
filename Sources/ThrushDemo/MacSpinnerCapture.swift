@@ -1,6 +1,6 @@
 #if os(macOS)
 import AppKit
-import ThrushUI
+import Thrush
 
 /// Opt-in observation of the actual AppKit window while the hosted screenshot driver changes focus.
 @MainActor enum MacSpinnerCapture {

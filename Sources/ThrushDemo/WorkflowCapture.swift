@@ -1,6 +1,5 @@
 import CoreGraphics
 import Thrush
-import ThrushUI
 
 #if os(macOS)
 import AppKit

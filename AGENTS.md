@@ -4,7 +4,7 @@ Thrush is a first-party Swift terminal emulator for macOS and iOS. [docs/plan.md
 
 ## Principles
 
-- The `Thrush` target uses only the Swift standard library. No Foundation, Darwin or third-party code.
+- The `ThrushCore` target uses only the Swift standard library. No Foundation, Darwin or third-party code.
 - Add terminal behavior only when a named workflow or its recorded replay needs it.
 - Every new operation lands with its correctness checkpoint and its `ThrushBench` workload in the same change.
 - Reference expectations come from outside Thrush. Never generate a fixture's expected output with Thrush itself.
@@ -30,18 +30,18 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 swift build
 swift test
 scripts/check-core.sh
-scripts/check-consumer.sh
+scripts/check-app-consumer.sh
 scripts/check-loopback.sh
 scripts/check-workflows.sh
 swift run -c release ThrushBench
 python3 scripts/check-benchmark-report.py
 ```
 
-The separate consumer prints its row and reply, then checks binary linkage with `otool`. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/first-bytes.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
+The separate app consumer builds the README integration using only the `Thrush` library product. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/first-bytes.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
 
 For real WebSocket and PTY checks, run `scripts/check-pty.sh --toy-box ../toy-box`. The [disposable server procedure](Benchmarks/pty.md) also starts an isolated endpoint for the native demos.
 
-Toy Box builds its Mac app with Command Line Tools, so the libraries it links must build without Xcode. CI checks this, and you can run the same build in a fresh shell with `DEVELOPER_DIR=/Library/Developer/CommandLineTools swift build -c release --target ThrushUI --scratch-path .build/command-line-tools`. The separate scratch path keeps it from rebuilding the Xcode toolchain's products.
+Toy Box builds its Mac app with Command Line Tools, so the libraries it links must build without Xcode. CI checks this, and you can run the same build in a fresh shell with `DEVELOPER_DIR=/Library/Developer/CommandLineTools swift build -c release --target Thrush --scratch-path .build/command-line-tools`. The separate scratch path keeps it from rebuilding the Xcode toolchain's products.
 
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
 

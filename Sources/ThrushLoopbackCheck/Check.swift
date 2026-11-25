@@ -1,6 +1,5 @@
 import Foundation
 import Thrush
-import ThrushConnection
 import ThrushFixtures
 
 /// Drives the same attachment, input and row access that a demo host uses.

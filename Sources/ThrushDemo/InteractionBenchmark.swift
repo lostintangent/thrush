@@ -1,7 +1,6 @@
 import Foundation
 import QuartzCore
 import Thrush
-import ThrushUI
 
 /// One native view, one socket and one echoed marker at a time. A new key is issued only after
 /// both the remote bytes and their matching Metal submission have been observed.

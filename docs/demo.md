@@ -22,7 +22,7 @@ xcrun simctl install "$udid" .build/demo/simulator/Thrush.app
 xcrun simctl launch "$udid" app.thrush.demo
 ```
 
-Both commands build the shared SwiftPM package in Release. ThrushUI embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The development peer defaults to port 9138. Use `THRUSH_PORT` on the peer and pass `--endpoint http://127.0.0.1:PORT` to the app to choose another port.
+Both commands build the shared SwiftPM package in Release. Thrush embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The development peer defaults to port 9138. Use `THRUSH_PORT` on the peer and pass `--endpoint http://127.0.0.1:PORT` to the app to choose another port.
 
 ## Scenes and appearance
 
@@ -75,9 +75,9 @@ Pass `theme:` or `fontSize:` to customize the running pane. With the default the
 
 ## Render a terminal directly
 
-Create one `TerminalView(frame:)` from ThrushUI for the lifetime of the viewport. On the main actor, `display(_:receivedAt:)` accepts a terminal value captured by its serial owner. The package-private connection uses the same API with an immutable screen snapshot. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.
+Create one `TerminalView(frame:)` from `Thrush` for the lifetime of the viewport. On the main actor, `display(_:)` accepts a terminal value captured by its serial owner. The built-in pane supplies immutable screen snapshots from its connection. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.
 
-A nil `view.theme` follows AppKit or UIKit appearance. To customize the 22 terminal colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and assign it to the view. Supply `view.resolvedTheme.palette` when creating the terminal and update its `palette` from `onThemeChange`. This keeps OSC replies consistent with indexed colors on screen. The host owns the window. ThrushUI supplies the iPhone keyboard accessory. Set `keyboardAccessory` to `.none` to hide it or `.custom(...)` to install a native replacement.
+A nil `view.theme` follows AppKit or UIKit appearance. To customize the 22 terminal colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and assign it to the view. Supply `view.resolvedTheme.palette` when creating the terminal and update its `palette` from `onThemeChange`. This keeps OSC replies consistent with indexed colors on screen. The host owns the window. Thrush supplies the iPhone keyboard accessory. Set `keyboardAccessory` to `.none` to hide it or `.custom(...)` to install a native replacement.
 
 The shader resolves palette colors from one buffer. Each immutable row has its own generation, so cursor moves and theme changes reuse its Metal geometry. The atlas stores premultiplied color emoji and coverage for tinted glyphs. A new drawable receives a complete frame, including every reused row.
 

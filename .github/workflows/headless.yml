@@ -69,8 +69,10 @@ jobs:
           scripts/build-demo.sh simulator
       - name: Check core imports and package dependencies
         run: scripts/check-core.sh
-      - name: Build the independent consumer and inspect linkage
-        run: scripts/check-consumer.sh
+      - name: Link the public Thrush product for iPhone and iPhone Simulator
+        run: |
+          scripts/check-app-consumer.sh device
+          scripts/check-app-consumer.sh simulator
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.5

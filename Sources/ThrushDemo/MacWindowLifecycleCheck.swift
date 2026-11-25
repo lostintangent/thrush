@@ -2,8 +2,6 @@
 import AppKit
 import QuartzCore
 import Thrush
-import ThrushConnection
-import ThrushUI
 
 /// Opt-in proof running inside the normal packaged pane. No visibility or input overrides.
 @MainActor

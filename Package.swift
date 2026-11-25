@@ -6,32 +6,25 @@ let package = Package(
     platforms: [.macOS("27.0"), .iOS("27.0")],
     products: [
         .library(name: "Thrush", targets: ["Thrush"]),
-        .library(name: "ThrushUI", targets: ["ThrushUI"]),
-        .library(name: "ThrushConnection", targets: ["ThrushConnection"]),
-        .executable(name: "ThrushBench", targets: ["ThrushBench"]),
     ],
     targets: [
-        .target(name: "Thrush"),
-        .target(name: "ThrushUI", dependencies: ["Thrush", "ThrushConnection"]),
-        .executableTarget(name: "ThrushDemo", dependencies: ["ThrushUI", "ThrushConnection", "Thrush", "ThrushReplay"]),
-        .testTarget(name: "ThrushDemoTests", dependencies: ["ThrushDemo", "ThrushUI", "Thrush"]),
-        .testTarget(name: "ThrushUITests", dependencies: ["ThrushUI", "Thrush", "ThrushConnection", "ThrushFixtures"]),
-        .target(name: "ThrushConnection", dependencies: ["Thrush"]),
-        .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush", "ThrushConnection"]),
-        .target(name: "ThrushReplay", dependencies: ["Thrush"]),
+        .target(name: "ThrushCore"),
+        .target(name: "Thrush", dependencies: ["ThrushCore"]),
+        .executableTarget(name: "ThrushDemo", dependencies: ["Thrush", "ThrushReplay"]),
+        .testTarget(name: "ThrushDemoTests", dependencies: ["ThrushDemo", "Thrush", "ThrushCore"]),
+        .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush"]),
+        .target(name: "ThrushReplay", dependencies: ["ThrushCore"]),
         .target(
             name: "ThrushFixtures",
-            dependencies: ["Thrush", "ThrushReplay"],
+            dependencies: ["ThrushCore", "ThrushReplay"],
             path: "Fixtures",
             exclude: ["reference"],
             resources: [.copy("first-bytes.json"), .copy("replays"), .copy("reference/m4/phone/vim-resume.json")]
         ),
-        .executableTarget(name: "ThrushBench", dependencies: ["Thrush", "ThrushFixtures"]),
-        .executableTarget(
-            name: "ThrushLoopbackCheck",
-            dependencies: ["Thrush", "ThrushConnection", "ThrushFixtures"]
-        ),
-        .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushLoopbackCheck", dependencies: ["Thrush", "ThrushFixtures"]),
+        .testTarget(name: "ThrushCoreTests", dependencies: ["ThrushCore", "ThrushFixtures"]),
     ],
     swiftLanguageModes: [.v6]
 )

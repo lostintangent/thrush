@@ -2,7 +2,6 @@
 import AppKit
 import SwiftUI
 import Thrush
-import ThrushUI
 
 @main
 @MainActor

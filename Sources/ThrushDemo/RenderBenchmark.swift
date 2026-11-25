@@ -3,7 +3,6 @@ import Darwin
 import Foundation
 import QuartzCore
 import Thrush
-import ThrushUI
 #if os(macOS)
 import AppKit
 import IOKit.ps

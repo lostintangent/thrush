@@ -1,7 +1,7 @@
 import Foundation
 import QuartzCore
 import Synchronization
-import ThrushConnection
+import Thrush
 
 /// Development-only native frame evidence for the finite, disposable lifecycle workflow.
 /// Formatting and disk I/O run off the connection actor.

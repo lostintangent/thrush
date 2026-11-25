@@ -1,7 +1,5 @@
 import SwiftUI
 import Thrush
-import ThrushConnection
-import ThrushUI
 
 struct DemoOptions {
     enum Scene: String, CaseIterable {

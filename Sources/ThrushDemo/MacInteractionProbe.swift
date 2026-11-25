@@ -1,6 +1,6 @@
 #if os(macOS)
 import AppKit
-import ThrushUI
+import Thrush
 
 /// Exercise Cocoa's real first responder, text input client, accessibility text ranges and pasteboard.
 @MainActor
