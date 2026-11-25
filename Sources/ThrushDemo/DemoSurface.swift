@@ -7,7 +7,15 @@ struct DemoSurface: View {
 
     @ViewBuilder var body: some View {
         if let connection = session.connection {
+            #if os(iOS)
+            if session.options.checksToolbar {
+                PhoneToolbarProof(connection: connection)
+            } else {
+                session.pane(connection)
+            }
+            #else
             session.pane(connection)
+            #endif
         } else if session.options.benchmarkURL != nil {
             RendererSurface(view: session.view)
         } else {

@@ -8,6 +8,11 @@ import UIKit
 /// Opt-in metadata for simulator captures. The screenshot oracle checks the framebuffer separately.
 @MainActor
 enum PhoneCapture {
+    struct Toolbar: Encodable, Equatable {
+        let paneFrame, safeAreaFrame, navigationBarFrame, firstCellFrame: CGRect
+        let closeFrame: CGRect?
+    }
+
     struct State: Encodable, Equatable {
         let scene, appearance, orientation: String
         let pid: Int32
@@ -22,6 +27,7 @@ enum PhoneCapture {
         let selection: [Int]?
         var notice: VisiblePaneNotice?
         var keyboardLanguage: String?
+        var toolbar: Toolbar?
     }
 
     /// UIKit can move the completed drawable or its keyboard without changing a pixel inside it.
@@ -81,12 +87,11 @@ enum PhoneCapture {
     }
 
     #if os(iOS)
-    static func observe(_ session: DemoSession, in root: UIView) -> (() -> Void)? {
+    static func observe(_ session: DemoSession, view: TerminalView, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
-        let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak root] in
-            guard let session, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
-            let view = session.view
+        let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak view, weak root] in
+            guard let session, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
             let selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
             let input = view.subviews.first(where: \.isFirstResponder)
@@ -102,6 +107,7 @@ enum PhoneCapture {
                 state.notice = view.visiblePaneNotice
                 state.keyboardLanguage = input?.textInputMode?.primaryLanguage
             }
+            if session.options.checksToolbar { state.toolbar = PhoneToolbarProof.measure(view) }
             let drawing = Drawing(state: state, generation: view.snapshot?.generation, size: view.snapshot?.size,
                                   drawableSize: view.drawableSize, fontSize: view.fontSize,
                                   theme: view.resolvedTheme, historyOffset: view.historyOffset)
@@ -122,7 +128,7 @@ enum PhoneCapture {
             guard let current = layout() else { return }
             write(latest?.applying(to: current.state, drawing: current.drawing) ?? current.state)
         }
-        session.view.onFrameSubmitted = { time, size, cells in
+        view.onFrameSubmitted = { time, size, cells in
             latest = nil
             guard let current = layout() else { return }
             if let drawing = current.drawing, drawing.size == size {
@@ -130,7 +136,7 @@ enum PhoneCapture {
             }
             write(current.state)
         }
-        session.view.onFrame = { frame in
+        view.onFrame = { frame in
             latest?.complete(frame)
             writeLatest()
         }

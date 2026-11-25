@@ -62,7 +62,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         super.init(rootView: DemoSurface(session: session))
         // The live pane owns safe area and keyboard avoidance. The isolated render benchmark
         // uses the hosting controller's safe content area because it has no pane container.
-        if session.options.benchmarkURL == nil { safeAreaRegions = [] }
+        if session.options.benchmarkURL == nil && !session.options.checksToolbar { safeAreaRegions = [] }
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
@@ -76,11 +76,11 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
-        captureLayout = PhoneCapture.observe(session, in: view)
-        if captureLayout != nil, session.options.scene.capturesNotice {
+        if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
+        if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesNotice {
             noticeObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {
-                    self?.captureLayout?()
+                    self?.observeLayout()
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
                 }
             }
@@ -90,6 +90,14 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         focusIfRequested()
+        observeLayout()
+    }
+
+    private func observeLayout() {
+        if session.options.checksToolbar, captureLayout == nil,
+           let terminal = PhoneToolbarProof.terminal(in: view) {
+            captureLayout = PhoneCapture.observe(session, view: terminal, in: view)
+        }
         captureLayout?()
     }
 
