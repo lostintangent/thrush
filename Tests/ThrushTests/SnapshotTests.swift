@@ -28,3 +28,39 @@ import ThrushFixtures
     }
     #expect(shared)
 }
+
+@Test func alternateResizeMaterializesAMissingRowAndErasePreservesHistory() {
+    let size = Terminal.Size(columns: 2, rows: 3)
+    var terminal = Terminal(size: size)
+    terminal.resize(to: .init(columns: 2, rows: 2))
+    _ = terminal.receive("\u{1b}[?1049hA\r\nB\r\nC\u{1b}[H".utf8)
+    let beforeGrow = terminal.snapshot()
+    #expect(beforeGrow.history.map(\.text) == ["A"])
+    #expect(beforeGrow.rows.map(\.text) == ["B", "C"])
+
+    // xterm 6.0.0 retains B above the viewport and exposes only two rows below it.
+    // Its next physical slot aliases B. Thrush supplies an ordinary blank row there.
+    terminal.resize(to: size)
+    let grown = terminal.snapshot()
+    #expect(grown.size == size)
+    #expect(grown.isAlternate)
+    #expect(grown.cursorRow == 0)
+    #expect(grown.cursorColumn == 0)
+    #expect(grown.history.map(\.text) == ["B"])
+    #expect(grown.rows.map(\.text) == ["C", "", ""])
+    #expect(grown.rows.allSatisfy { !$0.isWrapped })
+    let missing = grown.rows[2]
+    for column in 0..<size.columns {
+        #expect(missing[column] == Terminal.Cell(text: "", width: 1, style: .init()))
+    }
+
+    _ = terminal.receive("\u{1b}[2J".utf8)
+    let erased = terminal.snapshot()
+    #expect(erased.history.map(\.text) == ["B"])
+    #expect(erased.rows.map(\.text) == ["", "", ""])
+    #expect(erased.cursorRow == 0)
+    #expect(erased.cursorColumn == 0)
+    #expect(grown.rows[0].text == "C")
+    #expect(beforeGrow.history.map(\.text) == ["A"])
+    #expect(beforeGrow.rows.map(\.text) == ["B", "C"])
+}

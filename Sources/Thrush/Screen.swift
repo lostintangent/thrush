@@ -36,6 +36,7 @@ extension Terminal {
         package let cursorColumn: Int
         package let cursorVisible: Bool
         package let cursorBlink: Bool
+        package let cursorShape: CursorShape
         package let isAlternate: Bool
         package let generation: UInt64
     }
@@ -125,10 +126,12 @@ extension Terminal {
             alternateCapacity = size.rows
         }
 
-        func snapshot(generation: UInt64, cursorVisible: Bool, cursorBlink: Bool = false) -> Snapshot {
+        func snapshot(generation: UInt64, modes: Modes) -> Snapshot {
             Snapshot(size: size, rows: active.visible, history: active.history,
                      normalHistoryCount: normalWhileAlternate?.history.count ?? active.history.count,
-                     cursorRow: row, cursorColumn: column, cursorVisible: cursorVisible, cursorBlink: cursorBlink, isAlternate: isAlternate, generation: generation)
+                     cursorRow: row, cursorColumn: column, cursorVisible: modes.cursorVisible,
+                     cursorBlink: modes.cursorBlinkOverride ?? modes.cursorBlink, cursorShape: modes.cursorShape,
+                     isAlternate: isAlternate, generation: generation)
         }
 
         func text(inRow row: Int) -> String {

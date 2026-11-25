@@ -49,7 +49,10 @@ function checkpoint(t, cells, lines) {
     ids.push(lines.get({wrapped:line.isWrapped, text:line.translateToString(true, 0, t.cols), runs}));
   }
   const modes = t.modes;
+  // Match xterm's renderer: DECSCUSR overrides the option until the application resets it.
+  const cursor = t._core.coreService.decPrivateModes;
   return {columns:t.cols, rows:t.rows, cursorRow:buffer.cursorY, cursorColumn:buffer.cursorX,
+    cursorShape:cursor.cursorStyle ?? t.options.cursorStyle, cursorBlink:cursor.cursorBlink ?? t.options.cursorBlink,
     isAlternate:buffer.type === 'alternate',
     modes:{applicationCursorKeys:modes.applicationCursorKeysMode, bracketedPaste:modes.bracketedPasteMode,
       applicationKeypad:modes.applicationKeypadMode, insert:modes.insertMode, origin:modes.originMode,
@@ -92,6 +95,16 @@ function shellEdges() {
   for (const key of ['up','left','right','down']) action('key',key);
   action('paste','a\nb');
   output('Shell input modes', utf8('\x1b[?1l\x1b[?2004l\x1b[?1004l\x1b[?25h\x1b[?12l\x1b[6n'));
+  for (const [parameter, name] of [
+    [1, 'Blinking block'], [2, 'Steady block'], [3, 'Blinking underline'],
+    [4, 'Steady underline'], [5, 'Blinking bar'], [6, 'Steady bar'],
+    [7, 'Unsupported odd cursor style'], [8, 'Unsupported even cursor style']
+  ]) output(name, utf8('\x1b[' + parameter + ' q'));
+  output('Enable default blink with an explicit steady cursor', utf8('\x1b[?12h\x1b[?12$p'));
+  output('Restore cursor defaults with zero', utf8('\x1b[0 q'));
+  output('Override the blinking default with steady underline', utf8('\x1b[4 q'));
+  output('Restore cursor defaults with omitted parameter', utf8('\x1b[ q'));
+  output('Restore steady shell cursor', utf8('\x1b[?12l'));
   resize(5, 5);
   output('Wide cells on the active wrapped line', utf8('\x1b[2J\x1b[Habc中DEF中ghi'));
   resize(4, 5);

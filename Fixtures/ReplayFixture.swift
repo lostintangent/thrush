@@ -101,6 +101,8 @@ package struct ReplayFixture: Sendable {
         package let rows: Int
         package let cursorColumn: Int
         package let cursorRow: Int
+        fileprivate let cursorShape: String
+        fileprivate let cursorBlink: Bool
         package let isAlternate: Bool
         package let history: [Int]
         package let visible: [Int]
@@ -156,9 +158,11 @@ package struct ReplayFixture: Sendable {
                 applicationKeypad: modes.applicationKeypad, bracketedPaste: modes.bracketedPaste,
                 insert: modes.insert, origin: modes.origin, wraparound: modes.wraparound,
                 cursorVisible: modes.cursorVisible, cursorBlink: modes.cursorBlink, sendFocus: modes.sendFocus)
-            guard actualModes == checkpoint.modes, snapshot.cursorVisible == checkpoint.modes.cursorVisible,
-                  snapshot.cursorBlink == checkpoint.modes.cursorBlink else {
+            guard actualModes == checkpoint.modes, snapshot.cursorVisible == checkpoint.modes.cursorVisible else {
                 throw Failure("\(name) modes: got \(actualModes), expected \(checkpoint.modes)")
+            }
+            guard snapshot.cursorShape.rawValue == checkpoint.cursorShape, snapshot.cursorBlink == checkpoint.cursorBlink else {
+                throw Failure("\(name) cursor style: got \(snapshot.cursorShape) blink \(snapshot.cursorBlink), expected \(checkpoint.cursorShape) blink \(checkpoint.cursorBlink)")
             }
             guard snapshot.size.columns == checkpoint.columns, snapshot.size.rows == checkpoint.rows else {
                 throw Failure("\(name) size: got \(snapshot.size), expected \(checkpoint.columns)×\(checkpoint.rows)")

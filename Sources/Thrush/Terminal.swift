@@ -12,12 +12,18 @@ public struct Terminal: Sendable {
         }
     }
 
+    package enum CursorShape: String, Sendable {
+        case block, underline, bar
+    }
+
     package struct Modes: Equatable, Sendable {
         package var applicationCursorKeys = false
         package var applicationKeypad = false
         package var bracketedPaste = false
         package var cursorVisible = true
         package var cursorBlink = false
+        var cursorShape: CursorShape = .block
+        var cursorBlinkOverride: Bool?
         package var sendFocus = false
         package let origin = false
         package let insert = false
@@ -79,7 +85,7 @@ public struct Terminal: Sendable {
 
     /// A single, read-only generation for drawing, selection and accessibility.
     package func snapshot() -> Snapshot {
-        screen.snapshot(generation: generation, cursorVisible: modes.cursorVisible, cursorBlink: modes.cursorBlink)
+        screen.snapshot(generation: generation, modes: modes)
     }
 
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
@@ -114,6 +120,16 @@ public struct Terminal: Sendable {
     ) {
         let first = parameters[0]
         switch (prefix, intermediate, final) {
+        case (nil, 0x20, 0x71): // DECSCUSR overrides the cursor until a zero or omitted parameter.
+            switch first {
+            case 0...2: modes.cursorShape = .block
+            case 3, 4: modes.cursorShape = .underline
+            case 5, 6: modes.cursorShape = .bar
+            default: break
+            }
+            modes.cursorBlinkOverride = first == 0 ? nil : !first.isMultiple(of: 2)
+            generation &+= 1
+            return
         case (0x3e, nil, 0x63) where first == 0:
             // Secondary device attributes advertised by the server's configured xterm.
             replies.append(contentsOf: "\u{1b}[>0;276;0c".utf8)

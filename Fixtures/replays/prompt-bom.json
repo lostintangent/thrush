@@ -14,5 +14,5 @@
 {"wrapped":false,"text":"","runs":[]}
 ],
 "events":[
-{"name":"BOM before shell prompt","offsetMicroseconds":0,"bytes":"77u/dGhydXNoJCAbWzZu","checkpoint":{"columns":80,"rows":24,"cursorRow":0,"cursorColumn":8,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]},"reply":"G1sxOzlS"}
+{"name":"BOM before shell prompt","offsetMicroseconds":0,"bytes":"77u/dGhydXNoJCAbWzZu","checkpoint":{"columns":80,"rows":24,"cursorRow":0,"cursorColumn":8,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]},"reply":"G1sxOzlS"}
 ]}
