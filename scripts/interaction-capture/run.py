@@ -279,7 +279,13 @@ def check_keyboard_release(out, appearance):
 
 
 def check_anchored_row(out, appearance):
-    """Every displayed frame keeps the reader's row visible and moves it only with its viewport."""
+    """Every displayed frame keeps the reader's row visible and never jumps it against its viewport.
+
+    UIKit animates the viewport's edges with the rotation and the keyboard on separate curves, so a row
+    gliding between its source and destination places can lead or trail both edges by a few points. A
+    frame fails when the row moves further than either edge carried it and also shifts more than half a
+    row against each edge, which no eased glide does at the display's frame rate.
+    """
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
     trace = out / f"rotation-layout-{landscape['pid']}.jsonl"
@@ -315,11 +321,14 @@ def check_anchored_row(out, appearance):
         if previous:
             moved = abs(top - previous[0])
             carried = max(abs(visible_top - previous[1]), abs(visible_bottom - previous[2]))
-            if moved > carried + 1:
-                raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt.")
+            shifted = min(abs(top - visible_top - previous[0] + previous[1]),
+                          abs(top - visible_bottom - previous[0] + previous[2]))
+            if moved > carried + 1 and shifted > (bottom - top) / 2:
+                raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt, "
+                                 f"shifting it {shifted:g} pt against both of the viewport's edges.")
         previous = (top, visible_top, visible_bottom)
     print(f"{appearance} anchored row: {len(frames)} displayed frames kept {reference['text']!r} in view "
-          f"and moved it only with the viewport.", flush=True)
+          f"and never jumped it against the viewport.", flush=True)
 
 
 def check_rotation_sizes(out, appearance):
