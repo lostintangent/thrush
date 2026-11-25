@@ -1,5 +1,6 @@
 /// A synchronous terminal. Keep one value per shell and serialize output, resize and input on its owner.
 public struct Terminal: Sendable {
+    /// A grid size in character cells.
     public struct Size: Equatable, Sendable {
         public let columns: Int
         public let rows: Int
@@ -34,6 +35,7 @@ public struct Terminal: Sendable {
         package let wraparound = true
     }
 
+    /// The visible grid. History sits above it.
     public var size: Size { screen.size }
     /// Change this when the host changes theme. Stored cells retain their semantic colors.
     public var palette: Palette {
@@ -48,6 +50,7 @@ public struct Terminal: Sendable {
     private var generation: UInt64 = 0
     private var hasCombiningBase = false
 
+    /// Start on a blank normal screen. The palette resolves colors and answers OSC color queries.
     public init(size: Size, palette: Palette = .default) {
         self.palette = palette
         screen = Screen(size: size)
@@ -82,6 +85,7 @@ public struct Terminal: Sendable {
         return replies
     }
 
+    /// Apply the PTY's new size. Normal history reflows at soft wraps, and the alternate screen clips.
     public mutating func resize(to size: Size) {
         guard size != screen.size else { return }
         screen.resize(to: size)

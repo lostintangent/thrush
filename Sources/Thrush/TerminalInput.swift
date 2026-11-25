@@ -1,4 +1,5 @@
 extension Terminal {
+    /// What a person did, before the current modes turn it into bytes with encode(_:).
     public enum Input: Sendable {
         case text(String)
         case paste(String)

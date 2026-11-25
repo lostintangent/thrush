@@ -1,4 +1,5 @@
 extension Terminal {
+    /// An sRGB color with 8-bit channels.
     public struct RGB: Equatable, Sendable {
         public let red: UInt8
         public let green: UInt8
@@ -38,6 +39,7 @@ extension Terminal {
             ].map(RGB.init)
         )
 
+        /// A 256-color index: the 16 ANSI entries, then the 6 × 6 × 6 cube and the 24-step gray ramp.
         public subscript(index index: UInt8) -> RGB {
             if index < 16 { return ansi[Int(index)] }
             if index >= 232 {
