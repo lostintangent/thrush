@@ -57,7 +57,7 @@ SwiftUI observes `session.title` and `session.hasEnded` directly. The title star
 
 ### The socket
 
-On every attachment, the socket factory receives only the current `Terminal.Size` in columns and rows. Your app’s transport returns a fresh, suspended `URLSessionWebSocketTask` for the same client ID each time. Use the app’s `URLSession` so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
+On every attachment, the socket factory receives the current `Terminal.Size` in columns and rows. Return a fresh, suspended `URLSessionWebSocketTask` for the same client ID each time, created from your app’s `URLSession` so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
 
 Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
