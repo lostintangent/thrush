@@ -284,12 +284,7 @@ private typealias NoticeHost = UIView & UIContentView
         rowCover.wantsLayer = true
         backing.wantsLayer = true
         divider.wantsLayer = true
-        let guide = NSLayoutGuide()
-        addLayoutGuide(guide)
-        NSLayoutConstraint.activate([
-            guide.leadingAnchor.constraint(equalTo: leadingAnchor), guide.trailingAnchor.constraint(equalTo: trailingAnchor),
-            guide.topAnchor.constraint(equalTo: topAnchor), guide.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        let guide = safeAreaLayoutGuide
         #else
         viewport.clipsToBounds = true
         backing.isUserInteractionEnabled = false
