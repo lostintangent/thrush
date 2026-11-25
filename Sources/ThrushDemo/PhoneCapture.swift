@@ -10,7 +10,6 @@ import UIKit
 enum PhoneCapture {
     struct Toolbar: Encodable, Equatable {
         let paneFrame, safeAreaFrame, navigationBarFrame, firstCellFrame: CGRect
-        let closeFrame: CGRect?
     }
 
     struct State: Encodable, Equatable {

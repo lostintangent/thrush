@@ -17,7 +17,6 @@ struct PhoneToolbarProof: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Close") { dismiss() }
-                            .accessibilityIdentifier("toolbar.close")
                     }
                 }
         }
@@ -39,13 +38,8 @@ struct PhoneToolbarProof: View {
         guard let geometry = view.paneGeometryInWindow, let window = view.window,
               let bar = first(in: window, matching: { $0 is UINavigationBar && !$0.isHidden }),
               bar.bounds.height > 0 else { return nil }
-        let close = first(in: bar) { candidate in
-            candidate.accessibilityIdentifier == "toolbar.close" || candidate.accessibilityLabel == "Close" ||
-            (candidate as? UILabel)?.text == "Close" || (candidate as? UIButton)?.currentTitle == "Close"
-        }
         return PhoneCapture.Toolbar(paneFrame: geometry.frame, safeAreaFrame: geometry.safeArea,
-                                    navigationBarFrame: bar.convert(bar.bounds, to: window), firstCellFrame: geometry.firstCell,
-                                    closeFrame: close.map { $0.convert($0.bounds, to: window) })
+                                    navigationBarFrame: bar.convert(bar.bounds, to: window), firstCellFrame: geometry.firstCell)
     }
 }
 #endif
