@@ -278,6 +278,20 @@ def check_keyboard_release(out, appearance):
         start = event["time"]
 
 
+def begun(animation):
+    """Whether an animation has begun in its layer's own time.
+
+    UIKit can hold the turn's transaction until the keyboard lays out for the new orientation, leaving
+    each begin time at 0, and it can begin the turn later in the layer's time. Until then the screen
+    keeps the previous frame, and the app's presentation layers describe nothing that was drawn.
+    """
+    return animation["beginTime"] != 0 and animation["layerTime"] >= animation["beginTime"]
+
+
+def finished(animation):
+    return begun(animation) and animation["layerTime"] >= animation["beginTime"] + animation["duration"]
+
+
 def check_anchored_row(out, appearance):
     """Every displayed frame keeps the reader's row visible and never jumps it against its viewport.
 
@@ -285,6 +299,13 @@ def check_anchored_row(out, appearance):
     gliding between its source and destination places can lead or trail both edges by a few points. A
     frame fails when the row moves further than either edge carried it and also shifts more than half a
     row against each edge, which no eased glide does at the display's frame rate.
+
+    Samples taken before the window's turn begins are skipped, because the screen still shows the previous
+    frame. So is one sample per turn whose row doesn't span its viewport. Every commit lays out the whole
+    tree, so it caught the main thread between layout passes, in a state the screen never shows. Both turns
+    must be sampled while they turn, and each turn's last sample is its settled frame and is never skipped.
+    The system animates the accessory on its own, so the row is held above the accessory only once those
+    animations finish.
     """
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
@@ -295,6 +316,33 @@ def check_anchored_row(out, appearance):
         if (event["source"] == "accessory.display" and event.get("anchor") and start <= event["time"] <= end
                 and (event.get("layout") or {}).get("appearance") == appearance):
             frames.append(event)
+
+    def held(event):
+        return not all(map(begun, event["animations"]["window"]))
+
+    def mid_layout(event):
+        (_, (row_width, _)), (_, (viewport_width, _)) = (event["anchor"]["rowInWindow"],
+                                                         event["anchor"]["viewportInWindow"])
+        return abs(row_width - viewport_width) > 1
+
+    # A turn runs from the first sample with the window's turn animations through its settled samples.
+    turns = []
+    for event in frames:
+        if not turns or (event["animations"]["window"] and not turns[-1][-1]["animations"]["window"]):
+            turns.append([])
+        turns[-1].append(event)
+    for turn in turns:
+        when = f"{appearance} turn settling at {turn[-1]['time'] - start:.3f}s"
+        if held(turn[-1]) or mid_layout(turn[-1]):
+            raise ValueError(f"{when} ended on a sample the screen never showed.")
+        if sum(map(mid_layout, turn)) > 1:
+            raise ValueError(f"{when} had more than one sample read between layout passes.")
+    turned = sum(any(event["animations"]["window"] for event in turn) for turn in turns)
+    if turned != 2:
+        raise ValueError(f"{appearance}: the trace sampled {turned} of the capture's 2 turns while they turned.")
+    skipped = sum(map(held, frames))
+    partial = sum(1 for event in frames if not held(event) and mid_layout(event))
+    frames = [event for event in frames if not held(event) and not mid_layout(event)]
     if len(frames) < 30:
         raise ValueError(f"{appearance}: only {len(frames)} displayed frames recorded the anchored row.")
     reference = frames[0]["anchor"]
@@ -314,7 +362,8 @@ def check_anchored_row(out, appearance):
         if (anchor["kind"], anchor["text"]) != (reference["kind"], reference["text"]):
             raise ValueError(f"{when} anchored {anchor['kind']} row {anchor['row']} {anchor['text']!r} "
                              f"instead of {reference['text']!r}.")
-        accessory = anchor.get("accessoryTopInWindow")
+        settled = all(map(finished, event["animations"]["accessory"]))
+        accessory = anchor.get("accessoryTopInWindow") if settled else None
         if top < visible_top - 1 or bottom > visible_bottom + 1 or (accessory is not None and bottom > accessory + 1):
             raise ValueError(f"{when} drew {reference['text']!r} at {top:g}–{bottom:g} pt, outside the viewport "
                              f"{visible_top:g}–{visible_bottom:g} pt above the accessory at {accessory}.")
@@ -327,8 +376,9 @@ def check_anchored_row(out, appearance):
                 raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt, "
                                  f"shifting it {shifted:g} pt against both of the viewport's edges.")
         previous = (top, visible_top, visible_bottom)
-    print(f"{appearance} anchored row: {len(frames)} displayed frames kept {reference['text']!r} in view "
-          f"and never jumped it against the viewport.", flush=True)
+    print(f"{appearance} anchored row: {len(frames)} displayed frames across {turned} turns kept "
+          f"{reference['text']!r} in view and never jumped it against the viewport, skipping {skipped} "
+          f"before the turn began and {partial} read between layout passes.", flush=True)
 
 
 def check_rotation_sizes(out, appearance):

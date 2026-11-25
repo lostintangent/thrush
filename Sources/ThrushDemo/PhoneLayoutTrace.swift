@@ -70,6 +70,30 @@ import UIKit
         let accessoryTopInWindow: CGFloat?
     }
 
+    /// An animation in its layer's own time. UIKit can hold the turn's transaction until the
+    /// keyboard lays out for the new orientation, and until an animation begins, nothing it
+    /// animates has moved on screen.
+    private struct LayerAnimation: Encodable {
+        let key: String
+        let beginTime, duration, layerTime: CFTimeInterval
+
+        static func list(_ view: UIView, named: Bool = false) -> [LayerAnimation] {
+            let layer = view.layer
+            let now = layer.convertTime(CACurrentMediaTime(), from: nil)
+            return (layer.animationKeys() ?? []).compactMap { key in
+                layer.animation(forKey: key).map {
+                    LayerAnimation(key: named ? "\(type(of: view)) \(key)" : key,
+                                   beginTime: $0.beginTime, duration: $0.duration, layerTime: now)
+                }
+            }
+        }
+    }
+
+    /// The window's turn, and the system's animations of the accessory and the views holding it.
+    private struct Animations: Encodable {
+        let window, accessory: [LayerAnimation]
+    }
+
     private struct Event: Encodable {
         let time: TimeInterval
         let source: String
@@ -79,6 +103,7 @@ import UIKit
         var afterNotificationAt: TimeInterval? = nil
         var accessorySample: AccessorySample?
         var anchor: Anchor?
+        var animations: Animations?
     }
 
     private weak var terminal: TerminalView?
@@ -204,7 +229,10 @@ import UIKit
                                      sharesReceivingWindow: accessory?.window.map { $0 === window })
         write(Event(time: Date.now.timeIntervalSince1970, source: "accessory.display", layout: layout,
                     keyboardEndFrameInScreen: keyboardEndFrameInScreen, keyboardAnimationDuration: nil,
-                    accessorySample: sample, anchor: anchor(in: window, accessory: accessory)))
+                    accessorySample: sample, anchor: anchor(in: window, accessory: accessory),
+                    animations: Animations(window: window.map { LayerAnimation.list($0) } ?? [],
+                                           accessory: accessory.map { sequence(first: $0, next: \.superview)
+                                               .flatMap { LayerAnimation.list($0, named: true) } } ?? [])))
         if CACurrentMediaTime() >= sampleUntil {
             display.invalidate()
             link = nil
