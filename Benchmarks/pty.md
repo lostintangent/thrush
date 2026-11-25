@@ -15,6 +15,8 @@ scripts/serve-pty.py --toy-box ../toy-box --port 3129 --data-dir "$pty_data"
 
 The launcher builds the pinned `b9d0eca3c5f4e9036e58327ba633eff52474bb92` source and locked dependencies with Bun, then caches that production build under `.build/pty-server`. The first build needs Bun and access to the locked packages or a populated Bun cache. The server binds to `127.0.0.1`. PTYs start in `work/` with a private `home/`, including the Toy Box database, and `tmp/`. The server receives a minimal environment. New PTYs run `/bin/zsh` by default. Pass `--shell /bin/sh` to choose another executable. Control-C stops the server. The supplied data directory remains available for inspection.
 
+To test changes in a Toy Box checkout, add `--working-tree` to the launcher or check. The build takes a private snapshot of tracked files and nonignored additions, including unstaged edits and deletions. Its cache key includes a SHA-256 of the copied contents, paths, link targets and executable bits. The launcher writes the base commit and snapshot digest to `source.json` in the data directory. Both checks include them in their JSON reports. The default remains the pinned production revision used for the measurements below.
+
 ## What the smoke measures
 
 The smoke launcher identifies itself with a random token printed by its real shell. The Swift client verifies that token on its grid before sending a command. A Python producer runs on the PTY, confirms its 80 × 24 window and emits fixed 64-byte numbered records. An independent oracle checks payload bytes, order and complete markers. Binary frames applied through the first live end fence make up the received and applied totals. Those counts include the initial shell output and fences.

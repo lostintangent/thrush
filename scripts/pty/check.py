@@ -28,10 +28,11 @@ def wait_for(description, check, process, seconds=45):
 
 
 @contextmanager
-def server(repo, root, shell, log):
+def server(repo, root, shell, log, working_tree=False):
     launcher = Path(__file__).resolve().parents[1] / "serve-pty.py"
     with log.open("w") as output, subprocess.Popen(
-        [sys.executable, launcher, "--toy-box", repo, "--data-dir", root / "data", "--shell", shell],
+        [sys.executable, launcher, "--toy-box", repo, "--data-dir", root / "data", "--shell", shell,
+         *(["--working-tree"] if working_tree else [])],
         stdout=output, stderr=subprocess.STDOUT,
         start_new_session=True,
     ) as process:
@@ -164,6 +165,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
     parser.add_argument("--toy-box", type=Path, default=Path("../toy-box"))
+    parser.add_argument("--working-tree", action="store_true", help="Test the current Toy Box checkout")
     args = parser.parse_args()
 
     def terminate(signum, frame):
@@ -182,10 +184,10 @@ def main():
         shell.chmod(0o700)
         log = root / "server.log"
         try:
-            with server(args.toy_box, root, shell, log) as endpoint:
+            with server(args.toy_box, root, shell, log, working_tree=args.working_tree) as endpoint:
                 work = root / "data" / "work"
                 shutil.copyfile(Path(__file__).with_name("producer.py"), work / "producer.py")
-                revision = re.search(r"Toy Box ([0-9a-f]{12,40}) ·", log.read_text())[1]
+                source = read_json(root / "data" / "source.json")
                 runs = []
                 baseline = next(row["receiveMiBPerSecond"] for row in read_json(Path("Benchmarks/headless.json"))["bulk"]
                                 if row["grid"] == {"columns": 80, "rows": 24})
@@ -199,7 +201,7 @@ def main():
                 print(log.read_text()[-4000:], file=sys.stderr)
             raise
 
-    report = {"toyBoxRevision": revision, "bun": subprocess.check_output(["bun", "--version"], text=True).strip(),
+    report = {**source, "bun": subprocess.check_output(["bun", "--version"], text=True).strip(),
               "thrushHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "macOS": platform.mac_ver()[0], "hardware": subprocess.check_output(

@@ -96,6 +96,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
     parser.add_argument("--toy-box", type=Path, default=Path("../toy-box"))
+    parser.add_argument("--working-tree", action="store_true", help="Test the current Toy Box checkout")
     args = parser.parse_args()
     binary = args.binary.resolve()
 
@@ -115,7 +116,7 @@ def main():
         shell.chmod(0o700)
         log = root / "server.log"
         try:
-            with server(args.toy_box, root, shell, log) as endpoint:
+            with server(args.toy_box, root, shell, log, working_tree=args.working_tree) as endpoint:
                 work = root / "data" / "work"
                 shutil.copyfile(HERE / "reader-producer.py", work / "reader-producer.py")
                 readers = ["bun", "thrush", "urlsession"]
@@ -127,12 +128,12 @@ def main():
                             results.append(exercise(binary, endpoint, work, name, reader, profile=profile))
                 exits = [exercise(binary, endpoint, work, "exit-live", "bun", probe=True),
                          exercise(binary, endpoint, work, "exit-suspended", "bun", probe=True, suspend=True)]
-                revision = next(line.split()[2] for line in log.read_text().splitlines() if line.startswith("Toy Box "))
+                source = read_json(root / "data" / "source.json")
         except BaseException:
             if log.exists():
                 print(log.read_text()[-2000:], file=sys.stderr)
             raise
-    report = {"toyBoxRevision": revision, "thrushHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+    report = {**source, "thrushHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "macOS": platform.mac_ver()[0],
               "grid": [80, 24], "sourceTargetMiBPerSecond": 16, "comparisons": results, "exits": exits}
