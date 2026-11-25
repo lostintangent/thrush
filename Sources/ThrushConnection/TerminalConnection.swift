@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 import Thrush
 
 /// A host owns one attachment at a time. Reuse its client ID on the next attachment.
@@ -34,6 +35,7 @@ package actor TerminalConnection {
     private let session: URLSession
     private let socket: URLSessionWebSocketTask
     private var terminal: Terminal
+    package private(set) var lastReceiptTime: CFTimeInterval?
     private var phase = Phase.attaching
     private var isReading = false
     private var lastWrite: Task<Void, Error>?
@@ -76,6 +78,7 @@ package actor TerminalConnection {
             switch message {
             case .data(let data):
                 guard phase == .active || phase == .closing else { throw ConnectionError.unexpectedMessage }
+                lastReceiptTime = CACurrentMediaTime()
                 let reply = data.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
                 if !reply.isEmpty && phase == .active { try await write(.data(Data(reply))) }
                 return .output

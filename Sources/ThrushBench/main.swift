@@ -18,7 +18,7 @@ func outputURL(arguments: [String]) throws -> URL {
         return URL(filePath: ".build/benchmarks/first-bytes.json")
     }
     guard arguments.count == 2, arguments[0] == "--output", !arguments[1].isEmpty else {
-        throw BenchmarkError("Usage: swift run -c release ThrushBench [--output PATH]")
+        throw BenchmarkError("Usage: ThrushBench [--output PATH] or ThrushBench --render MAC_APP [--output PATH]")
     }
     return URL(filePath: arguments[1])
 }
@@ -69,7 +69,12 @@ func run() throws {
     #if DEBUG
     throw BenchmarkError("Run the benchmark with swift run -c release ThrushBench.")
     #else
-    let output = try outputURL(arguments: Array(CommandLine.arguments.dropFirst()))
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments.first == "--render" {
+        try runPackagedRenderer(arguments: arguments)
+        return
+    }
+    let output = try outputURL(arguments: arguments)
     let fixture = try FirstBytesFixture.load()
     let environment = try Environment.read()
     let report = try Report(fixtureSHA256: fixture.sha256, recordedAt: Date(),

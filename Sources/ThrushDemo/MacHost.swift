@@ -1,0 +1,168 @@
+#if os(macOS)
+import AppKit
+import Thrush
+import ThrushUI
+
+@main
+@MainActor
+enum ThrushMac {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = MacHost()
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        withExtendedLifetime(delegate) { app.run() }
+    }
+}
+
+@MainActor
+private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
+    let session = DemoSession(options: DemoOptions())
+    private var window: NSWindow!
+    private var activeAppearance: DemoOptions.Appearance = .system
+    private var hasAlert = false
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let cycle = CommandLine.arguments.contains("--cycle-appearance")
+        setAppearance(cycle || session.options.customTheme ? .dark : session.options.appearance)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 454),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          backing: .buffered, defer: false)
+        window.title = "Thrush"
+        window.delegate = self
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 320, height: 180)
+        window.tabbingMode = .disallowed
+        window.titlebarSeparatorStyle = .none
+        window.titlebarAppearsTransparent = true
+        window.contentView = session.view
+        window.setFrame(NSRect(x: 0, y: 0, width: 720, height: 486), display: false)
+        window.center()
+
+        session.onThemeChange = { [weak self] in self?.applyChrome($0) }
+        session.onError = { [weak self] in self?.showError($0) }
+        session.onBenchmarkFinished = { success in
+            if !success { exit(EXIT_FAILURE) }
+            NSApp.terminate(nil)
+        }
+        applyChrome(session.view.resolvedTheme)
+        makeMenus()
+        if cycle { session.onFirstOutput = { [weak self] in self?.cycleAppearance() } }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        session.setActive(true)
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func windowWillClose(_ notification: Notification) { session.setActive(false) }
+    func windowDidMiniaturize(_ notification: Notification) { session.setActive(false) }
+    func windowDidDeminiaturize(_ notification: Notification) { session.setActive(true) }
+    func applicationDidHide(_ notification: Notification) { session.setActive(false) }
+    func applicationDidUnhide(_ notification: Notification) { session.setActive(true) }
+
+    private func applyChrome(_ theme: TerminalTheme) {
+        let rgb = theme.hostBacking
+        window.backgroundColor = NSColor(srgbRed: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255,
+                                        blue: CGFloat(rgb.blue) / 255, alpha: 1)
+    }
+
+    private func makeMenus() {
+        let main = NSMenu()
+        func submenu(_ title: String) -> NSMenu {
+            let item = main.addItem(withTitle: title, action: nil, keyEquivalent: "")
+            let menu = NSMenu(title: title)
+            item.submenu = menu
+            return menu
+        }
+        let app = submenu("Thrush")
+        app.addItem(withTitle: "Quit Thrush", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let replay = submenu("Replay")
+        let titles: [(DemoOptions.Scene, String)] = [
+            (.shell, "Build"), (.editor, "Swift in Vim"), (.log, "Recorded Compiler Log"),
+            (.vim, "Recorded Vim Edit"), (.prompt, "Shell Prompt"), (.glyphs, "Wide Glyphs"),
+        ]
+        for (index, pair) in titles.enumerated() {
+            let item = replay.addItem(withTitle: pair.1, action: #selector(selectScene(_:)), keyEquivalent: String(index + 1))
+            item.representedObject = pair.0.rawValue
+            item.target = self
+        }
+
+        let appearance = submenu("Appearance")
+        for name in ["System", "Light", "Dark", "Custom"] {
+            let item = appearance.addItem(withTitle: name, action: #selector(changeAppearance(_:)), keyEquivalent: "")
+            item.target = self
+        }
+        let windows = submenu("Window")
+        windows.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windows.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        NSApp.windowsMenu = windows
+        NSApp.mainMenu = main
+    }
+
+    /// Exercise exactly the same actions as the Appearance menu while keeping the live
+    /// terminal attached. The capture runner listens for these phase boundaries on stdout.
+    private func cycleAppearance() {
+        Task {
+            guard let menu = NSApp.mainMenu?.item(withTitle: "Appearance")?.submenu else { return }
+            for title in ["Dark", "Light", "Custom"] {
+                if title != "Dark" { try? await Task.sleep(for: .seconds(4)) }
+                let index = menu.indexOfItem(withTitle: title)
+                guard index >= 0 else { return }
+                menu.performActionForItem(at: index)
+                FileHandle.standardOutput.write(Data("appearance=\(title.lowercased())\n".utf8))
+            }
+        }
+    }
+
+    @objc private func selectScene(_ sender: NSMenuItem) {
+        if let name = sender.representedObject as? String, let scene = DemoOptions.Scene(rawValue: name) {
+            session.replay(scene)
+        }
+    }
+
+    @objc private func changeAppearance(_ sender: NSMenuItem) {
+        if sender.title == "Custom" {
+            setAppearance(.dark)
+            session.view.theme = DemoSession.customTheme
+        } else if let appearance = DemoOptions.Appearance(rawValue: sender.title.lowercased()) {
+            session.view.theme = nil
+            setAppearance(appearance)
+        }
+    }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(selectScene(_:)) {
+            item.state = (item.representedObject as? String) == session.options.scene.rawValue ? .on : .off
+        } else if item.action == #selector(changeAppearance(_:)) {
+            let name = session.view.theme == nil ? activeAppearance.rawValue : "custom"
+            item.state = item.title.lowercased() == name ? .on : .off
+        }
+        return true
+    }
+
+    private func setAppearance(_ appearance: DemoOptions.Appearance) {
+        activeAppearance = appearance
+        switch appearance {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    private func showError(_ detail: String) {
+        guard !hasAlert else { return }
+        hasAlert = true
+        let alert = NSAlert()
+        alert.messageText = "Couldn’t connect to the terminal"
+        alert.informativeText = "\(detail)\n\nThe demo peer is expected at \(session.options.endpoint.absoluteString)."
+        alert.addButton(withTitle: "Retry")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            hasAlert = false
+            if response == .alertFirstButtonReturn { session.replay(session.options.scene) }
+        }
+    }
+}
+#endif

@@ -1,0 +1,333 @@
+import MetalKit
+import Thrush
+
+/// Timing from the monotonic media clock used by CAMetalDrawable.presentedTime.
+package struct FrameMeasurement: Sendable {
+    package let generation: UInt64
+    package let cpuPreparationSeconds: Double
+    package let gpuSeconds: Double?
+    package let presentedTime: Double?
+    package let receivedAt: Double?
+    package let submittedAt: Double
+    package let glyphUploads: Int
+    package let rowsPrepared: Int
+}
+
+@MainActor
+private final class Presentation {
+    let cpu: Double, submitted: Double
+    let received: Double?
+    let generation: UInt64
+    let uploads: Int, rows: Int
+    let report: (FrameMeasurement) -> Void
+    var gpu: Double?
+    var presented: Double?
+    var completed = false
+    var presentationKnown = false
+    var delivered = false
+
+    init(cpu: Double, submitted: Double, received: Double?, generation: UInt64, uploads: Int, rows: Int,
+         report: @escaping (FrameMeasurement) -> Void) {
+        self.cpu = cpu
+        self.submitted = submitted
+        self.received = received
+        self.generation = generation
+        self.uploads = uploads
+        self.rows = rows
+        self.report = report
+    }
+
+    func resolve() {
+        guard completed, presentationKnown, !delivered else { return }
+        delivered = true
+        report(.init(generation: generation, cpuPreparationSeconds: cpu, gpuSeconds: gpu,
+                     presentedTime: presented, receivedAt: received, submittedAt: submitted,
+                     glyphUploads: uploads, rowsPrepared: rows))
+    }
+}
+
+/// Native Metal surface. Keep one view for the lifetime of a viewport. Its host serializes
+/// terminal mutations, passes complete generations here, and applies sizes to the transport.
+@MainActor
+public final class TerminalView: MTKView, MTKViewDelegate {
+    /// Inclusive endpoints in the displayed viewport. A selected wide glyph is painted as one unit.
+    public struct Selection: Equatable, Sendable {
+        public let anchorRow: Int, anchorColumn: Int, headRow: Int, headColumn: Int
+
+        public init(anchorRow: Int, anchorColumn: Int, headRow: Int, headColumn: Int) {
+            self.anchorRow = anchorRow
+            self.anchorColumn = anchorColumn
+            self.headRow = headRow
+            self.headColumn = headColumn
+        }
+
+        func columns(in row: Int, width: Int) -> Range<Int>? {
+            var start = (anchorRow, anchorColumn), end = (headRow, headColumn)
+            if end < start { swap(&start, &end) }
+            guard (start.0...end.0).contains(row) else { return nil }
+            let lo = row == start.0 ? max(0, start.1) : 0
+            let hi = row == end.0 ? min(width - 1, end.1) : width - 1
+            return lo <= hi ? lo..<(hi + 1) : nil
+        }
+    }
+
+    public var selection: Selection? {
+        didSet { if oldValue != selection { invalidateFrame() } }
+    }
+    public var onGridSizeChange: ((Terminal.Size) -> Void)?
+    public var onThemeChange: ((TerminalTheme) -> Void)?
+    public private(set) var gridSize: Terminal.Size?
+    public private(set) var resolvedTheme: TerminalTheme = .slateDark
+    /// A nil override follows the native appearance.
+    public var theme: TerminalTheme? { didSet { resolveTheme() } }
+    #if os(macOS)
+    /// Compositing control for hosts that supply a native backdrop. Both Slate defaults are opaque.
+    public var backgroundOpacity: Double = 1 {
+        didSet { updateBackgroundCompositing() }
+    }
+    private var effectiveOpacity: Double {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+              backgroundOpacity.isFinite else { return 1 }
+        return min(1, max(0, backgroundOpacity))
+    }
+    public override var isOpaque: Bool { effectiveOpacity == 1 }
+
+    @objc private func updateBackgroundCompositing() {
+        layer?.isOpaque = isOpaque
+        applyClearColor()
+        invalidateFrame()
+    }
+    #endif
+
+    public var fontSize: CGFloat? {
+        didSet {
+            if let fontSize { precondition((6...96).contains(fontSize) && fontSize.isFinite) }
+            updateGeometry()
+        }
+    }
+    package var onFrame: ((FrameMeasurement) -> Void)?
+    package private(set) var submissionCount = 0
+    private var renderer: MetalRenderer?
+    private var metrics: GridMetrics?
+    private var snapshot: Terminal.Snapshot?
+    private var received: Double?
+    private var active = true
+    private var dirty = true
+    private var inFlight = 0
+    private var lastViewport = CGSize.zero
+
+    public convenience init(frame: CGRect) { self.init(frame: frame, device: MTLCreateSystemDefaultDevice()) }
+    public override init(frame: CGRect, device: (any MTLDevice)?) {
+        super.init(frame: frame, device: device)
+        configure()
+    }
+    public required init(coder: NSCoder) {
+        super.init(coder: coder)
+        if device == nil { device = MTLCreateSystemDefaultDevice() }
+        configure()
+    }
+
+    private func configure() {
+        isPaused = true
+        enableSetNeedsDisplay = true
+        colorPixelFormat = .bgra8Unorm
+        #if os(macOS)
+        wantsLayer = true
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(updateBackgroundCompositing),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil
+        )
+        layer?.isOpaque = isOpaque
+        #else
+        isOpaque = true
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: TerminalView, _: UITraitCollection) in
+            view.resolveTheme()
+        }
+        registerForTraitChanges([UITraitDisplayScale.self]) { (view: TerminalView, _: UITraitCollection) in
+            view.updateGeometry()
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(trimMemory),
+                                               name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        #endif
+        (layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        delegate = self
+        resolveTheme()
+        applyClearColor()
+    }
+
+    @objc private func trimMemory() {
+        renderer?.discardResources()
+        releaseDrawables()
+        invalidateFrame()
+    }
+
+    #if os(macOS)
+    public override func layout() { super.layout(); updateGeometry() }
+    public override func viewDidChangeBackingProperties() { super.viewDidChangeBackingProperties(); updateGeometry() }
+    public override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); updateGeometry(); invalidateFrame() }
+    public override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); resolveTheme() }
+    #else
+    public override func layoutSubviews() { super.layoutSubviews(); updateGeometry() }
+    public override func didMoveToWindow() { super.didMoveToWindow(); updateGeometry(); invalidateFrame() }
+    #endif
+
+    private func resolveTheme() {
+        #if os(macOS)
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        #else
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        #endif
+        let next = theme ?? (isDark ? .slateDark : .slateLight)
+        guard next != resolvedTheme else { return }
+        resolvedTheme = next
+        applyClearColor()
+        onThemeChange?(next)
+        invalidateFrame()
+    }
+
+    private func applyClearColor() {
+        let c = resolvedTheme.palette.background.vector
+        #if os(macOS)
+        let alpha = effectiveOpacity
+        #else
+        let alpha = 1.0
+        #endif
+        // Core Animation composites the drawable as premultiplied RGBA.
+        clearColor = MTLClearColor(red: Double(c.x) * alpha, green: Double(c.y) * alpha,
+                                   blue: Double(c.z) * alpha, alpha: alpha)
+    }
+
+    private func updateGeometry() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        #if os(macOS)
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        #else
+        let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : contentScaleFactor
+        #endif
+        let pixelSize = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
+        let nextSize: CGFloat = fontSize ?? {
+            #if os(macOS)
+            14
+            #else
+            13
+            #endif
+        }()
+        var needsGeometry = false
+        if metrics?.scale != scale || metrics?.pointSize != nextSize {
+            metrics = GridMetrics(scale: scale, pointSize: nextSize)
+            renderer?.discardResources()
+            needsGeometry = true
+        }
+        if lastViewport != pixelSize {
+            lastViewport = pixelSize
+            if drawableSize != pixelSize { drawableSize = pixelSize }
+            renderer?.discardGeometry()
+            needsGeometry = true
+        }
+        guard let metrics else { return }
+        let next = metrics.size(in: bounds.size)
+        if next != gridSize {
+            gridSize = next
+            onGridSizeChange?(next)
+        }
+        if needsGeometry { invalidateFrame() }
+    }
+
+    public func display(_ terminal: Terminal, receivedAt: CFTimeInterval? = nil) {
+        display(terminal.snapshot(), receivedAt: receivedAt)
+    }
+
+    package func display(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval? = nil) {
+        if let last = snapshot, last.generation == next.generation { return }
+        snapshot = next
+        received = receivedAt
+        invalidateFrame()
+    }
+
+    /// Call when replacing the underlying terminal. Row revisions belong to a single terminal.
+    public func reset() {
+        snapshot = nil
+        selection = nil
+        received = nil
+        renderer?.discardGeometry()
+        invalidateFrame()
+    }
+
+    public func setRenderingActive(_ newValue: Bool) {
+        guard active != newValue else { return }
+        active = newValue
+        if active { invalidateFrame() } else { releaseDrawables() }
+    }
+
+    private func invalidateFrame() {
+        dirty = true
+        guard active, inFlight < 3, window != nil else { return }
+        #if os(macOS)
+        needsDisplay = true
+        #else
+        setNeedsDisplay()
+        #endif
+    }
+
+    public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { invalidateFrame() }
+
+    public func draw(in view: MTKView) {
+        guard active, dirty, inFlight < 3, window != nil else { return }
+        updateGeometry()
+        guard let device, let metrics, drawableSize.width > 0, drawableSize.height > 0,
+              let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
+        let started = CACurrentMediaTime()
+        do {
+            if renderer == nil { renderer = try MetalRenderer(device: device) }
+            guard let renderer else { return }
+            let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
+                                            pass: pass, viewport: drawableSize, selection: selection)
+            let submitted = CACurrentMediaTime()
+            let presentation = onFrame.map {
+                Presentation(cpu: submitted - started, submitted: submitted, received: received,
+                             generation: snapshot?.generation ?? 0, uploads: frame.glyphUploads,
+                             rows: frame.rowsPrepared, report: $0)
+            }
+            #if targetEnvironment(simulator)
+            // The Simulator SDK exposes no drawable presentation handler or timestamp.
+            presentation?.presentationKnown = true
+            #else
+            if let presentation {
+                drawable.addPresentedHandler { output in
+                    let time = output.presentedTime
+                    Task { @MainActor in
+                        presentation.presented = time > 0 ? time : nil
+                        presentation.presentationKnown = true
+                        presentation.resolve()
+                    }
+                }
+            }
+            #endif
+            frame.buffer.addCompletedHandler { [weak self] command in
+                let gpu = command.gpuEndTime - command.gpuStartTime
+                let failed = command.status == .error
+                Task { @MainActor in
+                    if let presentation {
+                        presentation.gpu = gpu > 0 ? gpu : nil
+                        presentation.completed = true
+                        if failed { presentation.presentationKnown = true }
+                        presentation.resolve()
+                    }
+                    if let self {
+                        self.inFlight -= 1
+                        if self.dirty { self.invalidateFrame() }
+                    }
+                }
+            }
+            dirty = false
+            received = nil
+            inFlight += 1
+            submissionCount += 1
+            frame.buffer.present(drawable)
+            frame.buffer.commit()
+        } catch {
+            renderer?.discardResources()
+            NSLog("Thrush Metal frame failed: %@", String(describing: error))
+        }
+    }
+}
