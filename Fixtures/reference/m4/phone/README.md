@@ -1,6 +1,6 @@
 # Native-width PTY recordings
 
-The running-pane driver uses these recordings when the phone has the recorded grid. Bash and Vim receive the PTY dimensions before launch. The pinned Toy Box server serializes the edited alternate buffer after Vim returns to portrait. The recorder checks the saved scratch file on disk and the serializer checks its restored text and modes.
+The running-pane driver uses these recordings when the phone has the recorded grid. Bash and Vim receive the PTY dimensions before launch. The local Toy Box serializer restores the edited alternate buffer after Vim returns to portrait. The 1,214-byte replay matches every cell, color and style and leaves the cursor at row 0, column 9. After `:wq`, all eight cells of `thrush$ ` use the default colors. The recorder also checks the saved scratch file on disk. [Serializer source digest](../README.md#vim-reattachment)
 
 The iPhone 17 Vim recording starts at 47 columns by 25 rows in portrait. It confirms portrait, rotates to 90 columns by 9 rows, and returns to 47 by 25 before detach and replay. The native view measured keyboard guides of 345 pt in portrait and 224 pt in landscape, each including the 44 pt accessory. [Hosted landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563)
 

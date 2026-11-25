@@ -12,6 +12,9 @@ import tempfile
 
 
 THRUSH = Path(__file__).resolve().parent.parent
+# Hosted PTY checks use this published server. Its Vim replay shifts the cursor
+# left and colors the shell prompt blue. The recorded fixtures use the corrected
+# local scrollback.ts identified by SHA-256 in Fixtures/reference/m4/README.md.
 REVISION = "b9d0eca3c5f4e9036e58327ba633eff52474bb92"
 
 

@@ -209,7 +209,13 @@ async function generate(name) {
   if (name === 'shell-log') assert.equal(fullHistory.size, 0, 'Missing full-history checkpoint');
   if (name.startsWith('vim-swift-')) await verifyStyledPaints(recording, events, cells, lines);
   t.dispose();
-  const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : undefined,
+  // The Vim PTY recording and xterm checkpoints use the historical oracle. Only its
+  // reattachment frame comes from the separately identified serializer source.
+  const overlay = recording.overlay;
+  const vimReplay = name === 'vim-resume' ? {sourceCaptureSHA256:overlay.sourceCaptureSHA256,
+    sourceReferenceRevision:overlay.sourceReferenceRevision, serializerSourceSHA256:overlay.serializerSourceSHA256,
+    serializedSHA256:overlay.serializedSHA256} : undefined;
+  const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : undefined, vimReplay,
     vimBackground:recording.vimBackground, columns:recording.columns,rows:recording.rows,cells:cells.values,lines:lines.values,events};
   // Keep each checkpoint or recorded read on its own line to make diffs reviewable.
   const { cells:cellList, lines:rowList, events:eventList, ...header } = json;
