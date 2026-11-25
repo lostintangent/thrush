@@ -46,6 +46,10 @@ Three partial generations inside synchronized output produced 0 submissions. Clo
 
 The Mac session was locked. Its drawable callbacks returned zero presentation timestamps on all 41 drawing workload frames and both synchronized-output releases. CPU preparation, GPU duration and submission timestamps are available. A foreground run on an unlocked display is still required for receipt-to-presentation latency.
 
+## Hosted Mac visibility check
+
+The packaged Release app at `c1c1ecf` submitted zero frames during 1.015 s at a settled prompt, 1.005 s suspended with an update pending, and 1.185 s while AppKit hid the application. All 41 workload frames recorded CPU and GPU samples. The virtual display supplied no presentation timestamps. [Hosted run](https://github.com/lostintangent/thrush/actions/runs/45608393865/attempts/2) · [Saved report](render-mac-hosted.json)
+
 ## First iPhone simulator measurement
 
 The clean Release build at `be859d5` drew a 47 × 42 portrait grid with the keyboard hidden on an iPhone 17 simulator running iOS 27.2 (24B8117). The hosted arm64 Mac ran macOS 27.0.1 and exposed three cores. Its one-minute load was 615.79. The simulator reported nominal thermal state and a 16.667 ms display interval. These timings describe one heavily contended run on the host graphics stack. [Hosted job](https://github.com/lostintangent/thrush/actions/runs/45566748815/job/139043292929) · [Saved simulator samples](render-simulator.json)
