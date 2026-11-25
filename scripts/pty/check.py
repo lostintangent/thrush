@@ -92,7 +92,7 @@ def check_log(run, scenario):
     producer = read_json(run / "produced.json")
     client = read_json(run / "client.json")
     wire = (run / "wire.bin").read_bytes()
-    if not (len(wire) == client["receivedBytes"] == client["appliedBytes"]):
+    if not (len(wire) + client.get("replayBytes", 0) == client["receivedBytes"] == client["appliedBytes"]):
         raise RuntimeError("Adapter byte counts disagree with the independent stream capture")
     before, start, remainder = wire.partition(b"THRUSH-BEGIN\r\n")
     payload, end, _ = remainder.partition(b"\x1b[1;1HTHRUSH-END\x1b[K")
@@ -173,7 +173,7 @@ def main():
 
     signal.signal(signal.SIGTERM, terminate)
     binary = args.binary.resolve()
-    report_path = Path(".build/benchmarks/pty-smoke.json")
+    report_path = Path(".build/benchmarks") / ("pty-smoke-candidate.json" if args.working_tree else "pty-smoke.json")
     report_path.parent.mkdir(parents=True, exist_ok=True)
     token = str(uuid.uuid4())
     with tempfile.TemporaryDirectory(prefix="thrush-pty-") as temp:

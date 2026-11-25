@@ -21,15 +21,36 @@ private final class WireCapture: Sendable {
         var payloadStart: Int?
         var payloadStartTime: UInt64?
         var finished = false
+        var replayBytes = 0
+        var replayFrames = 0
+        var pending: Data?
+        var receiptTime: UInt64 = 0
     }
 
     private let begin = Data("THRUSH-BEGIN\r\n".utf8)
     private let end = Data("\u{1B}[1;1HTHRUSH-END\u{1B}[K".utf8)
     private let state = Mutex(State())
 
-    func append(_ chunk: Data) {
-        let time = DispatchTime.now().uptimeNanoseconds
+    func receive(_ chunk: Data) {
+        let receiptTime = DispatchTime.now().uptimeNanoseconds
         state.withLock { state in
+            state.pending = chunk
+            state.receiptTime = receiptTime
+        }
+    }
+
+    /// The adapter reports whether this exact binary frame was a serialization or live output.
+    func next(_ connection: TerminalConnection) async throws -> TerminalConnection.Event {
+        let event = try await connection.nextEvent()
+        state.withLock { state in
+            guard let chunk = state.pending else { return }
+            state.pending = nil
+            if event == .resynchronized {
+                state.replayBytes += chunk.count
+                state.replayFrames += 1
+                return
+            }
+            let time = state.receiptTime
             let previous = state.bytes.count
             state.bytes.append(chunk)
             state.samples.append(Sample(uptimeNanoseconds: time, cumulativeBytes: state.bytes.count))
@@ -42,6 +63,7 @@ private final class WireCapture: Sendable {
             }
             if state.bytes.suffix(128).range(of: end) != nil { state.finished = true }
         }
+        return event
     }
 
     var finished: Bool { state.withLock { $0.finished } }
@@ -64,6 +86,8 @@ struct PTYCheck {
     private struct Result: Encodable {
         var receivedBytes: Int
         var appliedBytes: Int
+        var replayBytes: Int
+        var replayFrames: Int
         var commandToLiveEndMs: Double
         var commandToExitMs: Double
         var liveRows: [String]
@@ -94,17 +118,18 @@ struct PTYCheck {
         let directory = URL(filePath: args[4], directoryHint: .isDirectory)
         let capture = WireCapture(), clientID = UUID().uuidString
         let size = Terminal.Size(columns: 80, rows: 24)
-        let live = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.append)
-        guard try await live.nextEvent() == .ready(resumed: false) else {
+        let live = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
+        guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
         while !(await live.snapshot().rows.contains { $0.text == "THRUSH-\(token)" }) {
-            guard try await live.nextEvent() == .output else { throw PTYCheckFailure("Missing disposable shell identity") }
+            guard try await capture.next(live) == .output else { throw PTYCheckFailure("Missing disposable shell identity") }
         }
         let start = DispatchTime.now().uptimeNanoseconds
         try await live.send(.text("stty -echo -onlcr && exec /usr/bin/python3 producer.py \(scenario)\r"))
         while !capture.finished {
-            guard try await live.nextEvent() == .output else { throw PTYCheckFailure("Missing live end fence") }
+            let event = try await capture.next(live)
+            guard event == .output || event == .resynchronized else { throw PTYCheckFailure("Missing live end fence") }
             if let bytesPerSecond, !capture.finished { try await capture.delayNextRead(at: bytesPerSecond) }
         }
         let liveEnd = DispatchTime.now().uptimeNanoseconds
@@ -125,10 +150,11 @@ struct PTYCheck {
               await restored.snapshot().rows.contains(where: { $0.text == "THRUSH-FINAL" }) else {
             throw PTYCheckFailure("Missing final screen row at exit")
         }
+        let captureResult = capture.result
         let result = Result(receivedBytes: await live.receivedBytes, appliedBytes: await live.appliedBytes,
+                            replayBytes: captureResult.replayBytes, replayFrames: captureResult.replayFrames,
                             commandToLiveEndMs: Double(liveEnd - start) / 1e6,
                             commandToExitMs: Double(exited - start) / 1e6, liveRows: liveRows, replayRows: replayRows)
-        let captureResult = capture.result
         try captureResult.bytes.write(to: directory.appending(path: "wire.bin"))
         try JSONEncoder().encode(captureResult.samples).write(to: directory.appending(path: "frames.json"))
         try JSONEncoder().encode(result).write(to: directory.appending(path: "client.json"))

@@ -37,6 +37,8 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
     if probe:
         (run / "exit-now").touch()
     shell_id = str(uuid.uuid4())
+    if reader == "silent":
+        (run / "gap-nonce").write_text(shell_id)
     if reader == "bun":
         command = ["bun", HERE / "count-reader.ts", endpoint, shell_id, run, "exit" if probe else "count"]
     else:
@@ -53,7 +55,13 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
                     raise RuntimeError("Reader failed to suspend")
             (run / "go").touch()
             wait_for("all producer writes", (run / "production.json").exists, client)
-            if probe:
+            if reader == "silent":
+                # The server can process every PTY write while the receiving process remains stopped.
+                time.sleep(1)
+                (run / "send-gap-input").touch()
+                client.send_signal(signal.SIGCONT)
+                wait_for("gap input reached the silent producer", (run / "gap-input-received").exists, client)
+            elif probe:
                 wait_for("real shell process death", lambda: dead(pid), client, 10)
                 if not (run / "shell-exit-issued").exists():
                     raise RuntimeError("Real shell did not write its final marker")
@@ -82,10 +90,15 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
         result.update({"shellFinalWriteSucceeded": True, "shellPIDDead": True,
                        "replacementShellHasNewPID": new_pid != pid, "afterDeathReadWindowSeconds": 3})
     expected_wire = produced["bytes"] + (len(FINAL) if probe else 0)
+    live_bytes = result["receivedBytes"] - result.get("replayBytes", 0)
+    if reader == "silent":
+        result["gapInputReceivedByPTY"] = (run / "gap-input-received").exists()
+        # Exclude the live echo after the repair from the original numbered-stream comparison.
+        live_bytes = result["liveNumberedBytes"]
     result.update({"name": name, "profile": profile, "peak50msMiBPerSecond": produced["peak50msMiBPerSecond"],
                    "producerBytes": produced["bytes"], "producerSeconds": produced["seconds"],
                    "producerMiBPerSecond": round(produced["bytes"] / 1048576 / produced["seconds"], 3),
-                   "expectedBinaryBytes": expected_wire, "missingBinaryBytes": expected_wire - result["receivedBytes"]})
+                   "expectedBinaryBytes": expected_wire, "missingBinaryBytes": expected_wire - live_bytes})
     if result["missingBinaryBytes"] < 0:
         raise RuntimeError("Unexpected prompt, echo, or extra binary output")
     print(json.dumps(result), flush=True)
@@ -97,7 +110,10 @@ def main():
     parser.add_argument("binary", type=Path)
     parser.add_argument("--toy-box", type=Path, default=Path("../toy-box"))
     parser.add_argument("--working-tree", action="store_true", help="Test the current Toy Box checkout")
+    parser.add_argument("--recovery", action="store_true", help="Run the silent repair and exit-order acceptance checks")
     args = parser.parse_args()
+    if args.recovery and not args.working_tree:
+        parser.error("--recovery needs a server with in-band repairs; select it with --working-tree")
     binary = args.binary.resolve()
 
     def terminate(signum, frame):
@@ -121,13 +137,14 @@ def main():
                 shutil.copyfile(HERE / "reader-producer.py", work / "reader-producer.py")
                 readers = ["bun", "thrush", "urlsession"]
                 results = []
-                for iteration in range(3):
+                for iteration in range(0 if args.recovery else 3):
                     for profile in ("paced16", "unpaced"):
                         for reader in readers[iteration:] + readers[:iteration]:
                             name = f"{profile}-{iteration+1}-{reader}"
                             results.append(exercise(binary, endpoint, work, name, reader, profile=profile))
                 exits = [exercise(binary, endpoint, work, "exit-live", "bun", probe=True),
                          exercise(binary, endpoint, work, "exit-suspended", "bun", probe=True, suspend=True)]
+                silent = exercise(binary, endpoint, work, "silent", "silent", profile="unpaced", suspend=True) if args.recovery else None
                 source = read_json(root / "data" / "source.json")
         except BaseException:
             if log.exists():
@@ -137,11 +154,19 @@ def main():
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "macOS": platform.mac_ver()[0],
               "grid": [80, 24], "sourceTargetMiBPerSecond": 16, "comparisons": results, "exits": exits}
-    path = Path(".build/benchmarks/pty-readers.json")
+    kind = "pty-readers-candidate" if args.working_tree else "pty-readers"
+    if args.recovery:
+        kind = "pty-recovery-candidate"
+        report["silent"] = silent
+    path = Path(".build/benchmarks") / (kind + ".json")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2) + "\n")
     if not all(e["shellPIDDead"] and e["replacementShellHasNewPID"] and not e["resumed"] for e in exits):
         raise RuntimeError(f"Could not establish natural exit and fresh attachment. See {path}")
+    if args.recovery and not all(e["exitBeforeClose"] and e["closeCode"] == 1000 for e in exits):
+        raise RuntimeError(f"Expected exit followed by a server close with code 1000. See {path}")
+    if args.recovery and not (exits[1]["missingBinaryBytes"] > 0 and not exits[1]["openAfterExit"]):
+        raise RuntimeError(f"The exit case must exercise actual backpressure. See {path}")
     print(path)
 
 

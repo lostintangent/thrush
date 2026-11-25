@@ -38,7 +38,15 @@ def main():
         "bytes": len(stamps) * batch_bytes, "seconds": seconds,
         "peak50msMiBPerSecond": peak * batch_bytes / 1048576 / 0.05,
     }))
-    if not Path("exit-now").exists():
+    if Path("gap-nonce").exists():
+        nonce = Path("gap-nonce").read_text()
+        assert sys.stdin.readline().strip() == "gap-" + nonce
+        # No PTY output here. Only the server's own drain handling can restore the silent final screen.
+        Path("gap-input-received").touch()
+        assert sys.stdin.readline().strip() == "live-" + nonce
+        out.write(("ECHO-live-" + nonce + "\r\n").encode())
+        out.flush()
+    elif not Path("exit-now").exists():
         while not Path("allow-exit").exists():
             time.sleep(0.01)
 

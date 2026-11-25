@@ -12,16 +12,29 @@ const socket = new WebSocket(url);
 socket.binaryType = "arraybuffer";
 let receivedBytes = 0, binaryFrames = 0, exitSeen = false, attached = false;
 let tail = Buffer.alloc(0);
+let awaitingReplay = false, replayFrames = 0, replayBytes = 0, finalInReplay = false;
+let closeCode: number | null = null, exitBeforeClose = false;
+socket.onclose = event => {
+  closeCode = event.code;
+  exitBeforeClose = exitSeen;
+};
 const final = Buffer.from("THRUSH-SHELL-EXIT\r\n");
 
 function report(extra = {}) {
-  writeFileSync(join(directory, "client.json"), JSON.stringify({ reader: "bun", receivedBytes, binaryFrames, ...extra }));
+  writeFileSync(join(directory, "client.json"), JSON.stringify({ reader: "bun", receivedBytes, binaryFrames, replayBytes, replayFrames, ...extra }));
 }
 
 socket.onmessage = ({data}) => {
   if (typeof data !== "string") {
-    if (!attached) throw new Error("Binary message preceded ready");
+    if (!attached || exitSeen) throw new Error("Binary message outside the active shell");
     receivedBytes += data.byteLength;
+    if (awaitingReplay) {
+      awaitingReplay = false;
+      replayFrames++;
+      replayBytes += data.byteLength;
+      if (mode === "exit") finalInReplay = Buffer.from(data).includes("THRUSH-SHELL-EXIT");
+      return;
+    }
     binaryFrames++;
     // The matched reader only counts bytes. For the exit probe retain a bounded suffix.
     if (mode === "exit") tail = Buffer.concat([tail, Buffer.from(data).subarray(-final.length)]).subarray(-final.length);
@@ -31,7 +44,9 @@ socket.onmessage = ({data}) => {
   if (control.type === "ready" && !attached && !control.resumed) {
     attached = true;
     writeFileSync(join(directory, "reader-ready"), "");
-  } else if (control.type === "exit" && attached) {
+  } else if (control.type === "ready" && attached && control.resumed && !awaitingReplay && !exitSeen) {
+    awaitingReplay = true;
+  } else if (control.type === "exit" && attached && !awaitingReplay && !exitSeen) {
     exitSeen = true;
     if (mode === "count") {
       report();
@@ -53,7 +68,7 @@ if (mode === "exit") {
   });
   if (openAfterExit) socket.ping(nonce);
   const deadline = performance.now() + 2000;
-  while (!pong && performance.now() < deadline) await Bun.sleep(10);
+  while (openAfterExit && !pong && closeCode === null && performance.now() < deadline) await Bun.sleep(10);
 
   // A same-ID attachment proves whether Toy Box can still replay the former PTY.
   const next = new WebSocket(url);
@@ -68,7 +83,8 @@ if (mode === "exit") {
       }
     };
   });
-  report({ exitSeen, finalMarkerSeen: tail.equals(final), openAfterExit, pongAfterExit: pong, resumed });
+  report({ exitSeen, finalMarkerSeen: tail.equals(final), finalInReplay, openAfterExit, pongAfterExit: pong,
+           exitBeforeClose, closeCode, resumed });
   // Allow Python to independently identify the replacement shell by PID before closing it.
   const limit = performance.now() + 3000;
   while (!existsSync(join(directory, "replacement-pid")) && performance.now() < limit) await Bun.sleep(10);
