@@ -8,6 +8,44 @@ struct MacAccessibleText {
         let range: NSRange
         let cells: [NSRange]
     }
+    /// A local reading position follows its row through scrollback. Keep enough of the
+    /// text to detect a rewritten row without discarding the caret when its suffix grows.
+    struct Caret {
+        let utf16Offset: Int
+        private let absoluteRow: Int
+        private let isAlternate: Bool
+        private let prefix: String
+
+        init(index: Int, text: MacAccessibleText, snapshot: Terminal.Snapshot, historyOffset: Int) {
+            let row = text.line(for: index)
+            absoluteRow = Self.firstRow(snapshot, historyOffset) + row
+            isAlternate = snapshot.isAlternate
+            let offset = index - text.lines[row].range.location
+            let value = snapshot.rows[row].text as NSString
+            if offset < value.length {
+                // NSTextView places an insertion point inside a composed character at its start.
+                let character = value.rangeOfComposedCharacterSequence(at: offset)
+                utf16Offset = character.location
+                prefix = value.substring(to: NSMaxRange(character))
+            } else {
+                utf16Offset = offset
+                prefix = value as String
+            }
+        }
+
+        func visibleRow(in snapshot: Terminal.Snapshot?, historyOffset: Int) -> Int? {
+            guard let snapshot, snapshot.isAlternate == isAlternate else { return nil }
+            let row = absoluteRow - Self.firstRow(snapshot, historyOffset)
+            guard snapshot.rows.indices.contains(row),
+                  snapshot.rows[row].text.utf16.starts(with: prefix.utf16) else { return nil }
+            return row
+        }
+
+        private static func firstRow(_ snapshot: Terminal.Snapshot, _ historyOffset: Int) -> Int {
+            snapshot.history.evictedRows + snapshot.history.count - historyOffset
+        }
+    }
+
     let string: NSString
     let lines: [Line]
 
