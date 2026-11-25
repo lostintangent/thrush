@@ -105,7 +105,7 @@ def configure_workspace(work, home, env, codex, responses):
 
 
 @contextmanager
-def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False):
+def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False, public_web=False):
     """Yield the production endpoint, PTY cwd, pinned xterm modules and isolated tool environment."""
     # Codex keys workspace trust by the canonical path of its PTY's current directory.
     root = root.resolve()
@@ -118,8 +118,21 @@ def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False):
     executable(shell, '#!/bin/sh\ncd "$HOME/workspace" || exit 1\nexport PATH="$HOME/bin:/usr/bin:/bin" INPUTRC="$HOME/inputrc" HISTFILE=/dev/null\n'
                f"export PS1='thrush$ ' SHELL={shlex.quote(str(bash))}\nexec {shlex.quote(str(bash))} --noprofile --norc -i\n")
     log = output / "toy-box.log"
+    overlay = None
+    if public_web:
+        # Keep the caller's checkout intact. The report fingerprints the modified tree and the original pin.
+        scratch_source = root / "public-server-source"
+        revision = load(ROOT / "scripts/serve-pty.py").REVISION
+        subprocess.run(["git", "clone", "-q", "--shared", "--no-checkout", toy_box, scratch_source], env=env, check=True)
+        subprocess.run(["git", "-C", scratch_source, "switch", "-q", "--detach", revision], env=env, check=True)
+        overlay_file = output / "server-build.json"
+        with (output / "public-dependencies.log").open("xb") as build_log:
+            subprocess.run(["bun", ROOT / "scripts/live-workflow/ci-web.ts", scratch_source, revision, overlay_file],
+                           env=env, check=True, stdout=build_log, stderr=subprocess.STDOUT)
+        overlay = json.loads(overlay_file.read_bytes())
+        toy_box = scratch_source
     args = [sys.executable, "-B", ROOT / "scripts/serve-pty.py", "--toy-box", toy_box, "--data-dir", root / "data", "--shell", shell]
-    if working_tree:
+    if working_tree or public_web:
         args.append("--working-tree")
     with ExitStack() as stack:
         responses = None
@@ -137,13 +150,15 @@ def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False):
         source = json.loads((root / "data/source.json").read_text())
         bun = subprocess.check_output(["bun", "--version"], env=env, text=True).strip()
         key = source["toyBoxRevision"]
-        if working_tree:
+        if "toyBoxWorktreeSHA256" in source:
             key += "-worktree-" + source["toyBoxWorktreeSHA256"]
         modules = ROOT / ".build/pty-server" / f"{key}-bun-{bun}" / "node_modules"
         for name, version in {"@xterm/headless": "6.0.0", "@xterm/addon-unicode11": "0.9.0"}.items():
             if json.loads((modules / name / "package.json").read_text())["version"] != version:
                 raise ValueError(f"The controller requires {name} {version}")
         metadata = dict(source, bun=bun, bash=bash_version, workflows=list(workflows))
+        if overlay:
+            metadata["webAnimationSubstitution"] = overlay
         if responses:
             metadata.update(codex=CODEX_VERSION, responses="local published songbird stream")
         (output / "server.json").write_text(json.dumps(metadata, indent=2) + "\n")
@@ -186,7 +201,6 @@ def run_workflow(name, upstream, work, modules, env, app, output, appearance, de
                        "--appearance", appearance,
                        "--keyboard" if device else "--hide-keyboard"]
             if device:
-                pane.ensure_demo_idle(device)
                 command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
             else:
                 command = [app / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
@@ -214,6 +228,7 @@ def main():
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark", help="Native terminal appearance (default: dark)")
     parser.add_argument("--output", type=Path, required=True, help="New or empty native evidence directory")
     parser.add_argument("--toy-box", type=Path, default=ROOT.parent / "toy-box", help="Local checkout containing the pinned revision")
+    parser.add_argument("--public-web-build", action="store_true", help="Use the documented CI substitute for Toy Box’s web animation components in a disposable copy of the pin")
     parser.add_argument("--working-tree", action="store_true", help="Build the current Toy Box files instead of the pinned revision")
     parser.add_argument("--workflow", action="append", choices=WORKFLOWS, help="Repeat to select workflows; default: all four")
     parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
@@ -221,6 +236,8 @@ def main():
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
     parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")
     args = parser.parse_args()
+    if args.public_web_build and args.working_tree:
+        parser.error("The public web build uses the pinned server revision; select one source mode")
     workflows = args.workflow or list(WORKFLOWS)
     if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
         parser.error("Choose each workflow once and use --device only with --platform simulator")
@@ -239,7 +256,7 @@ def main():
     pane = load(ROOT / "scripts/check-pane-workflows.py")
     with tempfile.TemporaryDirectory(prefix="thrush-live-") as scratch, ExitStack() as stack:
         endpoint, work, modules, env = stack.enter_context(live_pty(
-            Path(scratch), out, toy_box, bash, codex, workflows, args.working_tree))
+            Path(scratch), out, toy_box, bash, codex, workflows, args.working_tree, args.public_web_build))
         if not args.app:
             with (out / "build.log").open("xb") as log:
                 subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], env=env, stdout=log,
@@ -252,10 +269,10 @@ def main():
         if args.platform == "simulator":
             if args.device:
                 device = stack.enter_context(pane.reserve_phone(args.device))
+                pane.ensure_demo_idle(device)
             else:
                 simulator = load(ROOT / "scripts/capture-simulator.py")
                 device = stack.enter_context(simulator.disposable_phone(out))
-            pane.ensure_demo_idle(device)
             try:
                 pane.simctl("install", device, str(app), timeout=180)
             except subprocess.TimeoutExpired:

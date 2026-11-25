@@ -43,7 +43,8 @@ function checkpointReached(run: LiveRun, name: string) {
     case "Edited scratch file": case "Vim before detach": case "Vim serialized replay": return editor;
     case "Vim resumed ready": return run.ready.length === 2 && run.ready[1] && !alt && visible.every((row: string) => row === "");
     case "Synchronized Codex repaint complete": return screen.includes("OpenAI Codex") && screen.includes("›");
-    case "Codex ready": return screen.includes("OpenAI Codex") && screen.includes("›") && /shortcuts|GPT-6\.1|gpt-6\.1/i.test(screen);
+    case "Codex ready": return screen.includes("OpenAI Codex") && screen.includes("Ask Codex to do anything")
+        && /GPT-6\.1-Sol/i.test(screen) && screen.includes("~/workspace") && !/\bloading\b/i.test(screen);
     case "Entered Codex prompt": return screen.replace(/\s+/g, " ").includes(question);
     case "Codex working": return /Working|esc to interrupt/i.test(screen);
     case "First three songbirds streamed": return /3\. Eurasian blue tit/.test(screen) && /1\. Song thrush/.test(screen);

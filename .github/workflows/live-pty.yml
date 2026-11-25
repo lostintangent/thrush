@@ -72,7 +72,7 @@ jobs:
           if [[ "$LIVE_WORKFLOW" != all ]]; then flags+=(--workflow "$LIVE_WORKFLOW"); fi
           if [[ -x "$RUNNER_TEMP/codex-cli" ]]; then flags+=(--codex-bin "$RUNNER_TEMP/codex-cli"); fi
           python3 -B scripts/live-workflow/launch.py \
-            --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" --toy-box "$RUNNER_TEMP/toy-box" \
+            --public-web-build --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" --toy-box "$RUNNER_TEMP/toy-box" \
             --bash "$(brew --prefix)/bin/bash" --output "$RUNNER_TEMP/thrush-live" "${flags[@]}"
       - name: Upload native checkpoints and server observations
         if: always()

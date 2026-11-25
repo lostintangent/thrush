@@ -14,8 +14,9 @@ if [[ ${4:-} != --installed ]]; then xcrun simctl install "$device" "$app"; fi
 data=$(xcrun simctl get_app_container "$device" "$identifier" data)
 report="$data/Documents/render.json"
 failure="$data/Documents/render-error.txt"
-marker="$report.background-ready"
-rm -f "$marker" "$failure" "$report"
+ready="$report.background-ready"
+entered="$report.background-entered"
+rm -f "$ready" "$entered" "$failure" "$report"
 xcrun simctl launch --terminate-running-process "$device" "$identifier" --benchmark --lifecycle-check
 wait_for() {
     local path=$1
@@ -26,8 +27,11 @@ wait_for() {
         sleep 0.25
     done
 }
-wait_for "$marker"
+wait_for "$ready"
 xcrun simctl launch "$device" com.apple.Preferences
+# Settings may launch before UIKit finishes moving Thrush into the background.
+# Start the hold after Thrush took its native submission counter snapshot.
+wait_for "$entered"
 sleep 2
 xcrun simctl launch "$device" "$identifier"
 wait_for "$report"

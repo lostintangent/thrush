@@ -394,14 +394,16 @@ private final class RenderLifecycleObserver: NSObject {
     private let view: TerminalView
     private var start: (time: Double, frames: Int)?
     private var observation: RenderBenchmark.IdleObservation?
-    private var whileBackgrounded: (() -> Void)?
+    private var whileBackgrounded: (() throws -> Void)?
+    private var entryError: Error?
 
     init(view: TerminalView) { self.view = view }
 
     @objc private func entered() {
         guard start == nil else { return }
         start = (CACurrentMediaTime(), view.submissionCount)
-        whileBackgrounded?()
+        do { try whileBackgrounded?() }
+        catch { entryError = error }
     }
 
     @objc private func returning() {
@@ -410,12 +412,20 @@ private final class RenderLifecycleObserver: NSObject {
     }
 
     func measure(reportURL: URL, whileBackgrounded: @escaping () -> Void) async throws -> RenderBenchmark.IdleObservation {
-        self.whileBackgrounded = whileBackgrounded
         let center = NotificationCenter.default
         #if os(macOS)
+        self.whileBackgrounded = whileBackgrounded
         let enter = NSApplication.didHideNotification
         let leave = NSApplication.willUnhideNotification
         #else
+        let enteredMarker = reportURL.appendingPathExtension("background-entered")
+        self.whileBackgrounded = {
+            whileBackgrounded()
+            // The host may resume a suspended process. Acknowledge the actual UIKit
+            // transition after recording the counter and feeding the pending update.
+            try Data().write(to: enteredMarker, options: .atomic)
+        }
+        defer { try? FileManager.default.removeItem(at: enteredMarker) }
         let enter = UIScene.didEnterBackgroundNotification
         let leave = UIScene.willEnterForegroundNotification
         #endif
@@ -432,11 +442,15 @@ private final class RenderLifecycleObserver: NSObject {
         defer { try? FileManager.default.removeItem(at: marker) }
         #endif
         let deadline = CACurrentMediaTime() + 70
-        while observation == nil {
+        while observation == nil && entryError == nil {
             guard CACurrentMediaTime() < deadline else { throw RenderBenchmark.Failure("Actual background/foreground transition did not complete.") }
             try await Task.sleep(for: .milliseconds(20))
         }
-        guard let observation, observation.seconds >= 1 else { throw RenderBenchmark.Failure("Background observation was shorter than one second.") }
+        if let entryError { throw entryError }
+        guard let observation else { throw RenderBenchmark.Failure("Missing background observation.") }
+        guard observation.seconds >= 1 else {
+            throw RenderBenchmark.Failure(String(format: "Measured only %.3f s between background and foreground.", observation.seconds))
+        }
         return observation
     }
 }

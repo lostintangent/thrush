@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "platform": "macOS 27.2.1",
+  "hardware": "MacBookPro18,4",
+  "appearance": "Slate Dark",
+  "sample": {
+    "revision": "f8c58c47059e2096a67a6d2f585d31a2f66b12ec",
+    "dirty": false,
+    "executableSHA256": "c236c77c3d2429240054a256f0487fef94bc8bafb223251603f1d2d307510522",
+    "toolchain": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
+  },
+  "controller": {
+    "integrationRevision": "7b5cacb59ba82e8d9b4fa58c869fbc26235a99a1",
+    "codexReadinessChange": "84f754002fa2b5f4cd46710e2603201d2c1d5ca5"
+  },
+  "environment": {
+    "toyBoxRevision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92",
+    "bun": "1.4.6",
+    "bash": "GNU bash, version 5.3.9(1)-release (aarch64-apple-darwin25.1.0)",
+    "codex": "codex-cli 0.166.0",
+    "responses": "local published songbird stream"
+  },
+  "reference": {
+    "emulator": "@xterm/headless 6.0.0",
+    "unicode": "@xterm/addon-unicode11 0.9.0",
+    "terminalComparison": "Full grid, history, cursor, modes, styles and selected text at the actual native grid. The peer preserves each upstream WebSocket message."
+  },
+  "totals": {
+    "checkpoints": 34,
+    "binaryFrames": 344,
+    "upstreamBytes": 32429,
+    "forwardedBytes": 32429,
+    "nativeReceivedBytes": 32429,
+    "nativeAppliedBytes": 32429,
+    "replayBytes": 2066,
+    "captures": 13,
+    "expectedGlyphCells": 1592,
+    "matchedGlyphCells": 1592,
+    "unexpectedGlyphCells": 0,
+    "selectedCells": 84,
+    "checkpointsWithDrawablePresentationTime": 0
+  },
+  "presentation": "Each native checkpoint verified a GPU-completed frame. The locked Mac provided no drawable presentation timestamps. Each captured window image also passed its glyph and selection mask.",
+  "workflows": {
+    "shell": {
+      "checkpoints": 7,
+      "binaryFrames": 13,
+      "upstreamBytes": 439,
+      "forwardedBytes": 439,
+      "nativeReceivedBytes": 439,
+      "nativeAppliedBytes": 439,
+      "replayBytes": 0,
+      "readyResumed": [
+        false
+      ],
+      "naturalExits": 0,
+      "explicitCloses": 1,
+      "fixtureManifestSHA256": "6d6b7aa6387c0f6219a96d18569f0da6c58c965dbd3a078c1a595b8c3a0f2958",
+      "nativeReportSHA256": "12e6b1421408b23679752b2cc0fea2fb6a4ea0955979e2b03473947912881a5e",
+      "controllerReportSHA256": "e195f48b5956c4d852b5230cabebcb6aadfa19c10874ae3d9d4af085040150d8",
+      "captures": [
+        {
+          "checkpoint": "Pasted build command",
+          "pngSHA256": "c70cb5c9a5eccda51b9ee97e180f9270889f83100ea8184903fe635dd9546a46",
+          "matchedGlyphCells": 20,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Copy soft-wrapped compiler path",
+          "pngSHA256": "d9b1bf6646fc884991c3cd61ba36cdfc1518a4ccdb3219e7fbb205087df7c7fc",
+          "matchedGlyphCells": 260,
+          "selectedCells": 84
+        }
+      ],
+      "compiledObjectBytes": 520,
+      "nativePasteboardText": "0128  compile units/café/界/é/long-dependency/with/nested-source-folders/unit-0128.h"
+    },
+    "vim": {
+      "checkpoints": 10,
+      "binaryFrames": 40,
+      "upstreamBytes": 13083,
+      "forwardedBytes": 13083,
+      "nativeReceivedBytes": 13083,
+      "nativeAppliedBytes": 13083,
+      "replayBytes": 1848,
+      "readyResumed": [
+        false,
+        true
+      ],
+      "naturalExits": 0,
+      "explicitCloses": 1,
+      "fixtureManifestSHA256": "98009a0f1b233c57dc4a74c28400f6ef9a34b2dfdf45f9b95fcca47068cbfb79",
+      "nativeReportSHA256": "9edc59ed4424d5133e76f14097506d6305f49628e074f3f7473ebccfe20d712d",
+      "controllerReportSHA256": "9cef3d039f5f057e299894af134ecd20eb5fbc01f673d3b8dfab16187a03cdb5",
+      "captures": [
+        {
+          "checkpoint": "Edited scratch file",
+          "pngSHA256": "2289f28930db4ebfda0f34b93d0ba46dd6ca3447c6ba20baf45ca24e9259fde5",
+          "matchedGlyphCells": 67,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Vim before detach",
+          "pngSHA256": "3822edf50b933b5fda67adf3861765e6c3ee60f7cfd46af8bc84ac830d2481b1",
+          "matchedGlyphCells": 48,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Vim serialized replay",
+          "pngSHA256": "ad853eb51178e7637b5c1dacdf55f7875a8c31bb35e3018ad70493a950175dbc",
+          "matchedGlyphCells": 48,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Returned to shell",
+          "pngSHA256": "6107c4ca0ba55dee38235ef153d64c4ab67651a2aeb6cc0180f9cc57da603054",
+          "matchedGlyphCells": 28,
+          "selectedCells": 0
+        }
+      ],
+      "savedFile": {
+        "name": "scratch.txt",
+        "text": "note: 界 éfirst line\nsecond line\n",
+        "bytes": 36
+      },
+      "savedUTF8SHA256": "dac1cf580c3f8b25a598ac2105719ae5a582b25544d0dd36f884f8ff8189b6eb"
+    },
+    "codex": {
+      "checkpoints": 10,
+      "binaryFrames": 253,
+      "upstreamBytes": 18272,
+      "forwardedBytes": 18272,
+      "nativeReceivedBytes": 18272,
+      "nativeAppliedBytes": 18272,
+      "replayBytes": 0,
+      "readyResumed": [
+        false
+      ],
+      "naturalExits": 0,
+      "explicitCloses": 1,
+      "fixtureManifestSHA256": "006c4c17c2cb0cd727b41c77ddf2cd3aee7e197958f25086af90356934db7139",
+      "nativeReportSHA256": "87878a3501999d125ca2676f277cffdc084e55f4b3128c706bfbf73947b497e2",
+      "controllerReportSHA256": "5f192b081400878b88efa544f195beb7dd22f1ab9712a61f302149d760a86183",
+      "captures": [
+        {
+          "checkpoint": "Codex ready",
+          "pngSHA256": "e2e3b039eacd8591f903d246de6bfaca2bfdb7b7ec0e23415cee524a1caac8ca",
+          "matchedGlyphCells": 98,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "First three songbirds streamed",
+          "pngSHA256": "a48bd76186cf242ba02ea5dbbf70ba42b99dc77dc2c08af4aefdfc08c4a4f663",
+          "matchedGlyphCells": 197,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Received Codex answer",
+          "pngSHA256": "90b81e5e2a119331778a6946739e1464b30c6b6c9dec3d5d681c2dd7d4284678",
+          "matchedGlyphCells": 276,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Earlier transcript page",
+          "pngSHA256": "311827a2721b40ae3b91ed705d5f1e756666a2402efad40b0722a36edd7b5801",
+          "matchedGlyphCells": 218,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Returned to shell",
+          "pngSHA256": "0d829d238ccabfd8f4f957b8aafc230817728deee8d8865c04761acdf4bc3858",
+          "matchedGlyphCells": 92,
+          "selectedCells": 0
+        }
+      ],
+      "osc11": "\u001b]11;rgb:1313/1d1d/2727\u001b\\",
+      "userBand": {
+        "background": "#131d27",
+        "composer": "#2f3840",
+        "history": "#384149"
+      },
+      "emittedSGRBackgrounds": {
+        "#2f3840": 13,
+        "#384149": 33,
+        "#63a8f8": 1
+      },
+      "fallbackIndex8": false,
+      "userBandCheckpointStyles": {
+        "Entered Codex prompt": [
+          {
+            "column": 0,
+            "endColumn": 80,
+            "foreground": {
+              "mode": "default"
+            },
+            "background": {
+              "mode": "rgb",
+              "rgb": "#2f3840"
+            }
+          }
+        ],
+        "Codex working": [
+          {
+            "column": 0,
+            "endColumn": 80,
+            "foreground": {
+              "mode": "default"
+            },
+            "background": {
+              "mode": "rgb",
+              "rgb": "#384149"
+            }
+          }
+        ],
+        "Received Codex answer": [
+          {
+            "column": 0,
+            "endColumn": 80,
+            "foreground": {
+              "mode": "default"
+            },
+            "background": {
+              "mode": "rgb",
+              "rgb": "#384149"
+            }
+          }
+        ]
+      },
+      "synchronizedIntermediateFrames": 100
+    },
+    "lifecycle": {
+      "checkpoints": 7,
+      "binaryFrames": 38,
+      "upstreamBytes": 635,
+      "forwardedBytes": 635,
+      "nativeReceivedBytes": 635,
+      "nativeAppliedBytes": 635,
+      "replayBytes": 218,
+      "readyResumed": [
+        false,
+        true,
+        true,
+        false,
+        false
+      ],
+      "naturalExits": 1,
+      "explicitCloses": 1,
+      "fixtureManifestSHA256": "177b809e652c4979f6a33fdf69fe5bcab058a67a6a1752a76eb1ea7205c5c07a",
+      "nativeReportSHA256": "6554ba73516819e74a0e2919df2168945ad17d8bb9e8db6d39378be1b8a2dcf7",
+      "controllerReportSHA256": "7e8247f050e63a7962ca968c63f289ece9387c448e8d33f0c35db245794b3c69",
+      "captures": [
+        {
+          "checkpoint": "Use Here restored the other owner's output",
+          "pngSHA256": "42b81b35a282bd109b8085ce632890dfecf14140be79d3d03f099317cd140eb5",
+          "matchedGlyphCells": 127,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Final output survives shell exit",
+          "pngSHA256": "45ca337a255729f051628cd70917ce36c8a176d2aadf0c7dfa5a80912d85e8cd",
+          "matchedGlyphCells": 113,
+          "selectedCells": 0
+        }
+      ],
+      "shellIdentity": {
+        "originalPID": 89668,
+        "replacementPID": 96162,
+        "restartedPID": 97399,
+        "observedOrphanLifetimeMs": 30032,
+        "useHereInputBytes": 0,
+        "newShellInputBytes": 0,
+        "displacedCloseCode": 4000,
+        "finalRowBeforeNewShell": "FINAL:96162",
+        "explicitlyClosedPIDDead": true
+      },
+      "distinctShellPIDs": 3,
+      "upstreamCloseCodes": [
+        1000,
+        4000,
+        1000,
+        1000,
+        1000
+      ]
+    }
+  }
+}

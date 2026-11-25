@@ -68,7 +68,7 @@ def runtime():
 
 
 @contextlib.contextmanager
-def disposable_phone(out, attach_display=True):
+def disposable_phone(out):
     device = None
     try:
         chosen = runtime()
@@ -83,17 +83,6 @@ def disposable_phone(out, attach_display=True):
             subprocess.run(["xcrun", "simctl", "bootstatus", device, "-b"], stdout=log, stderr=subprocess.STDOUT,
                            timeout=300, check=True)
         print(f"Boot finished for {device}", flush=True)
-        if attach_display and os.environ.get("GITHUB_ACTIONS") == "true":
-            # Give the hosted device a native display client. The supplied UDID belongs
-            # to this job and points Simulator.app at precisely the phone just booted.
-            simulator = Path(os.environ["DEVELOPER_DIR"]) / "Applications/Simulator.app"
-            with (out / "display.log").open("w") as log:
-                try:
-                    process = subprocess.run(["/usr/bin/open", "-na", str(simulator), "--args", "-CurrentDeviceUDID", device],
-                                             stdout=log, stderr=subprocess.STDOUT, timeout=15)
-                    print(f"Attached hosted Simulator display client (open status {process.returncode})", flush=True)
-                except (OSError, subprocess.SubprocessError) as error:
-                    print(f"Simulator display client: {error}", file=log, flush=True)
         yield device
     except BaseException:
         try:
@@ -486,7 +475,7 @@ def main():
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
     notices = args.scene in NOTICE_SCENES or args.scene in {"notices", "notice-reconnect-motion"}
-    with peer(out, notices=notices) as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
+    with peer(out, notices=notices) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
