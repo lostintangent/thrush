@@ -31,6 +31,7 @@ final class ThrushPhone: UIResponder, UIApplicationDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
+        PhoneCapture.orient(scene)
         host.session.setActive(true)
         host.focusIfRequested()
     }
@@ -52,6 +53,7 @@ private final class PhoneHost: UIViewController {
     let session = DemoSession(options: DemoOptions())
     let input = KeyboardResponder()
     private var focusRequested = false
+    private var captureLayout: (() -> Void)?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         if session.view.theme != nil { return .lightContent }
@@ -78,6 +80,12 @@ private final class PhoneHost: UIViewController {
         input.onInput = { [weak self] in self?.session.send($0) }
         session.onError = { [weak self] in self?.showError($0) }
         applyChrome(grid.resolvedTheme)
+        captureLayout = PhoneCapture.observe(session, in: view, input: input)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        captureLayout?()
     }
 
     override func viewDidAppear(_ animated: Bool) {

@@ -35,6 +35,16 @@ open -n .build/demo/mac/Thrush.app --args --scene editor --appearance light
 xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --scene glyphs --appearance dark
 ```
 
+## Capture the running iPhone
+
+Run the full hosted simulator check from this checkout with `gh workflow run headless.yml --ref main`. The “iPhone simulator proof” job builds the app, starts its loopback peer and boots a disposable iPhone 17. The job’s artifact contains the original screen captures, native grid and keyboard measurements, a recording of the live system appearance switch, and the render benchmark.
+
+To capture a single registered scene, pass its name, system appearance, orientation and expected keyboard state. The same command supports scenes supplied by the pane host. Use the optional `oracle` input for a repository checker under `scripts/` that accepts the captured PNG, scene and appearance.
+
+```sh
+gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible
+```
+
 ## Run a recorded interaction
 
 Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow vim` or `--workflow codex`. The peer waits for the recorded user input before sending the following PTY bytes. Vim also waits for the recorded resizes, detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it.
