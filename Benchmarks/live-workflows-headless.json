@@ -1,0 +1,666 @@
+{
+  "server": "ThrushServer",
+  "protocol": 1,
+  "serverExecutableSHA256": "f6b02f62c297d752a64ddad08bcec160a6a33f9a1d5c06e516e59b4e7055fa27",
+  "thrushHead": "6b33bf29947dc5553b3f74d12c1d94597aad9517",
+  "thrushWorktreeDirty": false,
+  "source": "Clean source checkout on an M1 Max running macOS 27.2.1. Both the standalone server and the lifecycle client were built from this revision. All five workflows used the identified Release server.",
+  "scope": "Real PTY, headless at iPhone grid sizes. Bash, Vim, Codex and recovery used a Bun WebSocket and an independent reference terminal to verify cells, modes, history, cursor and dimensions against controller checkpoints. Lifecycle used TerminalConnection, Apple URLSession, full independent reference checkpoints and per-frame trace comparison. The headless copy was reconstructed from the selected reference cells. Packaged app input and pixels are measured separately.",
+  "clientBuild": {
+    "commit": "6b33bf29947dc5553b3f74d12c1d94597aad9517",
+    "packageName": "checkout",
+    "clientSHA256": "e500f430e35e7a216d4f9b721cc9211a913915e7d9716f16403e630074d801b1",
+    "lifecycleSourceSHA256": "9972ae22b93ffb338d5342173d42b8ff05c161f32601d9c3173ec39a34502fd7",
+    "traceSourceSHA256": "f8b41175ffc19aa8689f3f40e21c1cfb87f8395a44c77fdb4f487573b768c8e9",
+    "linkedReleaseObjects": {
+      "Thrush.o": "717673bcd77916948bdda11d232ea77b1859effe3885df6bc3cdf200a3b32fce",
+      "ThrushCore.o": "f07db8948c14bddd1b8f91ca437e3da35b4570c701a7dc604e7bbdf2218d6f05",
+      "ThrushReplay.o": "229ea50ac825bc9b8265dfd9f8f96ce62d3d6a8b6b059d6fd1a9d5fa7d51b44d"
+    },
+    "referenceSourceSHA256": "a983220c984fc4ced65a46343324bf06480fef04f271285210e726bf83cd19ed",
+    "referenceLockSHA256": "8ae841265a6546104ade7e2bd3fb9239c896488f20cf8810037904b7566516f5",
+    "referenceClientSHA256": "132396c96c8b71397c5bd1c5de32d4d7c98c2a0d25ba80e963491915376b737c",
+    "comparatorSHA256": "adaace4e626f0b6f2e518a246cfff29b726e7b476cd03a986fde4c9c8a6cd7cf",
+    "referenceManifest": "Fixtures/reference/package.json"
+  },
+  "workflows": [
+    {
+      "workflow": "shell",
+      "controllerSHA256": "d7821a51efcfa409d5be932e5fc7c10da9a68f06d762fc733f4b0564308498f8",
+      "serverMetadataSHA256": "95388a00241306878a5641379e4109e5bddfcb4dc37d06e11325df2194c641f7",
+      "checkpoints": [
+        {
+          "name": "Fresh prompt",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 16,
+          "appliedBytes": 16
+        },
+        {
+          "name": "Resize to 47x25",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 16,
+          "appliedBytes": 16
+        },
+        {
+          "name": "Typed command",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 23,
+          "appliedBytes": 23
+        },
+        {
+          "name": "Edited command",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 27,
+          "appliedBytes": 27
+        },
+        {
+          "name": "Pasted build command",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 45,
+          "appliedBytes": 45
+        },
+        {
+          "name": "Numbered compiler log",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 413,
+          "appliedBytes": 413
+        },
+        {
+          "name": "Copy soft-wrapped compiler path",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 413,
+          "appliedBytes": 413
+        }
+      ],
+      "attachments": 1,
+      "wire": {
+        "upstreamBinaryFrames": 8,
+        "upstreamBinaryBytes": 413,
+        "forwardedBinaryFrames": 8,
+        "forwardedBinaryBytes": 413,
+        "replayFrames": 0,
+        "replayBytes": 0,
+        "synchronizedIntermediateFrames": 0,
+        "upstreamControls": 1,
+        "forwardedControls": 1,
+        "clientBinaryFrames": 4,
+        "clientControls": 2
+      },
+      "evidence": {
+        "compiledBytes": 520
+      },
+      "copiedText": "0128  compile units/café/界/é/long-dependency/with/nested-source-folders/unit-0128.h"
+    },
+    {
+      "workflow": "vim",
+      "controllerSHA256": "bc004fe8c9e01048f40c1263d036584923dfb7e918b1cfa822f9102eb19a9dd6",
+      "serverMetadataSHA256": "5268000e3f6f22109b412b674f398514b6277da49ed187d120f439704553b5a7",
+      "checkpoints": [
+        {
+          "name": "Fresh prompt",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 16,
+          "appliedBytes": 16
+        },
+        {
+          "name": "Vim opens alternate screen",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 1137,
+          "appliedBytes": 1137
+        },
+        {
+          "name": "Edited scratch file",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 2931,
+          "appliedBytes": 2931
+        },
+        {
+          "name": "Resize to 40x32",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 2932,
+          "appliedBytes": 2932
+        },
+        {
+          "name": "Resize to 80x14",
+          "grid": [
+            90,
+            9
+          ],
+          "receivedBytes": 3595,
+          "appliedBytes": 3595
+        },
+        {
+          "name": "Resize to 80x24",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 4863,
+          "appliedBytes": 4863
+        },
+        {
+          "name": "Vim before detach",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 4863,
+          "appliedBytes": 4863
+        },
+        {
+          "name": "Vim resumed ready",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 4863,
+          "appliedBytes": 4863
+        },
+        {
+          "name": "Vim serialized replay",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 6505,
+          "appliedBytes": 6505
+        },
+        {
+          "name": "Returned to shell",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 6645,
+          "appliedBytes": 6645
+        }
+      ],
+      "attachments": 2,
+      "wire": {
+        "upstreamBinaryFrames": 22,
+        "upstreamBinaryBytes": 6645,
+        "forwardedBinaryFrames": 22,
+        "forwardedBinaryBytes": 6645,
+        "replayFrames": 1,
+        "replayBytes": 1642,
+        "synchronizedIntermediateFrames": 0,
+        "upstreamControls": 2,
+        "forwardedControls": 2,
+        "clientBinaryFrames": 11,
+        "clientControls": 4
+      },
+      "evidence": {
+        "savedFile": {
+          "name": "scratch.txt",
+          "text": "note: 界 éfirst line\nsecond line\n",
+          "bytes": 36
+        }
+      }
+    },
+    {
+      "workflow": "codex",
+      "controllerSHA256": "5c0fc8c2e497a25ed6da817e1bbb522951078420c79cb385f89c24d04861011f",
+      "serverMetadataSHA256": "7eec525106941a175b02f379bddc197d6b5b8a832e9bb64fcb692c0098c975fb",
+      "checkpoints": [
+        {
+          "name": "Shell prompt",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 16,
+          "appliedBytes": 16
+        },
+        {
+          "name": "Synchronized Codex repaint complete",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 6197,
+          "appliedBytes": 6197
+        },
+        {
+          "name": "Codex ready",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 7578,
+          "appliedBytes": 7578
+        },
+        {
+          "name": "Entered Codex prompt",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 8019,
+          "appliedBytes": 8019
+        },
+        {
+          "name": "Codex working",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 9504,
+          "appliedBytes": 9504
+        },
+        {
+          "name": "First three songbirds streamed",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 14638,
+          "appliedBytes": 14638
+        },
+        {
+          "name": "Received Codex answer",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 19009,
+          "appliedBytes": 19009
+        },
+        {
+          "name": "Earlier transcript page",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 20459,
+          "appliedBytes": 20459
+        },
+        {
+          "name": "Later transcript page",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 21713,
+          "appliedBytes": 21713
+        },
+        {
+          "name": "Returned to shell",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 22512,
+          "appliedBytes": 22512
+        }
+      ],
+      "attachments": 1,
+      "wire": {
+        "upstreamBinaryFrames": 236,
+        "upstreamBinaryBytes": 22512,
+        "forwardedBinaryFrames": 236,
+        "forwardedBinaryBytes": 22512,
+        "replayFrames": 0,
+        "replayBytes": 0,
+        "synchronizedIntermediateFrames": 80,
+        "upstreamControls": 1,
+        "forwardedControls": 1,
+        "clientBinaryFrames": 13,
+        "clientControls": 1
+      },
+      "evidence": {
+        "codexUserBand": {
+          "osc11Replies": [
+            "\u001b]11;rgb:1313/1d1d/2727\u001b\\"
+          ],
+          "expected": {
+            "background": "#131d27",
+            "composer": "#2f3840",
+            "history": "#384149"
+          },
+          "sgr48TrueColor": {
+            "#2f3840": 14,
+            "#384149": 31,
+            "#63a8f8": 1
+          },
+          "checkpoints": {
+            "Entered Codex prompt": [
+              {
+                "row": 19,
+                "visible": true,
+                "text": "› Name 12 songbirds on numbered lines. Start",
+                "styles": [
+                  {
+                    "column": 0,
+                    "endColumn": 47,
+                    "foreground": {
+                      "mode": "default"
+                    },
+                    "background": {
+                      "mode": "rgb",
+                      "rgb": "#2f3840"
+                    }
+                  }
+                ]
+              }
+            ],
+            "Codex working": [
+              {
+                "row": 5,
+                "visible": true,
+                "text": "› Name 12 songbirds on numbered lines. Start",
+                "styles": [
+                  {
+                    "column": 0,
+                    "endColumn": 47,
+                    "foreground": {
+                      "mode": "default"
+                    },
+                    "background": {
+                      "mode": "rgb",
+                      "rgb": "#384149"
+                    }
+                  }
+                ]
+              }
+            ],
+            "Received Codex answer": [
+              {
+                "row": 2,
+                "visible": true,
+                "text": "› Name 12 songbirds on numbered lines. Start",
+                "styles": [
+                  {
+                    "column": 0,
+                    "endColumn": 47,
+                    "foreground": {
+                      "mode": "default"
+                    },
+                    "background": {
+                      "mode": "rgb",
+                      "rgb": "#384149"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "fallbackIndex8": false,
+          "verified": true
+        },
+        "synchronizedPaint": {
+          "intermediateFramesObserved": 80,
+          "pendingCheckpoint": "Recorded-only intermediate; live binary frame boundaries preserved"
+        }
+      }
+    },
+    {
+      "workflow": "lifecycle",
+      "controllerSHA256": "e819a5015c479082ab60e35d5f58f0d2bf022de531597bec587ace60061ed4e8",
+      "serverMetadataSHA256": "77411b4f6dfe63f55b5e0540db625431ae6879552b170e3ada6cd1b9b10b1059",
+      "checkpoints": [
+        {
+          "name": "First shell identity",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 79,
+          "appliedBytes": 79
+        },
+        {
+          "name": "Foreground restored the original screen",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 225,
+          "appliedBytes": 225
+        },
+        {
+          "name": "Foreground preserved the shell variable",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 286,
+          "appliedBytes": 286
+        },
+        {
+          "name": "Use Here restored the other owner's output",
+          "grid": [
+            47,
+            42
+          ],
+          "receivedBytes": 561,
+          "appliedBytes": 561
+        },
+        {
+          "name": "Expired shell replaced with a clean environment",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 661,
+          "appliedBytes": 661
+        },
+        {
+          "name": "Final output survives shell exit",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 709,
+          "appliedBytes": 709
+        },
+        {
+          "name": "New Shell opened a fresh session",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 805,
+          "appliedBytes": 805
+        }
+      ],
+      "attachments": 5,
+      "wire": {
+        "upstreamBinaryFrames": 31,
+        "upstreamBinaryBytes": 805,
+        "forwardedBinaryFrames": 31,
+        "forwardedBinaryBytes": 805,
+        "replayFrames": 2,
+        "replayBytes": 408,
+        "synchronizedIntermediateFrames": 0,
+        "upstreamControls": 6,
+        "forwardedControls": 6,
+        "clientBinaryFrames": 10,
+        "clientControls": 3
+      },
+      "evidence": {
+        "lifecycle": {
+          "originalPID": 5308,
+          "replacementPID": 9086,
+          "restartedPID": 9137,
+          "observedOrphanLifetimeMs": 30234,
+          "useHereInputBytes": 0,
+          "newShellInputBytes": 0,
+          "focusGrids": [
+            {
+              "step": "focusReplacement",
+              "before": {
+                "columns": 47,
+                "rows": 42
+              },
+              "after": {
+                "columns": 47,
+                "rows": 25
+              }
+            },
+            {
+              "step": "focusNewShell",
+              "before": {
+                "columns": 47,
+                "rows": 42
+              },
+              "after": {
+                "columns": 47,
+                "rows": 25
+              }
+            }
+          ],
+          "displacedCloseCode": 4000,
+          "finalRowBeforeNewShell": "FINAL:9086",
+          "explicitlyClosedPIDDead": true
+        }
+      },
+      "nativeTraceSHA256": "1937d03eb52d7843949cde05ad50c77bbfe5796657baf45e9d80b1b389335ae8",
+      "comparisonSHA256": "7312185a9e9f404a41ff38e9f03cab698aaf67165df4d51652608076bcef1bcf",
+      "frameComparison": "exact-completed"
+    },
+    {
+      "workflow": "recovery",
+      "controllerSHA256": "0036ed8bd6d3e90a278d3467b9bc0fcb6b62e6ee68167c55febd88051122d7e9",
+      "serverMetadataSHA256": "ff39e5a4b2b623d9669d92a49d59197ff2ba900a1a78505c8ac1a8e9f0c630e5",
+      "checkpoints": [
+        {
+          "name": "Build armed",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 119,
+          "appliedBytes": 119
+        },
+        {
+          "name": "Silent build tail restored",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 813485,
+          "appliedBytes": 813485
+        },
+        {
+          "name": "Same-pane confirmation received",
+          "grid": [
+            47,
+            25
+          ],
+          "receivedBytes": 813522,
+          "appliedBytes": 813522
+        }
+      ],
+      "attachments": 1,
+      "wire": {
+        "upstreamBinaryFrames": 801,
+        "upstreamBinaryBytes": 813522,
+        "forwardedBinaryFrames": 801,
+        "forwardedBinaryBytes": 813522,
+        "replayFrames": 1,
+        "replayBytes": 310,
+        "synchronizedIntermediateFrames": 0,
+        "upstreamControls": 2,
+        "forwardedControls": 2,
+        "clientBinaryFrames": 4,
+        "clientControls": 1
+      },
+      "evidence": {
+        "recovery": {
+          "payloadBytes": 8388608,
+          "pid": 11655,
+          "token": "build-cba463fb",
+          "restoredRows": [
+            "Build complete",
+            "",
+            "131072 compilation updates processed",
+            "",
+            "Result: all checks passed",
+            "",
+            "Ready for input",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "confirmedRows": [
+            "Build complete",
+            "",
+            "131072 compilation updates processed",
+            "",
+            "Result: all checks passed",
+            "",
+            "Ready for input",
+            "Confirmed: build-cba463fb",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "bytesBeforeReplay": 813175,
+          "bytesAfterReplay": 813485,
+          "postReplayEchoBytes": 37
+        }
+      }
+    }
+  ]
+}

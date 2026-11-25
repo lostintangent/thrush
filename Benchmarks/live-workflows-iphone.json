@@ -1,59 +1,69 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "platform": "iOS 27.2 Simulator",
-  "hardware": "iPhone 17",
   "appearance": "Slate Dark",
-  "sample": {
-    "revision": "7826b553601a2cafa9e6d6c7c1b11e9829cd1bb2",
-    "dirty": false,
-    "executableSHA256": "13ffe42ff84d17b4066a15d2765c57759ec5a2b1117cfd91476b98986d552a5a",
-    "toolchain": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
-    "executableSHA256Source": "launcher source.json"
-  },
-  "controller": {
-    "integrationRevision": "7826b553601a2cafa9e6d6c7c1b11e9829cd1bb2",
-    "codexReadinessChange": "27f04774b294fb076051306d2f9d56e5adf76f69"
-  },
-  "environment": {
-    "toyBoxRevision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92",
-    "toyBoxWorktreeSHA256": "fa646482dd00404d61187e1b33904b43e5803d9ba8f80b6dced525a48270da46",
-    "webAnimationSubstitution": {
-      "originalTree": "39ec319a0c414e9cc901d5cf718c3cb0fdf03881",
-      "patchedFiles": {
-        "bun.lock": "4844e57f5365a165ee94ee6b4c6a56c8de6aef587806c938ed139f0527596918",
-        "bunfig.toml": "80f2fb64052597236d0386c0ceed803b8c44c349a90eb3ca67f78458f7dfd276",
-        "package.json": "9b8afea8f6f54f37094b7f41a75e16604d1b2c533e31de51b0f1e5ab0a89ecee",
-        "thrush-ci-web-animation/package.json": "1dab4f1261a480168742cb7fda6c42a5f3ea1f756f65473599f335f113ad2899",
-        "thrush-ci-web-animation/react.js": "c320004a341531c82358916a4913e090d3e89eb46e55106f50e0da7e08e43bee"
-      }
-    },
-    "bun": "1.4.5",
-    "bash": "GNU bash, version 5.3.20(1)-release (aarch64-apple-darwin27.0.0)",
-    "codex": "codex-cli 0.166.0",
-    "responses": "local published songbird stream"
-  },
-  "reference": {
-    "emulator": "@xterm/headless 6.0.0",
-    "unicode": "@xterm/addon-unicode11 0.9.0",
-    "terminalComparison": "Full grid, history, cursor, modes, styles and selected text at the actual native grid. The peer preserves each upstream WebSocket message."
-  },
+  "reference": "Fixtures/reference/headless.mjs",
+  "hardware": "iPhone 17",
   "totals": {
-    "checkpoints": 34,
-    "binaryFrames": 170,
-    "upstreamBytes": 22667,
-    "forwardedBytes": 22667,
-    "nativeReceivedBytes": 22667,
-    "nativeAppliedBytes": 22667,
-    "replayBytes": 1422,
-    "captures": 13,
-    "expectedGlyphCells": 1904,
-    "matchedGlyphCells": 1904,
+    "checkpoints": 37,
+    "binaryFrames": 955,
+    "upstreamBytes": 828210,
+    "forwardedBytes": 828210,
+    "nativeReceivedBytes": 828210,
+    "nativeAppliedBytes": 828210,
+    "replayBytes": 3373,
+    "captures": 15,
+    "expectedGlyphCells": 2090,
+    "matchedGlyphCells": 2090,
     "unexpectedGlyphCells": 1,
     "selectedCells": 83,
     "checkpointsWithDrawablePresentationTime": 0,
     "keyboardAndAccessoryVerifiedCaptures": 11
   },
-  "presentation": "Each native checkpoint verified a GPU-completed frame. 0 of 34 checkpoints recorded a drawable presentation timestamp. Each captured image passed the glyph and selection mask oracle.",
+  "runs": {
+    "shellVimCodexLifecycle": {
+      "url": "https://github.com/lostintangent/thrush/actions/runs/45671103583/attempts/1",
+      "artifactID": 15049654073,
+      "archiveSHA256": "81fdd942bdbd56c7d0f801e4fe88f30e6bb704d9996d7561604a9ddfc99e23ec",
+      "app": {
+        "revision": "6b1fa7ff8d186ce81173586309e5577a48c12861",
+        "dirty": false,
+        "executableSHA256": "51fda9f654d6026c2fdbe6ff2587b61ff65c2b0c2e53ad64235f866ee0a0a967",
+        "toolchain": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
+        "executableSHA256Source": "launcher source.json"
+      },
+      "server": {
+        "server": "ThrushServer",
+        "protocol": 1,
+        "executableSHA256": "05fc404b884290eaef97261c8a88f6f22f8dbdc75748e296403fd67659774b8e",
+        "bash": "GNU bash, version 5.3.20(1)-release (aarch64-apple-darwin27.0.0)",
+        "codex": "codex-cli 0.166.0",
+        "responses": "local published songbird stream",
+        "revision": "6b1fa7ff8d186ce81173586309e5577a48c12861"
+      },
+      "sourceFileSHA256": "f4603912373b28cd45e31ee78e69b2688cc1e401272e34f0d36feb12323285fc"
+    },
+    "recovery": {
+      "url": "https://github.com/lostintangent/thrush/actions/runs/45671441017/attempts/1",
+      "artifactID": 15048854821,
+      "archiveSHA256": "bdfa12ae6123d86454ade9c08917461b991e831d2b3b2089d52d37bb0b5f6137",
+      "app": {
+        "revision": "6b33bf29947dc5553b3f74d12c1d94597aad9517",
+        "dirty": false,
+        "executableSHA256": "a5c771263c6989fe7fec9690b7ee0e226560ed27fd6f0550fec28930baa03159",
+        "toolchain": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
+        "executableSHA256Source": "launcher source.json"
+      },
+      "server": {
+        "server": "ThrushServer",
+        "protocol": 1,
+        "executableSHA256": "05fc404b884290eaef97261c8a88f6f22f8dbdc75748e296403fd67659774b8e",
+        "bash": "GNU bash, version 5.3.20(1)-release (aarch64-apple-darwin27.0.0)",
+        "revision": "6b33bf29947dc5553b3f74d12c1d94597aad9517"
+      },
+      "sourceFileSHA256": "2c35a90882f754c91459059d8952fc2c996e77dd17c7e80520adb415b6688bd5"
+    }
+  },
   "workflows": {
     "shell": {
       "checkpoints": 7,
@@ -68,141 +78,232 @@
       ],
       "naturalExits": 0,
       "explicitCloses": 1,
-      "fixtureManifestSHA256": "6d6b7aa6387c0f6219a96d18569f0da6c58c965dbd3a078c1a595b8c3a0f2958",
-      "nativeReportSHA256": "d9a4fdf9f06189a0f4a2869d0c8f776f7309d620c441547161fc443375dc913f",
-      "controllerReportSHA256": "b93f734731707840fc065c1ed78b8537491eac49150e87485d70e307e8931f43",
+      "fixtureManifestSHA256": "e9a28d6f485c35387cb53c7185861bf8411caf6d1bb4339ab4b2c107b5e8e33a",
+      "nativeReportSHA256": "2c05baea2cced04e5e5dd41e713a6ec17cf7a7c0c34cc9806ecee780b67c9b43",
+      "controllerReportSHA256": "6cf8b6ec4eaa2aa4e6fcbeb8fad4a2b0d888a2adffa59d036e2eb41609055b20",
       "captures": [
         {
           "checkpoint": "Pasted build command",
-          "pngSHA256": "4189b7bc1ab6a9514dbbf95d17d2bc2e4210e81404ac68ef2a9da981b5fe6386",
+          "pngSHA256": "ad60020473a225105eea7df0c907357326c77b84c370f23731d6f9ff19412c51",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 20,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Copy soft-wrapped compiler path",
-          "pngSHA256": "3be1a6e87c0f9f3687941fd8d5fd955a36aa4c8d80274c7a4d6aaa7351459c26",
+          "pngSHA256": "33e1589c62668050d50ce266555dd04375c55c5fc45c88d8ba748520dd9b5a6a",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 260,
           "selectedCells": 83,
           "keyboardAndAccessoryVerified": true,
           "expectedGlyphCells": 260,
           "unexpectedGlyphCells": 1,
-          "expectedSelectedCells": 84
+          "expectedSelectedCells": 84,
+          "selectionHandles": {
+            "zeroBasedStart": [
+              3,
+              0
+            ],
+            "zeroBasedEnd": [
+              4,
+              36
+            ],
+            "leadingHandleCoversSelectionFillAt": [
+              3,
+              0
+            ],
+            "trailingHandleAddsInkAt": [
+              4,
+              37
+            ]
+          }
         }
       ],
-      "hostedArtifactID": 15007829484,
+      "grids": [
+        [
+          47,
+          25
+        ]
+      ],
+      "hostedArtifactID": 15049654073,
       "compiledObjectBytes": 520,
       "nativePasteboardText": "0128  compile units/café/界/é/long-dependency/with/nested-source-folders/unit-0128.h"
     },
     "vim": {
       "checkpoints": 10,
       "binaryFrames": 29,
-      "upstreamBytes": 7898,
-      "forwardedBytes": 7898,
-      "nativeReceivedBytes": 7898,
-      "nativeAppliedBytes": 7898,
-      "replayBytes": 1204,
+      "upstreamBytes": 9882,
+      "forwardedBytes": 9882,
+      "nativeReceivedBytes": 9882,
+      "nativeAppliedBytes": 9882,
+      "replayBytes": 1642,
       "readyResumed": [
         false,
         true
       ],
       "naturalExits": 0,
       "explicitCloses": 1,
-      "fixtureManifestSHA256": "98009a0f1b233c57dc4a74c28400f6ef9a34b2dfdf45f9b95fcca47068cbfb79",
-      "nativeReportSHA256": "2c57a35fb8542c32f341cdee61b0e9ac0f3c49ffb733750ca341ae2b509dd508",
-      "controllerReportSHA256": "bbaa959cc6a5e9975881601904b0b9440e499451f06f036b80d0d4c82cc854bd",
+      "fixtureManifestSHA256": "c1927ba65c9fbcc81dc64246138e9eaaca3b1522527b2842c66a97b431685b86",
+      "nativeReportSHA256": "372d877a1f1475dfc26fbc8fcdd13937a220b3b1a1b26f42864633f31f7efa4c",
+      "controllerReportSHA256": "e658dc15ec7427600742a3a9ed70a14b79db3faf7f686260b240407736c0bc58",
       "captures": [
         {
           "checkpoint": "Edited scratch file",
-          "pngSHA256": "40d0ad617aa1f7f43436517bc16bd74fd92366b6f370be57a027ca6ad99dedd3",
+          "pngSHA256": "c66669866c3b3b205f7665f878ea5690273dbaff92e154a3b546c983a45aa0a8",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 68,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Vim before detach",
-          "pngSHA256": "d115863e0536fe78c07a6f78e45584de74836a9d06f103f102f74a643f44ba56",
+          "pngSHA256": "81f3a47c51572558f6d9b8ae437a39bd42a4392d1afc9cfcd7fb4a060cad62da",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 49,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Vim serialized replay",
-          "pngSHA256": "aa625abb9828d7e46a2a102e815ec4f8802aa70eb7d24e31ad0d103f43734859",
+          "pngSHA256": "81f3a47c51572558f6d9b8ae437a39bd42a4392d1afc9cfcd7fb4a060cad62da",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 49,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Returned to shell",
-          "pngSHA256": "dcdf66f11887150cd029946895bb2911777c7230bb0aa1fdf9e82b0834ecdf8d",
+          "pngSHA256": "7755e56a94713f4bbf4aa1a87b24771a3a9de573b4583adef682f3f6328cc25b",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 28,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         }
       ],
-      "hostedArtifactID": 15007829484,
+      "grids": [
+        [
+          47,
+          25
+        ],
+        [
+          90,
+          9
+        ]
+      ],
+      "hostedArtifactID": 15049654073,
       "savedFile": {
         "name": "scratch.txt",
         "text": "note: 界 éfirst line\nsecond line\n",
         "bytes": 36
       },
-      "savedUTF8SHA256": "dac1cf580c3f8b25a598ac2105719ae5a582b25544d0dd36f884f8ff8189b6eb"
+      "savedUTF8SHA256": "dac1cf580c3f8b25a598ac2105719ae5a582b25544d0dd36f884f8ff8189b6eb",
+      "gridPixelComparison": {
+        "matchingPixels": 1529550,
+        "visibleBlockCursor": {
+          "row": 0,
+          "column": 9
+        }
+      }
     },
     "codex": {
       "checkpoints": 10,
-      "binaryFrames": 103,
-      "upstreamBytes": 13710,
-      "forwardedBytes": 13710,
-      "nativeReceivedBytes": 13710,
-      "nativeAppliedBytes": 13710,
+      "binaryFrames": 98,
+      "upstreamBytes": 13834,
+      "forwardedBytes": 13834,
+      "nativeReceivedBytes": 13834,
+      "nativeAppliedBytes": 13834,
       "replayBytes": 0,
       "readyResumed": [
         false
       ],
       "naturalExits": 0,
       "explicitCloses": 1,
-      "fixtureManifestSHA256": "006c4c17c2cb0cd727b41c77ddf2cd3aee7e197958f25086af90356934db7139",
-      "nativeReportSHA256": "502ace8b880b9328dfbf27fa348454438e473fbfe8b434ead1aaed2ba080a40c",
-      "controllerReportSHA256": "42ad7ca4421b6a6c34a4de89236b5d9643ebc08eff123e61bbfd73faf071e0c2",
+      "fixtureManifestSHA256": "ff2895428b50f054488abd29f812357281c9c811f12a331958801568cbaafbc1",
+      "nativeReportSHA256": "eca1a02761642bd059be8eecf242dfeba71d15fe4be785da598d6f9ed81bc154",
+      "controllerReportSHA256": "d4a9a954e40e01b93119621890d06935b107c1ead7fc456b8b94cf56dba54250",
       "captures": [
         {
           "checkpoint": "Codex ready",
-          "pngSHA256": "27daf2dde3e8a86390aa5a5c2641dcde031bf829619dbf57b7d5fb831f7ca315",
+          "pngSHA256": "b856fab235da18d1c81ed1d8a116c533ef9e92f57b490b36ebdbfc50194727f8",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 98,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "First three songbirds streamed",
-          "pngSHA256": "8429bc7bf9931343261baa492b804c8ca3c43e472d3317e09fa68f607f667602",
+          "pngSHA256": "b0f077e6224e15e472c983592adc152edac1cb19b9e7f0fc558f3ce35a61ef67",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 235,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Received Codex answer",
-          "pngSHA256": "968f507cc2428bd4bcc2513816eb89170666bc4dee98b6ca5db29c55fdc0a819",
+          "pngSHA256": "00570744b25f7769798803f67f1cc4ea02c9a9828095ec6022bc72b55154b135",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 338,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Earlier transcript page",
-          "pngSHA256": "42cc58cec5cf3db06e82daec67d1839483f68fb0644b461ed7ec3573135029c7",
+          "pngSHA256": "aa9a259698f18b90c7ad3b8f8f766678e1af90dba53ca03ea095b5824ace1c39",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 452,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         },
         {
           "checkpoint": "Returned to shell",
-          "pngSHA256": "1762ea8c074c164f13bffb139dcddf3ee05aac9e0422b995df6914c37767a012",
+          "pngSHA256": "4b1bacd77f31daec9fb91c9fc07f6245088e9817469b993b672224d585dde7e5",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 92,
           "selectedCells": 0,
           "keyboardAndAccessoryVerified": true
         }
       ],
-      "hostedArtifactID": 15007829484,
+      "grids": [
+        [
+          47,
+          25
+        ]
+      ],
+      "hostedArtifactID": 15049654073,
       "osc11": "\u001b]11;rgb:1313/1d1d/2727\u001b\\",
       "userBand": {
         "background": "#131d27",
@@ -256,16 +357,16 @@
           }
         ]
       },
-      "synchronizedIntermediateFrames": 19
+      "synchronizedIntermediateFrames": 17
     },
     "lifecycle": {
       "checkpoints": 7,
-      "binaryFrames": 29,
-      "upstreamBytes": 646,
-      "forwardedBytes": 646,
-      "nativeReceivedBytes": 646,
-      "nativeAppliedBytes": 646,
-      "replayBytes": 218,
+      "binaryFrames": 31,
+      "upstreamBytes": 814,
+      "forwardedBytes": 814,
+      "nativeReceivedBytes": 814,
+      "nativeAppliedBytes": 814,
+      "replayBytes": 412,
       "readyResumed": [
         false,
         true,
@@ -275,30 +376,48 @@
       ],
       "naturalExits": 1,
       "explicitCloses": 1,
-      "fixtureManifestSHA256": "3fd08f832a7d5d2443a694c5faf9e2a728c40ca127b3642b28c671d204455e51",
-      "nativeReportSHA256": "85e8d03d26230309d9c854421e4686b71ef457ad4dc3e46c05f3395f1f37be40",
-      "controllerReportSHA256": "74233d2869e1369f66b67dc9347289796c7b0a2108761b3093ec3d30f744684a",
+      "fixtureManifestSHA256": "0a4406e5a81b110acd4589f42aa6e7ca7071c26ad690f6c47e959f4543a535c8",
+      "nativeReportSHA256": "cda2d6414ad3f164ef88149d2bdd237a24a3730ce9b39cded4c48a4483bf06d9",
+      "controllerReportSHA256": "81683426b76004283b9f485da76e7398fc0e44e704ce317f2eba2f14151d4e09",
       "captures": [
         {
           "checkpoint": "Use Here restored the other owner's output",
-          "pngSHA256": "2ee17d2bdf1e220819f31062b4d259d09f4b37a5852cf862f7535082272ddc00",
+          "pngSHA256": "7fb6bbe158796c150bb8acf52dd3d28c609a5b457926c6b6e53cddf1c2c21210",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 127,
           "selectedCells": 0
         },
         {
           "checkpoint": "Final output survives shell exit",
-          "pngSHA256": "c031f4489dfe7546dd7679fec2dccb4a3c7df5c429f6bcda0dd6991300308246",
+          "pngSHA256": "50740cdb084adce72f92564eeaf5bc3e1dd7df90d799f8ced036c0a1e6029e40",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
           "matchedGlyphCells": 88,
           "selectedCells": 0,
           "endedAndNewShellVisible": true
         }
       ],
-      "hostedArtifactID": 15007829484,
+      "grids": [
+        [
+          47,
+          25
+        ],
+        [
+          47,
+          42
+        ]
+      ],
+      "hostedArtifactID": 15049654073,
       "shellIdentity": {
-        "originalPID": 13330,
-        "replacementPID": 14873,
-        "restartedPID": 17324,
-        "observedOrphanLifetimeMs": 30073,
+        "originalPID": 12916,
+        "replacementPID": 14971,
+        "restartedPID": 16928,
+        "observedOrphanLifetimeMs": 32967,
         "useHereInputBytes": 0,
         "newShellInputBytes": 0,
         "focusGrids": [
@@ -326,7 +445,7 @@
           }
         ],
         "displacedCloseCode": 4000,
-        "finalRowBeforeNewShell": "FINAL:14873",
+        "finalRowBeforeNewShell": "FINAL:14971",
         "explicitlyClosedPIDDead": true
       },
       "distinctShellPIDs": 3,
@@ -338,39 +457,76 @@
         1000
       ],
       "exactLifecycleTrace": {
-        "nativeWireSHA256": "e48d571a9be8af1b333f22c9cf59242c6cc01c29012cadc7a934bb66e9b43f0f",
+        "nativeWireSHA256": "4a2861fb9a7a9e5bf4c102df949b8dcdfad6148d5a5758f7914cf0e15d22811e",
         "nativeResult": "success",
-        "relayObservations": 87,
-        "nativeRecords": 123,
+        "relayObservations": 91,
+        "nativeRecords": 129,
         "perAttachmentAppliedBytes": [
-          106,
-          125,
-          168,
+          80,
+          209,
+          278,
           150,
           97
         ],
-        "appliedBytes": 646,
+        "appliedBytes": 814,
         "differences": 0
       }
+    },
+    "recovery": {
+      "checkpoints": 3,
+      "binaryFrames": 788,
+      "upstreamBytes": 803267,
+      "forwardedBytes": 803267,
+      "nativeReceivedBytes": 803267,
+      "nativeAppliedBytes": 803267,
+      "replayBytes": 1319,
+      "readyResumed": [
+        false,
+        true
+      ],
+      "naturalExits": 0,
+      "explicitCloses": 1,
+      "fixtureManifestSHA256": "66b7494b7d2553e5d8b58b601435bf0b65a0f7f74871df72c2a23a73f848a74a",
+      "nativeReportSHA256": "b71d9177ca5b1d98c27ec4b94f96f60ea84d9957be9bb76666f6c9ae792db69a",
+      "controllerReportSHA256": "5dfd7f519362101abaea612ffabcd9993e3e38bad0d3a6fc3673dfc64a88431b",
+      "captures": [
+        {
+          "checkpoint": "Silent build tail restored",
+          "pngSHA256": "0c71f0df7ff78f164500614232749225931f731a4bc174e9e9cca650e2683e85",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
+          "matchedGlyphCells": 81,
+          "selectedCells": 0
+        },
+        {
+          "checkpoint": "Same-pane confirmation received",
+          "pngSHA256": "21ec469213fccabfc18960ef85c7ec393d93baf9db7676dd62e057696163406e",
+          "framebufferPixels": [
+            1206,
+            2622
+          ],
+          "matchedGlyphCells": 105,
+          "selectedCells": 0
+        }
+      ],
+      "grids": [
+        [
+          47,
+          25
+        ]
+      ],
+      "hostedArtifactID": 15048854821,
+      "producerBytes": 8388608,
+      "restoredRows": 25,
+      "confirmedInput": "build-d549cfc6",
+      "attachments": 1,
+      "repairFrames": 1,
+      "postRepairEchoBytes": 37,
+      "stallSeconds": 2.5802916659999937,
+      "producerFinishedSeconds": 0.4364106250000077
     }
   },
-  "hostedRuns": [
-    {
-      "repository": "lostintangent/thrush",
-      "workflowPath": ".github/workflows/live-pty.yml",
-      "workflowName": "Packaged app on real PTYs",
-      "runID": 45581538459,
-      "runAttempt": 2,
-      "runAttemptURL": "https://github.com/lostintangent/thrush/actions/runs/45581538459/attempts/2",
-      "headSHA": "7826b553601a2cafa9e6d6c7c1b11e9829cd1bb2",
-      "conclusion": "success",
-      "workflowInput": "all",
-      "artifactName": "thrush-live-simulator-dark-all-45581538459-2",
-      "artifactID": 15007829484,
-      "artifactURL": "https://github.com/lostintangent/thrush/actions/runs/45581538459/artifacts/15007829484",
-      "sourceJSONSHA256": "63138ca3fa0d904cea3ef1a3af7a40c986193ba4058c3dc2e01cea0ee623b72a",
-      "verifiedArchiveDigest": "sha256:353edca3805d0778ad79a5213100c1ede1bbb1996dcf145658507a1105594185",
-      "verifiedLocalArtifactFiles": 52
-    }
-  ]
+  "presentation": "Every checkpoint verified a Metal-completed frame. 0 of 37 recorded a drawable presentation timestamp."
 }
