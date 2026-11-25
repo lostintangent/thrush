@@ -36,12 +36,12 @@ def encoded(data):
     return base64.b64encode(data).decode("ascii")
 
 class Session:
-    def __init__(self, directory, checkout):
+    def __init__(self, directory, checkout, columns=80, rows=24):
         self.events = []
         self.start = time.monotonic_ns()
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            window(0, 80, 24)
+            window(0, columns, rows)
             os.chdir(directory)
             env = dict(HOME=str(directory), PATH=f"{directory}/bin:/usr/bin:/bin",
                        TERM="xterm-256color", LC_ALL="en_US.UTF-8", PS1=PROMPT.decode(),
@@ -51,6 +51,8 @@ class Session:
         self.reference = subprocess.Popen(
             ["bun", ROOT / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
             env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
+
+        self.exchange({"resize": {"columns": columns, "rows": rows}})
 
     def exchange(self, event):
         self.reference.stdin.write(json.dumps(event) + "\n")
@@ -126,7 +128,7 @@ def build_headers(session, directory, name, first, last):
     assert output.endswith(PROMPT) and b"The compiler did not" not in output
     assert (directory / "compile.o").stat().st_size > 0
 
-def capture(name, checkout, destination=ROOT):
+def capture(name, checkout, destination=ROOT, columns=80, rows=24, grids=GRIDS):
     with tempfile.TemporaryDirectory(prefix="thrush-pty-") as work:
         directory = Path(work)
         (directory / "bin").mkdir()
@@ -136,7 +138,7 @@ def capture(name, checkout, destination=ROOT):
         (directory / "build").chmod(0o755)
         (directory / "bin/vim").write_text(VIM, encoding="utf8")
         (directory / "bin/vim").chmod(0o755)
-        session = Session(directory, checkout)
+        session = Session(directory, checkout, columns, rows)
         try:
             output = session.read("Shell prompt", PROMPT)
             assert output.endswith(PROMPT), repr(output)
@@ -162,7 +164,7 @@ def capture(name, checkout, destination=ROOT):
                 session.input("Paste scratch text", paste, "paste", inserted)
                 session.input("Finish insertion", b"\x1b", "key", "escape")
                 session.checkpoint("Edited scratch file")
-            for grid in GRIDS: session.resize(*grid)
+            for grid in grids: session.resize(*grid)
             session.checkpoint("Restored alternate grid")
             output = session.input("Save and quit Vim", b":wq\r", until=PROMPT)
             assert output.endswith(PROMPT), repr(output)
@@ -172,7 +174,7 @@ def capture(name, checkout, destination=ROOT):
             result = dict(name=name, term="xterm-256color", shell="/bin/bash --noprofile --norc -i",
                           vimVersion=subprocess.check_output(["/usr/bin/vim", "--version"], text=True).splitlines()[:3],
                           clangVersion=subprocess.check_output(["/usr/bin/clang","--version"], text=True).splitlines()[0],
-                          columns=80, rows=24, events=session.events)
+                          columns=columns, rows=rows, events=session.events)
             events = result.pop("events")
             compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
             content = compact(result)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, events)) + '\n]}\n'
@@ -184,6 +186,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkout", nargs="?", type=Path, default=Path("../toy-box"))
     parser.add_argument("--only", choices=["shell-log", "vim-edit"])
+    parser.add_argument("--columns", type=int, default=80)
+    parser.add_argument("--rows", type=int, default=24)
+    parser.add_argument("--resize", action="append", metavar="COLSxROWS", help="Vim resize sequence, in order")
+    parser.add_argument("--destination", type=Path, default=ROOT, help="directory for the source recording")
     options = parser.parse_args()
+    grids = GRIDS if options.resize is None else [tuple(map(int, size.split("x"))) for size in options.resize]
+    if any(len(grid) != 2 or grid[0] < 2 or grid[1] < 1 for grid in [(options.columns, options.rows), *grids]):
+        parser.error("Use positive heights and widths of at least two columns")
+    if ((options.columns, options.rows) != (80, 24) or grids != GRIDS) and (
+            options.only != "vim-edit" or options.destination.resolve() == ROOT):
+        parser.error("Provide --only vim-edit and a separate --destination for another native geometry")
     for name in [options.only] if options.only else ["shell-log", "vim-edit"]:
-        capture(name, options.checkout.resolve())
+        capture(name, options.checkout.resolve(), options.destination, options.columns, options.rows, grids)

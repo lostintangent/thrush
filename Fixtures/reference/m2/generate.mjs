@@ -145,7 +145,7 @@ async function verifyStyledPaints(recording, events, cells, lines) {
 }
 
 async function generate(name) {
-  const directory = workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
+  const directory = phone ? '../m4/phone/' : workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
   const captureBytes = ['shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
     : await readFile(new URL(directory + name + '.capture.json', import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
@@ -217,14 +217,17 @@ async function generate(name) {
   const data = JSON.stringify(header).slice(0,-1)
     + ',\n"cells":[\n' + linesOf(cellList) + '\n],\n"lines":[\n' + linesOf(rowList)
     + '\n],\n"events":[\n' + linesOf(eventList) + '\n]}\n';
-  await writeFile(new URL('../../replays/'+name+'.json',import.meta.url),data);
+  const outputDirectory = phone ? '../m4/phone/' : '../../replays/';
+  await writeFile(new URL(outputDirectory+name+'.json',import.meta.url),data);
   console.log(name, events.length, sha256(data));
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
 const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', ...workflows];
-const requested = process.argv.slice(3);
-for (const name of requested.length ? requested : all) {
-  assert(all.includes(name), 'Unknown replay: ' + name);
+const phone = process.argv[3] === '--phone';
+const available = phone ? ['vim-resume', 'codex-session'] : all;
+const requested = process.argv.slice(phone ? 4 : 3);
+for (const name of requested.length ? requested : available) {
+  assert(available.includes(name), 'Unknown replay: ' + name);
   await generate(name);
 }
 

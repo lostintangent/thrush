@@ -1,4 +1,4 @@
-"""Record a new live Codex CLI answer in an isolated home. Existing replays need no login."""
+"""Record the real Codex TUI with a live provider or the published offline response."""
 import argparse
 import base64
 import errno
@@ -18,9 +18,9 @@ sys.path.insert(0, str(ROOT.parent / "m2"))
 sys.dont_write_bytecode = True
 from capture import PROMPT, Session, encoded, window
 
-QUESTION = "Name 12 songbirds on numbered lines. Start with Song thrush and end with European robin."
+from songbird_stream import MODEL, QUESTION, local_responses
+
 COLUMNS, ROWS = 80, 16
-MODEL = "gpt-6.1-sol"
 VERSION = "codex-cli 0.166.0"
 SAMPLE_THREAD_ID = b"00000000-0000-4000-8000-000000000000"
 UUID_PATTERN = rb"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
@@ -40,10 +40,10 @@ def replace_resume_id(events):
     return {"field":"exit resume command thread ID", "replacement":SAMPLE_THREAD_ID.decode(), "count":count}
 
 
-def mark_split_paint(events, checkout):
+def mark_split_paint(events, checkout, columns, rows):
     """Ask the independent parser which real read first leaves a repaint pending."""
     reads = [e for e in events if "bytes" in e]
-    requests = [{"resize":{"columns":COLUMNS, "rows":ROWS}}] + [{"bytes":e["bytes"]} for e in reads]
+    requests = [{"resize":{"columns":columns, "rows":rows}}] + [{"bytes":e["bytes"]} for e in reads]
     result = subprocess.run(
         ["bun", ROOT / "codex-reference.mjs", checkout], text=True, capture_output=True, check=True,
         input="".join(json.dumps(r) + "\n" for r in requests),
@@ -68,12 +68,12 @@ def mark_split_paint(events, checkout):
 
 class CodexSession(Session):
     """Capture the real interactive shell while feeding its PTY reads to the independent xterm."""
-    def __init__(self, home, workspace, checkout):
+    def __init__(self, home, workspace, checkout, columns, rows):
         self.start = time.monotonic_ns()
         self.events = []
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            window(0, COLUMNS, ROWS)
+            window(0, columns, rows)
             os.chdir(workspace)
             env = dict(HOME=str(home), PATH=f"{home}/bin:/usr/bin:/bin", TERM="xterm-256color",
                        LC_ALL="en_US.UTF-8", PS1=PROMPT.decode(), HISTFILE="/dev/null",
@@ -82,12 +82,15 @@ class CodexSession(Session):
         self.reference = subprocess.Popen(
             ["bun", ROOT / "codex-reference.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
             env={"PATH":os.environ["PATH"], "HOME":str(home), "NODE_PATH":str(checkout / "node_modules/@xterm/xterm/src")})
-        self.exchange({"resize":{"columns":COLUMNS, "rows":ROWS}})
+        self.exchange({"resize":{"columns":columns, "rows":rows}})
 
-    def inspect(self):
+    def state(self):
         self.reference.stdin.write('{"inspect":true}\n')
         self.reference.stdin.flush()
-        return json.loads(self.reference.stdout.readline())["visible"]
+        return json.loads(self.reference.stdout.readline())
+
+    def inspect(self):
+        return self.state()["visible"]
 
     def read_one(self, name, timeout):
         if not select.select([self.fd], [], [], timeout)[0]:
@@ -124,13 +127,13 @@ class CodexSession(Session):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             self.read_one("Codex paints", 0.12)
-            screen = self.inspect()
-            if condition(screen):
+            state = self.state()
+            if not state["synchronizedOutput"] and condition(state["visible"]):
                 self.checkpoint(checkpoint)
                 return
         raise RuntimeError(f"Timed out waiting for {checkpoint!r}; the previous capture is preserved")
 
-    def answer(self):
+    def answer(self, published=False):
         """Mark real completed display updates as the answer streams, preserving every read."""
         deadline = time.monotonic() + 150
         working = False
@@ -147,19 +150,25 @@ class CodexSession(Session):
             if not working and "esc to interrupt" in text:
                 event.update(name="Codex working", checkpoint=True)
                 working = True
-            if not first_lines and re.search(r"\b1[.)]\s+song thrush", text) and re.search(r"\b3[.)]\s+", text):
+            third = "3. eurasian blue tit" in text if published else re.search(r"\b3[.)]\s+", text)
+            if (working and not first_lines and not event.get("checkpoint") and third
+                    and re.search(r"\b1[.)]\s+song thrush", text)):
                 event.update(name="First three songbirds streamed", checkpoint=True)
                 first_lines = True
-            if re.search(r"\b12[.)]\s+european robin", text) and "esc to interrupt" not in text:
+            # The working label can disappear while content is still streaming. Codex paints
+            # its elapsed-time summary after consuming response.completed.
+            if re.search(r"\b12[.)]\s+european robin", text) and "worked for " in text:
+                if not (working and first_lines):
+                    raise ValueError("Missing working indicator or incremental answer before the completed response")
                 self.checkpoint("Received Codex answer")
                 return
-        raise RuntimeError("No complete live answer; keep the checked-in capture")
+        raise RuntimeError("No complete answer; keep the checked-in capture")
 
-def capture(binary, login, checkout, destination):
+def capture(binary, login, checkout, columns=COLUMNS, rows=ROWS, local_url=None):
     version = subprocess.check_output([binary, "--version"], text=True).strip()
     if version != VERSION:
         raise ValueError(f"Expected {VERSION}, found {version}")
-    if not login.is_file():
+    if local_url is None and not login.is_file():
         raise ValueError("The live recorder requires an existing authorized Codex ChatGPT login")
     with tempfile.TemporaryDirectory(prefix="thrush-codex-", dir=Path("/tmp").resolve()) as tmp:
         home = Path(tmp) / "home"
@@ -169,25 +178,35 @@ def capture(binary, login, checkout, destination):
         (home / "bin").mkdir()
         (home / "bin/codex-real").symlink_to(binary)
         executable = home / "bin/codex"
-        executable.write_text('#!/bin/sh\nexec codex-real --no-daemon -s read-only -a never "$@"\n')
+        command = 'codex-real --no-daemon -s read-only -a never "$@"'
+        if local_url:
+            # The CLI starts a local worktree helper on a second ephemeral port.
+            policy = '(version 1) (allow default) (deny network-outbound) (allow network-outbound (remote tcp "localhost:*"))'
+            command = f"/usr/bin/sandbox-exec -p '{policy}' " + command
+        executable.write_text("#!/bin/sh\nexec " + command + "\n")
         executable.chmod(0o755)
         state = home / ".codex"
         state.mkdir()
+        provider = ""
+        if local_url:
+            provider = ('model_provider = "thrush"\n[model_providers.thrush]\nname = "Thrush local fixture"\n'
+                        f'base_url = "{local_url}"\nwire_api = "responses"\nrequires_openai_auth = false\n')
         (state / "config.toml").write_text(
             f'model = "{MODEL}"\ncheck_for_update_on_startup = false\nweb_search = "disabled"\n'
-            f'[projects.{json.dumps(str(workspace))}]\ntrust_level = "trusted"\n[analytics]\nenabled = false\n')
+            f'{provider}[projects.{json.dumps(str(workspace))}]\ntrust_level = "trusted"\n[analytics]\nenabled = false\n')
         # Only the official CLI opens the existing login. No credentials are serialized by the recorder.
-        (state / "auth.json").symlink_to(login)
-        session = CodexSession(home, workspace, checkout)
+        if local_url is None:
+            (state / "auth.json").symlink_to(login)
+        session = CodexSession(home, workspace, checkout, columns, rows)
         try:
             session.observe("Shell prompt", lambda rows: PROMPT.decode() in rows)
             session.text("Launch Codex", "codex\r")
             session.observe("Codex ready", lambda rows: any("GPT-6.1-Sol" in r for r in rows)
-                            and any("Ask Codex" in r for r in rows))
+                            and any("Ask Codex" in r for r in rows) and any("OpenAI Codex" in r for r in rows))
             session.text("Enter prompt", QUESTION)
             session.observe("Entered Codex prompt", lambda rows: QUESTION in " ".join(" ".join(rows).split()))
             session.key("Submit", "enter", b"\r")
-            session.answer()
+            session.answer(published=local_url is not None)
             session.key("Codex transcript shortcut", "t", b"\x14", ["control"])
             session.key("Earlier transcript page", "pageUp", b"\x1b[5~")
             session.observe("Earlier transcript page", lambda rows: any("1. Song thrush" in r for r in rows)
@@ -207,19 +226,24 @@ def capture(binary, login, checkout, destination):
         finally:
             session.close()
         sanitization = replace_resume_id(session.events)
-        mark_split_paint(session.events, checkout)
+        mark_split_paint(session.events, checkout, columns, rows)
         stream = b"".join(base64.b64decode(e.get("bytes", "")) for e in session.events)
         private_patterns = [b"/Users/", b"/private/", b"/tmp/thrush", rb"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}",
                             rb"sk-[\w-]{12,}|Bearer |refresh_token|access_token|id_token"]
+        if local_url:
+            private_patterns += [rb"127\.0\.0\.1:[0-9]+", b"MCP startup incomplete"]
         if any(re.search(pattern, stream) for pattern in private_patterns):
             raise ValueError("The output includes private identifiers; keep the previous public recording")
         metadata = dict(name="codex-session", term="xterm-256color", shell="/bin/bash --noprofile --norc -i",
                         application=version, provider=dict(kind="live", name="OpenAI",
                         access="ChatGPT login through the Codex CLI", model=MODEL),
-                        prompt=QUESTION, columns=COLUMNS, rows=ROWS, sanitization=sanitization)
+                        prompt=QUESTION, columns=columns, rows=rows, sanitization=sanitization)
+        if local_url:
+            metadata["provider"] = dict(kind="local-recorded-response", source="Fixtures/replays/codex-session.json",
+                                        model=MODEL, transport="loopback Responses SSE", authentication="none")
         compact = lambda obj: json.dumps(obj, ensure_ascii=False, separators=(",",":"))
         text = compact(metadata)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, session.events)) + '\n]}\n'
-        destination.write_text(text)
+        return text
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -227,5 +251,15 @@ if __name__ == "__main__":
     parser.add_argument("--login-file", default=Path.home()/".codex/auth.json", type=Path)
     parser.add_argument("--checkout", default=Path("../toy-box"), type=Path)
     parser.add_argument("--output", default=ROOT/"codex-session.capture.json", type=Path)
+    parser.add_argument("--columns", default=COLUMNS, type=int)
+    parser.add_argument("--rows", default=ROWS, type=int)
+    parser.add_argument("--local-response", action="store_true", help="stream the published answer using a loopback-only local provider")
     args = parser.parse_args()
-    capture(args.codex_bin.resolve(), args.login_file.resolve(), args.checkout.resolve(), args.output)
+    if (args.local_response or (args.columns, args.rows) != (COLUMNS, ROWS)) and args.output.resolve() == (ROOT / "codex-session.capture.json"):
+        parser.error("Give a separate --output for a local response or a different PTY size")
+    if args.local_response:
+        with local_responses(QUESTION, MODEL) as url:
+            text = capture(args.codex_bin.resolve(), None, args.checkout.resolve(), args.columns, args.rows, url)
+    else:
+        text = capture(args.codex_bin.resolve(), args.login_file.resolve(), args.checkout.resolve(), args.columns, args.rows)
+    args.output.write_text(text)
