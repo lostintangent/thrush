@@ -61,6 +61,14 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         (6, e + "]4;1;#12", "34\u{07}" + e + "]4;1;?\u{07}Z"),
         (6, e + "]10;#111;#2", "22;?\u{07}" + e + "]10;?\u{07}Z"),
         (6, e + "]4;1;#123\u{07}" + e + "]104;", "1\u{07}" + e + "]4;1;?\u{07}Z"),
+        (6, e + "[2;3r" + e + "[?6h" + e + "[1;2HAB", e + "[6n" + e + "[2;1HZ" + e + "[3AY"),
+        (4, e + "[2;3r" + e + "[?6h" + e + "[2;1HABCD", "EF" + e + "[6n"),
+        (4, e + "[2;3r" + e + "[?6h" + e + "[2;1HABCD", "\u{0301}E" + e + "[6n"),
+        (6, e + "[2;3r" + e + "[?6h" + e + "(A" + e + "7" + e + "(B" + e + "8", "#" + e + "[6n"),
+        (6, e + "[2;3r" + e + "[?6h" + e + "[2;2HM" + e + "[?1049h" + e + "[2;2HA",
+         e + "[6n" + e + "[?1049l" + e + "[6nZ"),
+        (6, e + "[?1049h" + e + "[2;3r" + e + "[?6h" + e + "[1;3HQ",
+         e + "[6n" + e + "[?1049l" + e + "[6n" + e + "[HZ"),
     ]
     func assertContinuation(_ columns: Int, prefix: [UInt8], suffix: [UInt8]) {
         var before = Terminal(size: .init(columns: columns, rows: 3))

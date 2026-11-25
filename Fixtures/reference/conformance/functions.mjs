@@ -200,6 +200,24 @@ probe('DECSET 1048', 'then restore after moving', positions.middle, `${CSI}?1048
 probe('DECSET 6', 'then CUP past the region', `${CSI}3;6r`, `${CSI}?6h${CSI}9;9H`);
 probe('DECSET 6', 'then DECSC and DECRC', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${ESC}7${CSI}?6l${ESC}8`);
 probe('DECSET 6', 'then DSR 6', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${CSI}6n`);
+// Origin mode counts rows from the top margin and keeps the cursor within the region.
+probe('DECSET 6', 'then DECXCPR', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${CSI}?6n`);
+probe('DECSET 6', 'then VPA and HVP', `${CSI}3;6r`, `${CSI}?6h${CSI}2da${CSI}3;4fb${CSI}9dc`);
+probe('DECSET 6', 'then VPR', `${CSI}3;6r`, `${CSI}?6h${CSI}2;3H${CSI}1e`);
+probe('DECSET 6', 'then relative moves', `${CSI}3;6r`, `${CSI}?6h${CSI}3;4H${CSI}Aa${CSI}Cb${CSI}2Gc`);
+probe('DECSET 6', 'then relative moves in a region at the top', `${CSI}1;5r`,
+  `${CSI}?6h${CSI}4;4H${CSI}2Aa${CSI}9Bb${CSI}3Cc${CSI}Dd${CSI}2Ge${CSI}9ef${CSI}2Fg${CSI}9Eh${CSI}2;3H${CSI}6n`);
+probe('DECSET 6', 'then a region', '', `${CSI}?6h${CSI}3;6r`);
+probe('DECSET 6', 'then DECSTR', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${CSI}!p${CSI}2;2H`);
+probe('DECSET 6', 'then DECRC from below the region', `${CSI}3;6r${CSI}8;5H${ESC}7`, `${CSI}?6h${ESC}8`);
+probe('DECSET 6', 'then DECRST 1048 from above the region', `${CSI}3;6r${CSI}1;5H${CSI}?1048h`, `${CSI}?6h${CSI}?1048l`);
+// Each screen keeps its own region, and the cursor moves into the region of the screen it returns to.
+for (const mode of [47, 1047, 1049]) {
+  probe(`DECSET ${mode}`, 'and back in origin mode', `${CSI}4;7r${CSI}?6h`,
+    `${CSI}?${mode}h${CSI}2;3H${CSI}?${mode}l`);
+}
+probe('DECSET 47', 'and back in origin mode, then CUF', `${CSI}1;3r${CSI}?6h`, `${CSI}?47h${CSI}6;3H${CSI}?47l${CSI}C`);
+probe('DECSET 47', 'in origin mode with a region', `${CSI}4;7r${CSI}?6h`, `${CSI}?47h${CSI}2;5r${CSI}2;3H`);
 probe('DECRST 7', 'then a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;20H界`);
 probe('DECRST 7', 'then a combining mark after a dropped wide character', positions.middle, `${CSI}?7l${CSI}2;19Ha界\u0301`);
 probe('DECSET 45', 'then BS across a wrap', '', `${CSI}2;1H${CSI}?7h${CSI}?45h${CSI}1;20Hxy\b\b\b`);

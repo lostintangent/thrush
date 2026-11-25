@@ -21,6 +21,8 @@ extension Terminal {
         }
         writer.draw(screen.active)
         let buffer = screen.active
+        // Origin mode homes the cursor, so it comes before the cursor is placed.
+        if modes.origin { writer.setOrigin(top: buffer.scrollTop) }
         let restoredSet = characterSets.active != characterSets.slots[characterSets.invoked]
         if restoredSet {
             // DECRC can restore a translation different from the invoked slot's designation.
@@ -49,6 +51,7 @@ extension Terminal {
     private struct ReplayWriter {
         var output = ""
         private var currentStyle = Style()
+        private var originTop = 0
         private let escape = "\u{1b}"
         private let csi = "\u{1b}["
 
@@ -164,8 +167,13 @@ extension Terminal {
             output += "\r" + csi + "2X"
         }
 
+        mutating func setOrigin(top: Int) {
+            output += csi + "?6h"
+            originTop = top
+        }
+
         mutating func position(row: Int, column: Int, in buffer: Buffer) {
-            output += csi + "\(row + 1);\(min(column, buffer.size.columns - 1) + 1)H"
+            output += csi + "\(row - originTop + 1);\(min(column, buffer.size.columns - 1) + 1)H"
         }
 
         mutating func finishGlyph(in buffer: Buffer, insert: Bool) {

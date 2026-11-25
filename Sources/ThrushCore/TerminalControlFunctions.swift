@@ -338,6 +338,7 @@ extension Terminal {
         case applicationCursorKeys = 1
         /// DECANM. Without a VT52 mode to leave, setting it only designates ASCII into every slot.
         case ansi = 2
+        case origin = 6
         case wraparound = 7
         case cursorBlink = 12
         case cursorVisible = 25

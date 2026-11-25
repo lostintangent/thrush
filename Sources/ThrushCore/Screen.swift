@@ -363,6 +363,11 @@ extension Terminal {
             active.saved = SavedCursor(row: active.history.currentShellCount)
         }
 
+        /// Origin mode keeps the cursor within the scroll region. The column stays, so a pending wrap survives.
+        mutating func moveIntoScrollRegion() {
+            active.row = min(max(row, scrollTop), scrollBottom)
+        }
+
         mutating func move(toRow row: Int, column: Int) {
             active.row = min(max(0, row), size.rows - 1)
             active.column = min(max(0, column), size.columns - 1)

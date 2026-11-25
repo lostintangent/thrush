@@ -38,6 +38,156 @@
       }
     ]
   },
+  "DECSET 1047 · and back in origin mode": {
+    "reason": "The reference leaves the cursor where the alternate screen had it, outside the region, though origin mode is on. Thrush brings it back inside the region, since in origin mode the cursor never leaves it.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.row",
+        "reference": "1",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "1",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][2]",
+        "reference": "\"*\"",
+        "thrush": "\"c\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][2]",
+        "reference": "\"l\" {fg=1 bold}",
+        "thrush": "\"*\""
+      }
+    ]
+  },
+  "DECSET 47 · and back in origin mode": {
+    "reason": "The reference leaves the cursor where the alternate screen had it, outside the region, though origin mode is on. Thrush brings it back inside the region, since in origin mode the cursor never leaves it.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.row",
+        "reference": "1",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "1",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][2]",
+        "reference": "\"*\"",
+        "thrush": "\"c\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][2]",
+        "reference": "\"l\" {fg=1 bold}",
+        "thrush": "\"*\""
+      }
+    ]
+  },
+  "DECSET 6 · then DECXCPR": {
+    "reason": "The reference reports the cursor's row from the top of the screen in origin mode. Thrush counts it from the top margin, as DEC terminals do, so a program can send the reply straight back as a CUP.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESC[?4;2R",
+        "thrush": "ESC[?2;2R"
+      }
+    ]
+  },
+  "DECSET 6 · then DSR 6": {
+    "reason": "The reference reports the cursor's row from the top of the screen in origin mode. Thrush counts it from the top margin, as DEC terminals do, so a program can send the reply straight back as a CUP.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESC[4;2R",
+        "thrush": "ESC[2;2R"
+      }
+    ]
+  },
+  "DECSET 6 · then relative moves": {
+    "reason": "The reference adds the top margin again when it moves the cursor relative to itself in origin mode, so CUU, CUF, CHA and VPR land the margin's height lower. Thrush moves from where the cursor is, as DEC terminals do.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.row",
+        "reference": "5",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[3][1]",
+        "reference": "\"o\" {fg=1 bold}",
+        "thrush": "\"c\""
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[5][1]",
+        "reference": "\"c\"",
+        "thrush": "\"V\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "5",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][1]",
+        "reference": "\"o\" {fg=1 bold}",
+        "thrush": "\"c\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][1]",
+        "reference": "\"c\"",
+        "thrush": "\"V\""
+      }
+    ]
+  },
+  "DECSET 6 · then VPR": {
+    "reason": "The reference adds the top margin again when it moves the cursor relative to itself in origin mode, so CUU, CUF, CHA and VPR land the margin's height lower. Thrush moves from where the cursor is, as DEC terminals do.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.row",
+        "reference": "5",
+        "thrush": "4"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "5",
+        "thrush": "4"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][2]",
+        "reference": "\"m\"",
+        "thrush": "\"*\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][2]",
+        "reference": "\"*\"",
+        "thrush": "\"W\""
+      }
+    ]
+  },
   "ED 1 · at the bottom right corner": {
     "reason": "The reference throws the same TypeError as from a pending wrap, before it erases the rows above, and swallows the * that follows. Thrush completes the erase and then prints the * normally.",
     "differences": [

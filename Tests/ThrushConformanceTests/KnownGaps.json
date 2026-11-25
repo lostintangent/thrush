@@ -6,14 +6,8 @@
  "DECRQM ?45": [
   "DECRQM ?45 · after DECSET"
  ],
- "DECRQM ?6": [
-  "DECRQM ?6 · after DECSET"
- ],
  "DECRQSS \" q": [
   "DECRQSS \" q · after DECSCA 1"
- ],
- "DECRST 6": [
-  "DECRST 6"
  ],
  "DECSED 2": [
   "DECSED 2 · over protected cells"
@@ -28,17 +22,8 @@
   "DECSET 45",
   "DECSET 45 · then BS across a wrap"
  ],
- "DECSET 6": [
-  "DECSET 6",
-  "DECSET 6 · then CUP past the region",
-  "DECSET 6 · then DECSC and DECRC",
-  "DECSET 6 · then DSR 6"
- ],
  "DECSET 9": [
   "DECSET 9"
- ],
- "DECSTR": [
-  "DECSTR"
  ],
  "OSC 8": [
   "OSC 8",
@@ -119,7 +104,6 @@
   "stream 48",
   "stream 50",
   "stream 52",
-  "stream 59",
   "stream 61",
   "stream 63",
   "stream 64",
@@ -140,7 +124,6 @@
   "stream 88",
   "stream 89",
   "stream 90",
-  "stream 91",
   "stream 92",
   "stream 94",
   "stream 99",
@@ -179,7 +162,6 @@
   "stream 155",
   "stream 156",
   "stream 157",
-  "stream 160",
   "stream 161",
   "stream 162",
   "stream 163",
@@ -208,7 +190,6 @@
   "stream 197",
   "stream 198",
   "stream 199",
-  "stream 203",
   "stream 204",
   "stream 205",
   "stream 206",
@@ -241,7 +222,6 @@
   "stream 263",
   "stream 265",
   "stream 274",
-  "stream 275",
   "stream 276",
   "stream 277",
   "stream 280",
@@ -251,7 +231,6 @@
   "stream 287",
   "stream 290",
   "stream 291",
-  "stream 292",
   "stream 293",
   "stream 296",
   "stream 299",
@@ -277,7 +256,6 @@
   "stream 349",
   "stream 350",
   "stream 351",
-  "stream 352",
   "stream 353",
   "stream 354",
   "stream 356",

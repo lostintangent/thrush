@@ -35,7 +35,8 @@ public struct Terminal: Sendable {
         package var sendFocus = false
         var synchronizedOutputID: UInt64?
         package var synchronizedOutput: Bool { synchronizedOutputID != nil }
-        package let origin = false
+        /// DECOM counts rows from the top margin and keeps the cursor within the scroll region.
+        package var origin = false
         /// IRM shifts the rest of the row right before each printed character.
         package var insert = false
         /// DECAWM moves printing to the next row at the right margin. Off, it overwrites the last column.
@@ -302,12 +303,12 @@ public struct Terminal: Sendable {
         case .control(.cursorColumn), .control(.columnAbsolute):
             screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
         case .control(.rowAbsolute):
-            screen.move(toRow: parser.parameters[0, default: 1] - 1, column: screen.column)
+            position(row: parser.parameters[0, default: 1] - 1, column: screen.column)
         case .control(.rowRelative):
-            // Unlike CUD, VPR passes the bottom margin.
-            screen.move(toRow: screen.row + parser.parameters[0, default: 1], column: screen.column)
+            // Unlike CUD, VPR passes the bottom margin, unless origin mode keeps the cursor within it.
+            position(row: screen.row - originTop + parser.parameters[0, default: 1], column: screen.column)
         case .control(.cursorPosition), .control(.horizontalVerticalPosition):
-            screen.move(toRow: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
+            position(row: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
         case .control(.forwardTab): screen.horizontalTab(parser.parameters[0, default: 1])
         case .control(.backwardTab): screen.backwardTab(parser.parameters[0, default: 1])
         case .control(.tabClear):
@@ -363,13 +364,13 @@ public struct Terminal: Sendable {
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
             switch parser.parameters[0] {
             case 5: replies.append(contentsOf: Reply.operatingStatus.utf8)
-            case 6: replies.append(contentsOf: Reply.cursorPosition(row: screen.row, column: screen.column).utf8)
+            case 6: replies.append(contentsOf: Reply.cursorPosition(row: screen.row - originTop, column: screen.column).utf8)
             default: break
             }
             return
         case .control(.privateDeviceStatusReport):
             if parser.parameters[0] == 6 {
-                replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row, column: screen.column).utf8)
+                replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
             }
             return
         case .control(.requestMode):
@@ -387,7 +388,7 @@ public struct Terminal: Sendable {
             let bottom = min(parser.parameters[1, default: size.rows], size.rows)
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
-            screen.move(toRow: 0, column: 0)
+            position(row: 0, column: 0)
         case .control(.saveCursor):
             saveCursor()
             return
@@ -422,12 +423,24 @@ public struct Terminal: Sendable {
         generation &+= 1
     }
 
+    /// The rows CUP and VPA count from. Origin mode counts from the top margin.
+    private var originTop: Int { modes.origin ? screen.scrollTop : 0 }
+
+    /// Places the cursor for the controls that address a row, which origin mode keeps within the region.
+    @inline(__always)
+    private mutating func position(row: Int, column: Int) {
+        screen.move(toRow: modes.origin ? min(screen.scrollTop + row, screen.scrollBottom) : row, column: column)
+    }
+
+    /// DECSC saves the position, the style and the character set. It leaves out origin mode, as the
+    /// reference does, since no workflow needs it.
     private mutating func saveCursor() { screen.saveCursor(style: style, characterSet: characterSets.active) }
 
     private mutating func restoreCursor() {
         let saved = screen.restoreCursor()
         style = saved.style
         characterSets.active = saved.characterSet
+        if modes.origin { screen.moveIntoScrollRegion() }
     }
 
     /// DECSTR resets modes, margins, the style, the character sets and the saved cursor. It keeps the
@@ -481,8 +494,8 @@ public struct Terminal: Sendable {
     private func privateModeState(_ mode: Int) -> ModeState {
         guard let mode = PrivateMode(rawValue: mode) else {
             return switch mode {
-            // Origin mode, X10 mouse reports, reverse wraparound and pixel mouse coordinates stay off.
-            case 6, 9, 45, 1016: .reset
+            // X10 mouse reports, reverse wraparound and pixel mouse coordinates stay off.
+            case 9, 45, 1016: .reset
             // Keys always autorepeat (DECARM, 8). Backspace sends DEL, and the UTF-8 and urxvt mouse encodings are unsupported.
             case 8: .permanentlySet
             case 67, 1005, 1015: .permanentlyReset
@@ -492,6 +505,7 @@ public struct Terminal: Sendable {
         return switch mode {
         case .applicationCursorKeys: ModeState(modes.applicationCursorKeys)
         case .ansi: .unrecognized
+        case .origin: ModeState(modes.origin)
         case .wraparound: ModeState(modes.wraparound)
         case .cursorBlink: ModeState(modes.cursorBlink)
         case .cursorVisible: ModeState(modes.cursorVisible)
@@ -537,6 +551,10 @@ public struct Terminal: Sendable {
         case .ansi:
             guard enabled else { return }
             for slot in 0..<4 { characterSets.designate(.ascii, slot: slot) }
+        case .origin:
+            modes.origin = enabled
+            position(row: 0, column: 0)
+            generation &+= 1
         case .wraparound: modes.wraparound = enabled
         case .cursorBlink:
             modes.cursorBlink = enabled
@@ -565,7 +583,9 @@ public struct Terminal: Sendable {
             if !enabled { restoreCursor() }
             generation &+= 1
         case .alternateScreenOnly, .alternateScreenClearing:
+            // Each screen keeps its own region, and the cursor moves into the new one in origin mode.
             screen.setAlternate(enabled, style: style)
+            if modes.origin { screen.moveIntoScrollRegion() }
             generation &+= 1
         case .bracketedPaste: modes.bracketedPaste = enabled
         case .synchronizedOutput:
