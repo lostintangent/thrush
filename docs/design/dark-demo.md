@@ -1,8 +1,8 @@
 # Thrush on Mac and iPhone
 
-**Slate is the approved design for the Mac and iPhone hosts.** Use its type, insets, colors and native controls for the first Metal frames. The amber cursor stays easy to find after a burst of output, and the compact grid keeps more of Vim visible above the iPhone keyboard.
+**Slate is the approved design for the Mac and iPhone hosts.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. A host can supply a custom theme.
 
-## Slate
+## Slate Dark
 
 ![Slate on Mac and iPhone, with a shell transcript, a Vim buffer, keyboard-open portrait and landscape views, and cursor and selection details](slate.png)
 
@@ -21,6 +21,47 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
 | Host backing / separator | `#1D2934` / `#35424E` |
 | iPhone 17 study grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
+
+## Slate Light
+
+![Slate Light on Mac and iPhone, with the same shell transcript, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
+
+Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. The portrait and landscape studies keep the same 47 × 25 and 90 × 9 grids as Slate Dark.
+
+| Token | sRGB value | Contrast |
+| --- | --- | --- |
+| Default foreground / background | `#233442` / `#FBFDFE` | 12.54:1 |
+| Cursor / glyph under block | `#995500` / `#FFFFFF` | Cursor on canvas 5.63:1, block glyph 5.75:1 |
+| Selected background / text | `#7391A6` / `#101C25` | Selected text 5.21:1, highlight against canvas 3.25:1 |
+| Host backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar and accessory backing |
+
+The ratios below use WCAG relative luminance for opaque sRGB against `#FBFDFE`. Yellows are ochres. The white slots use a cool gray and a neutral gray so ordinary and bright white text both remain readable. Those two inks also reach 4.53:1 and 4.56:1 on the theme’s ANSI black. [W3C contrast calculation](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
+
+| ANSI color | Normal index | Normal ink | Contrast | Bright index | Bright ink | Contrast |
+| --- | ---: | --- | ---: | ---: | --- | ---: |
+| Black | 0 | `#000000` | 20.58:1 | 8 | `#586D7B` | 5.29:1 |
+| Red | 1 | `#A43D46` | 6.17:1 | 9 | `#BB3147` | 5.65:1 |
+| Green | 2 | `#30683E` | 6.48:1 | 10 | `#197539` | 5.65:1 |
+| Yellow | 3 | `#79601C` | 5.88:1 | 11 | `#856100` | 5.55:1 |
+| Blue | 4 | `#2B608F` | 6.49:1 | 12 | `#16699E` | 5.80:1 |
+| Magenta | 5 | `#764D80` | 6.55:1 | 13 | `#864887` | 6.26:1 |
+| Cyan | 6 | `#276A70` | 6.09:1 | 14 | `#007278` | 5.60:1 |
+| White | 7 | `#6D767C` | 4.54:1 | 15 | `#757575` | 4.52:1 |
+
+### Theme values and appearance changes
+
+Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` carries one `Terminal.Palette` for the 18 core colors and four `Terminal.RGB` values for the cursor and selection. Each RGB component is an 8-bit sRGB value.
+
+| Values | Use |
+| --- | --- |
+| Default foreground and background | Resolve cells that inherit text or background colors. Use these in OSC 10 and 11 replies. |
+| 16 ANSI colors in index order | Slots 0–7 supply normal colors and 8–15 supply bright colors. Use each slot for indexed foreground, indexed background and the corresponding OSC 4 reply. |
+| Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
+| Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
+
+The host supplies its title-bar and accessory materials. The backing and separator swatches guide those surfaces. TerminalView uses the same 22-color contract when embedded in a different host.
+
+On a system appearance change or a user theme edit, apply one resolved palette to the terminal’s query state and to the view. Present the new colors together on the next frame. Keep the viewport, selection, cursor, composition, layout and glyph atlas in place. Previously received rows resolve their default and indexed colors under the new palette. Explicit RGB values retain the program’s chosen colors, and color emoji retain their own pixels. A settled, nonblinking prompt needs one presentation for the change, zero parser work, zero new glyph uploads and zero subsequent idle frames.
 
 ## Ember design study
 
@@ -43,7 +84,7 @@ The warmer canvas, Menlo’s larger letterforms and extra leading leave more roo
 | Host status strip | 22 pt at the foot of the viewport, above the keyboard accessory on iPhone. Show the active peer and whole-cell dimensions. |
 | iPhone 17 grid, keyboard open | 44 × 21 portrait, 85 × 6 landscape |
 
-## ANSI colors
+## Slate Dark and Ember ANSI colors
 
 | ANSI color | SGR normal / bright | Slate normal | Slate bright | Ember normal | Ember bright |
 | --- | --- | --- | --- | --- | --- |
