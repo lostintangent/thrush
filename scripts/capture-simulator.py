@@ -120,7 +120,9 @@ def peer(out):
                     raise RuntimeError("Demo peer exited: " + log.read_text())
                 match = re.search(r"^Thrush demo peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
                 return match.group(1) if match else None
-            yield wait_for("the loopback peer", endpoint, 25)
+            address = wait_for("the loopback peer", endpoint, 90)
+            print(f"Loopback peer ready at {address}", flush=True)
+            yield address
         finally:
             server.terminate()
             try:
@@ -360,7 +362,7 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    with disposable_phone(out, attach_display=not args.layout_only) as device, peer(out) as endpoint, tempfile.TemporaryDirectory(dir=out) as work:
+    with peer(out) as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
