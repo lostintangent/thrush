@@ -1,31 +1,17 @@
-# First bytes
+# Benchmarks
 
-The same command also writes a [headless replay report](headless.md) for sustained ASCII, recorded shell and Vim output, bounded queues and resize.
+Every benchmark checks what it measured. Replays compare each checkpoint with the pinned xterm reference and stop at the first mismatch. Each JSON report records the source revision and the host it ran on.
 
-Run `swift run -c release ThrushBench --connection` to measure the adapter's scripted WebSocket lifecycle on Mac loopback. [Connection measurements](connection.md)
+| Report | Command | What it measures | Recorded result |
+| --- | --- | --- | --- |
+| [First bytes](first-bytes.md) | `swift run -c release ThrushBench` | A prompt, cursor query and Up key through the core | 8-byte prompt p95 875 ns, cursor query p95 542 ns |
+| [Headless replay](headless.md) | The same command | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize | 193 MiB/s at 80 × 24, against a 100 MiB/s target. Worst full-history resize p95 0.582 ms, against 8.333 ms |
+| [Rendering](rendering.md) | `swift run -c release ThrushBench --render .build/demo/mac/Thrush.app` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app | Warm full grid p95 0.274 ms CPU and 0.102 ms GPU. Zero frames while idle or hidden |
+| [Native input](rendering.md#native-input-and-echo-latency) | `swift run -c release ThrushBench --interactions .build/demo/mac/Thrush.app` | Composition, paste and keys from the native responder to the socket and back | Not yet recorded |
+| [Connection](connection.md) | `swift run -c release ThrushBench --connection` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback | Foreground ready and replay to Up p95 0.872 ms |
+| [Real PTY](pty.md) | `scripts/check-pty.sh --toy-box ../toy-box` | Numbered logs, reader comparisons and exit delivery against a disposable Toy Box server | A paced 1 MiB/s log arrives intact. Faster bursts expose the server's 1 MiB send guard, which Toy Box is fixing |
+| [PTY recovery](pty-recovery.md) | `scripts/check-pty.sh --recovery --working-tree --toy-box ../toy-box` | Silent repair and exit order after a stalled reader, against a Toy Box candidate | Awaiting the server candidate |
 
-From the package root, run `swift run -c release ThrushBench` to print the operation table and write `.build/benchmarks/first-bytes.json`. To capture a baseline, start on a clean checkout of the source commit and pass `--output Benchmarks/first-bytes.json`. Commit the report after the run. Its commit field identifies the measured source.
+Build the sample app with `scripts/build-demo.sh mac` before the rendering and input benchmarks. Run them from a logged-in, unlocked graphical session, since a locked display returns no presentation timestamps.
 
-Each replay starts with a fresh terminal at the fixture’s grid size. The runner checks the visible row, terminal replies and Up bytes against the reference after each event. It warms up for 100 replays and measures 2,000 more. A failed checkpoint exits before the report is written.
-
-The operation table uses a monotonic clock and nearest-rank percentiles. Receive throughput divides recorded bytes by time spent inside their synchronous receive calls, including clock overhead. The received count advances when a recorded chunk is handed to the core. The applied count advances after the call returns and its reply matches. The reply and key byte counts cover the recorded events in the measured replays. At the first cursor-report checkpoint, a separate sample measures the complete four-byte query in one call and verifies the same answer.
-
-The separate burst measurement makes every recorded chunk available at once. It times ordered receive and key encoding until the input queue drains, with final row and byte checks after the timer stops. The one-second peak counts bytes at the fixture’s recorded timestamps in a sliding one-second window. This small scripted recording establishes a baseline for the first operations. Compare timing across repeated runs on the same machine and power state.
-
-A table entry of `sub-tick` means both clock reads returned the same timestamp. The JSON preserves that measured interval as zero.
-
-Before the replays, each run samples the Mac’s one-, five- and fifteen-minute load averages, active logical core count and thermal state. The runner marks the report `contended` when the one-minute load exceeds the core count. Use contended runs for correctness and collect timing baselines when the machine settles.
-
-## Provisional Mac baseline
-
-Five consecutive Release runs measured clean revision `0cd03d0fd191` on Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. The one-minute load stayed above the active core count in every sample. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
-
-| Run | 1 min load / cores | Receive (MiB/s) | 8-byte prompt p95 (ns) | 4-byte query p95 (ns) | 75-byte drain p95 (ns) |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | 253.96 / 10 | 9.74 | 833 | 500 | 7,417 |
-| 2 | 251.88 / 10 | 9.87 | 791 | 500 | 7,166 |
-| 3 (saved) | 250.93 / 10 | 9.55 | 875 | 542 | 8,125 |
-| 4 | 251.81 / 10 | 9.50 | 833 | 541 | 7,459 |
-| 5 | 250.23 / 10 | 9.33 | 875 | 583 | 7,625 |
-
-Every run applied all 150,000 input bytes and produced 36,000 query-reply bytes and 18,000 key bytes. The burst counters describe the 75 fixture bytes available to the synchronous runner at once and the zero remaining when it finished. The JSON also records clock percentiles for each chunk, row read and Up encoding.
+All results so far come from one contended M1 Max running macOS 27.2.1. They show correctness and headroom, not a timing baseline. Compare runs on the same machine and power state, and use five quiet passes before setting a timing gate. Physical iPhone timings need a device run.
