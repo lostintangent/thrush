@@ -32,7 +32,7 @@ let terminal = TerminalConnection(clientID: clientID) { id, size in
 TerminalPane(terminal)
 ```
 
-That's the whole integration. The pane fits its grid to the space it's given and reports each new size to the shell. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. It stays attached while it's shown, including in a Mac window behind other apps, minimized or hidden, and detaches when it leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
+That's the whole integration. The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the shell. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. It stays attached while it's shown, including in a Mac window behind other apps, minimized or hidden, and detaches when it leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
 
 | State | What the pane shows |
 | --- | --- |
