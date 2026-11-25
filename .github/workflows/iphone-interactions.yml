@@ -7,6 +7,10 @@ on:
         description: Exercise VoiceOver and large pane controls with reduced effects
         type: boolean
         default: false
+      rotation_only:
+        description: Capture keyboard-open rotation and verify shell resizes in both appearances
+        type: boolean
+        default: false
   push:
     branches: [capture/m4]
 
@@ -29,9 +33,11 @@ jobs:
       - name: Verify and capture the iPhone interactions
         env:
           ACCESSIBILITY_ONLY: ${{ inputs.accessibility_only }}
+          ROTATION_ONLY: ${{ inputs.rotation_only }}
         run: |
           flags=()
           if [[ "$ACCESSIBILITY_ONLY" == true ]]; then flags+=(--accessibility-only); fi
+          if [[ "$ROTATION_ONLY" == true ]]; then flags+=(--rotation-only); fi
           python3 scripts/interaction-capture/run.py --output "$RUNNER_TEMP/thrush-iphone-interactions" "${flags[@]}"
       - name: Upload interaction captures and checks
         if: always()

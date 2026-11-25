@@ -136,6 +136,13 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         applyClearColor()
         invalidateFrame()
     }
+    #else
+    // The pane coordinates the size change with UIKit's keyboard and orientation transitions.
+    var holdsGridGeometry = false {
+        didSet {
+            if oldValue && !holdsGridGeometry { updateGeometry() }
+        }
+    }
     #endif
 
     /// The terminal font size in points, from 6 through 96. A nil value uses 14 on Mac or 13 on iPhone.
@@ -245,6 +252,9 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         layer?.isOpaque = isOpaque
         #else
         isOpaque = true
+        // Keep the last drawable at its native scale while UIKit animates the new bounds.
+        contentMode = .topLeft
+        autoResizeDrawable = false
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: TerminalView, _: UITraitCollection) in
             view.resolveTheme()
         }
@@ -388,6 +398,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #if os(macOS)
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
         #else
+        guard !holdsGridGeometry else { return }
         let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : contentScaleFactor
         #endif
         let pixelSize = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
@@ -644,7 +655,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput,
+                                            pass: pass, selection: selection, showsCursor: acceptsTerminalInput,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent

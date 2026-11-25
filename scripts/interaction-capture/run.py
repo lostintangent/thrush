@@ -107,9 +107,47 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift"), *, mac=False
     return next((derived / "Build/Products").glob("*.xctestrun"))
 
 
-def collect(phone, device, endpoint, plan, out, work):
+def export_attachments(result, out, work):
+    # XCTest retains completed frames and motion intervals when a later gesture fails.
+    exported = work / "attachments"
+    run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
+                "--output-path", exported], out / "attachments.log", 90)
+    for test in json.loads((exported / "manifest.json").read_text()):
+        for attachment in test["attachments"]:
+            match = re.search(r"thrush-proof__([a-z-]+)__", attachment["suggestedHumanReadableName"])
+            if not match:
+                continue
+            name = match.group(1)
+            is_frame = any(name == template.format(style) for template in PICS for style in APPEARANCES)
+            is_clip = any(name == f"{clip}-{style}" for clip in CLIPS for style in APPEARANCES)
+            if is_frame or is_clip:
+                src = exported / Path(attachment["exportedFileName"]).name
+                shutil.copyfile(src, out / (name + (".png" if is_frame else "-motion.json")))
+
+
+def export_clip(name, video_start, out, work):
+    interval = out / (name + "-motion.json")
+    if not interval.exists():
+        raise ValueError(f"Missing gesture interval {interval.name}.")
+    if video_start is None:
+        raise RuntimeError("Screen recording unavailable. See recording-error.log.")
+    start, end = json.loads(interval.read_text())
+    if not 0 < end - start <= 60 or start < video_start - 1:
+        raise ValueError(f"Invalid capture interval for {name}: {start}, {end}")
+    clip = work / (name + ".mp4")
+    run_logged(["/usr/bin/avconvert", "--source", out / "appearance-switch.mov", "--output", clip,
+                "--preset", "PresetHighestQuality", "--start", str(max(0, start - video_start - 0.25)),
+                "--duration", str(end - start + 0.5)], out / (name + "-export.log"), 90)
+    if not clip.stat().st_size:
+        raise ValueError(f"Empty clip {clip.name}.")
+    shutil.move(clip, out / clip.name)
+
+
+def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=False):
     configuration = plistlib.loads(plan.read_bytes())
-    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
+    environment = configuration[RUNNER]["EnvironmentVariables"]
+    environment["THRUSH_CAPTURE_ENDPOINT"] = endpoint
+    environment["THRUSH_CAPTURE_ROTATION_ONLY"] = "1" if rotation_only else "0"
     plan.write_bytes(plistlib.dumps(configuration))
     result = work / "interactions.xcresult"
     previous = None
@@ -138,58 +176,56 @@ def collect(phone, device, endpoint, plan, out, work):
     # and XCTest's transitions out of the simulator's recording before handing it to design.
     # A simulator with no recording surface can still run UIKit gestures and return
     # XCTest screenshots. Collect those even when its video encoder is unavailable.
-    with contextlib.ExitStack() as stack:
-        video_start = None
+    recording = contextlib.ExitStack()
+    video_start = None
+    try:
         try:
-            stack.enter_context(phone.record_switch())
+            recording.enter_context(phone.record_switch())
             video_start = time.time()
         except (RuntimeError, TimeoutError, subprocess.SubprocessError) as error:
             (out / "recording-error.log").write_text(str(error) + "\n")
-        try:
-            run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
-                        f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                        "-resultBundlePath", result], out / "ui-gestures.log", 720, observe_layout)
-        finally:
-            if result.exists():
-                # XCTest retains accepted frames even when a subsequent gesture fails. Read
-                # the manifest instead of depending on Xcode's opaque exported filenames.
-                exported = work / "attachments"
-                run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
-                            "--output-path", exported], out / "attachments.log", 90)
-                for test in json.loads((exported / "manifest.json").read_text()):
-                    for attachment in test["attachments"]:
-                        match = re.search(r"thrush-proof__([a-z-]+)__", attachment["suggestedHumanReadableName"])
-                        if not match:
-                            continue
-                        name = match.group(1)
-                        is_frame = any(name == template.format(style) for template in PICS for style in APPEARANCES)
-                        is_clip = any(name == f"{clip}-{style}" for clip in CLIPS for style in APPEARANCES)
-                        if is_frame or is_clip:
-                            src = exported / Path(attachment["exportedFileName"]).name
-                            shutil.copyfile(src, out / (name + (".png" if is_frame else "-motion.json")))
+        attempt("native gestures", run_logged, ["xcodebuild", "test-without-building", "-xctestrun", plan,
+                "-destination", f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
+                "-resultBundlePath", result], out / "ui-gestures.log", 720, observe_layout)
+    finally:
+        attempt("finalize gesture recording", recording.close)
 
-    if video_start is None:
-        raise RuntimeError("Screen recording unavailable. See recording-error.log.")
-    movie = out / "appearance-switch.mov"
-    for appearance in APPEARANCES:
-        for clip in CLIPS:
-            name = clip + "-" + appearance
-            start, end = json.loads((out / (name + "-motion.json")).read_text())
-            if not 0 < end - start <= 60 or start < video_start - 1:
-                raise ValueError(f"Invalid capture interval for {name}: {start}, {end}")
-            run_logged(["/usr/bin/avconvert", "--source", movie, "--output", out / (name + ".mp4"),
-                        "--preset", "PresetHighestQuality", "--start", str(max(0, start - video_start - 0.25)),
-                        "--duration", str(end - start + 0.5)], work / (name + ".log"), 90)
-    movie.unlink()
+    if result.exists():
+        attempt("gesture attachments", export_attachments, result, out, work)
+    gestures = ("rotate",) if rotation_only else CLIPS
+    names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in gestures]
+    for name in names:
+        attempt(name + ".mp4", export_clip, name, video_start, out, work)
+    if all((out / (name + ".mp4")).is_file() for name in names):
+        (out / "appearance-switch.mov").unlink()
 
 
-def check_images(out):
+def check_rotation_sizes(out, appearance):
+    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
+    expected = []
+    for orientation in ("landscape", "portrait"):
+        layout = json.loads((out / f"shell-{appearance}-{orientation}-layout.json").read_text())
+        expected.append((layout["columns"], layout["rows"]))
+    actual = []
+    for line in (out / "peer.log").read_text().splitlines():
+        if not line.startswith("{"):
+            continue
+        event = json.loads(line)
+        if (event.get("scene") == "shell" and event["event"] == "resize"
+                and start <= event["time"] / 1000 <= end):
+            actual.append((event["cols"], event["rows"]))
+    if actual != expected:
+        raise ValueError(f"{appearance} rotation sent {actual} to the shell; expected the settled grids {expected}.")
+
+
+def check_images(out, appearances=APPEARANCES, pictures=PICS):
     oracle = load_helper("check-demo-capture")
-    for appearance in APPEARANCES:
+    for appearance in appearances:
         for orientation in ("portrait", "landscape"):
             if not (out / f"shell-{appearance}-{orientation}-layout.json").exists():
                 raise ValueError(f"Missing settled keyboard and grid measurements for {appearance} {orientation}.")
-        for template in PICS:
+        check_rotation_sizes(out, appearance)
+        for template in pictures:
             path = out / (template.format(appearance) + ".png")
             capture = oracle.Capture(path, appearance)
             if capture.count("background") < capture.width * capture.height * 0.04:
@@ -245,8 +281,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="A new or empty directory for captures and logs.")
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
-    parser.add_argument("--accessibility-only", action="store_true",
-                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--accessibility-only", action="store_true",
+                       help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
+    scope.add_argument("--rotation-only", action="store_true",
+                       help="Capture keyboard-open rotation in both appearances and check the shell resize sequence.")
     options = parser.parse_args()
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
@@ -292,9 +331,15 @@ def main():
                 attempt("VoiceOver", check_voiceover, phone, device, endpoint, plan, out, work)
             else:
                 attempt("keyboard warm-up", phone.warm_keyboard, "dark")
-                attempt("native gestures", collect, phone, device, endpoint, plan, out, work)
-                attempt("interaction screenshots", check_images, out)
-            attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
+                attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt, options.rotation_only)
+                if options.rotation_only:
+                    for appearance in APPEARANCES:
+                        attempt(f"{appearance} rotation", check_images, out, (appearance,),
+                                ("shell-{}-portrait", "shell-{}-landscape"))
+                else:
+                    attempt("interaction screenshots", check_images, out)
+            if not options.rotation_only:
+                attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
             if options.accessibility_only:
                 log = (out / "uikit-tests.log").read_text()
                 if "Reduce Motion=true Reduce Transparency=true System size=UICTContentSizeCategoryAccessibilityXXXL" not in log:
@@ -304,6 +349,8 @@ def main():
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
     if options.accessibility_only:
         print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
+    elif options.rotation_only:
+        print("Verified keyboard-open iPhone rotation and shell resizes in both Slate appearances.")
     else:
         print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
 

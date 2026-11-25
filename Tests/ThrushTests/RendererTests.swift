@@ -20,6 +20,7 @@ private enum Probe {
 }
 
 private struct Pixels {
+    let width: Int
     let bytes: [UInt8]
     let rowsPrepared: Int
     let uploads: Int
@@ -27,7 +28,7 @@ private struct Pixels {
 
     subscript(x: Int, y: Int) -> UInt32 {
         // The drawable's .bgra8Unorm layout.
-        let i = (y * Probe.canvasWidth + x) * 4
+        let i = (y * width + x) * 4
         return UInt32(bytes[i + 2]) << 16 | UInt32(bytes[i + 1]) << 8 | UInt32(bytes[i])
     }
 
@@ -52,10 +53,9 @@ private struct OffscreenTerminal {
         view = TerminalView(frame: .zero, device: device)
     }
 
-    func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme,
+    func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme, width: Int = Probe.canvasWidth,
               selection: TerminalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
         view.theme = theme
-        let width = Probe.canvasWidth
         let height = Probe.canvasHeight
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width,
                                                                  height: height, mipmapped: false)
@@ -69,8 +69,7 @@ private struct OffscreenTerminal {
         attachment.storeAction = .store
         attachment.clearColor = view.clearColor
         let frame = try renderer.encode(snapshot: snapshot, metrics: .init(scale: 2), theme: view.resolvedTheme,
-                                        pass: pass, viewport: CGSize(width: width, height: height), selection: selection,
-                                        blinkOpacity: blinkOpacity)
+                                        pass: pass, selection: selection, blinkOpacity: blinkOpacity)
 
         let size = width * height * 4
         let memory = try #require(device.makeBuffer(length: size, options: .storageModeShared))
@@ -83,7 +82,7 @@ private struct OffscreenTerminal {
         frame.buffer.commit()
         frame.buffer.waitUntilCompleted()
         try #require(frame.buffer.status == .completed)
-        return Pixels(bytes: Array(UnsafeBufferPointer(start: memory.contents().assumingMemoryBound(to: UInt8.self),
+        return Pixels(width: width, bytes: Array(UnsafeBufferPointer(start: memory.contents().assumingMemoryBound(to: UInt8.self),
                                                       count: size)), rowsPrepared: frame.rowsPrepared, uploads: frame.glyphUploads,
                       blinks: frame.blinks)
     }
@@ -94,6 +93,20 @@ private func pack(_ color: Terminal.RGB) -> UInt32 {
 }
 
 private let escape = "\u{1b}["
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func wideningADrawableRevealsTheRestOfACachedRow() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    _ = terminal.receive((escape + "?25lABCDEFGZ").utf8)
+    let snapshot = terminal.snapshot()
+    let narrow = try host.draw(snapshot, theme: .slateDark, width: 128)
+    #expect(narrow.colors(in: 0..<1).contains(0xe3eaf0))
+    let wide = try host.draw(snapshot, theme: .slateDark)
+    #expect(wide.colors(in: 7..<8).contains(0xe3eaf0))
+    #expect(try host.draw(snapshot, theme: .slateDark).rowsPrepared == 0)
+}
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
