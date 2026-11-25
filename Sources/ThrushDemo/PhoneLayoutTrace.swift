@@ -19,6 +19,7 @@ import UIKit
         let layout: Layout?
         let keyboardEndFrameInScreen: CGRect?
         let keyboardAnimationDuration: TimeInterval?
+        var afterNotificationAt: TimeInterval? = nil
     }
 
     private weak var terminal: TerminalView?
@@ -62,8 +63,16 @@ import UIKit
         let info = notification.userInfo
         let frame = (info?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
         let duration = (info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue
-        write(Event(time: Date.now.timeIntervalSince1970, source: notification.name.rawValue, layout: layout,
+        let time = Date.now.timeIntervalSince1970
+        write(Event(time: time, source: notification.name.rawValue, layout: layout,
                     keyboardEndFrameInScreen: frame, keyboardAnimationDuration: duration))
+        // All observers have received the notification by the next turn of the main queue.
+        // Keep this sample separate from the synchronous report to avoid observer-order assumptions.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            write(Event(time: Date.now.timeIntervalSince1970, source: "keyboard.delivered", layout: layout,
+                        keyboardEndFrameInScreen: frame, keyboardAnimationDuration: duration, afterNotificationAt: time))
+        }
     }
 
     private var layout: Layout? {
