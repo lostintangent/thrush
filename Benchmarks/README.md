@@ -2,6 +2,8 @@
 
 The same command also writes a [headless replay report](headless.md) for sustained ASCII, recorded shell and Vim output, bounded queues and resize.
 
+Run `swift run -c release ThrushBench --connection` to measure the adapter's scripted WebSocket lifecycle on Mac loopback. [Connection measurements](connection.md)
+
 From the package root, run `swift run -c release ThrushBench` to print the operation table and write `.build/benchmarks/first-bytes.json`. To capture a baseline, start on a clean checkout of the source commit and pass `--output Benchmarks/first-bytes.json`. Commit the report after the run. Its commit field identifies the measured source.
 
 Each replay starts with a fresh terminal at the fixture’s grid size. The runner checks the visible row, terminal replies and Up bytes against the reference after each event. It warms up for 100 replays and measures 2,000 more. A failed checkpoint exits before the report is written.

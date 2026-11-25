@@ -71,19 +71,19 @@ struct Environment: Encodable {
         )
     }
 
-    private static func command(_ executable: String, _ arguments: [String]) throws -> String {
+    static func command(_ executable: String, _ arguments: [String], captureDiagnostics: Bool = true) throws -> String {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(filePath: executable)
         process.arguments = arguments
         process.standardOutput = pipe
-        process.standardError = pipe
+        if captureDiagnostics { process.standardError = pipe }
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         let output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         guard process.terminationStatus == 0 else {
-            throw BenchmarkError("Could not collect metadata with \(executable): \(output)")
+            throw BenchmarkError("\(executable) \(arguments.joined(separator: " ")) exited with status \(process.terminationStatus). \(output)")
         }
         return output
     }

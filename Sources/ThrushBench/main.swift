@@ -18,7 +18,7 @@ func outputURL(arguments: [String]) throws -> URL {
         return URL(filePath: ".build/benchmarks/first-bytes.json")
     }
     guard arguments.count == 2, arguments[0] == "--output", !arguments[1].isEmpty else {
-        throw BenchmarkError("Usage: ThrushBench [--output PATH] or ThrushBench --render MAC_APP [--output PATH]")
+        throw BenchmarkError("Usage: ThrushBench [--output PATH], ThrushBench --connection [--output PATH], or ThrushBench --render MAC_APP [--output PATH]")
     }
     return URL(filePath: arguments[1])
 }
@@ -72,6 +72,10 @@ func run() throws {
     let arguments = Array(CommandLine.arguments.dropFirst())
     if arguments.first == "--render" {
         try runPackagedRenderer(arguments: arguments)
+        return
+    }
+    if arguments.first == "--connection" {
+        try runConnectionBenchmark(arguments: arguments)
         return
     }
     let output = try outputURL(arguments: arguments)

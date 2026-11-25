@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "Thrush", targets: ["Thrush"]),
         .library(name: "ThrushUI", targets: ["ThrushUI"]),
+        .library(name: "ThrushConnection", targets: ["ThrushConnection"]),
         .executable(name: "ThrushBench", targets: ["ThrushBench"]),
     ],
     targets: [

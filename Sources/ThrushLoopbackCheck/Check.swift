@@ -12,13 +12,17 @@ struct LoopbackCheck {
     }
 
     static func main() async throws {
-        let args = CommandLine.arguments
-        if args.count == 4, args[1] == "--workflow", let endpoint = URL(string: args[3]) {
-            try await runWorkflow(named: args[2], at: endpoint)
+        let arguments = CommandLine.arguments
+        if arguments.count == 4, arguments[1] == "--workflow", let endpoint = URL(string: arguments[3]) {
+            try await runWorkflow(named: arguments[2], at: endpoint)
             return
         }
-        guard CommandLine.arguments.count == 2, let endpoint = URL(string: CommandLine.arguments[1]) else {
-            throw CheckFailure("Usage: ThrushLoopbackCheck SERVER_BASE_URL")
+        if arguments.count == 3, arguments[1] == "--lifecycle", let endpoint = URL(string: arguments[2]) {
+            try await LifecycleCheck(endpoint: endpoint).run()
+            return
+        }
+        guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {
+            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL")
         }
 
         let fixture = try FirstBytesFixture.load()
