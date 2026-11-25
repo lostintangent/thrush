@@ -163,7 +163,7 @@ enum NativeWorkflowActions {
         }
         var rejected: Error?
         if !requestedOrientation() {
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscapeRight : .portrait)) { rejected = $0 }
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscapeLeft : .portrait)) { rejected = $0 }
         }
         let clock = ContinuousClock()
         let deadline = clock.now + .seconds(8)
@@ -179,6 +179,7 @@ enum NativeWorkflowActions {
             let grid = view.gridSize
             if grid != previousGrid || keyboard != previousKeyboard || !requestedOrientation() ||
                 host.transitionCoordinator != nil || responder?.isFirstResponder != true ||
+                responder?.inputAccessoryView?.window == nil || abs(accessory - 44) > 0.5 ||
                 keyboard.height <= host.view.safeAreaInsets.bottom + accessory + 1 {
                 unchangedSince = clock.now
             } else if grid != nil, clock.now - unchangedSince >= .milliseconds(300) {

@@ -48,6 +48,8 @@ final class PaneWorkflowDriver {
     private let activateAction: (String) -> Bool
     private let http = URLSession(configuration: .ephemeral)
     private var lastFrame: FrameMeasurement?
+    private var submittedLayouts: [Double: WorkflowCapture.Layout] = [:]
+    private var lastLayout: WorkflowCapture.Layout?
     private var firstSubmission = -Double.infinity
     private var entries: [Entry] = []
     private var lastCheckpoint: ReplayFixture.Event?
@@ -113,15 +115,32 @@ final class PaneWorkflowDriver {
     }
 
     private func run() async throws {
+        // Keep the development host scheduled while a capture utility reads an obscured window.
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated], reason: "Capture native terminal checkpoints")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
+        let trace = output.appending(path: "workflow-events.log")
+        try Data().write(to: trace, options: .withoutOverwriting)
+        let log = try FileHandle(forWritingTo: trace)
+        defer { try? log.close() }
+        let originalSubmitHook = view.onFrameSubmitted
+        view.onFrameSubmitted = { [weak self] time, size, grid in
+            originalSubmitHook?(time, size, grid)
+            guard let self, size != nil else { return }
+            submittedLayouts[time] = WorkflowCapture.Layout(view: view, drawableGrid: grid)
+        }
         let originalFrameHook = view.onFrame
         view.onFrame = { [weak self] frame in
             originalFrameHook?(frame)
-            guard let self, frame.submittedAt >= firstSubmission,
+            guard let self else { return }
+            let layout = submittedLayouts.removeValue(forKey: frame.submittedAt)
+            guard frame.gpuCompleted, frame.submittedAt >= firstSubmission,
                   frame.submittedAt >= (lastFrame?.submittedAt ?? -Double.infinity) else { return }
+            lastLayout = layout
             lastFrame = frame
         }
         defer {
             view.onFrame = originalFrameHook
+            view.onFrameSubmitted = originalSubmitHook
             http.invalidateAndCancel()
         }
 
@@ -133,14 +152,17 @@ final class PaneWorkflowDriver {
             try Task.checkCancellation()
             let state = try JSONDecoder().decode(State.self, from: await get("state"))
             let current = (state.phase, state.eventIndex)
-            guard ContinuousClock.now < deadline else {
-                throw Failure("Timed out at \(state.phase.rawValue) \(state.eventIndex) \(state.name).")
-            }
             if previous?.0 == current.0, previous?.1 == current.1 {
+                guard ContinuousClock.now < deadline else {
+                    throw Failure("Timed out at \(state.phase.rawValue) \(state.eventIndex) \(state.name).")
+                }
                 try await Task.sleep(for: .milliseconds(10))
                 continue
             }
             previous = current
+            if state.phase != .playing {
+                try log.write(contentsOf: Data("\(state.phase.rawValue) \(state.eventIndex) \(state.name)\n".utf8))
+            }
             deadline = .now.advanced(by: .seconds(45))
             switch state.phase {
             case .attaching, .playing:
@@ -199,6 +221,7 @@ final class PaneWorkflowDriver {
                     if state.capture ?? shouldCapture(event.name) { try await capture(entry) }
                     let (status, body) = try await request("ack", post: JSONEncoder().encode(entry))
                     guard status == 204 else { throw httpFailure("ack", status, body) }
+                    try log.write(contentsOf: Data("ack \(state.eventIndex) \(entry.receivedBytes) bytes\n".utf8))
                 default: break
                 }
             }
@@ -281,9 +304,14 @@ final class PaneWorkflowDriver {
 
     private func capture(_ entry: Entry) async throws {
         let base = String(format: "capture-%03d", entry.eventIndex)
-        try save(entry, as: base + ".json")
+        guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration, let lastLayout else {
+            throw Failure("Missing the submitted grid for " + entry.name)
+        }
+        let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
+                                     snapshot: accepted, layout: lastLayout, copied: entry.copiedText)
+        try save(marker, as: base + ".json")
         let ack = output.appending(path: base + ".done")
-        let deadline = ContinuousClock.now.advanced(by: .seconds(35))
+        let deadline = ContinuousClock.now.advanced(by: .seconds(180))
         while !FileManager.default.fileExists(atPath: ack.path) {
             guard ContinuousClock.now < deadline else { throw Failure("No native screenshot for " + entry.name) }
             try await Task.sleep(for: .milliseconds(20))

@@ -56,3 +56,34 @@ The Codex transcript pager enables X11 button, drag and all-motion tracking and 
 ```sh
 NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box pointer-input
 ```
+
+## Running the native pane
+
+The packaged demo can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks the frame delivered by the Metal view.
+
+```sh
+scripts/check-pane-workflows.sh mac /tmp/thrush-mac-workflows
+scripts/check-pane-workflows.sh simulator new /tmp/thrush-phone-workflows
+```
+
+The second command creates a disposable iPhone 17 Simulator. Supply its UDID in place of `new` to use an existing booted iPhone. Add one or more of `shell`, `vim` and `codex` to run a subset. Keep the output directory empty before the run. Each workflow leaves its report, peer log and selected native window or framebuffer images there. An offline run can set `THRUSH_XTERM_MODULES` to an installation of `@xterm/headless` 6.0.0 and `@xterm/addon-unicode11` 0.9.0. Otherwise the runner installs those exact versions in a temporary directory.
+
+The phone fixture uses real Vim, its server's serializer and the installed Codex CLI at handset dimensions. The narrow Codex recording uses a localhost Responses endpoint that streams the existing published twelve-line answer into the CLI. The wide capture retains the original external provider response. [Handset recording procedure](phone/README.md)
+
+### Control protocol
+
+Launch the packaged app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. Only the controller must be an HTTP listener on loopback. The shared test client ID is `thrush-native-workflow`. The terminal receives normal binary input and JSON resize, attach and close messages.
+
+| Request | Meaning |
+| --- | --- |
+| `GET /fixture` | Return the complete v1 workflow with its semantic actions, lifecycle events and expected checkpoint names. |
+| `GET /state?clientId=ID` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
+| `POST /layout?clientId=ID` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
+| `GET /checkpoint?clientId=ID&eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the xterm cells and lines for the actual pane geometry. |
+| `POST /ack?clientId=ID` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
+
+The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` performs the xterm and presentation checks. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
+
+For a new live PTY recording, keep the actual input and output on the terminal server connection. Derive the xterm expectation from the bytes, resizes and replay that server delivered. The recorded fixture peer provides the same control interface with `bun scripts/demo-peer.ts --workflow shell --view --driver`. Its terminal and control listeners can select separate free ports with `THRUSH_PORT=0 THRUSH_DRIVER_PORT=0`.
+
+The capture handshake uses `capture-NNN.json` for the app's verified, settled checkpoint. The runner writes its PNG and touches `capture-NNN.done`, then the app releases the peer. An intermediate synchronized Codex repaint checks that the previous coherent native frame stayed visible and immediately releases the batch. On a resumed Vim attachment, the parser starts empty while the last editor frame remains displayed until the serialized replay.

@@ -1,0 +1,58 @@
+name: Native pane workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        type: choice
+        options: [both, mac, simulator]
+        default: both
+      workflow:
+        type: choice
+        options: [all, shell, vim, codex, shell-and-codex]
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Recorded workflows on ${{ matrix.platform }}
+    runs-on: xcode-27
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(inputs.platform == 'both' && '["mac","simulator"]' || format('["{0}"]', inputs.platform)) }}
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Drive the native pane and capture its window
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          WORKFLOW: ${{ inputs.workflow }}
+        run: |
+          case "$WORKFLOW" in
+            all) workflows=() ;;
+            shell-and-codex) workflows=(shell codex) ;;
+            *) workflows=("$WORKFLOW") ;;
+          esac
+          if [[ "$PLATFORM" == simulator ]]; then
+            scripts/check-pane-workflows.sh simulator new "$RUNNER_TEMP/pane-workflows" "${workflows[@]}"
+          else
+            scripts/check-pane-workflows.sh mac "$RUNNER_TEMP/pane-workflows" "${workflows[@]}"
+          fi
+      - name: Keep native screenshots and checkpoint reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thrush-pane-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pane-workflows
+          compression-level: 0
+          retention-days: 7
