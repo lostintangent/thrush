@@ -87,6 +87,7 @@ extension Terminal {
         var row = 0  // Absolute, including history, as in the reference buffer.
         var column = 0
         var style = Style()
+        var characterSet = CharacterSets.Set.ascii
     }
 
     /// The columns where HT stops. Each buffer starts with a stop every eight columns.
@@ -274,8 +275,8 @@ extension Terminal {
         }
 
         /// The column may be just past the right margin, so a restore can bring back a pending wrap.
-        mutating func saveCursor(style: Style) {
-            active.saved = SavedCursor(row: active.history.count + row, column: column, style: style)
+        mutating func saveCursor(style: Style, characterSet: CharacterSets.Set) {
+            active.saved = SavedCursor(row: active.history.count + row, column: column, style: style, characterSet: characterSet)
         }
 
         /// Without a save, the cursor returns home with the default style.
@@ -285,7 +286,17 @@ extension Terminal {
             return saved
         }
 
-        /// DECSTR returns a later restore to the top of the screen with the default style.
+        /// RIS starts over on a blank normal screen without history. The fresh rows' generation is newer
+        /// than any drawn before.
+        mutating func reset() {
+            revision &+= 1
+            active = Buffer(size: size, generation: revision)
+            normalWhileAlternate = nil
+            alternateSaved = SavedCursor()
+            alternateCapacity = size.rows
+        }
+
+        /// DECSTR returns a later restore to the top of the screen with the default style and ASCII.
         mutating func resetSavedCursor() {
             active.saved = SavedCursor(row: active.history.count)
         }
@@ -329,6 +340,12 @@ extension Terminal {
                 active.scrollTop = top
                 active.scrollBottom = bottom
             }
+        }
+
+        /// DECSTR restores the full-screen region and leaves the cursor where it is.
+        mutating func resetScrollRegion() {
+            active.scrollTop = 0
+            active.scrollBottom = size.rows - 1
         }
 
         mutating func carriageReturn() { active.column = 0 }

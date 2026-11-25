@@ -1,4 +1,21 @@
 {
+  "DECRST 7 · then a combining mark after a dropped wide character": {
+    "reason": "Without autowrap the reference drops a wide character that doesn't fit at the right margin, but the next combining mark still takes that character's width, so the a it joins becomes two columns wide. Thrush keeps the á one column wide, as the a was.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1][18]",
+        "reference": "\"á\" width 2",
+        "thrush": "\"á\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][18]",
+        "reference": "blank",
+        "thrush": "\"á\""
+      }
+    ]
+  },
   "ED 1 · at the bottom right corner": {
     "reason": "The reference throws the same TypeError as from a pending wrap, before it erases the rows above, and swallows the * that follows. Thrush completes the erase and then prints the * normally.",
     "differences": [
@@ -158,6 +175,89 @@
       }
     ]
   },
+  "RIS": {
+    "reason": "The reference's full reset keeps a cursor that DECTCEM hid, because it stores cursor visibility apart from the modes it resets, though its DECSTR shows the cursor. Thrush shows the cursor after RIS, as a power-on terminal does.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.visible",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.visible",
+        "reference": "false",
+        "thrush": "true"
+      }
+    ]
+  },
+  "SCS G0 4": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
+  "SCS G1 4": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
+  "SCS G1 4 · with -": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
+  "SCS G2 4 · with .": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
+  "SCS G2 4 · with *": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
+  "SCS G3 4 · with +": {
+    "reason": "The reference's Dutch set spells the ĳ ligature as the two letters ij and prints only the i, and it has a plain f where the DEC Dutch set has the florin. Thrush prints ĳ (U+0133) for [ and ƒ (U+0192) for |, as the DEC set defines them.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][3]",
+        "reference": "\"f\"",
+        "thrush": "\"ƒ\""
+      }
+    ]
+  },
   "stream 216": {
     "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
     "differences": [
@@ -169,27 +269,45 @@
       },
       {
         "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "7",
+        "thrush": "1"
+      },
+      {
+        "checkpoint": "end",
         "path": "cursor.column",
         "reference": "19",
-        "thrush": "6"
+        "thrush": "7"
       },
       {
         "checkpoint": "end",
-        "path": "active.history.count",
-        "reference": "0",
-        "thrush": "2"
+        "path": "cursor.shape",
+        "reference": "bar",
+        "thrush": "block"
       },
       {
         "checkpoint": "end",
-        "path": "active.visible[0][7]",
-        "reference": "\"ñ\"",
-        "thrush": "blank"
+        "path": "modes.mouseTracking",
+        "reference": "drag",
+        "thrush": "off"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "blank",
+        "thrush": "\"t\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1].wrapped",
+        "reference": "false",
+        "thrush": "true"
       },
       {
         "checkpoint": "end",
         "path": "active.visible[1][0]",
         "reference": "\"→\"",
-        "thrush": "blank"
+        "thrush": "\"h\""
       },
       {
         "checkpoint": "end",
@@ -226,36 +344,6 @@
         "path": "active.visible[4][0]",
         "reference": "\"x\"",
         "thrush": "blank"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[5][19]",
-        "reference": "blank",
-        "thrush": "\"t\""
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[6].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[6][0]",
-        "reference": "blank",
-        "thrush": "\"h\""
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[7].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[7][0]",
-        "reference": "blank",
-        "thrush": "\"r\""
       }
     ]
   },

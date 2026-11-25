@@ -51,9 +51,6 @@
  "DECRST 6": [
   "DECRST 6"
  ],
- "DECSC": [
-  "DECSC · with a charset"
- ],
  "DECSED 2": [
   "DECSED 2 · over protected cells"
  ],
@@ -104,221 +101,6 @@
   "resize · narrower with a soft wrap",
   "resize · narrower with wide text",
   "resize · wider and narrower at a pending wrap"
- ],
- "RIS": [
-  "RIS"
- ],
- "SCS G0 =": [
-  "SCS G0 ="
- ],
- "SCS G0 0": [
-  "SCS G0 0",
-  "SCS G0 0 · with wide text and combining marks",
-  "SCS G0 0 · across a reset"
- ],
- "SCS G0 4": [
-  "SCS G0 4"
- ],
- "SCS G0 5": [
-  "SCS G0 5"
- ],
- "SCS G0 6": [
-  "SCS G0 6"
- ],
- "SCS G0 7": [
-  "SCS G0 7"
- ],
- "SCS G0 A": [
-  "SCS G0 A"
- ],
- "SCS G0 C": [
-  "SCS G0 C"
- ],
- "SCS G0 E": [
-  "SCS G0 E"
- ],
- "SCS G0 H": [
-  "SCS G0 H"
- ],
- "SCS G0 K": [
-  "SCS G0 K"
- ],
- "SCS G0 Q": [
-  "SCS G0 Q"
- ],
- "SCS G0 R": [
-  "SCS G0 R"
- ],
- "SCS G0 Y": [
-  "SCS G0 Y"
- ],
- "SCS G0 Z": [
-  "SCS G0 Z"
- ],
- "SCS G1 =": [
-  "SCS G1 =",
-  "SCS G1 = · with -"
- ],
- "SCS G1 0": [
-  "SCS G1 0",
-  "SCS G1 0 · with -"
- ],
- "SCS G1 4": [
-  "SCS G1 4",
-  "SCS G1 4 · with -"
- ],
- "SCS G1 5": [
-  "SCS G1 5",
-  "SCS G1 5 · with -"
- ],
- "SCS G1 6": [
-  "SCS G1 6",
-  "SCS G1 6 · with -"
- ],
- "SCS G1 7": [
-  "SCS G1 7",
-  "SCS G1 7 · with -"
- ],
- "SCS G1 A": [
-  "SCS G1 A",
-  "SCS G1 A · with -"
- ],
- "SCS G1 C": [
-  "SCS G1 C",
-  "SCS G1 C · with -"
- ],
- "SCS G1 E": [
-  "SCS G1 E",
-  "SCS G1 E · with -"
- ],
- "SCS G1 H": [
-  "SCS G1 H",
-  "SCS G1 H · with -"
- ],
- "SCS G1 K": [
-  "SCS G1 K",
-  "SCS G1 K · with -"
- ],
- "SCS G1 Q": [
-  "SCS G1 Q",
-  "SCS G1 Q · with -"
- ],
- "SCS G1 R": [
-  "SCS G1 R",
-  "SCS G1 R · with -"
- ],
- "SCS G1 Y": [
-  "SCS G1 Y",
-  "SCS G1 Y · with -"
- ],
- "SCS G1 Z": [
-  "SCS G1 Z",
-  "SCS G1 Z · with -"
- ],
- "SCS G2 =": [
-  "SCS G2 = · with *",
-  "SCS G2 = · with ."
- ],
- "SCS G2 0": [
-  "SCS G2 0 · with *",
-  "SCS G2 0 · with ."
- ],
- "SCS G2 4": [
-  "SCS G2 4 · with *",
-  "SCS G2 4 · with ."
- ],
- "SCS G2 5": [
-  "SCS G2 5 · with *",
-  "SCS G2 5 · with ."
- ],
- "SCS G2 6": [
-  "SCS G2 6 · with *",
-  "SCS G2 6 · with ."
- ],
- "SCS G2 7": [
-  "SCS G2 7 · with *",
-  "SCS G2 7 · with ."
- ],
- "SCS G2 A": [
-  "SCS G2 A · with *",
-  "SCS G2 A · with ."
- ],
- "SCS G2 C": [
-  "SCS G2 C · with *",
-  "SCS G2 C · with ."
- ],
- "SCS G2 E": [
-  "SCS G2 E · with *",
-  "SCS G2 E · with ."
- ],
- "SCS G2 H": [
-  "SCS G2 H · with *",
-  "SCS G2 H · with ."
- ],
- "SCS G2 K": [
-  "SCS G2 K · with *",
-  "SCS G2 K · with ."
- ],
- "SCS G2 Q": [
-  "SCS G2 Q · with *",
-  "SCS G2 Q · with ."
- ],
- "SCS G2 R": [
-  "SCS G2 R · with *",
-  "SCS G2 R · with ."
- ],
- "SCS G2 Y": [
-  "SCS G2 Y · with *",
-  "SCS G2 Y · with ."
- ],
- "SCS G2 Z": [
-  "SCS G2 Z · with *",
-  "SCS G2 Z · with ."
- ],
- "SCS G3 =": [
-  "SCS G3 = · with +"
- ],
- "SCS G3 0": [
-  "SCS G3 0 · with +"
- ],
- "SCS G3 4": [
-  "SCS G3 4 · with +"
- ],
- "SCS G3 5": [
-  "SCS G3 5 · with +"
- ],
- "SCS G3 6": [
-  "SCS G3 6 · with +"
- ],
- "SCS G3 7": [
-  "SCS G3 7 · with +"
- ],
- "SCS G3 A": [
-  "SCS G3 A · with +"
- ],
- "SCS G3 C": [
-  "SCS G3 C · with +"
- ],
- "SCS G3 E": [
-  "SCS G3 E · with +"
- ],
- "SCS G3 H": [
-  "SCS G3 H · with +"
- ],
- "SCS G3 K": [
-  "SCS G3 K · with +"
- ],
- "SCS G3 Q": [
-  "SCS G3 Q · with +"
- ],
- "SCS G3 R": [
-  "SCS G3 R · with +"
- ],
- "SCS G3 Y": [
-  "SCS G3 Y · with +"
- ],
- "SCS G3 Z": [
-  "SCS G3 Z · with +"
  ],
  "SGR 21": [
   "SGR 21"
@@ -407,16 +189,13 @@
   "stream 43",
   "stream 44",
   "stream 45",
-  "stream 46",
   "stream 47",
   "stream 48",
   "stream 49",
   "stream 50",
   "stream 51",
   "stream 52",
-  "stream 53",
   "stream 59",
-  "stream 60",
   "stream 61",
   "stream 62",
   "stream 63",
@@ -436,8 +215,6 @@
   "stream 79",
   "stream 80",
   "stream 82",
-  "stream 83",
-  "stream 84",
   "stream 85",
   "stream 86",
   "stream 88",
@@ -454,7 +231,6 @@
   "stream 106",
   "stream 107",
   "stream 108",
-  "stream 109",
   "stream 110",
   "stream 111",
   "stream 112",
@@ -477,16 +253,13 @@
   "stream 134",
   "stream 135",
   "stream 136",
-  "stream 137",
   "stream 138",
-  "stream 139",
   "stream 140",
   "stream 142",
   "stream 143",
   "stream 145",
   "stream 147",
   "stream 148",
-  "stream 149",
   "stream 150",
   "stream 151",
   "stream 153",
@@ -494,7 +267,6 @@
   "stream 155",
   "stream 156",
   "stream 157",
-  "stream 158",
   "stream 160",
   "stream 161",
   "stream 162",
@@ -536,7 +308,6 @@
   "stream 205",
   "stream 206",
   "stream 207",
-  "stream 208",
   "stream 209",
   "stream 210",
   "stream 211",
@@ -544,18 +315,15 @@
   "stream 213",
   "stream 214",
   "stream 217",
-  "stream 218",
   "stream 219",
   "stream 220",
   "stream 221",
   "stream 222",
-  "stream 223",
   "stream 224",
   "stream 225",
   "stream 226",
   "stream 228",
   "stream 229",
-  "stream 231",
   "stream 233",
   "stream 235",
   "stream 239",
@@ -579,14 +347,11 @@
   "stream 266",
   "stream 267",
   "stream 268",
-  "stream 271",
-  "stream 272",
   "stream 273",
   "stream 274",
   "stream 275",
   "stream 276",
   "stream 277",
-  "stream 278",
   "stream 279",
   "stream 280",
   "stream 283",
@@ -601,21 +366,17 @@
   "stream 292",
   "stream 293",
   "stream 294",
-  "stream 295",
   "stream 296",
   "stream 297",
   "stream 298",
   "stream 299",
-  "stream 300",
   "stream 301",
-  "stream 302",
   "stream 303",
   "stream 304",
   "stream 306",
   "stream 307",
   "stream 308",
   "stream 309",
-  "stream 313",
   "stream 314",
   "stream 316",
   "stream 320",
@@ -624,7 +385,6 @@
   "stream 323",
   "stream 324",
   "stream 325",
-  "stream 327",
   "stream 329",
   "stream 330",
   "stream 331",
@@ -636,7 +396,6 @@
   "stream 341",
   "stream 342",
   "stream 344",
-  "stream 345",
   "stream 346",
   "stream 347",
   "stream 349",
@@ -667,7 +426,6 @@
   "stream 382",
   "stream 383",
   "stream 384",
-  "stream 385",
   "stream 386",
   "stream 387",
   "stream 388",
@@ -677,7 +435,6 @@
   "stream 392",
   "stream 395",
   "stream 396",
-  "stream 397",
   "stream 398",
   "stream 399",
   "stream 400"

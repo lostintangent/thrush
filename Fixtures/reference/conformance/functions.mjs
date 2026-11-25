@@ -191,6 +191,7 @@ probe('DECSET 6', 'then CUP past the region', `${CSI}3;6r`, `${CSI}?6h${CSI}9;9H
 probe('DECSET 6', 'then DECSC and DECRC', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${ESC}7${CSI}?6l${ESC}8`);
 probe('DECSET 6', 'then DSR 6', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${CSI}6n`);
 probe('DECRST 7', 'then a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;20H界`);
+probe('DECRST 7', 'then a combining mark after a dropped wide character', positions.middle, `${CSI}?7l${CSI}2;19Ha界\u0301`);
 probe('DECSET 45', 'then BS across a wrap', '', `${CSI}2;1H${CSI}?7h${CSI}?45h${CSI}1;20Hxy\b\b\b`);
 for (const [mode, action] of Object.entries({ 2: '', 4: 'ab', 12: '', 20: '\nx', 34: '' })) {
   probe(`SM ${mode}`, '', positions.middle, `${CSI}${mode}h`, action + '*');

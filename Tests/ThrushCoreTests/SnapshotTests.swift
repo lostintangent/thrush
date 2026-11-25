@@ -29,6 +29,21 @@ import ThrushFixtures
     #expect(shared)
 }
 
+@Test func fullResetRedrawsEveryRowOnAFreshNormalScreen() {
+    var terminal = Terminal(size: .init(columns: 4, rows: 2))
+    _ = terminal.receive("A\r\nB\r\nC\u{1b}[?1049h\u{1b}[?1000hALT".utf8)
+    let before = terminal.snapshot()
+    _ = terminal.receive("\u{1b}c".utf8)
+    let reset = terminal.snapshot()
+    #expect(!reset.isAlternate)
+    #expect(reset.history.isEmpty)
+    #expect(reset.rows.map(\.text) == ["", ""])
+    #expect(reset.modes.mouseTracking == .off)
+    // A renderer that caches rows by generation must not reuse anything drawn before the reset.
+    let drawn = before.rows.map(\.generation).max() ?? 0
+    #expect(reset.rows.allSatisfy { $0.generation > drawn })
+}
+
 @Test func alternateResizeMaterializesAMissingRowAndErasePreservesHistory() {
     let size = Terminal.Size(columns: 2, rows: 3)
     var terminal = Terminal(size: size)

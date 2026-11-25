@@ -14,6 +14,10 @@ enum TerminalControlFunction {
         case formFeed = 0x0c
         /// CR, 0x0D.
         case carriageReturn = 0x0d
+        /// SO, 0x0E, prints with G1.
+        case shiftOut = 0x0e
+        /// SI, 0x0F, prints with G0.
+        case shiftIn = 0x0f
     }
 
     enum Escape: UInt32 {
@@ -33,6 +37,22 @@ enum TerminalControlFunction {
         case tabSet = 0x48
         /// RI, ESC M.
         case reverseIndex = 0x4d
+        /// RIS, ESC c.
+        case fullReset = 0x63
+        /// LS2, ESC n, prints with G2.
+        case lockingShift2 = 0x6e
+        /// LS3, ESC o, prints with G3.
+        case lockingShift3 = 0x6f
+        /// LS3R, ESC |. Without a right half, the reference prints with G3 as LS3 does.
+        case lockingShift3Right = 0x7c
+        /// LS2R, ESC }, prints with G2.
+        case lockingShift2Right = 0x7d
+        /// LS1R, ESC ~, prints with G1.
+        case lockingShift1Right = 0x7e
+        /// DOCS, ESC % @, returns to ASCII in G0.
+        case selectDefaultCharacterSet = 0x25_40
+        /// DOCS, ESC % G. Input is always UTF-8, so this also returns to ASCII in G0.
+        case selectUTF8 = 0x25_47
 
         /// The 8-bit forms of IND, NEL and HTS. The reference executes no other C1 control.
         init?(c1 byte: UInt8) {
@@ -114,6 +134,8 @@ enum TerminalControlFunction {
         case deviceStatusReport = 0x6e
         /// DECDSR, CSI ? Ps n.
         case privateDeviceStatusReport = 0x3f_6e
+        /// DECSTR, CSI ! p.
+        case softReset = 0x21_70
         /// DECRQM, CSI Ps $ p.
         case requestMode = 0x24_70
         /// DECRQM, CSI ? Ps $ p.
@@ -143,6 +165,8 @@ enum TerminalControlFunction {
 
     case execute(C0)
     case escape(Escape)
+    /// SCS, ESC I F. The intermediate names the slot and the final names the set.
+    case designate(Terminal.CharacterSets.Set, slot: Int)
     case control(CSI)
     case command(OSC)
     case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
@@ -158,8 +182,13 @@ enum TerminalControlFunction {
                 return nil
             }
         case .esc(let id):
-            guard let function = Escape(rawValue: id.rawValue) else { return nil }
-            self = .escape(function)
+            if let function = Escape(rawValue: id.rawValue) {
+                self = .escape(function)
+            } else if let slot = Self.designatedSlot(id), let set = Terminal.CharacterSets.Set(final: UInt8(truncatingIfNeeded: id.rawValue)) {
+                self = .designate(set, slot: slot)
+            } else {
+                return nil
+            }
         case .csi(let id):
             guard let function = CSI(rawValue: id.rawValue) else { return nil }
             self = .control(function)
@@ -173,6 +202,17 @@ enum TerminalControlFunction {
             self = .stringEnd(success: success)
         case .printable:
             return nil
+        }
+    }
+
+    /// The slot an SCS intermediate designates into. The reference ignores `/`, which names a 96-character G3.
+    private static func designatedSlot(_ id: ControlIdentifier) -> Int? {
+        switch id.rawValue >> 8 {
+        case 0x28: 0  // (
+        case 0x29, 0x2d: 1  // ) and -
+        case 0x2a, 0x2e: 2  // * and .
+        case 0x2b: 3  // +
+        default: nil
         }
     }
 }
@@ -239,6 +279,8 @@ extension Terminal {
 
     enum PrivateMode: Int {
         case applicationCursorKeys = 1
+        /// DECANM. Without a VT52 mode to leave, setting it only designates ASCII into every slot.
+        case ansi = 2
         case wraparound = 7
         case cursorBlink = 12
         case cursorVisible = 25

@@ -42,9 +42,6 @@ public struct Terminal: Sendable {
         package var wraparound = true
         /// LNM makes LF, VT and FF also return to the first column.
         var newLine = false
-
-        /// Whether ASCII runs can take the fast path, or each character must be printed on its own.
-        var printsASCIIRuns: Bool { wraparound && !insert }
     }
 
     /// The current dimensions of the visible grid in character cells.
@@ -63,6 +60,7 @@ public struct Terminal: Sendable {
     private var stringHandler = TerminalStringHandler()
     private var screen: Screen
     private var style = Style()
+    private var characterSets = CharacterSets()
     private var generation: UInt64 = 0
     // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
     private var hasCombiningBase = false
@@ -90,7 +88,7 @@ public struct Terminal: Sendable {
         var index = 0
         while index < bytes.count {
             let byte = bytes[index]
-            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete, modes.printsASCIIRuns {
+            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete, printsInRuns {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
@@ -134,6 +132,10 @@ public struct Terminal: Sendable {
         screen.snapshot(generation: generation, modes: modes, palette: palette)
     }
 
+    /// Text prints in runs only when each character lands in the next cell as itself. Insert mode,
+    /// disabled autowrap and a character set other than ASCII print one character at a time.
+    private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
+
     @inline(__always)
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
         if byte < 0x80, !parser.isGround || !TextScanner.isPrintableASCII(byte) {
@@ -146,6 +148,7 @@ public struct Terminal: Sendable {
         }
         guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { return }
         if parser.isGround, TextScanner.isPrintable(scalar) {
+            let scalar = characterSets.active.translate(scalar)
             let width = ColumnWidth.of(scalar)
             screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert, joinsPrevious: hasCombiningBase)
             hasCombiningBase = width > 0 || hasCombiningBase
@@ -174,6 +177,25 @@ public struct Terminal: Sendable {
             if modes.newLine { screen.carriageReturn() }
             screen.lineFeed(style: style)
         case .execute(.carriageReturn): screen.carriageReturn()
+        case .execute(.shiftIn):
+            characterSets.invoke(0)
+            return
+        case .execute(.shiftOut), .escape(.lockingShift1Right):
+            characterSets.invoke(1)
+            return
+        case .escape(.lockingShift2), .escape(.lockingShift2Right):
+            characterSets.invoke(2)
+            return
+        case .escape(.lockingShift3), .escape(.lockingShift3Right):
+            characterSets.invoke(3)
+            return
+        case .escape(.selectDefaultCharacterSet), .escape(.selectUTF8):
+            characterSets.invoke(0)
+            characterSets.designate(.ascii, slot: 0)
+            return
+        case .designate(let set, let slot):
+            characterSets.designate(set, slot: slot)
+            return
         case .escape(.saveCursor):
             saveCursor()
             return
@@ -192,6 +214,7 @@ public struct Terminal: Sendable {
             screen.setTabStop()
             return
         case .escape(.reverseIndex): screen.reverseIndex(style: style)
+        case .escape(.fullReset): fullReset()
         case .control(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
         case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
         case .control(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
@@ -275,6 +298,7 @@ public struct Terminal: Sendable {
             replies.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
             return
         case .control(.cursorStyle): setCursorStyle(parser.parameters[0])
+        case .control(.softReset): softReset()
         case .control(.scrollMargins):
             let top = parser.parameters[0, default: 1]
             let bottom = min(parser.parameters[1, default: size.rows], size.rows)
@@ -315,9 +339,42 @@ public struct Terminal: Sendable {
         generation &+= 1
     }
 
-    private mutating func saveCursor() { screen.saveCursor(style: style) }
+    private mutating func saveCursor() { screen.saveCursor(style: style, characterSet: characterSets.active) }
 
-    private mutating func restoreCursor() { style = screen.restoreCursor().style }
+    private mutating func restoreCursor() {
+        let saved = screen.restoreCursor()
+        style = saved.style
+        characterSets.active = saved.characterSet
+    }
+
+    /// DECSTR resets modes, margins, the style, the character sets and the saved cursor. It keeps the
+    /// screen, the cursor position and mouse reporting.
+    private mutating func softReset() {
+        let mouse = (tracking: modes.mouseTracking, sgr: modes.mouseSGR)
+        resetModes()
+        modes.mouseTracking = mouse.tracking
+        modes.mouseSGR = mouse.sgr
+        screen.resetScrollRegion()
+        screen.resetSavedCursor()
+    }
+
+    /// RIS also resets mouse reporting and starts both screens over, without history. It keeps the title
+    /// and the palette.
+    private mutating func fullReset() {
+        resetModes()
+        screen.reset()
+    }
+
+    /// Both resets return the modes, the style and the character sets to their defaults. LNM and the blink
+    /// that DECSET 12 chose survive, as they do in the reference, where they are host settings.
+    private mutating func resetModes() {
+        var reset = Modes()
+        reset.cursorBlink = modes.cursorBlink
+        reset.newLine = modes.newLine
+        modes = reset
+        style = Style()
+        characterSets = CharacterSets()
+    }
 
     private mutating func setModes(enabled: Bool) {
         for index in 0..<parser.parameters.count {
@@ -351,6 +408,7 @@ public struct Terminal: Sendable {
         }
         return switch mode {
         case .applicationCursorKeys: ModeState(modes.applicationCursorKeys)
+        case .ansi: .unrecognized
         case .wraparound: ModeState(modes.wraparound)
         case .cursorBlink: ModeState(modes.cursorBlink)
         case .cursorVisible: ModeState(modes.cursorVisible)
@@ -390,6 +448,9 @@ public struct Terminal: Sendable {
     private mutating func setPrivateMode(_ mode: PrivateMode, enabled: Bool) {
         switch mode {
         case .applicationCursorKeys: modes.applicationCursorKeys = enabled
+        case .ansi:
+            guard enabled else { return }
+            for slot in 0..<4 { characterSets.designate(.ascii, slot: slot) }
         case .wraparound: modes.wraparound = enabled
         case .cursorBlink:
             modes.cursorBlink = enabled
