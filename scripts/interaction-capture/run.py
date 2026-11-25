@@ -209,6 +209,47 @@ def collect_layout_traces(phone, out):
         raise ValueError("The shell did not save a populated rotation layout trace for each traced process.")
 
 
+def check_keyboard_release(out, appearance):
+    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
+    # The system may restore the previous appearance in another process after the gesture.
+    # Use the recorded gesture interval to identify the shell that actually turned.
+    events = sorted((json.loads(line) for trace in out.glob("rotation-layout-*.jsonl")
+                     for line in trace.read_text().splitlines()), key=lambda event: event["time"])
+    for orientation in ("landscape", "portrait"):
+        settled = json.loads((out / f"shell-{appearance}-{orientation}-layout.json").read_text())
+        expected = (settled["columns"], settled["rows"])
+        # The proof's full-screen window starts at the screen origin. The docked keyboard
+        # fills its width and ends at its bottom edge in each settled orientation.
+        _, (width, height) = settled["windowPoints"]
+        keyboard = settled["keyboardHeight"]
+        box = ((0, height - keyboard), (width, keyboard))
+        pixel = 1 / settled["displayScale"]
+
+        def matches(rect):
+            return rect and all(abs(value - target) <= pixel for pair, expected_pair in zip(rect, box)
+                                for value, target in zip(pair, expected_pair))
+
+        for event in events:
+            layout = event.get("layout") or {}
+            if (start <= event["time"] <= end and event["source"] in
+                    ("UIKeyboardWillChangeFrameNotification", "UIKeyboardDidChangeFrameNotification")
+                    and layout.get("appearance") == appearance and layout.get("orientation", "").startswith(orientation)
+                    and matches(event.get("keyboardEndFrameInScreen")) and matches(layout.get("keyboardGuideInWindow"))):
+                break
+        else:
+            raise ValueError(f"{appearance} {orientation}: no destination keyboard frame matched the settled guide.")
+        delivered = next((sample for sample in events if sample.get("afterNotificationAt") == event["time"]), None)
+        if not delivered:
+            raise ValueError(f"{appearance} {orientation}: missing post-delivery sample for {event['source']}.")
+        grid = delivered.get("layout") or {}
+        actual = (grid.get("columns"), grid.get("rows"))
+        if actual != expected:
+            raise ValueError(f"{appearance} {orientation}: grid was {actual} immediately after the first matching "
+                             f"keyboard frame; expected {expected}.")
+        # The motion starts in portrait; only the subsequent return belongs to the second check.
+        start = event["time"]
+
+
 def check_rotation_sizes(out, appearance):
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     expected = []
@@ -348,6 +389,8 @@ def main():
                         options.rotation_only, options.trace_rotation_layout)
                 if options.trace_rotation_layout:
                     attempt("rotation layout traces", collect_layout_traces, phone, out)
+                    for appearance in APPEARANCES:
+                        attempt(f"{appearance} keyboard release", check_keyboard_release, out, appearance)
                 if options.rotation_only:
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} rotation", check_images, out, (appearance,),
