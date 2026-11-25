@@ -235,7 +235,7 @@ extension Terminal.Buffer {
             }
             // Only the cell after a short row is blanked. A wide glyph before it stays, even one a
             // narrower screen left without its second half.
-            if length < newWidth { row.fillWithBlanks(length..<(length + 1), style: .init()) }
+            if length < newWidth { row.fillWithBlanks(length..<(length + 1)) }
             result.append(row)
         }
         return result

@@ -197,3 +197,44 @@ import ThrushFixtures
     #expect(released.synchronizedOutputID == nil)
     #expect(released.rows[0].text == "ABC")
 }
+
+@Test func rowsKeepEveryStyleWhileTheirStyleListsAreCompacted() {
+    var terminal = Terminal(size: .init(columns: 4, rows: 2))
+    func style(_ index: Int) -> Terminal.Style {
+        var style = Terminal.Style()
+        style.foreground = .rgb(UInt8(index), 255, 0)
+        style.background = .indexed(UInt8(255 - index))
+        style.bold = true
+        style.strikethrough = index.isMultiple(of: 2)
+        return style
+    }
+    func write(_ index: Int, at column: Int) {
+        let strike = index.isMultiple(of: 2) ? 9 : 29
+        _ = terminal.receive("\u{1b}[1;\(column)H\u{1b}[1;\(strike);38;2;\(index);255;0;48;5;\(255 - index)mX".utf8)
+    }
+    // The last three columns take a new style on every write, so the row's list fills and is
+    // compacted several times while the first column keeps one style from the middle of the list.
+    for index in 0..<12 { write(index, at: index % 3 + 2) }
+    write(99, at: 1)
+    let earlier = terminal.snapshot()
+    for index in 12..<40 { write(index, at: index % 3 + 2) }
+    let row = terminal.snapshot().rows[0]
+    #expect((0..<4).map { row[$0].style } == [99, 39, 37, 38].map(style))
+    #expect((0..<4).map { earlier.rows[0][$0].style } == [99, 9, 10, 11].map(style))
+}
+
+@Test func reflowCarriesEachCellsStyleIntoItsNewRow() {
+    var terminal = Terminal(size: .init(columns: 4, rows: 3))
+    // The cursor moves below the line, so the line reflows rather than waiting for a repaint.
+    _ = terminal.receive(((1...5).map { "\u{1b}[3\($0)m\(Character(Unicode.Scalar(64 + $0)!))" }.joined() + "\r\n").utf8)
+    func colors() -> [[Terminal.Color]] {
+        let snapshot = terminal.snapshot()
+        return (snapshot.history + snapshot.rows).map { row in
+            (0..<row.columns).compactMap { row[$0].text.isEmpty ? nil : row[$0].style.foreground }
+        }.filter { !$0.isEmpty }
+    }
+    terminal.resize(to: .init(columns: 8, rows: 3))
+    #expect(colors() == [(1...5).map { .indexed(UInt8($0)) }])
+    terminal.resize(to: .init(columns: 2, rows: 3))
+    #expect(colors() == [[.indexed(1), .indexed(2)], [.indexed(3), .indexed(4)], [.indexed(5)]])
+}

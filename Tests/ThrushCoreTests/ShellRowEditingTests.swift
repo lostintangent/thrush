@@ -10,7 +10,7 @@ private let csi = "\u{1b}["
     let wide = original.rows[0][1]
     let continuation = original.rows[0][2]
     #expect(wide.width == 2 && wide.text == "界\u{301}")
-    #expect(continuation.width == 0)
+    #expect(continuation.width == 0 && continuation.style == wide.style)
     _ = terminal.receive((csi + "1;2H" + csi + "1;33;42m" + csi + "@").utf8)
     let inserted = terminal.snapshot()
     var eraseStyle = Terminal.Style()
