@@ -27,6 +27,8 @@ struct Replay: Encodable {
     let replyBytes: Int
     let keyBytes: Int
     let receiveMiBPerSecond: Double
+    let receiveSamples = ReceiveRate.samples
+    let receiveReplaysPerSample: Int
     let fixturePeakBytesInOneSecond: Int
     let maximumBurstQueuedBytes: Int
     let queuedBytesAfterDrain: Int
@@ -127,11 +129,11 @@ struct Replay: Encodable {
         operations.append(Operation(name: "Read visible row", bytesPerCall: nil, timing: Timing(rowSamples)))
         operations.append(Operation(name: "Complete cursor query", bytesPerCall: cursorQuery.count,
                                     timing: Timing(querySamples)))
-        let receiveTime = receiveSamples.reduce(0) { $0 + $1.reduce(0, +) }
+        let receive = ReceiveRate(size: size, spans: [.init(chunks: events.map { $0.bytes[...] })])
         return Replay(
             warmupReplays: warmup, measuredReplays: measured,
             receivedBytes: received, appliedBytes: applied, replyBytes: replies, keyBytes: keys,
-            receiveMiBPerSecond: Double(applied) * 1e9 / Double(receiveTime) / 1_048_576,
+            receiveMiBPerSecond: receive.mebibytesPerSecond, receiveReplaysPerSample: receive.replaysPerSample,
             fixturePeakBytesInOneSecond: peakBytesInOneSecond(events.map { ($0.offsetMicroseconds, $0.bytes.count) }),
             maximumBurstQueuedBytes: bytesPerReplay, queuedBytesAfterDrain: pendingBytes,
             burstDrain: Timing(drainSamples), operations: operations

@@ -27,6 +27,8 @@ struct HeadlessReplay: Encodable {
     let replyBytes: Int
     let encodedInputBytes: Int
     let receiveMiBPerSecond: Double
+    let receiveSamples = ReceiveRate.samples
+    let receiveReplaysPerSample: Int
     let chunkTime: Timing
     let fixturePeakBytesInOneSecond: Int
     let fixturePeakMultiple: Double
@@ -77,7 +79,8 @@ struct HeadlessReplay: Encodable {
         }
         let applied = runs.reduce(0) { $0 + $1.appliedBytes }
         let paletteTimes = runs.flatMap(\.paletteChangeTimes)
-        let rate = mebibytesPerSecond(applied, in: samples.reduce(0, +))
+        let receive = ReceiveRate(size: .init(columns: fixture.columns, rows: fixture.rows), spans: spans(of: fixture))
+        let rate = receive.mebibytesPerSecond
         let peak = peakBytesInOneSecond(fixture.events.map { ($0.offsetMicroseconds, $0.bytes.count) })
         let multiple = rate * 1_048_576 / Double(peak)
         return HeadlessReplay(
@@ -88,7 +91,8 @@ struct HeadlessReplay: Encodable {
             receivedBytes: runs.reduce(0) { $0 + $1.receivedBytes }, appliedBytes: applied,
             replyBytes: runs.reduce(0) { $0 + $1.replyBytes },
             encodedInputBytes: runs.reduce(0) { $0 + $1.encodedInputBytes },
-            receiveMiBPerSecond: rate, chunkTime: Timing(samples), fixturePeakBytesInOneSecond: peak,
+            receiveMiBPerSecond: rate, receiveReplaysPerSample: receive.replaysPerSample,
+            chunkTime: Timing(samples), fixturePeakBytesInOneSecond: peak,
             fixturePeakMultiple: multiple, meetsTwiceRecordedPeak: multiple >= 2,
             maximumQueuedBytes: runs.map(\.maximumQueuedBytes).max()!,
             maximumQueuedSlots: runs.map(\.maximumQueuedSlots).max()!,
@@ -197,6 +201,29 @@ struct HeadlessReplay: Encodable {
         guard titles.isEmpty else { throw BenchmarkError("Unreached Codex window-title checkpoint.") }
         result.drain = DispatchTime.now().uptimeNanoseconds - start
         return result
+    }
+
+    /// The queue's chunks, split wherever a session restart, palette change or resize changes the terminal.
+    private static func spans(of fixture: ReplayFixture) -> [ReceiveRate.Span] {
+        var spans = [ReceiveRate.Span()]
+        var queue = BurstQueue()
+        while queue.fill(from: fixture.events) {
+            for item in queue.items {
+                let event = fixture.events[item.event]
+                if item.range.lowerBound == 0,
+                   event.lifecycle?.type == .ready || event.palette != nil || event.resize != nil {
+                    spans.append(.init(change: { terminal in
+                        event.applyReady(to: &terminal)
+                        if let palette = event.palette { terminal.palette = palette }
+                        if let resize = event.resize {
+                            terminal.resize(to: .init(columns: resize.columns, rows: resize.rows))
+                        }
+                    }))
+                }
+                if !item.range.isEmpty { spans[spans.count - 1].chunks.append(event.bytes[item.range]) }
+            }
+        }
+        return spans
     }
 }
 

@@ -45,7 +45,8 @@ func printTable(_ report: Report) {
     }
     print()
     print(String(format: "Receive %.2f MiB/s", replay.receiveMiBPerSecond)
-          + "   \(replay.receivedBytes) bytes received   \(replay.appliedBytes) applied")
+          + "   \(replay.receiveSamples) samples of \(replay.receiveReplaysPerSample) replays")
+    print("\(replay.receivedBytes) bytes received   \(replay.appliedBytes) applied")
     print("Burst \(replay.maximumBurstQueuedBytes) bytes   drain p95 \(replay.burstDrain.p95Nanoseconds) ns"
           + "   \(replay.queuedBytesAfterDrain) bytes pending")
     print("Recorded one-second peak \(replay.fixturePeakBytesInOneSecond) bytes")

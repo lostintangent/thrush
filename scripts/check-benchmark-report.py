@@ -154,6 +154,9 @@ for replay in replays:
     multiple = replay["receiveMiBPerSecond"] * 1_048_576 / peak
     assert math.isclose(replay["fixturePeakMultiple"], multiple), replay["name"]
     assert replay["meetsTwiceRecordedPeak"] == (multiple >= 2), replay["name"]
+    # Each receive-rate sample applies at least 8 KiB, so no timed span is close to a clock tick.
+    assert replay["receiveSamples"] > 0, replay["name"]
+    assert replay["receiveReplaysPerSample"] == -(-8192 // sum(output)), replay["name"]
     expected = [e for e in events if "resize" in e]
     assert len(replay["resizes"]) == len(expected), replay["name"]
     for resize, event in zip(replay["resizes"], expected):
