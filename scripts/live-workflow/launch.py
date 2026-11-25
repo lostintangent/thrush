@@ -256,7 +256,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                                       driver, output, "simulator" if device else "mac", device or str(host.pid),
                                       verify_fixture=False)
                     verify_controller(name, output, driver)
-                except Exception:
+                except Exception as failure:
                     # The controller can still be waiting for the native acknowledgement that failed.
                     try:
                         with urlopen(control + "/observations?clientId=thrush-native-workflow", timeout=5) as response:
@@ -264,6 +264,12 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
                     except (OSError, ValueError) as error:
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
+                    if device and name == "lifecycle" and "app toolbar" in str(failure):
+                        try:
+                            subprocess.run([ROOT / "scripts/capture-demo.sh", "simulator", device,
+                                            output / "toolbar-at-failure.png"], check=True, timeout=20)
+                        except (OSError, subprocess.SubprocessError) as error:
+                            print(f"Could not retain the simulator toolbar image: {error}", file=sys.stderr)
                     raise
                 finally:
                     if device and host.poll() is None:
