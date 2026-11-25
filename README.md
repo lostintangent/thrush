@@ -109,8 +109,9 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 | Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
 | Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [Connection](Benchmarks/connection.md) |
+| Real shells | Bash, Vim, Codex and every lifecycle branch on Mac and iPhone against a Toy Box server, 34 of 34 checkpoints on each with every byte applied | [Live workflows](Benchmarks/live-workflows.md) |
 
-These come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.
+The timings come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.
 
 ## Develop
 
