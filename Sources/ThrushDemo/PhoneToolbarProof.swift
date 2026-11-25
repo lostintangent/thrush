@@ -5,13 +5,13 @@ import UIKit
 
 /// The integration host uses only the public pane. Its capture reads the mounted UIKit views.
 struct PhoneToolbarProof: View {
-    let shell: TerminalShell
+    let session: TerminalSession
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            TerminalPane(shell)
+            TerminalPane(session)
                 .ignoresSafeArea()
-                .navigationTitle(shell.title.isEmpty ? "Terminal" : shell.title)
+                .navigationTitle(session.title.isEmpty ? "Terminal" : session.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {

@@ -20,14 +20,14 @@ import UIKit
     try await waitFor("the loopback peer") { (peer.port ?? 0) > 0 }
     let port = try #require(peer.port)
     let address = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
-    let session = URLSession(configuration: .ephemeral)
-    defer { session.invalidateAndCancel() }
-    let shell = TerminalShell(clientID: "scene-interruption") { _, _ in
-        session.webSocketTask(with: address)
+    let urlSession = URLSession(configuration: .ephemeral)
+    defer { urlSession.invalidateAndCancel() }
+    let session = TerminalSession { _ in
+        urlSession.webSocketTask(with: address)
     }
 
     let terminal = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
-    var pane = TerminalPane(shell)
+    var pane = TerminalPane(session)
     pane.preparedView = terminal
     let host = UIHostingController(rootView: pane)
     let window: UIWindow
@@ -62,7 +62,7 @@ import UIKit
     }
 
     deliver(UIScene.didActivateNotification)
-    try await waitFor("the first ready socket") { await shell.connection.state == .active }
+    try await waitFor("the first ready socket") { await session.connection.state == .active }
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
 
@@ -75,7 +75,7 @@ import UIKit
     deliver(UIScene.didActivateNotification)
     #expect(container.isDrawingVisible)
     try await Task.sleep(for: .milliseconds(300))
-    #expect(await shell.connection.state == .active)
+    #expect(await session.connection.state == .active)
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
 
@@ -84,14 +84,14 @@ import UIKit
     // Repeated notification and window layout must not produce another close.
     deliver(UIScene.didEnterBackgroundNotification)
     host.view.layoutIfNeeded()
-    try await waitFor("the background close frame") { await shell.connection.state == .detached && peer.closes == 1 }
+    try await waitFor("the background close frame") { await session.connection.state == .detached && peer.closes == 1 }
     #expect(!container.isDrawingVisible)
     #expect(!container.isShellPresented)
     #expect(peer.opens == 1)
 
     deliver(UIScene.willEnterForegroundNotification)
     deliver(UIScene.didActivateNotification)
-    try await waitFor("the foreground reattachment") { await shell.connection.state == .active && peer.opens == 2 }
+    try await waitFor("the foreground reattachment") { await session.connection.state == .active && peer.opens == 2 }
     #expect(peer.closes == 1)
 }
 #endif

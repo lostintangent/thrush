@@ -2,11 +2,11 @@ import QuartzCore
 import SwiftUI
 import ThrushCore
 
-/// A SwiftUI terminal that attaches its shell while the pane is shown.
-/// Keep the shell in a model that outlives the pane's SwiftUI updates.
+/// A terminal pane that attaches its session while visible.
+/// Keep the session in a model that outlives the pane's SwiftUI updates.
 @MainActor public struct TerminalPane: View {
-    private let shell: TerminalShell
-    private var connection: TerminalConnection { shell.connection }
+    private let session: TerminalSession
+    private var connection: TerminalConnection { session.connection }
     /// Whether the host is showing the pane. Set this to false when hiding a retained tab.
     package var isActive: Bool
     /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
@@ -18,17 +18,17 @@ import ThrushCore
     package var keyboardAccessory: TerminalKeyboardAccessory = .standard
     #endif
 
-    /// Creates a pane for a shell, using the system appearance unless a theme is supplied.
+    /// Creates a pane for a session, using the system appearance unless a theme is supplied.
     /// The pane manages attachment and, on iPhone, supplies the standard terminal keys.
     ///
     /// - Parameters:
-    ///   - shell: The shell whose output and input the pane presents.
+    ///   - session: The session whose output and input the pane presents.
     ///   - isActive: Pass `false` while hiding a tab that remains in the view hierarchy.
     ///   - theme: A theme override. The default follows the system appearance.
     ///   - fontSize: A size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
-    public init(_ shell: TerminalShell, isActive: Bool = true, theme: TerminalTheme? = nil,
+    public init(_ session: TerminalSession, isActive: Bool = true, theme: TerminalTheme? = nil,
                 fontSize: CGFloat? = nil) {
-        self.shell = shell
+        self.session = session
         self.isActive = isActive
         self.theme = theme
         self.fontSize = fontSize
@@ -37,9 +37,9 @@ import ThrushCore
     #if os(iOS)
     /// Creates a pane with the specified iPhone keyboard accessory.
     /// Pass `.none` to hide the key row or `.custom(_:)` to supply a native view.
-    public init(_ shell: TerminalShell, isActive: Bool = true, theme: TerminalTheme? = nil,
+    public init(_ session: TerminalSession, isActive: Bool = true, theme: TerminalTheme? = nil,
                 fontSize: CGFloat? = nil, keyboardAccessory: TerminalKeyboardAccessory) {
-        self.init(shell, isActive: isActive, theme: theme, fontSize: fontSize)
+        self.init(session, isActive: isActive, theme: theme, fontSize: fontSize)
         self.keyboardAccessory = keyboardAccessory
     }
     #endif

@@ -8,12 +8,12 @@ import ThrushCore
 @testable import Thrush
 
 @MainActor private struct VisibilityHost: View {
-    let shell: TerminalShell
+    let session: TerminalSession
     let shown: Bool
     let selected: Bool
 
     private var pane: TerminalPane {
-        var result = TerminalPane(shell, isActive: selected)
+        var result = TerminalPane(session, isActive: selected)
         result.assumesVisibleForBenchmark = true
         return result
     }
@@ -29,12 +29,12 @@ import ThrushCore
 
 @MainActor @Test func paneAttachesOnlyWhilePresentedAndSelected() async throws {
     let opened = Mutex<[Terminal.Size]>([])
-    let shell = TerminalShell(clientID: "visible-test") { _, measured in
+    let session = TerminalSession { measured in
         opened.withLock { $0.append(measured) }
         throw URLError(.cannotConnectToHost)
     }
     func attachments() -> [Terminal.Size] { opened.withLock { $0 } }
-    let host = NSHostingView(rootView: VisibilityHost(shell: shell, shown: true, selected: false))
+    let host = NSHostingView(rootView: VisibilityHost(session: session, shown: true, selected: false))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
                           styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
@@ -43,7 +43,7 @@ import ThrushCore
     defer { window.close() }
 
     func update(shown: Bool, selected: Bool) {
-        host.rootView = VisibilityHost(shell: shell, shown: shown, selected: selected)
+        host.rootView = VisibilityHost(session: session, shown: shown, selected: selected)
         host.layoutSubtreeIfNeeded()
     }
     func waitFor(_ predicate: () async -> Bool) async throws {
@@ -59,14 +59,14 @@ import ThrushCore
     update(shown: true, selected: true)
     try await waitFor { !attachments().isEmpty && attachments()[0].columns > 1 }
     update(shown: true, selected: false)
-    try await waitFor { await shell.connection.state == .detached }
+    try await waitFor { await session.connection.state == .detached }
     let first = attachments()
     try await Task.sleep(for: .milliseconds(350))
     #expect(attachments() == first)
     update(shown: true, selected: true)
     try await waitFor { attachments().count > first.count }
     update(shown: false, selected: true)
-    try await waitFor { await shell.connection.state == .detached }
+    try await waitFor { await session.connection.state == .detached }
     let removed = attachments()
     try await Task.sleep(for: .milliseconds(350))
     #expect(attachments() == removed)

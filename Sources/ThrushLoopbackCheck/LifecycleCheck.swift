@@ -98,10 +98,10 @@ struct LifecycleCheck {
 
     private func open(in session: URLSession,
                       onOutput: (@Sendable (Data) -> Void)? = nil) throws -> TerminalConnection {
-        TerminalConnection(clientID: "thrush lifecycle", size: size, palette: palette, onOutput: onOutput) { id, grid in
+        TerminalConnection(size: size, palette: palette, onOutput: onOutput) { grid in
             let address = endpoint.appending(path: "socket").appending(queryItems: [
                 URLQueryItem(name: "service", value: "terminal"),
-                URLQueryItem(name: "clientId", value: id),
+                URLQueryItem(name: "clientId", value: "thrush lifecycle"),
                 URLQueryItem(name: "cols", value: String(grid.columns)),
                 URLQueryItem(name: "rows", value: String(grid.rows)),
             ])

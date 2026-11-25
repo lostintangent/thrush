@@ -106,7 +106,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     }
 
     func focusIfRequested() {
-        guard !focusRequested, session.options.keyboard, session.hasUsableShell || session.options.benchmarkURL != nil,
+        guard !focusRequested, session.options.keyboard, session.hasUsableSession || session.options.benchmarkURL != nil,
               session.view.window != nil,
               viewIfLoaded?.window?.windowScene?.activationState == .foregroundActive else { return }
         focusRequested = session.view.focusInput()

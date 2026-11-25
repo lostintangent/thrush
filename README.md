@@ -17,19 +17,19 @@ Add the package and link the `Thrush` product to your app target.
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
-Keep one `TerminalShell` per tab in a main-actor model that outlives the view. Supply the socket factory and pass the shell to a pane.
+Keep one `TerminalSession` per tab in a main-actor model that outlives the view. Capture the tab’s stable client ID in the socket factory and pass the session to a pane.
 
 ```swift
 import Thrush
 
-let shell = TerminalShell(clientID: clientID) { id, size in
-    api.terminalSocket(clientID: id, size: size)
+let session = TerminalSession { size in
+    api.terminalSocket(clientID: tabID, size: size)
 }
 
-TerminalPane(shell)
+TerminalPane(session)
 ```
 
-The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the shell. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. It stays attached while it's shown, including in a Mac window behind other apps, minimized or hidden, and detaches when it leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
+The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. It stays attached while it's shown, including in a Mac window behind other apps, minimized or hidden, and detaches when it leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
 
 | State | What the pane shows |
 | --- | --- |
@@ -39,11 +39,11 @@ The pane paints its whole frame, fits its grid to the safe area inside it and re
 | Another window took the shell | **Open in another window**, with **Use Here** |
 | The shell exited | **Ended**, with **New Shell** |
 
-On iPhone, a host can choose which tab accepts input, set the appearance and customize the keyboard accessory. Each argument after the shell is optional.
+On iPhone, a host can choose which tab accepts input, set the appearance and customize the keyboard accessory. Each argument after the session is optional.
 
 ```swift
 TerminalPane(
-    shell,
+    session,
     isActive: isSelectedTab,        // false while a tab stays in the hierarchy but is hidden
     theme: .slateDark,              // nil follows the system appearance
     fontSize: 15,
@@ -53,11 +53,11 @@ TerminalPane(
 
 To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values. On iPhone, a custom accessory is a `UIView` that conforms to `TerminalInputAccessory`. Its buttons call `onKeyPress` with a UIKit key string and modifiers, for example `onKeyPress?(UIKeyCommand.inputUpArrow, [])` or `onKeyPress?("c", .control)`.
 
-SwiftUI observes `shell.title` and `shell.hasExited` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(shell.title.isEmpty ? "Terminal" : shell.title)`. When the shell exits, the pane keeps its last screen and offers **New Shell**. A host that closes tabs on exit can observe `shell.hasExited` with `.onChange`. To end the shell from the host, call `try await shell.close()`. [Pane states and behavior](docs/design/pane-states.md)
+SwiftUI observes `session.title` and `session.hasEnded` directly. The title starts empty and changes when a terminal program sets it. A tab can display it with `.navigationTitle(session.title.isEmpty ? "Terminal" : session.title)`. The session ends when the shell exits or the host calls `try await session.close()`. On shell exit, the pane keeps its last screen and offers **New Shell**. A host that closes ended tabs can observe `session.hasEnded` with `.onChange`. [Pane states and behavior](docs/design/pane-states.md)
 
 ### The socket
 
-For each attachment, the factory receives the shell’s stable client ID and its grid size in columns and rows. Return a fresh, suspended `URLSessionWebSocketTask` from your app’s session so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
+On every attachment, the socket factory receives only the current `Terminal.Size` in columns and rows. Your app’s transport returns a fresh, suspended `URLSessionWebSocketTask` for the same client ID each time. Use the app’s `URLSession` so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
 
 Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 

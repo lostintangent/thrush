@@ -69,13 +69,12 @@ package actor TerminalConnection {
         deinit { session.invalidateAndCancel() }
     }
 
-    private let observer: TerminalShell.MetadataObserver?
+    private let observer: TerminalSession.MetadataObserver?
     private var reportedTitle = ""
-    private var reportedExit = false
+    private var reportedEnd = false
     private var metadataRevision: UInt64 = 0
 
-    private let makeSocket: @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask
-    private let clientID: String
+    private let makeSocket: @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask
     private let frameTrace: (any ConnectionFrameObserver)?
     private let onOutput: (@Sendable (Data) -> Void)?
     private let sleepForRetry: @Sendable (Duration) async throws -> Void
@@ -118,7 +117,7 @@ package actor TerminalConnection {
 
     package init(baseURL: URL, clientID: String, size: Terminal.Size? = nil, palette: Terminal.Palette = .default,
                  onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any ConnectionFrameObserver)? = nil,
-                 observer: TerminalShell.MetadataObserver? = nil) throws {
+                 observer: TerminalSession.MetadataObserver? = nil) throws {
         guard var location = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               location.host != nil, location.query == nil, location.fragment == nil
         else { throw ConnectionError.invalidEndpoint }
@@ -129,10 +128,11 @@ package actor TerminalConnection {
         }
         location.path = baseURL.appending(path: "socket").path
         let endpoint = location
+        precondition(!clientID.isEmpty, "A shell needs a stable client ID")
         let owner = DemoSession()
-        self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput,
-                  frameTrace: frameTrace, observer: observer) { id, size in
-            let url = try Self.url(for: endpoint, clientID: id, size: size)
+        self.init(size: size, palette: palette, onOutput: onOutput,
+                  frameTrace: frameTrace, observer: observer) { size in
+            let url = try Self.url(for: endpoint, clientID: clientID, size: size)
             let task = owner.session.webSocketTask(with: url)
             // A single repaint can include a thousand rows of colored scrollback.
             task.maximumMessageSize = 64 * 1024 * 1024
@@ -140,16 +140,14 @@ package actor TerminalConnection {
         }
     }
 
-    package init(clientID: String, size: Terminal.Size?, palette: Terminal.Palette = .default,
+    package init(size: Terminal.Size?, palette: Terminal.Palette = .default,
                  onOutput: (@Sendable (Data) -> Void)? = nil,
                  frameTrace: (any ConnectionFrameObserver)? = nil,
-                 observer: TerminalShell.MetadataObserver? = nil,
+                 observer: TerminalSession.MetadataObserver? = nil,
                  sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
-                 makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
-        precondition(!clientID.isEmpty, "A shell needs a stable client ID")
+                 makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
         self.observer = observer
         self.sleepForRetry = sleepForRetry
-        self.clientID = clientID
         self.frameTrace = frameTrace
         self.onOutput = onOutput
         self.makeSocket = makeSocket
@@ -160,7 +158,7 @@ package actor TerminalConnection {
         if let size {
             socketAttempts += 1
             do {
-                let first = try makeSocket(clientID, size)
+                let first = try makeSocket(size)
                 socket = first
                 state = .connecting
                 self.frameTrace?.record("open", attachment: socketAttempts)
@@ -198,7 +196,7 @@ package actor TerminalConnection {
     private func openSocket() {
         socketAttempts += 1
         do {
-            let next = try makeSocket(clientID, requestedSize)
+            let next = try makeSocket(requestedSize)
             attachmentSize = requestedSize
             socket = next
             state = .connecting
@@ -339,7 +337,7 @@ package actor TerminalConnection {
                     }
                     guard lifetime == stamp else { throw CancellationError() }
                     // A resumed ready precedes the replay that supplies the authoritative title.
-                    await publishMetadata(title: resumed ? nil : terminal.title, hasExited: false)
+                    await publishMetadata(title: resumed ? nil : terminal.title, hasEnded: false)
                     guard lifetime == stamp else { throw CancellationError() }
                     return .ready(resumed: resumed)
                 case (.ready, .active) where control.resumed == true && !isResynchronizing:
@@ -353,7 +351,7 @@ package actor TerminalConnection {
                         exitedNaturally = true
                     }
                     let exitLifetime = lifetime
-                    await publishMetadata(hasExited: true)
+                    await publishMetadata(hasEnded: true)
                     guard lifetime == exitLifetime else { throw CancellationError() }
                     return .exit
                 default: throw ConnectionError.unexpectedMessage
@@ -368,15 +366,15 @@ package actor TerminalConnection {
         }
     }
 
-    private func publishMetadata(title: String? = nil, hasExited: Bool? = nil) async {
+    private func publishMetadata(title: String? = nil, hasEnded: Bool? = nil) async {
         guard let observer else { return }
         let title = title ?? reportedTitle
-        let hasExited = hasExited ?? reportedExit
-        guard title != reportedTitle || hasExited != reportedExit else { return }
+        let hasEnded = hasEnded ?? reportedEnd
+        guard title != reportedTitle || hasEnded != reportedEnd else { return }
         reportedTitle = title
-        reportedExit = hasExited
+        reportedEnd = hasEnded
         metadataRevision &+= 1
-        await observer.apply(title: title, hasExited: hasExited, revision: metadataRevision)
+        await observer.apply(title: title, hasEnded: hasEnded, revision: metadataRevision)
     }
 
     package func finishFrameTrace(_ result: String) async {
@@ -493,10 +491,10 @@ package actor TerminalConnection {
     package func closeShell() async throws {
         do { try await requestClose() }
         catch {
-            if state == .ended { await publishMetadata(hasExited: true) }
+            if state == .ended { await publishMetadata(hasEnded: true) }
             throw error
         }
-        await publishMetadata(hasExited: true)
+        await publishMetadata(hasEnded: true)
     }
 
     private func requestClose() async throws {

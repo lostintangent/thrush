@@ -28,7 +28,7 @@ struct AppConsumer: App {
 }
 
 @MainActor private final class WindowModel: ObservableObject {
-    let tab = ShellTab(clientID: UUID().uuidString, api: ServerAPI(session: .shared))
+    let tab = ShellTab(tabID: UUID().uuidString, api: ServerAPI(session: .shared))
     #if os(iOS)
     let interruptButton = InterruptButton()
     #endif
@@ -44,14 +44,14 @@ private struct ShellWindow: View {
     }
 
     private var title: String {
-        let shell = model.tab.shell
-        let name = shell.title.isEmpty ? "Terminal" : shell.title
-        return shell.hasExited ? "\(name) (Ended)" : name
+        let session = model.tab.session
+        let name = session.title.isEmpty ? "Terminal" : session.title
+        return session.hasEnded ? "\(name) (Ended)" : name
     }
 
     @ViewBuilder private var pane: some View {
         #if os(iOS)
-        TerminalPane(model.tab.shell, theme: .slateDark, keyboardAccessory: .custom(model.interruptButton))
+        TerminalPane(model.tab.session, theme: .slateDark, keyboardAccessory: .custom(model.interruptButton))
         #else
         model.tab.pane
         #endif

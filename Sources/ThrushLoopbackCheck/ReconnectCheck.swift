@@ -44,8 +44,7 @@ struct ReconnectCheck {
         let attempts = Mutex(0)
         let latest = Mutex<URLSessionWebSocketTask?>(nil)
         let size = Terminal.Size(columns: 16, rows: 3)
-        let connection = TerminalConnection(clientID: "thrush lifecycle", size: size,
-                                            sleepForRetry: { await clock.sleep(for: $0) }) { id, size in
+        let connection = TerminalConnection(size: size, sleepForRetry: { await clock.sleep(for: $0) }) { size in
             let attempt = attempts.withLock { $0 += 1; return $0 }
             // The sixth retry returns a socket. This visits the cap twice.
             if (2...6).contains(attempt) { throw URLError(.notConnectedToInternet) }
@@ -54,7 +53,7 @@ struct ReconnectCheck {
             }
             url.scheme = "ws"
             url.queryItems = [
-                .init(name: "service", value: "terminal"), .init(name: "clientId", value: id),
+                .init(name: "service", value: "terminal"), .init(name: "clientId", value: "thrush lifecycle"),
                 .init(name: "cols", value: String(size.columns)), .init(name: "rows", value: String(size.rows)),
             ]
             guard let address = url.url else { throw Failure("Invalid reconnect socket URL") }
@@ -150,7 +149,7 @@ struct ReconnectCheck {
     private func closeDuringFirstRetry() async throws {
         let clock = RetryClock()
         let attempts = Mutex(0)
-        let connection = TerminalConnection(clientID: "offline", size: nil, sleepForRetry: { await clock.sleep(for: $0) }) { _, _ in
+        let connection = TerminalConnection(size: nil, sleepForRetry: { await clock.sleep(for: $0) }) { _ in
             attempts.withLock { $0 += 1 }
             throw URLError(.notConnectedToInternet)
         }

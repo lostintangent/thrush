@@ -7,11 +7,11 @@ import Testing
 @MainActor @Test(arguments: [false, true])
 func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
     _ = NSApplication.shared
-    let shell = TerminalShell(clientID: "toolbar-layout") { _, _ in
+    let session = TerminalSession { _ in
         throw URLError(.cannotConnectToHost)
     }
     let terminal = TerminalView(frame: .zero)
-    var pane = TerminalPane(shell, isActive: false, theme: .slateDark)
+    var pane = TerminalPane(session, isActive: false, theme: .slateDark)
     pane.preparedView = terminal
     var style: NSWindow.StyleMask = [.titled, .closable, .resizable]
     if fullSizeToolbar { style.insert(.fullSizeContentView) }

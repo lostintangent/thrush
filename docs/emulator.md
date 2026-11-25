@@ -83,7 +83,7 @@ A renderer reads cells through `row[column]`, which returns a `Cell` with its te
 
 ## Modern Swift we use
 
-- **Swift 6 language mode with strict concurrency.** The core has no isolation of its own. It's a `Sendable` value owned by the shell's internal actor. The public `TerminalShell` is a `@MainActor @Observable` class, like SwiftUI's `WebPage`, and publishes state such as `title` only when it changes.
+- **Swift 6 language mode with strict concurrency.** The core has no isolation of its own. It's a `Sendable` value owned by the session’s internal actor. The public `TerminalSession` is a `@MainActor @Observable` class, like SwiftUI's `WebPage`, and publishes state such as `title` only when it changes.
 - **`Span` and `MutableSpan` in hot loops.** `receive(_:)` and the scanner read a `Span<UInt8>`, and printing writes rows through a `MutableSpan`. That keeps zero-copy access with compile-time lifetime safety.
 - **`InlineArray` for parameters.** CSI accepts up to 32 semicolon fields and 32 colon fields shared across the whole header. The incremental parser stores both in fixed arrays. SGR enforces the same limits on borrowed input and keeps at most five components of the current colon group, enough for an RGB color with a color-space identifier. An empty colon field stays distinct from zero.
 - **Named values instead of raw integers.** Handlers receive enums such as `EraseRange` and `Mode`, never bare `Int` mode numbers. Raw numbers appear only at the boundary where a sequence is decoded.
