@@ -32,6 +32,10 @@ type Session = { scene: Scene; cols: number; rows: number; input: string; appear
 type Socket = ServerWebSocket<Session>;
 const encode = (text: string) => Buffer.from(text, "utf8");
 
+function recordGrid(event: string, { scene, cols, rows }: Session) {
+    if (process.env.THRUSH_CAPTURE_GRID === "1") console.log(JSON.stringify({ time: Date.now(), event, scene, cols, rows }));
+}
+
 function recording(until: string, events: { name: string; bytes?: string }[]) {
     const stop = events.findIndex(event => event.name === until);
     if (stop < 0) throw Error("Missing replay checkpoint " + until);
@@ -126,6 +130,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
     websocket: {
         data: {} as Session,
         open(socket) {
+            recordGrid("attach", socket.data);
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
             void draw(socket).catch(error => { console.error(error); socket.close(1011, "Replay failed"); });
         },
@@ -138,6 +143,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
                         && control.cols >= 2 && control.rows > 0) {
                     state.cols = control.cols;
                     state.rows = control.rows;
+                    recordGrid("resize", state);
                     if (state.scene === "editor") await draw(socket);
                 }
                 return;
