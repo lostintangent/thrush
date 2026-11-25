@@ -249,6 +249,22 @@ export class LiveRun {
         await this.until(() => this.frames.length === 0 && performance.now() - Math.max(start, this.lastOutputAt) >= 250,
             description, 8_000);
     }
+    verifyDetachBoundary(attachment: number, when: "before" | "after") {
+        const checkpoint = this.acknowledgements.at(-1);
+        const link = this.perAttachment[attachment - 1];
+        assert(checkpoint && link && this.attachments === attachment && checkpoint.attachments === attachment,
+               "Missing native checkpoint on attachment " + attachment);
+        const detail = `Attachment ${attachment} ${when} detach after ${checkpoint.name}: `
+            + `PTY sent ${link.upstreamBytes} bytes on this socket, relay forwarded ${link.forwardedBytes}; `
+            + `cumulative relay ${this.outputBytes}, native received ${checkpoint.receivedBytes}, applied ${checkpoint.appliedBytes}; `
+            + `queued frames ${this.frames.length}, bytes ${this.queuedBytes}`;
+        assert(link.upstreamBytes === link.forwardedBytes && this.frames.length === 0 && this.queuedBytes === 0
+            && checkpoint.receivedBytes === this.outputBytes && checkpoint.appliedBytes === this.outputBytes, detail);
+        if (when === "before") {
+            assert(checkpoint.columns === this.grid.columns && checkpoint.rows === this.grid.rows,
+                   detail + `; checkpoint grid ${checkpoint.columns}×${checkpoint.rows}, current ${this.grid.columns}×${this.grid.rows}`);
+        }
+    }
     async input(index: number) {
         const event = this.fixture.events[index];
         assert(event.input && event.action, "Missing recorded native input at " + event.name);

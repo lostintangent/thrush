@@ -135,9 +135,16 @@ export async function runLifecycle(run: LiveRun) {
         return run.reference.modes.bracketedPasteMode &&
             buffer.getLine(buffer.baseY + buffer.cursorY)?.translateToString(true) === "thrush$ ";
     };
-    const screen = (key: keyof typeof steps, pattern: RegExp) =>
-        run.checkpoint(index(key), () => Boolean(matchingRow(run, pattern)) && (key === "ended" || hasPrompt()),
-                       key === "reclaimed" || key === "ended", key === "ended");
+    const screen = async (key: keyof typeof steps, pattern: RegExp) => {
+        const matches = () => Boolean(matchingRow(run, pattern)) && (key === "ended" || hasPrompt());
+        if (key === "first" || key === "reclaimed") {
+            // Reattaching at a new size can produce a separate PTY redraw after the serialized prompt.
+            // Deliver the whole burst before freezing the screen for its final native acknowledgement.
+            await run.until(matches, steps[key].name);
+            await run.settleOutput("settled PTY output before " + steps[key].name);
+        }
+        await run.checkpoint(index(key), matches, key === "reclaimed" || key === "ended", key === "ended");
+    };
     const focus = async (key: "focusReplacement" | "focusNewShell") => {
         await run.until(hasPrompt, "fresh shell prompt before focusing");
         const before = run.grid;
@@ -149,9 +156,11 @@ export async function runLifecycle(run: LiveRun) {
         await run.input(index(enter));
     };
     const background = async (key: "background" | "orphan", attachment: number) => {
+        run.verifyDetachBoundary(attachment, "before");
         run.phase("detach", index(key));
         const closed = () => run.closures.find(item => item.attachment === attachment && item.side === "upstream");
         await run.until(() => Boolean(closed()), "real shell detached");
+        run.verifyDetachBoundary(attachment, "after");
         return closed()!.atMs;
     };
 
