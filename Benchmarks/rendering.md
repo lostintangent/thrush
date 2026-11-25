@@ -46,6 +46,26 @@ Three partial generations inside synchronized output produced 0 submissions. Clo
 
 The Mac session was locked. Its drawable callbacks returned zero presentation timestamps on all 41 drawing workload frames and both synchronized-output releases. CPU preparation, GPU duration and submission timestamps are available. A foreground run on an unlocked display is still required for receipt-to-presentation latency.
 
+## First iPhone simulator measurement
+
+The clean Release build at `be859d5` drew a 47 × 42 portrait grid with the keyboard hidden on an iPhone 17 simulator running iOS 27.2 (24B8117). The hosted arm64 Mac ran macOS 27.0.1 and exposed three cores. Its one-minute load was 615.79. The simulator reported nominal thermal state and a 16.667 ms display interval. These timings describe one heavily contended run on the host graphics stack. [Hosted job](https://github.com/lostintangent/thrush/actions/runs/45566748815/job/139043292929) · [Saved simulator samples](render-simulator.json)
+
+The new process compiled the embedded Metal shader in 2991.834 ms and submitted its first content 3377.887 ms after view creation.
+
+| Operation | Frames | CPU p95, ms | GPU p95, ms | Glyph uploads | Maximum rows prepared |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold | 1 | 137.024 | 2.795 | 14 | 42 |
+| Cursor | 10 | 0.615 | 2.562 | 0 | 0 |
+| One row | 10 | 1.531 | 6.029 | 0 | 1 |
+| Scroll | 10 | 0.845 | 0.126 | 0 | 1 |
+| Full grid | 10 | 8.788 | 0.227 | 0 | 42 |
+
+All three theme switches preserved the generation and reused every visible row and glyph. There were zero submissions during 1.009 s of foreground idle, 1.029 s with an update pending on the suspended renderer, and 4.079 s between UIKit background and foreground notifications while Settings was open.
+
+Three partial synchronized generations produced zero submissions. The end marker released one frame. A truncated block released its latest generation once through the watchdog after 1001.981 ms, followed by 1.048 s with zero further submissions.
+
+The simulator SDK exposes command-buffer timing but no drawable presentation timestamp. Each of the 41 workload frames has a CPU and GPU measurement. Receipt-to-presentation latency for those frames and both synchronized releases requires a physical iPhone.
+
 ## Native input and echo latency
 
 Build the Release app, then run the same input sequence through its native text responder and a fresh loopback socket.

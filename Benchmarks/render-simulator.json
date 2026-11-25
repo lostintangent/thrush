@@ -1,0 +1,562 @@
+{
+  "background" : {
+    "additionalSubmissions" : 0,
+    "seconds" : 4.0786818333333485
+  },
+  "columns" : 47,
+  "displayIntervalSeconds" : 0.01666666666665151,
+  "environment" : {
+    "commit" : "be859d5af4a5f4603e6aea21645d4ee89ba8bb24",
+    "contended" : true,
+    "coreCount" : 3,
+    "destination" : "iOS Simulator",
+    "hardwareModel" : "iPhone18,3",
+    "loadAverage" : [
+      615.7900390625,
+      350.3896484375,
+      169.7587890625
+    ],
+    "lowPowerMode" : false,
+    "operatingSystem" : "Version 27.2 (Build 24B8117)",
+    "powerSource" : "simulated",
+    "thermalState" : "nominal",
+    "toolchain" : "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
+    "worktreeDirty" : false
+  },
+  "foregroundIdle" : {
+    "additionalSubmissions" : 0,
+    "seconds" : 1.0085991666667269
+  },
+  "inactiveRenderer" : {
+    "additionalSubmissions" : 0,
+    "seconds" : 1.0286880833333498
+  },
+  "recordedAt" : "2026-11-25T07:27:40Z",
+  "rows" : 42,
+  "samples" : [
+    {
+      "cpuPreparationSeconds" : 0.13702412500003902,
+      "firstFrameSeconds" : 3.377886750000016,
+      "generation" : 254,
+      "glyphUploads" : 14,
+      "gpuSeconds" : 0.00279462500009231,
+      "operation" : "cold",
+      "receivedAt" : 632.0609099166668,
+      "rowsPrepared" : 42,
+      "shaderCompileSeconds" : 2.991833708333388,
+      "submittedAt" : 635.1911265833335
+    },
+    {
+      "cpuPreparationSeconds" : 0.0002952916667027239,
+      "generation" : 255,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.0025624999999536158,
+      "operation" : "cursor",
+      "receivedAt" : 635.4269362500002,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.4367970000002
+    },
+    {
+      "cpuPreparationSeconds" : 0.0004092083333944174,
+      "generation" : 257,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.006028666666679783,
+      "operation" : "oneRow",
+      "receivedAt" : 635.4450665416668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.4530831250001
+    },
+    {
+      "cpuPreparationSeconds" : 0.0007613750000246,
+      "generation" : 265,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00011124999991807272,
+      "operation" : "scroll",
+      "receivedAt" : 635.4677657083334,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.4852518750001
+    },
+    {
+      "cpuPreparationSeconds" : 0.00878837499999463,
+      "generation" : 518,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00014416666658689792,
+      "operation" : "full",
+      "receivedAt" : 635.4932383750001,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.5097739583334
+    },
+    {
+      "cpuPreparationSeconds" : 0.0005700416667195896,
+      "generation" : 519,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.512499990345532e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.5163425416669,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.5186626666668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0006197499999416323,
+      "generation" : 521,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.458333339447563e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.5292093333335,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.5348402916668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0006185833333347546,
+      "generation" : 529,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.812500003481546e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.5410393333335,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.5515880000002
+    },
+    {
+      "cpuPreparationSeconds" : 0.006595083333309049,
+      "generation" : 782,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00011795833324867999,
+      "operation" : "full",
+      "receivedAt" : 635.5543170000001,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.5743228333334
+    },
+    {
+      "cpuPreparationSeconds" : 0.0003340416667469981,
+      "generation" : 783,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 7.054166667330719e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.5810197083334,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.5844715000002
+    },
+    {
+      "cpuPreparationSeconds" : 0.0005716666665875891,
+      "generation" : 785,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.1125000027241185e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.5869307916668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.6017696250001
+    },
+    {
+      "cpuPreparationSeconds" : 0.0004934999999477441,
+      "generation" : 793,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.541666666886158e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.6128937083334,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.6180180000001
+    },
+    {
+      "cpuPreparationSeconds" : 0.007819499999982327,
+      "generation" : 1046,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.0001535000000103537,
+      "operation" : "full",
+      "receivedAt" : 635.6248911666668,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.6421157916668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0006152916666906094,
+      "generation" : 1047,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 7.587499999317515e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.6489887500002,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.6517057916668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0005955000000312793,
+      "generation" : 1049,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.1125000027241185e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.6610101666668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.6681136250002
+    },
+    {
+      "cpuPreparationSeconds" : 0.0004369999999198626,
+      "generation" : 1057,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.3833333279508224e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.6735214583334,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.6845585000001
+    },
+    {
+      "cpuPreparationSeconds" : 0.0054671666666763485,
+      "generation" : 1310,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 9.037500001340959e-05,
+      "operation" : "full",
+      "receivedAt" : 635.6930136666668,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.7062179583335
+    },
+    {
+      "cpuPreparationSeconds" : 0.00029295833337528165,
+      "generation" : 1311,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.424999992304947e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.7131242083335,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.7179022916669
+    },
+    {
+      "cpuPreparationSeconds" : 0.000811375000012049,
+      "generation" : 1313,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 9.799999997994746e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.7248198750001,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.7351222083335
+    },
+    {
+      "cpuPreparationSeconds" : 0.000830791666658115,
+      "generation" : 1321,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.833333343867707e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.7376302916668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.7519905416668
+    },
+    {
+      "cpuPreparationSeconds" : 0.00562400000001162,
+      "generation" : 1574,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 9.575000001404987e-05,
+      "operation" : "full",
+      "receivedAt" : 635.7579297083334,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.7731237083335
+    },
+    {
+      "cpuPreparationSeconds" : 0.00036224999996647966,
+      "generation" : 1575,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.833333327449509e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.7797971666668,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.7844632500002
+    },
+    {
+      "cpuPreparationSeconds" : 0.001530624999986685,
+      "generation" : 1577,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.087500003104651e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.7916656666669,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.8038334583334
+    },
+    {
+      "cpuPreparationSeconds" : 0.0007468333333235933,
+      "generation" : 1585,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00012633333335543284,
+      "operation" : "scroll",
+      "receivedAt" : 635.8115262916668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.8185776666668
+    },
+    {
+      "cpuPreparationSeconds" : 0.004920624999954271,
+      "generation" : 1838,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00011462500003744935,
+      "operation" : "full",
+      "receivedAt" : 635.8255420833335,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.8392138333335
+    },
+    {
+      "cpuPreparationSeconds" : 0.000434749999953965,
+      "generation" : 1839,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 7.516666664741933e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.8452692500001,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.8512602500001
+    },
+    {
+      "cpuPreparationSeconds" : 0.0006440833333272167,
+      "generation" : 1841,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.291666670676932e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.8584444166668,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.8681035416668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0007691666667142272,
+      "generation" : 1849,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.699999996977567e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.8714657083335,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.8852933750002
+    },
+    {
+      "cpuPreparationSeconds" : 0.006193249999910222,
+      "generation" : 2102,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00010241666666388483,
+      "operation" : "full",
+      "receivedAt" : 635.8918485833335,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.9070911666668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0003646249999746942,
+      "generation" : 2103,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.225000004178582e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.9136407916668,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.9180147500001
+    },
+    {
+      "cpuPreparationSeconds" : 0.0008127499999091015,
+      "generation" : 2105,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00010362499995153485,
+      "operation" : "oneRow",
+      "receivedAt" : 635.9203696250001,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.9350924583334
+    },
+    {
+      "cpuPreparationSeconds" : 0.00042833333327507717,
+      "generation" : 2113,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.325000003926107e-05,
+      "operation" : "scroll",
+      "receivedAt" : 635.9399863333334,
+      "rowsPrepared" : 1,
+      "submittedAt" : 635.9512054166668
+    },
+    {
+      "cpuPreparationSeconds" : 0.005281083333329661,
+      "generation" : 2366,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00012320833332069014,
+      "operation" : "full",
+      "receivedAt" : 635.9571898750002,
+      "rowsPrepared" : 42,
+      "submittedAt" : 635.9727640833335
+    },
+    {
+      "cpuPreparationSeconds" : 0.00028104166665343655,
+      "generation" : 2367,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 6.695833337744261e-05,
+      "operation" : "cursor",
+      "receivedAt" : 635.9785672083335,
+      "rowsPrepared" : 0,
+      "submittedAt" : 635.9888477500001
+    },
+    {
+      "cpuPreparationSeconds" : 0.000816708333331917,
+      "generation" : 2369,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.695833331425092e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 635.9945708750001,
+      "rowsPrepared" : 1,
+      "submittedAt" : 636.0018469583334
+    },
+    {
+      "cpuPreparationSeconds" : 0.0008447916666227684,
+      "generation" : 2377,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.9208333254900936e-05,
+      "operation" : "scroll",
+      "receivedAt" : 636.0059282500001,
+      "rowsPrepared" : 1,
+      "submittedAt" : 636.0186695833335
+    },
+    {
+      "cpuPreparationSeconds" : 0.007150833333412265,
+      "generation" : 2630,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00010224999994079553,
+      "operation" : "full",
+      "receivedAt" : 636.0255247083335,
+      "rowsPrepared" : 42,
+      "submittedAt" : 636.0414970416668
+    },
+    {
+      "cpuPreparationSeconds" : 0.0006031666665649027,
+      "generation" : 2631,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.6749999910389306e-05,
+      "operation" : "cursor",
+      "receivedAt" : 636.0484084166668,
+      "rowsPrepared" : 0,
+      "submittedAt" : 636.0517278333334
+    },
+    {
+      "cpuPreparationSeconds" : 0.0004278750000139553,
+      "generation" : 2633,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 5.124999995587132e-05,
+      "operation" : "oneRow",
+      "receivedAt" : 636.0607252500001,
+      "rowsPrepared" : 1,
+      "submittedAt" : 636.0678535833334
+    },
+    {
+      "cpuPreparationSeconds" : 0.00044108333338499506,
+      "generation" : 2641,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 4.2416666701683425e-05,
+      "operation" : "scroll",
+      "receivedAt" : 636.0889513750002,
+      "rowsPrepared" : 1,
+      "submittedAt" : 636.1012359583335
+    },
+    {
+      "cpuPreparationSeconds" : 0.008660791666670775,
+      "generation" : 2894,
+      "glyphUploads" : 0,
+      "gpuSeconds" : 0.00022737500000857835,
+      "operation" : "full",
+      "receivedAt" : 636.1484852500001,
+      "rowsPrepared" : 42,
+      "submittedAt" : 636.1597661250001
+    }
+  ],
+  "schemaVersion" : 3,
+  "synchronizedOutput" : {
+    "close" : {
+      "expectedGeneration" : 2915,
+      "generation" : 2915,
+      "receivedAt" : 652.9693073750002,
+      "submissions" : 1,
+      "submittedAt" : 652.9732845000001
+    },
+    "heldGenerations" : [
+      2904,
+      2907,
+      2911
+    ],
+    "holdOpenedAt" : 652.8609158333335,
+    "idle" : {
+      "additionalSubmissions" : 0,
+      "seconds" : 1.047607166666694
+    },
+    "submissionsDuringHold" : 0,
+    "truncatedOpenedAt" : 652.9854699166668,
+    "watchdog" : {
+      "expectedGeneration" : 2922,
+      "generation" : 2922,
+      "receivedAt" : 653.0377190000002,
+      "submissions" : 1,
+      "submittedAt" : 653.9874513750001
+    },
+    "watchdogToSubmissionSeconds" : 1.0019814583332618,
+    "workloadSHA256" : "80e645c41420410ce46081545eab18886dbe883f0942c9051b0832fe4fb817a4"
+  },
+  "themeSwitches" : [
+    {
+      "generation" : 2894,
+      "glyphUploads" : 0,
+      "rowsPrepared" : 0,
+      "submittedAt" : 636.1888370000001,
+      "theme" : "Slate Dark"
+    },
+    {
+      "generation" : 2894,
+      "glyphUploads" : 0,
+      "rowsPrepared" : 0,
+      "submittedAt" : 636.2024877500002,
+      "theme" : "Slate Light"
+    },
+    {
+      "generation" : 2894,
+      "glyphUploads" : 0,
+      "rowsPrepared" : 0,
+      "submittedAt" : 636.2188739583335,
+      "theme" : "Custom"
+    }
+  ],
+  "workloadSHA256" : "d19f0f198748497b4cda5882d08a08f28c9e1169dd3196cfe70ee2504d3dbdae",
+  "workloads" : [
+    {
+      "cpuP50Milliseconds" : 137.02412500003902,
+      "cpuP95Milliseconds" : 137.02412500003902,
+      "frames" : 1,
+      "glyphUploads" : 14,
+      "gpuP95Milliseconds" : 2.79462500009231,
+      "maximumRowsPrepared" : 42,
+      "operation" : "cold",
+      "overTwoDisplayIntervals" : 0,
+      "unpresented" : 1
+    },
+    {
+      "cpuP50Milliseconds" : 0.36224999996647966,
+      "cpuP95Milliseconds" : 0.6152916666906094,
+      "frames" : 10,
+      "glyphUploads" : 0,
+      "gpuP95Milliseconds" : 2.5624999999536158,
+      "maximumRowsPrepared" : 0,
+      "operation" : "cursor",
+      "overTwoDisplayIntervals" : 0,
+      "unpresented" : 10
+    },
+    {
+      "cpuP50Milliseconds" : 0.6197499999416323,
+      "cpuP95Milliseconds" : 1.530624999986685,
+      "frames" : 10,
+      "glyphUploads" : 0,
+      "gpuP95Milliseconds" : 6.028666666679783,
+      "maximumRowsPrepared" : 1,
+      "operation" : "oneRow",
+      "overTwoDisplayIntervals" : 0,
+      "unpresented" : 10
+    },
+    {
+      "cpuP50Milliseconds" : 0.6185833333347546,
+      "cpuP95Milliseconds" : 0.8447916666227684,
+      "frames" : 10,
+      "glyphUploads" : 0,
+      "gpuP95Milliseconds" : 0.12633333335543284,
+      "maximumRowsPrepared" : 1,
+      "operation" : "scroll",
+      "overTwoDisplayIntervals" : 0,
+      "unpresented" : 10
+    },
+    {
+      "cpuP50Milliseconds" : 6.193249999910222,
+      "cpuP95Milliseconds" : 8.78837499999463,
+      "frames" : 10,
+      "glyphUploads" : 0,
+      "gpuP95Milliseconds" : 0.22737500000857835,
+      "maximumRowsPrepared" : 42,
+      "operation" : "full",
+      "overTwoDisplayIntervals" : 0,
+      "unpresented" : 10
+    }
+  ]
+}
