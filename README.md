@@ -31,7 +31,7 @@ TerminalPane(session)
 
 The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and handles focus, selection, copying and scrolling through history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background.
 
-On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the pane keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes.
+On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the pane keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. VoiceOver announces a sustained reconnect and lets the user know when the shell ends.
 
 An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row of Esc, Ctrl, Tab and arrow keys above the keyboard. Each argument after the session is optional.
 

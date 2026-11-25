@@ -12,7 +12,6 @@ import AppKit
         isDisplayedWhenStopped = true
         setAccessibilityElement(true)
         setAccessibilityIdentifier("terminal.cursorSpinner")
-        setAccessibilityLabel("Connecting")
     }
 
     required init?(coder: NSCoder) { nil }
@@ -42,7 +41,6 @@ import UIKit
         isUserInteractionEnabled = false
         isAccessibilityElement = true
         accessibilityIdentifier = "terminal.cursorSpinner"
-        accessibilityLabel = "Connecting"
     }
 
     required init(coder: NSCoder) { super.init(coder: coder) }

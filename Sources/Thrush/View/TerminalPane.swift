@@ -87,8 +87,13 @@ import ThrushCore
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
         private var spinnerDelay: Task<Void, Never>?
+        private var announcedReconnect = false
         private var phase = Phase.initial {
-            didSet { if phase != oldValue { updateSpinner() } }
+            didSet {
+                guard phase != oldValue else { return }
+                if phase != .reconnecting { announcedReconnect = false }
+                updateSpinner()
+            }
         }
         private var hasScreen = false
         private var size: Terminal.Size?
@@ -300,7 +305,7 @@ import ThrushCore
                 if phase != .live { becomeLive() }
                 if let time { pane?.onOutput?(screen.generation, time) }
             case .reconnecting:
-                phase = .reconnecting
+                phase = hasScreen ? .reconnecting : .connecting
                 view?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
             case .displaced:
                 phase = .displaced
@@ -323,6 +328,7 @@ import ThrushCore
         private func finishExit(_ final: Terminal.Snapshot, stamp: UInt64) async {
             guard epoch == stamp, active, !deliveredExit, finishingExitStamp != stamp else { return }
             finishingExitStamp = stamp
+            let announceEnd = phase != .initial && phase != .exited
             phase = .exited
             view?.onDisplacedTap = nil
             defer { if finishingExitStamp == stamp { finishingExitStamp = nil } }
@@ -333,6 +339,7 @@ import ThrushCore
             deliveredExit = true
             hasScreen = true
             view?.setInputAvailability(.blocked, dismissKeyboard: true)
+            if announceEnd { view?.announce("Shell ended") }
         }
 
         private func becomeLive() {
@@ -342,17 +349,22 @@ import ThrushCore
         }
 
         private func updateSpinner() {
+            spinnerDelay?.cancel()
+            spinnerDelay = nil
             guard drawingVisible, phase == .connecting || phase == .reconnecting else {
-                spinnerDelay?.cancel()
-                spinnerDelay = nil
-                view?.setWaiting(false)
+                view?.setWaiting(nil)
                 return
             }
-            // Most attachments finish before an indicator would be useful.
-            guard spinnerDelay == nil else { return }
+            // Most attachments finish before an indicator or announcement would be useful.
             spinnerDelay = Task { [weak self] in
                 do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
-                self?.view?.setWaiting(true)
+                guard let self else { return }
+                let reconnecting = phase == .reconnecting
+                view?.setWaiting(reconnecting ? "Reconnecting" : "Connecting")
+                if reconnecting, !announcedReconnect {
+                    announcedReconnect = true
+                    view?.announce("Reconnecting")
+                }
             }
         }
     }

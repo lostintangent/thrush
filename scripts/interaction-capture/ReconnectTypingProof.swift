@@ -26,6 +26,7 @@ import XCTest
         try await post("interrupt")
         let spinner = app.descendants(matching: .any)["terminal.cursorSpinner"]
         XCTAssertTrue(spinner.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(spinner.label, "Reconnecting")
         XCTAssertEqual(keyboard.frame, initial)
         try tap(" status")
         XCTAssertTrue(live.exists, "The old transcript must stay still while the shell is unavailable.")

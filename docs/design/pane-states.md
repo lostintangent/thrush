@@ -4,7 +4,7 @@ A `TerminalSession` belongs to one shell. The app keeps it when a tab moves out 
 
 ## Opening and reconnecting
 
-A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Keep the grid, selection, scroll position and keyboard focus in place. The spinner leaves the grid and copied terminal text unchanged. Respect Reduce Motion and keep VoiceOver’s reading position on the terminal.
+A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Show the spinner after 200 ms. It stays still with Reduce Motion and is labeled “Connecting” or “Reconnecting” for VoiceOver. Announce “Reconnecting” once when an interruption reaches that delay. Keep the grid, selection, keyboard focus and VoiceOver reading position in place.
 
 During an ordinary reconnect, hold committed text, paste and keys in order. IME preedit stays local. After `ready(resumed: true)`, wait for the binary replay to restore the shell’s input modes, then send held input once. The restored shell controls what appears as echo.
 
@@ -14,7 +14,7 @@ When another WebSocket attachment takes ownership, keep the last screen and stop
 
 ## The shell ends
 
-Apply the last output before reporting exit. If a reconnect receives fresh ready, discard held input, detach from the replacement shell and retain the previous shell’s screen. In either case the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane displays no lifecycle message, adds no action buttons and makes no lifecycle announcements.
+Apply the last output before reporting exit. If a reconnect receives fresh ready, discard held input, detach from the replacement shell and retain the previous shell’s screen. In either case the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
 
 ## In-band replay
 

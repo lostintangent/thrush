@@ -434,7 +434,8 @@ class Phone:
             second = capture(not first_waits)
             (wait_image, waiting), (live_image, live) = (first, second) if first_waits else (second, first)
             row, column = (0, 0) if first_waits else (8, len("~/thrush % "))
-            checks[scene] = proof["measure"](wait_image, waiting, options.appearance, row, column)
+            label = "Connecting" if first_waits else "Reconnecting"
+            checks[scene] = proof["measure"](wait_image, waiting, options.appearance, row, column, label)
             checks[scene].update(proof["compare"](wait_image, waiting, live_image, live, options.appearance))
             if toolbar:
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["check"](
