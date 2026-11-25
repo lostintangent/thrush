@@ -2,7 +2,7 @@
 
 # Thrush
 
-Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no dependencies turns PTY output into a screen, one Metal renderer draws it on both platforms, and native text input, selection, the pasteboard and VoiceOver handle everything a person does with it. [Toy Box](https://github.com/lostintangent/toy-box) uses Thrush to bring its shells to its Mac and iPhone apps.
+Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no dependencies turns PTY output into a screen, one Metal renderer draws it on both platforms, and native text input, selection, the pasteboard and VoiceOver handle everything a person does with it. An app points it at any server that speaks Thrush's small WebSocket protocol. [Toy Box](https://github.com/lostintangent/toy-box) is the first app to use it, bringing its shells to Mac and iPhone.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/thrush-dark.png">
