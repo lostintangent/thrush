@@ -55,7 +55,7 @@ def ghostty(work):
 
 
 def provenance(app, requirement):
-    run("codesign", "--verify", "--strict", "-R", requirement, app)
+    run("codesign", "--verify", "--strict", "-R", "=" + requirement, app)
     info = bundle(app)
     return {"path": str(app), "version": info["CFBundleShortVersionString"], "build": info["CFBundleVersion"],
             "bundleID": info["CFBundleIdentifier"], "codeSignature": run("codesign", "-dv", "--verbose=4", app)}
@@ -91,8 +91,8 @@ def capture(app, mode, out, work, recorder, fixture):
         wait(out / "terminal.json", out, 35)
         info = json.loads((out / "terminal.json").read_text())
         pid = info["appPID"]
-        if mode == "recorded-oshen" and (info["columns"], info["rows"]) != (fixture["columns"], fixture["rows"]):
-            raise ValueError(f"recorded geometry mismatch: {info}, wanted {fixture['columns']}x{fixture['rows']}")
+        if info["columns"] < len("thrush$ clear") or fixture["historyLines"] - info["rows"] < 1:
+            raise ValueError(f"native grid cannot show the prompt or retain seed history: {info}")
         with (out / "recorder.log").open("w") as log:
             movie = subprocess.Popen([recorder, str(pid), out / "window.mov", out / "ready", out / "stop"],
                                      stdout=log, stderr=log,
@@ -132,21 +132,24 @@ def main():
         recorder = work / "record-window"
         run("xcrun", "swiftc", "-O", HERE / "record-window.swift", "-o", recorder, timeout=120)
         terminal = Path("/System/Applications/Utilities/Terminal.app")
-        other, source = ghostty(work)
-        ghost_signature = (f'identifier "com.mitchellh.ghostty" and anchor apple generic '
-                           f'and certificate leaf[subject.OU] = "{GHOSTTY_TEAM}"')
-        apps = {"terminal": provenance(terminal, 'identifier "com.apple.Terminal" and anchor apple'),
-                "ghostty": dict(provenance(other, ghost_signature), **source)}
-        if apps["ghostty"]["version"] != GHOSTTY_VERSION:
-            raise ValueError("unexpected Ghostty bundle version")
-        (out / "reference.json").write_text(json.dumps({
-            "macOS": run("sw_vers"), "apps": apps, "fixtureSHA256": hashlib.sha256(FIXTURE.read_bytes()).hexdigest(),
-            "recorded": "Exact Oshen output reads with original within-phase timing. Inter-phase pauses are scripted.",
-            "live": "Scripted input on the child PTY; actual zsh, system clear, window, and renderer."
-        }, indent=2))
-        for app in [terminal, other]:
+        report = {"macOS": run("sw_vers"), "apps": {}, "fixtureSHA256": hashlib.sha256(FIXTURE.read_bytes()).hexdigest(),
+                  "recorded": "Exact Oshen output reads with original within-phase timing. Inter-phase pauses are scripted.",
+                  "live": "Scripted input on the child PTY; actual zsh, system clear, window, and renderer."}
+        for name in ["terminal", "ghostty"]:
+            if name == "terminal":
+                app = terminal
+                details = provenance(app, 'identifier "com.apple.Terminal" and anchor apple')
+            else:
+                app, source = ghostty(work)
+                requirement = (f'identifier "com.mitchellh.ghostty" and anchor apple generic '
+                               f'and certificate leaf[subject.OU] = "{GHOSTTY_TEAM}"')
+                details = dict(provenance(app, requirement), **source)
+                if details["version"] != GHOSTTY_VERSION:
+                    raise ValueError("unexpected Ghostty bundle version")
+            report["apps"][name] = details
+            (out / "reference.json").write_text(json.dumps(report, indent=2))
             for mode in ["recorded-oshen", "live-zsh"]:
-                capture(app, mode, out / f"{app.stem.lower()}-{mode}", work, recorder, fixture)
+                capture(app, mode, out / f"{name}-{mode}", work, recorder, fixture)
 
 
 if __name__ == "__main__":

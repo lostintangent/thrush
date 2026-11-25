@@ -30,6 +30,12 @@ def wait_file(path, timeout):
         time.sleep(0.02)
 
 
+def publish_json(path, value):
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps(value, indent=2))
+    temp.replace(path)
+
+
 def native_pid(app):
     pid = os.getpid()
     while pid > 1:
@@ -132,7 +138,7 @@ def main():
     try:
         tty.setraw(0)
         write_all(1, b"\x1b]0;Thrush Clear Reference\x07\x1b[3J\x1b[H\x1b[2J")
-        (out / "terminal.json").write_text(json.dumps(info, indent=2))
+        publish_json(out / "terminal.json", info)
         wait_file(out / "go", 60)
         ticks = time.monotonic_ns()
         with (out / "pty.jsonl").open("w", buffering=1) as log:
@@ -142,7 +148,7 @@ def main():
                                       "base64": base64.b64encode(chunk).decode()}) + "\n")
 
             result = replay(fixture, record) if mode == "recorded-oshen" else live(fixture, record, size)
-        (out / "result.json").write_text(json.dumps(dict(info, **result), indent=2))
+        publish_json(out / "result.json", dict(info, **result))
         wait_file(out / "release", 35)
     finally:
         termios.tcsetattr(0, termios.TCSANOW, original)
