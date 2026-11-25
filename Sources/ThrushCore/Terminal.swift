@@ -77,9 +77,31 @@ public struct Terminal: Sendable {
 
     /// Creates a terminal with a blank normal screen and the host theme's colors.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
+        self.init(screen: Screen(size: size), palette: palette, cursorColor: cursorColor)
+    }
+
+    private init(screen: Screen, palette: Palette, cursorColor: RGB) {
+        self.screen = screen
         self.palette = palette
         self.cursorColor = cursorColor
-        screen = Screen(size: size)
+    }
+
+    /// Starts a replacement shell at the top of a blank grid, with the previous main screen in history.
+    package mutating func startNewShell(at size: Size) {
+        restart(at: size, includingCurrentShell: true)
+    }
+
+    /// A replay supplies the current shell's history and screen. Earlier shells belong to this host.
+    package mutating func prepareForReplay(at size: Size) {
+        restart(at: size, includingCurrentShell: false)
+    }
+
+    private mutating func restart(at size: Size, includingCurrentShell: Bool) {
+        let nextScreen = screen.startingShell(at: size, includingCurrentShell: includingCurrentShell)
+        var next = Self(screen: nextScreen, palette: palette, cursorColor: cursorColor)
+        next.isFocused = isFocused
+        next.generation = generation &+ 1
+        self = next
     }
 
     /// Applies a chunk of shell output and returns any replies to send back to the shell.

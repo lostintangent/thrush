@@ -3,6 +3,37 @@
 
 extension Terminal.Buffer {
     mutating func resize(to newSize: Terminal.Size, revision: inout UInt64) {
+        let archived = history.previousShellCount
+        guard archived > 0 else {
+            resizeCurrentShell(to: newSize, revision: &revision)
+            return
+        }
+        // The new program can draw only on its own screen. A taller viewport must never
+        // pull an older shell's lines into it, even when the cursor is at the bottom.
+        let earlier = history.retainingPreviousShells()
+        history = Terminal.History(history.dropFirst(archived))
+        let oldColumns = size.columns
+        resizeCurrentShell(to: newSize, revision: &revision)
+        prependPreviousShells(earlier, fromColumns: oldColumns, revision: &revision)
+    }
+
+    mutating func prependPreviousShells(_ earlier: Terminal.History, fromColumns columns: Int,
+                                        revision: inout UInt64) {
+        guard !earlier.isEmpty else { return }
+        var combined = earlier
+        if columns != size.columns {
+            // A blank live row leaves every line of the old transcript eligible for reflow.
+            var transcript = Self(size: .init(columns: columns, rows: 1))
+            transcript.history = earlier
+            transcript.resizeCurrentShell(to: .init(columns: size.columns, rows: 1), revision: &revision)
+            combined = transcript.history
+        }
+        combined.markPreviousShells()
+        for var row in history { combined.append(&row) }
+        history = combined
+    }
+
+    private mutating func resizeCurrentShell(to newSize: Terminal.Size, revision: inout UInt64) {
         let generation = revision
         let oldSize = size
         let blank = Terminal.Row(columns: newSize.columns, generation: generation)
