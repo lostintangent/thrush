@@ -195,6 +195,8 @@ def check_images(out):
                 raise ValueError(f"{path.name} has insufficient Slate terminal background.")
             if template.startswith(("word-", "line-")) and capture.count("selection") < 100:
                 raise ValueError(f"{path.name} lacks the Metal selection.")
+            if template.endswith("-landscape") and capture.count("passed") < 16:
+                raise ValueError(f"{path.name} lost the green shell checks above the prompt during rotation.")
         run_logged([sys.executable, ROOT / "scripts/check-demo-capture.py", out / f"shell-{appearance}-portrait.png",
                     "shell", appearance], out / f"shell-{appearance}-pixels.log", 80)
 
