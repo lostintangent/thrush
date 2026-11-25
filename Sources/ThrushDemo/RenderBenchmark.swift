@@ -26,6 +26,8 @@ enum RenderBenchmark {
         let submittedAt: Double
         let presentedTime: Double?
         let cpuPreparationSeconds: Double
+        let shaderCompileSeconds: Double?
+        let firstFrameSeconds: Double?
         let gpuSeconds: Double?
         let glyphUploads: Int
         let rowsPrepared: Int
@@ -61,7 +63,7 @@ enum RenderBenchmark {
     }
 
     private struct Report: Encodable {
-        let schemaVersion = 1
+        let schemaVersion = 2
         let recordedAt: Date
         let workloadSHA256: String
         let environment: RenderEnvironment
@@ -106,8 +108,6 @@ enum RenderBenchmark {
         throw Failure("Build the packaged demo in Release to measure rendering.")
         #else
         guard size.columns >= 24, size.rows >= 2 else { throw Failure("Render benchmark needs at least 24 × 2.") }
-        let interval = try await DisplayInterval.measure(on: view)
-        let environment = RenderEnvironment()
         let collector = FrameCollector(view: view, size: size)
         let previousCallback = view.onFrame
         view.onFrame = { frame in collector.receive(frame) }
@@ -118,6 +118,8 @@ enum RenderBenchmark {
         let line = "\u{1b}[36mA翼🐦Z\u{1b}[0m 0123456789"
         let full = (1...size.rows).map { "\u{1b}[\($0);1H" + line }.joined() + "\u{1b}[1;1H"
         try await collector.apply("\u{1b}[?12l" + full, as: "cold")
+        let interval = try await DisplayInterval.measure(on: view)
+        let environment = RenderEnvironment()
         let first = collector.terminal.snapshot().rows[0]
         guard first[0].text == "A", first[1].text == "翼", first[1].width == 2, first[2].width == 0,
               first[3].text == "🐦", first[3].width == 2, first[4].width == 0, first[5].text == "Z"
@@ -199,6 +201,9 @@ enum RenderBenchmark {
         for work in workloads {
             print("\(work.operation)   \(work.frames)   \(milliseconds(work.cpuP95Milliseconds))   \(milliseconds(work.gpuP95Milliseconds))   \(milliseconds(work.receiptToPresentationP95Milliseconds))   \(work.glyphUploads)   \(work.maximumRowsPrepared)")
         }
+        if let compile = samples.first?.shaderCompileSeconds, let first = samples.first?.firstFrameSeconds {
+            print(String(format: "Runtime shader compile %.3f ms   first content submission %.3f ms", compile * 1_000, first * 1_000))
+        }
         print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)")
         if let background { print("Additional submissions   background \(background.additionalSubmissions)") }
         print("Report \(reportURL.path)")
@@ -268,7 +273,9 @@ enum RenderBenchmark {
             }
             samples.append(Sample(operation: operation, generation: expected, receivedAt: receipt,
                                   submittedAt: frame.submittedAt, presentedTime: frame.presentedTime,
-                                  cpuPreparationSeconds: frame.cpuPreparationSeconds, gpuSeconds: frame.gpuSeconds,
+                                  cpuPreparationSeconds: frame.cpuPreparationSeconds,
+                                  shaderCompileSeconds: frame.shaderCompileSeconds, firstFrameSeconds: frame.firstFrameSeconds,
+                                  gpuSeconds: frame.gpuSeconds,
                                   glyphUploads: frame.glyphUploads, rowsPrepared: frame.rowsPrepared))
         }
     }

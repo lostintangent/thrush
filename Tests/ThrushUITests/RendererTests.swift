@@ -43,9 +43,10 @@ private struct OffscreenTerminal {
     let renderer: MetalRenderer
     let view: TerminalView
 
-    init() throws {
+    init() async throws {
         device = try #require(MTLCreateSystemDefaultDevice())
-        renderer = try MetalRenderer(device: device)
+        let program = try await ShaderPipelines.shared.pipeline(for: device)
+        renderer = try MetalRenderer(device: device, pipeline: program)
         view = TerminalView(frame: .zero, device: device)
     }
 
@@ -92,7 +93,7 @@ private let escape = "\u{1b}["
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
-func livePaletteChangesRecolorCachedRows() throws {
+func livePaletteChangesRecolorCachedRows() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     // Text, normal red background, direct RGB background, xterm color-cube background.
     let transcript = "H" + escape + "41m " + escape + "48;2;22;53;84m " + escape + "48;5;196m "
@@ -103,7 +104,7 @@ func livePaletteChangesRecolorCachedRows() throws {
     ansi[1] = .init(red: 4, green: 180, blue: 140)
     custom.palette = .init(foreground: .init(red: 255, green: 224, blue: 36),
                            background: .init(red: 10, green: 12, blue: 14), ansi: ansi)
-    let host = try OffscreenTerminal()
+    let host = try await OffscreenTerminal()
     let dark = try host.draw(screen, theme: .slateDark)
     #expect(dark.rowsPrepared > 0 && dark.uploads == 1)
     #expect(dark[0, 0] == 0x131d27)
@@ -124,8 +125,8 @@ func livePaletteChangesRecolorCachedRows() throws {
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
-func wideCellsAndSelectionCoverTheirPhysicalColumns() throws {
-    let host = try OffscreenTerminal()
+func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
+    let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     _ = terminal.receive("A翼🐦Z".utf8)
     let snapshot = terminal.snapshot()
@@ -164,8 +165,8 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() throws {
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
-func cursorShapeMovesWithItsSnapshot() throws {
-    let host = try OffscreenTerminal()
+func cursorShapeMovesWithItsSnapshot() async throws {
+    let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     var theme = TerminalTheme.slateDark
     theme.cursor = .init(red: 130, green: 32, blue: 48)
@@ -204,8 +205,8 @@ func cursorShapeMovesWithItsSnapshot() throws {
 #if os(macOS)
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
-func nativeAppearanceYieldsToAHostOverride() throws {
-    let host = try OffscreenTerminal()
+func nativeAppearanceYieldsToAHostOverride() async throws {
+    let host = try await OffscreenTerminal()
     let light = try #require(NSAppearance(named: .aqua))
     let dark = try #require(NSAppearance(named: .darkAqua))
     #expect(host.view.theme == nil)
@@ -227,3 +228,16 @@ func nativeAppearanceYieldsToAHostOverride() throws {
     #expect(host.view.resolvedTheme == .slateDark)
 }
 #endif
+
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func simultaneousViewsShareTheDevicePipeline() async throws {
+    let device = try #require(MTLCreateSystemDefaultDevice())
+    let cache = ShaderPipelines()
+    async let first = cache.pipeline(for: device)
+    async let next = cache.pipeline(for: device)
+    let (a, b) = try await (first, next)
+    let warmed = try await cache.pipeline(for: device)
+    #expect(a.state === b.state && b.state === warmed.state)
+    #expect(a.startedAt == warmed.startedAt)
+    #expect(a.compileSeconds > 0)
+}

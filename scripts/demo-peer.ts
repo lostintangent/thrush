@@ -7,10 +7,10 @@ import vimFixture from "../Fixtures/replays/vim-edit.json";
 const esc = "\x1b[";
 const reset = esc + "0m";
 const prompt = esc + "36m~/thrush" + reset + " " + esc + "90m%" + reset + " ";
-const colors = { compile: 94, metal: 33, link: 35, check: 32 };
+const colors = { compile: 94, link: 35, check: 32 };
 const steps = [
     ["compile", "Terminal.swift"], ["compile", "Screen.swift"], ["compile", "Input.swift"],
-    ["compile", "TerminalView.swift"], ["compile", "GlyphAtlas.swift"], ["metal", "Terminal.metal"],
+    ["compile", "TerminalView.swift"], ["compile", "GlyphAtlas.swift"], ["compile", "ShaderPipeline.swift"],
     ["link", "ThrushDemo"], ["check", "prompt and reply"], ["check", "cursor keys"],
     ["check", "wide text  翼 🐦"], ["check", "soft wraps"], ["check", "selection and copy"],
 ] as const;

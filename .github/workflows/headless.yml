@@ -21,6 +21,10 @@ jobs:
         run: |
           swift build
           swift test
+      - name: Build the standalone Mac and iPhone Simulator apps
+        run: |
+          scripts/build-demo.sh mac
+          scripts/build-demo.sh simulator
       - name: Check core imports and package dependencies
         run: scripts/check-core.sh
       - name: Build the independent consumer and inspect linkage

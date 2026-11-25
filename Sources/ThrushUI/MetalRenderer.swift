@@ -3,7 +3,7 @@ import MetalKit
 import Thrush
 
 enum RendererFailure: Error {
-    case missingShader, allocation, missingEncoder
+    case allocation, missingEncoder
 }
 
 @MainActor
@@ -23,7 +23,7 @@ final class MetalRenderer {
     private var priorSize: Terminal.Size?
     private var priorBase: Bool?
 
-    init(device: any MTLDevice) throws {
+    init(device: any MTLDevice, pipeline: ShaderPipeline) throws {
         self.device = device
         guard let queue = device.makeCommandQueue(),
               let solid = device.makeTexture(descriptor: .texture2DDescriptor(pixelFormat: .rgba8Unorm,
@@ -31,21 +31,7 @@ final class MetalRenderer {
         else { throw RendererFailure.allocation }
         self.queue = queue
         self.solid = solid
-        guard let libraryURL = Bundle.module.url(forResource: "default", withExtension: "metallib")
-        else { throw RendererFailure.missingShader }
-        let lib = try device.makeLibrary(URL: libraryURL)
-        let desc = MTLRenderPipelineDescriptor()
-        desc.label = "Thrush cell grid"
-        desc.vertexFunction = lib.makeFunction(name: "terminalVertex")
-        desc.fragmentFunction = lib.makeFunction(name: "terminalFragment")
-        let color = desc.colorAttachments[0]!
-        color.pixelFormat = .bgra8Unorm
-        color.isBlendingEnabled = true
-        color.sourceRGBBlendFactor = .one
-        color.destinationRGBBlendFactor = .oneMinusSourceAlpha
-        color.sourceAlphaBlendFactor = .one
-        color.destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        pipeline = try device.makeRenderPipelineState(descriptor: desc)
+        self.pipeline = pipeline.state
     }
 
     func discardGeometry() { cached.removeAll() }

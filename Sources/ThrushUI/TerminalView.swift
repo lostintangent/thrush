@@ -5,6 +5,8 @@ import Thrush
 package struct FrameMeasurement: Sendable {
     package let generation: UInt64
     package let cpuPreparationSeconds: Double
+    package let shaderCompileSeconds: Double?
+    package let firstFrameSeconds: Double?
     package let gpuSeconds: Double?
     package let presentedTime: Double?
     package let receivedAt: Double?
@@ -16,6 +18,7 @@ package struct FrameMeasurement: Sendable {
 @MainActor
 private final class Presentation {
     let cpu: Double, submitted: Double
+    let shaderCompile: Double?, firstFrame: Double?
     let received: Double?
     let generation: UInt64
     let uploads: Int, rows: Int
@@ -26,8 +29,10 @@ private final class Presentation {
     var presentationKnown = false
     var delivered = false
 
-    init(cpu: Double, submitted: Double, received: Double?, generation: UInt64, uploads: Int, rows: Int,
+    init(cpu: Double, shaderCompile: Double?, firstFrame: Double?, submitted: Double, received: Double?, generation: UInt64, uploads: Int, rows: Int,
          report: @escaping (FrameMeasurement) -> Void) {
+        self.shaderCompile = shaderCompile
+        self.firstFrame = firstFrame
         self.cpu = cpu
         self.submitted = submitted
         self.received = received
@@ -40,7 +45,8 @@ private final class Presentation {
     func resolve() {
         guard completed, presentationKnown, !delivered else { return }
         delivered = true
-        report(.init(generation: generation, cpuPreparationSeconds: cpu, gpuSeconds: gpu,
+        report(.init(generation: generation, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
+                     firstFrameSeconds: firstFrame, gpuSeconds: gpu,
                      presentedTime: presented, receivedAt: received, submittedAt: submitted,
                      glyphUploads: uploads, rowsPrepared: rows))
     }
@@ -108,6 +114,11 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     package var onFrame: ((FrameMeasurement) -> Void)?
     package private(set) var submissionCount = 0
     private var renderer: MetalRenderer?
+    private var preparingDeviceID: UInt64?
+    private var prepareTask: Task<Void, Never>?
+    private var firstContentStart = CACurrentMediaTime()
+    private var firstCompilation: Double?
+    private var hasSubmittedContent = false
     private var metrics: GridMetrics?
     private var snapshot: Terminal.Snapshot?
     private var received: Double?
@@ -151,8 +162,31 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         #endif
         (layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         delegate = self
+        prepareRenderer()
         resolveTheme()
         applyClearColor()
+    }
+
+    private func prepareRenderer() {
+        guard let device, preparingDeviceID != device.registryID else { return }
+        prepareTask?.cancel()
+        preparingDeviceID = device.registryID
+        renderer = nil
+        hasSubmittedContent = false
+        firstContentStart = CACurrentMediaTime()
+        prepareTask = Task { [weak self] in
+            do {
+                let program = try await ShaderPipelines.shared.pipeline(for: device)
+                guard let self, !Task.isCancelled, self.device?.registryID == device.registryID else { return }
+                self.renderer = try MetalRenderer(device: device, pipeline: program)
+                self.firstCompilation = program.startedAt >= self.firstContentStart ? program.compileSeconds : nil
+                self.invalidateFrame()
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.preparingDeviceID = nil
+                NSLog("Thrush Metal setup failed: %@", String(describing: error))
+            }
+        }
     }
 
     @objc private func trimMemory() {
@@ -193,6 +227,8 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         let alpha = 1.0
         #endif
         // Core Animation composites the drawable as premultiplied RGBA.
+        (layer as? CAMetalLayer)?.backgroundColor = alpha == 1
+            ? CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1) : nil
         clearColor = MTLClearColor(red: Double(c.x) * alpha, green: Double(c.y) * alpha,
                                    blue: Double(c.z) * alpha, alpha: alpha)
     }
@@ -274,17 +310,19 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     public func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
         updateGeometry()
-        guard let device, let metrics, drawableSize.width > 0, drawableSize.height > 0,
+        prepareRenderer()
+        guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
         let started = CACurrentMediaTime()
         do {
-            if renderer == nil { renderer = try MetalRenderer(device: device) }
-            guard let renderer else { return }
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
                                             pass: pass, viewport: drawableSize, selection: selection)
             let submitted = CACurrentMediaTime()
+            let first = snapshot != nil && !hasSubmittedContent
+            if first { hasSubmittedContent = true }
             let presentation = onFrame.map {
-                Presentation(cpu: submitted - started, submitted: submitted, received: received,
+                Presentation(cpu: submitted - started, shaderCompile: first ? firstCompilation : nil,
+                             firstFrame: first ? submitted - firstContentStart : nil, submitted: submitted, received: received,
                              generation: snapshot?.generation ?? 0, uploads: frame.glyphUploads,
                              rows: frame.rowsPrepared, report: $0)
             }
@@ -326,7 +364,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             frame.buffer.present(drawable)
             frame.buffer.commit()
         } catch {
-            renderer?.discardResources()
+            renderer.discardResources()
             NSLog("Thrush Metal frame failed: %@", String(describing: error))
         }
     }

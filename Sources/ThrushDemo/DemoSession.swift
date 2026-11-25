@@ -52,7 +52,6 @@ final class DemoSession {
     private var connection: TerminalConnection?
     private var receiveTask: Task<Void, Never>?
     private var resizeTask: Task<Void, Never>?
-    private var benchmarkTask: Task<Void, Never>?
     private var desiredSize: Terminal.Size?
     private var active = false
     private var ready = false
@@ -121,12 +120,13 @@ final class DemoSession {
         guard active, connection == nil, let size = desiredSize ?? view.gridSize else { return }
         if let report = options.benchmarkURL {
             guard !benchmarkStarted else { return }
-            benchmarkTask?.cancel()
-            benchmarkTask = Task {
-                // Settle the native launch transition before sampling the first presentation.
-                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
-                guard active, let size = desiredSize ?? view.gridSize else { return }
-                benchmarkStarted = true
+            benchmarkStarted = true
+            Task {
+                // The scene and its first nonzero view layout supply the benchmark's actual grid.
+                guard active, let size = view.gridSize else {
+                    benchmarkStarted = false
+                    return
+                }
                 do {
                     try FileManager.default.createDirectory(at: report.deletingLastPathComponent(), withIntermediateDirectories: true)
                     try await RenderBenchmark.run(on: view, size: size, reportURL: report)

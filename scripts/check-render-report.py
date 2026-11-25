@@ -10,7 +10,8 @@ from pathlib import Path
 def check(path):
     report = json.loads(Path(path).read_bytes())
     columns, rows = report["columns"], report["rows"]
-    assert columns >= 24 and rows >= 2 and report["schemaVersion"] == 1
+    version = report["schemaVersion"]
+    assert columns >= 24 and rows >= 2 and version in (1, 2)
     environment = report["environment"]
     assert environment["commit"] != "unknown" and environment["toolchain"] != "unknown"
     assert environment["hardwareModel"] != "unknown"
@@ -22,6 +23,9 @@ def check(path):
     assert report["workloadSHA256"] == hashlib.sha256(tape.encode()).hexdigest()
     samples = report["samples"]
     assert [s["operation"] for s in samples] == ["cold"] + ["cursor", "oneRow", "scroll", "full"] * 10
+    if version == 2:
+        assert 0 < samples[0]["shaderCompileSeconds"] <= samples[0]["firstFrameSeconds"]
+        assert all("shaderCompileSeconds" not in s and "firstFrameSeconds" not in s for s in samples[1:])
     assert samples[0]["glyphUploads"] > 0 and samples[0]["rowsPrepared"] == rows
     assert all(s["glyphUploads"] == 0 for s in samples[1:])
     assert all(s["rowsPrepared"] <= 1 for s in samples if s["operation"] in ("oneRow", "cursor"))

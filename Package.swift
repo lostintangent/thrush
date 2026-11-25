@@ -11,7 +11,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "Thrush"),
-        .target(name: "ThrushUI", dependencies: ["Thrush"], resources: [.process("Shaders")]),
+        .target(name: "ThrushUI", dependencies: ["Thrush"]),
         .executableTarget(name: "ThrushDemo", dependencies: ["ThrushUI", "ThrushConnection", "Thrush"]),
         .testTarget(name: "ThrushUITests", dependencies: ["ThrushUI", "Thrush"]),
         .target(name: "ThrushConnection", dependencies: ["Thrush"]),

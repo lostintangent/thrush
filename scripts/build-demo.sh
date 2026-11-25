@@ -1,12 +1,15 @@
 #!/bin/bash
-# Build either native host from SwiftPM and package the platform's compiled shader.
+# Build the native SwiftPM executable and wrap it in a launchable application.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 platform=${1:-}
 case "$platform" in
     mac) sdk=macosx; triple="$(uname -m)-apple-macosx27.0" ;;
-    simulator) sdk=iphonesimulator; triple="$(uname -m)-apple-ios27.0-simulator" ;;
+    simulator)
+        export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+        sdk=iphonesimulator
+        triple="$(uname -m)-apple-ios27.0-simulator"
+        ;;
     *) echo "Usage: scripts/build-demo.sh mac|simulator" >&2; exit 2 ;;
 esac
 
@@ -30,15 +33,6 @@ else
 fi
 mkdir -p "$executable" "$resources"
 cp "$bin/ThrushDemo" "$executable/"
-shader_bundle="$resources/Thrush_ThrushUI.bundle"
-ditto "$bin/Thrush_ThrushUI.bundle" "$shader_bundle"
-shader_resources="$shader_bundle"
-if [[ -d "$shader_bundle/Contents/Resources" ]]; then
-    shader_resources="$shader_bundle/Contents/Resources"
-fi
-# Verify that SwiftPM's processed package resource contains the SDK-specific library.
-test -s "$shader_resources/default.metallib"
-
 if [[ "$platform" == mac ]]; then
     iconset="$stage/thrush.iconset"
     mkdir "$iconset"
@@ -85,8 +79,31 @@ info["NSAppTransportSecurity"] = {"NSAllowsLocalNetworking": True}
 with open(path, "wb") as f:
     plistlib.dump(info, f)
 PY
+if [[ -n "$(find "$app" \( -name '*.bundle' -o -name '*.metallib' \) -print -quit)" ]]; then
+    echo "Unexpected package or shader resource in the demo app." >&2
+    exit 1
+fi
 codesign --force --sign - "$app" >/dev/null
 codesign --verify --strict "$app"
-rm -rf "$out/Thrush.app"
-mv "$app" "$out/Thrush.app"
+# Publish the signed directory atomically. Two simultaneous builds can both finish without
+# leaving a partially replaced app. On a swap, the EXIT trap removes the previous package.
+python3 - "$app" "$out/Thrush.app" <<'PUBLISH'
+import ctypes
+import errno
+import os
+import sys
+
+source, target = sys.argv[1:]
+try:
+    os.rename(source, target)
+except OSError as error:
+    if error.errno not in (errno.ENOTEMPTY, errno.EEXIST):
+        raise
+    rename = ctypes.CDLL(None, use_errno=True).renamex_np
+    rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+    rename_swap = 0x00000002  # <stdio.h> RENAME_SWAP
+    if rename(os.fsencode(source), os.fsencode(target), rename_swap) != 0:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), target)
+PUBLISH
 echo "$out/Thrush.app"

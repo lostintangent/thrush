@@ -22,7 +22,7 @@ xcrun simctl install "$udid" .build/demo/simulator/Thrush.app
 xcrun simctl launch "$udid" app.thrush.demo
 ```
 
-Both builds compile the shared SwiftPM package in Release. Each app carries its platform's compiled `default.metallib` in the `Thrush_ThrushUI.bundle` resource bundle. The development peer defaults to port 9138. Use `THRUSH_PORT` on the peer and pass `--endpoint http://127.0.0.1:PORT` to the app to choose another port.
+Both commands build the shared SwiftPM package in Release. ThrushUI embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The development peer defaults to port 9138. Use `THRUSH_PORT` on the peer and pass `--endpoint http://127.0.0.1:PORT` to the app to choose another port.
 
 ## Scenes and appearance
 
