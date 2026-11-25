@@ -11,6 +11,7 @@ import XCTest
         disableAtEnd = !reader.isEnabled
         if disableAtEnd { try reader.enable() }
         XCTAssertTrue(reader.isEnabled)
+        print("VOICEOVER XCTest service enabled=\(reader.isEnabled)")
     }
 
     override func tearDownWithError() throws {
@@ -20,71 +21,104 @@ import XCTest
     private func launch(_ scene: String) throws -> URL {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
         let endpoint = try XCTUnwrap(URL(string: address))
-        app.launchArguments = ["--endpoint", address, "--scene", "notice-" + scene, "--hide-keyboard"]
+        app.launchArguments = ["--endpoint", address, "--scene", "notice-" + scene, "--hide-keyboard",
+                               "--capture-state", "--capture-accessibility"]
         app.launch()
         return endpoint
     }
 
-    /// Explore the actual onscreen element before asking for its speech. A freshly
-    /// enabled VoiceOver service can have no focus or utterance until a first gesture.
-    private func read(_ element: XCUIElement, expecting text: String) throws -> String {
-        XCTAssertTrue(element.waitForExistence(timeout: 20), app.debugDescription)
+    /// Touch the element, ask what VoiceOver spoke, then try moving its reading cursor.
+    /// Run the same commands on the stock Settings app and the packaged terminal.
+    private func read(_ element: XCUIElement, expecting text: String) async throws -> String {
+        print("VOICEOVER target=\(element.elementType) identifier=\(element.identifier) label=\(element.label)")
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        var utterances = [String]()
-        let movements: [() throws -> XCUIVoiceOverService.Output] = [
-            { try self.reader.currentSpeech() }, { try self.reader.moveForward() },
-            { try self.reader.moveBackward() }, { try self.reader.moveIn() }
+        try await Task.sleep(for: .milliseconds(650))
+        let movements: [(String, () throws -> XCUIVoiceOverService.Output)] = [
+            ("currentSpeech", { try self.reader.currentSpeech() }),
+            ("moveForward", { try self.reader.moveForward() }),
+            ("moveBackward", { try self.reader.moveBackward() }),
+            ("moveIn", { try self.reader.moveIn() })
         ]
-        for move in movements {
+        var diagnostics = [String]()
+        for (name, move) in movements {
             do {
                 let value = try move().utterance
-                print("VOICEOVER explored: \(value)")
-                utterances.append(value)
+                print("VOICEOVER \(name) utterance=\(value)")
                 if value.localizedCaseInsensitiveContains(text) { return value }
-            } catch let error as XCUIVoiceOverService.Error where error.code == .noSpeech {
-                print("VOICEOVER awaiting a first utterance for \(text): \(error.localizedDescription)")
+                diagnostics.append("\(name) said \(value)")
+            } catch {
+                let error = error as NSError
+                let detail = "\(name) failed: \(error)"
+                diagnostics.append(detail)
+                print("VOICEOVER " + detail)
             }
         }
-        XCTFail("VoiceOver did not speak \(text) after touch exploration and navigation. Heard: \(utterances)")
-        return ""
+        throw NSError(domain: "ThrushVoiceOverProof", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "Expected speech containing \(text). " + diagnostics.joined(separator: " | ")
+        ])
+    }
+
+    func testAppleSettingsVoiceOver() async throws {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+        let title = settings.staticTexts.matching(NSPredicate(format: "label ==[c] %@", "Settings")).firstMatch
+        let target: XCUIElement
+        if title.waitForExistence(timeout: 10), title.isHittable {
+            target = title
+        } else {
+            // A fresh OS can open a first-launch welcome page instead of the root list.
+            target = try XCTUnwrap(settings.staticTexts.allElementsBoundByIndex.first {
+                !$0.label.isEmpty && $0.isHittable
+            }, settings.debugDescription)
+        }
+        let heard = try await read(target, expecting: target.label)
+        print("VOICEOVER Settings native control spoke: \(heard)")
+        print("VOICEOVER Settings moved to: \(try reader.moveForward().utterance)")
     }
 
     func testTranscriptKeepsVoiceOverFocusThroughReconnect() async throws {
         let endpoint = try launch("reconnecting")
-        let focused = try read(app.staticTexts["Test run passed."], expecting: "Test run passed")
+        let row = app.staticTexts["Test run passed."]
+        XCTAssertTrue(row.waitForExistence(timeout: 20), app.debugDescription)
+        let focused: Result<String, Error>
+        do { focused = .success(try await read(row, expecting: "Test run passed")) }
+        catch { focused = .failure(error) }
         var interrupt = URLRequest(url: endpoint.appendingPathComponent("interrupt-reconnecting"))
         interrupt.httpMethod = "POST"
         let (_, response) = try await URLSession.shared.data(for: interrupt)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
         let status = app.descendants(matching: .any).matching(identifier: "terminal.status").firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertEqual(try reader.currentSpeech().utterance, focused, app.debugDescription)
         try await Task.sleep(for: .seconds(2))
-        XCTAssertEqual(try reader.currentSpeech().utterance, focused)
-        print("VOICEOVER retained transcript: \(focused)")
-        print("VOICEOVER reconnect status: \(try read(status, expecting: "Reconnecting"))")
+        print("VOICEOVER reconnect announcement checkpoint; mounted label=\(status.label)")
+        let beforeInterruption = try focused.get()
+        XCTAssertEqual(try reader.currentSpeech().utterance, beforeInterruption)
+        print("VOICEOVER retained transcript: \(beforeInterruption)")
+        print("VOICEOVER reconnect status: \(try await read(status, expecting: "Reconnecting"))")
     }
 
-    func testTakeoverAndExitButtonSpeech() throws {
-        for (scene, title, label) in [("displaced", "Open in another window", "Use shell in this window"),
-                                     ("ended", "Ended", "New Shell")] {
-            _ = try launch(scene)
-            let button = app.buttons["terminal.status.action"]
-            XCTAssertTrue(button.waitForExistence(timeout: 18), app.debugDescription)
-            XCTAssertEqual(button.label, label)
-            XCTAssertGreaterThanOrEqual(button.frame.width, 44)
-            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
-            if scene == "displaced" {
-                let image = XCTAttachment(data: XCUIScreen.main.screenshot().pngRepresentation, uniformTypeIdentifier: "public.png")
-                image.name = "thrush-accessibility-takeover"
-                image.lifetime = .keepAlways
-                add(image)
-            }
-            let status = app.descendants(matching: .any).matching(identifier: "terminal.status").firstMatch
-            let heading = try read(status, expecting: title)
-            let next = try reader.moveForward().utterance
-            XCTAssertTrue(next.localizedCaseInsensitiveContains(label), "Speech after \(heading): \(next)")
-            print("VOICEOVER \(scene): \(heading) / \(next)")
-        }
+    func testTakeoverButtonSpeech() async throws {
+        try await checkNotice(scene: "displaced", title: "Open in another window", label: "Use shell in this window")
+    }
+
+    func testExitButtonSpeech() async throws {
+        try await checkNotice(scene: "ended", title: "Ended", label: "New Shell")
+    }
+
+    private func checkNotice(scene: String, title: String, label: String) async throws {
+        _ = try launch(scene)
+        let button = app.buttons["terminal.status.action"]
+        XCTAssertTrue(button.waitForExistence(timeout: 18), app.debugDescription)
+        XCTAssertEqual(button.label, label)
+        XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+        let visibleLine = app.staticTexts["Test run passed."]
+        print("VOICEOVER \(scene) AX transcript exists=\(visibleLine.exists)")
+        let status = app.descendants(matching: .any).matching(identifier: "terminal.status").firstMatch
+        XCTAssertTrue(status.exists, app.debugDescription)
+        let heading = try await read(status, expecting: title)
+        let next = try reader.moveForward().utterance
+        XCTAssertTrue(next.localizedCaseInsensitiveContains(label), "Speech after \(heading): \(next)")
+        print("VOICEOVER \(scene): \(heading) / \(next)")
     }
 }

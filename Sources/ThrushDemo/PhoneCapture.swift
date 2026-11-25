@@ -89,6 +89,7 @@ enum PhoneCapture {
     static func observe(_ session: DemoSession, view: TerminalView, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
+        let accessibility = PhoneAccessibilityCapture(scene: session.options.scene, view: view)
         let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak view, weak root] in
             guard let session, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
@@ -115,6 +116,7 @@ enum PhoneCapture {
         var lastWritten: State?
         func write(_ state: State) {
             guard state != lastWritten else { return }
+            accessibility?.observe(state)
             do {
                 try JSONEncoder().encode(state).write(to: destination, options: .atomic)
                 lastWritten = state
