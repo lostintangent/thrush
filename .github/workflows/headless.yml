@@ -3,7 +3,13 @@ name: Headless checks
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "**.png"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "**.png"
   workflow_dispatch:
     inputs:
       scene:
@@ -33,6 +39,11 @@ on:
         description: Optional repository-relative Python screenshot checker under scripts/
         type: string
         required: false
+
+# Pushes supersede each other. Each dispatched capture keeps its own group.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
   contents: read

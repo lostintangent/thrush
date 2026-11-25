@@ -4,7 +4,24 @@ name: Command Line Tools build
 on:
   push:
     branches: [main]
+    paths:
+      - Package.swift
+      - Sources/Thrush/**
+      - Sources/ThrushUI/**
+      - Sources/ThrushConnection/**
+      - .github/workflows/command-line-tools.yml
   pull_request:
+    paths:
+      - Package.swift
+      - Sources/Thrush/**
+      - Sources/ThrushUI/**
+      - Sources/ThrushConnection/**
+      - .github/workflows/command-line-tools.yml
+
+# A newer push supersedes a running build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

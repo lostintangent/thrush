@@ -1,0 +1,84 @@
+name: Packaged app on real PTYs
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Sample app to exercise
+        type: choice
+        options: [simulator, mac]
+        default: simulator
+      appearance:
+        description: System appearance for the sample
+        type: choice
+        options: [dark, light]
+        default: dark
+      workflow:
+        description: Terminal workflow to run
+        type: choice
+        options: [all, shell, vim, codex, lifecycle]
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    runs-on: xcode-27
+    timeout-minutes: 50
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      LIBDISPATCH_COOPERATIVE_POOL_STRICT: "1"
+      LIVE_PLATFORM: ${{ inputs.platform }}
+      LIVE_APPEARANCE: ${{ inputs.appearance }}
+      LIVE_WORKFLOW: ${{ inputs.workflow }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Fetch the public Toy Box server pinned by Thrush
+        run: |
+          revision=$(python3 -c 'import runpy; print(runpy.run_path("scripts/serve-pty.py")["REVISION"])')
+          git init -q "$RUNNER_TEMP/toy-box"
+          git -C "$RUNNER_TEMP/toy-box" fetch --depth 1 https://github.com/lostintangent/toy-box.git "$revision"
+          git -C "$RUNNER_TEMP/toy-box" switch --detach FETCH_HEAD
+      - name: Prepare Bash with bracketed paste
+        run: |
+          if [[ ! -x "$(brew --prefix)/bin/bash" ]]; then brew install bash; fi
+      - name: Fetch and verify the native Codex CLI
+        if: inputs.workflow == 'codex' || inputs.workflow == 'all'
+        run: |
+          case "$(uname -m)" in
+            arm64) target=aarch64-apple-darwin
+              checksum=c48824462fc57681eafb0925d97b11b589010475613904f570b42fea53e240d5 ;;
+            x86_64) target=x86_64-apple-darwin
+              checksum=db0c38713c36199b12e7c8d1629386c35a4ce8f99e1c9ce72f1725a74df67b57 ;;
+            *) exit 1 ;;
+          esac
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 -o codex.tar.gz \
+            "https://github.com/openai/codex/releases/download/rust-v0.166.0/codex-$target.tar.gz"
+          echo "$checksum  codex.tar.gz" | shasum -a 256 --check
+          mkdir codex-release
+          tar -xzf codex.tar.gz -C codex-release
+          mv "codex-release/codex-$target" codex-cli
+          test "$(./codex-cli --version)" = "codex-cli 0.166.0"
+      - name: Drive the running pane over the disposable PTY
+        run: |
+          flags=()
+          if [[ "$LIVE_WORKFLOW" != all ]]; then flags+=(--workflow "$LIVE_WORKFLOW"); fi
+          if [[ -x "$RUNNER_TEMP/codex-cli" ]]; then flags+=(--codex-bin "$RUNNER_TEMP/codex-cli"); fi
+          python3 -B scripts/live-workflow/launch.py \
+            --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" --toy-box "$RUNNER_TEMP/toy-box" \
+            --bash "$(brew --prefix)/bin/bash" --output "$RUNNER_TEMP/thrush-live" "${flags[@]}"
+      - name: Upload native checkpoints and server observations
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thrush-live-${{ inputs.platform }}-${{ inputs.appearance }}-${{ inputs.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/thrush-live/
+          retention-days: 7
+          compression-level: 0
