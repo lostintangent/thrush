@@ -1,21 +1,23 @@
 # Glass in Thrush
 
-**Latest** uses regular system glass while someone reads history. On iPhone, the seven accessory keys share one native material. The Mac title bar stays native and the Slate grid stays opaque, because even at 92% opacity a window behind the grid can make light-theme file names or the edge of a dark-theme selection hard to see.
+**Latest** uses regular system glass while someone reads history. On iPhone, the key row is one glass capsule floating above the keyboard. The Mac title bar stays native and the Slate grid stays opaque, because even at 92% opacity a window behind the grid can make light-theme file names or the edge of a dark-theme selection hard to see.
 
 ## Controls
 
-![Slate Dark and Light comparisons of the native Mac title bar and Latest button, the iPhone accessory with Ctrl armed, and opaque alternatives](glass-controls.png)
+![Slate Dark and Light comparisons of the native Mac title bar and the Latest button, with an opaque alternative](glass-controls.png)
+
+![The iPhone key row in Slate Dark and Light, in portrait and landscape above the keyboard, at rest, with Ctrl armed and under Reduce Transparency](keyboard-capsule.png)
 
 | Surface | Treatment |
 | --- | --- |
 | **Latest** | Place a down arrow and **Latest** together in one regular native glass button at the lower trailing edge of history. On Mac, use a 104 × 36 pt visible capsule within a minimum 44 pt hit area. Leave 16 pt between the visible bezel and each of the bottom and trailing edges. Use the primary label and check the arrow and text against the fill in key and inactive windows. Both should reach 4.5:1 while the action is available. Use the opaque Slate treatment below if the native material dims them. Keep clear of selection handles and the edit menu. Activating it returns to the live prompt. Hide it at the live edge and in the alternate screen. |
-| **iPhone accessory** | Give the 44 pt accessory one regular native material and seven plain buttons. Keep a subtle divider between Tab and the arrows. The accessory moves with the keyboard. The last terminal row ends above its top edge. Use the keyboard’s own backing if its input view already supplies the material. |
-| **Armed Ctrl** | Tap once to show a filled accent, a checkmark and the Ctrl label in the same key. Keep neighboring keys fixed. VoiceOver identifies “Control” and its selected state. Tap again to cancel. Consuming a key, losing focus or detaching clears the latch. The white label and checkmark have 6.98:1 contrast in Dark and 7.43:1 in Light. |
+| **iPhone key row** | Float one capsule of regular interactive glass above the keyboard, 48 pt tall and 12 pt above it in portrait. In landscape, where every row counts, it slims to 36 pt and floats 8 pt above the keyboard. Center it in the safe area 16 pt from each side, up to 380 pt wide. It holds eight plain keys, Esc, Ctrl, Tab, the four arrows and Hide Keyboard, and each gets at least a 44 × 44 pt target. In landscape each key's target reaches down into the float. On a narrow screen the side margins give way before any key does. Dividers set the arrows apart from the keys on either side. The capsule moves with the keyboard, and the last terminal row ends above its top edge. |
+| **Armed Ctrl** | Tap once to fill the key with the selection background and draw the Ctrl label in the selection ink, as Notes and Mail show a toggled format key. The fill stays within the key's own width, so neighboring keys stay fixed. VoiceOver identifies “Control” and its selected state. Tap again to cancel. Consuming a key, hiding the keyboard, losing focus or detaching clears the latch. The label has 5.46:1 contrast in Dark and 5.21:1 in Light. |
 | **Mac title bar** | Keep the native title, traffic lights and 32 pt title-bar allocation. At the live edge the first row sits below the bar. |
 
-The difference is most useful on **Latest**. Color from the history can pass through a small transient control, and the arrow still tells you where it leads. The accessory has less to gain from translucency because its backing is usually even. Its value comes from presenting Esc, Ctrl, Tab and the arrows as one row of related actions. Apple's regular material adapts when foreground labels sit over changing content. [Apple’s material guidance](https://developer.apple.com/design/human-interface-guidelines/materials)
+The difference is most useful on **Latest**. Color from the history can pass through a small transient control, and the arrow still tells you where it leads. The key row floats between the last rows and the keyboard, so glass lets it sit lightly over either. Its value comes from presenting the keys as one row of related actions. Apple's regular material adapts when foreground labels sit over changing content. [Apple’s material guidance](https://developer.apple.com/design/human-interface-guidelines/materials)
 
-**Reduce Transparency.** Use an opaque host backing of `#1D2934` in Dark and `#E8EEF1` in Light. Pair those with `#E3EAF0` and `#233442` labels respectively, for 12.19:1 and 10.92:1 contrast. The opaque Latest outline uses `#8697A4` in Dark or `#586D7B` in Light. When the material changes in place, preserve the hit area, label, checkmark and scroll position. The native title bar should respect the system setting. For a custom history underlay, replace its material with the same opaque backing.
+**Reduce Transparency.** Fill the key row’s capsule and the Latest button with an opaque host backing of `#1D2934` in Dark and `#E8EEF1` in Light. Pair those with `#E3EAF0` and `#233442` labels respectively, for 12.19:1 and 10.92:1 contrast. The opaque Latest outline uses `#8697A4` in Dark or `#586D7B` in Light. When the material changes in place, preserve the hit area, label, armed fill and scroll position. The native title bar should respect the system setting. For a custom history underlay, replace its material with the same opaque backing.
 
 ## Terminal background
 
