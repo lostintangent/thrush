@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "HeadlessConsumer",
     platforms: [.macOS("27.0")],
-    dependencies: [.package(path: "../..")],
+    dependencies: [.package(name: "thrush", path: "../..")],
     targets: [
         .executableTarget(
             name: "Consumer",
