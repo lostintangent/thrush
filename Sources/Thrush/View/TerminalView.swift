@@ -524,18 +524,41 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
 
-    func setWaiting(_ waiting: Bool) {
-        guard waiting != (cursorSpinner != nil) else { return }
-        if waiting {
-            let spinner = CursorSpinner()
+    func setWaiting(_ label: String?) {
+        if let label {
+            let spinner = cursorSpinner ?? CursorSpinner()
+            #if os(macOS)
+            if spinner.accessibilityLabel() != label { spinner.setAccessibilityLabel(label) }
+            #else
+            if spinner.accessibilityLabel != label { spinner.accessibilityLabel = label }
+            #endif
+            guard cursorSpinner == nil else { return }
             cursorSpinner = spinner
             addSubview(spinner)
             updateCursorSpinner()
         } else {
-            cursorSpinner?.removeFromSuperview()
+            guard let spinner = cursorSpinner else { return }
+            spinner.removeFromSuperview()
             cursorSpinner = nil
         }
         invalidateFrame()
+    }
+
+    var onAccessibilityAnnouncement: ((String) -> Void)?
+
+    /// Queue speech without redirecting accessibility focus away from the transcript.
+    func announce(_ text: String) {
+        guard window != nil else { return }
+        #if os(macOS)
+        NSAccessibility.post(element: self, notification: .announcementRequested,
+                             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.low.rawValue])
+        #else
+        let speech = NSAttributedString(string: text, attributes: [
+            .accessibilitySpeechAnnouncementPriority: UIAccessibilityPriority.low.rawValue
+        ])
+        UIAccessibility.post(notification: .announcement, argument: speech)
+        #endif
+        onAccessibilityAnnouncement?(text)
     }
 
     private var visibleCursorCell: CGRect {

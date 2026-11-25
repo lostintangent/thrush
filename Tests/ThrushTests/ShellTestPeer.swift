@@ -6,6 +6,7 @@ import Testing
 @MainActor final class ShellTestPeer {
     private let listener: NWListener
     private var sockets: [NWConnection] = []
+    var automaticallySendsReady = true
     var resumeNextAttachment = false
     private(set) var port: UInt16?
     private(set) var opens = 0
@@ -35,8 +36,10 @@ import Testing
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.opens += 1
-                let ready = #"{"type":"ready","resumed":\#(self.resumeNextAttachment)}"#
-                self.send(ready, opcode: .text, to: socket)
+                if self.automaticallySendsReady {
+                    let ready = #"{"type":"ready","resumed":\#(self.resumeNextAttachment)}"#
+                    self.send(ready, opcode: .text, to: socket)
+                }
                 self.receive(socket)
             }
         }
