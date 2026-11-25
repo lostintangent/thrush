@@ -11,6 +11,7 @@ import Testing
     private(set) var opens = 0
     private(set) var closes = 0
     private(set) var receivedText: [String] = []
+    private(set) var receivedBinary: [String] = []
 
     init() throws {
         let options = NWParameters.tcp
@@ -48,6 +49,7 @@ import Testing
                 guard let self else { return }
                 let ws = context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
                 if ws?.opcode == .text, let data { self.receivedText.append(String(decoding: data, as: UTF8.self)) }
+                if ws?.opcode == .binary, let data { self.receivedBinary.append(String(decoding: data, as: UTF8.self)) }
                 if ws?.opcode == .close || error != nil {
                     self.closes += 1
                     socket.cancel()
@@ -67,6 +69,9 @@ import Testing
         let context = NWConnection.ContentContext(identifier: "shell", metadata: [NWProtocolWebSocket.Metadata(opcode: opcode)])
         socket.send(content: Data(payload.utf8), contentContext: context, isComplete: true, completion: .idempotent)
     }
+
+    /// Ends the latest attachment without a close code, as a lost network does.
+    func drop() { sockets.last?.cancel() }
 
     func stop() {
         listener.cancel()

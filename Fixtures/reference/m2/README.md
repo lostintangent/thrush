@@ -40,7 +40,7 @@ bun Fixtures/reference/m2/generate.mjs
 shasum -a 256 Fixtures/replays/*.json
 ```
 
-The generator feeds the output bytes into a reference terminal in recorded order. It obtains replies via `onData`, encodes special keys with the browser package's keyboard evaluator, and uses its paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes.
+The generator feeds the output bytes into a reference terminal in recorded order. It obtains replies via `onData`, encodes special keys with the browser package's keyboard evaluator, and uses its paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. The recorded programs never heard a focus report, so that check leaves focus reports out. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes.
 
 To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture.py` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
 

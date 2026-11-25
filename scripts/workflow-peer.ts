@@ -1,7 +1,7 @@
 // bun scripts/demo-peer.ts --workflow shell|vim|codex [--view [--driver]]
 // Strict mode starts at the recorded grid and checks every input, reply and resize.
 // View mode accepts a native grid, one changed size per recorded resize, and host-specific
-// CPR/OSC replies. Screen and copy coordinates are comparable on the recorded grids.
+// CPR, OSC color and focus replies. Screen and copy coordinates are comparable on the recorded grids.
 // Driver mode adds a separate loopback HTTP listener for checkpoint acknowledgements.
 // It compares the native pane against independent references at its actual grids.
 import type { ServerWebSocket } from "bun";
@@ -186,16 +186,24 @@ class Inbox {
     }
 }
 
-// Strict checks use fixture bytes. In view mode only two terminal-generated
-// answers can vary: a positive CPR bounded by the live grid, and the RGB
-// digits of OSC 10/11. DA, mode replies, terminators and all user input stay exact.
+// A live pane reports its own focus once a program asks, and again whenever focus moves.
+// View mode drops each report, which the pane sends as its own frame.
+const focusReport = /\x1b\[[IO]/g;
+const withoutFocusReports = (bytes: Buffer) => Buffer.from(bytes.toString("latin1").replace(focusReport, ""), "latin1");
+
+// Strict checks use fixture bytes. In view mode only three terminal-generated
+// answers can vary: a positive CPR bounded by the live grid, the RGB digits
+// of OSC 10/11, and focus reports, which the inbox drops. DA, mode replies,
+// terminators and all user input stay exact.
 async function match(bytes: Buffer, inbox: Inbox, grid: Grid, viewReply: boolean) {
     const expected = bytes.toString("latin1");
-    const variable = /\x1b\[[1-9]\d*;[1-9]\d*R|\x1b\](?:10|11);rgb:[0-9a-f]{4}\/[0-9a-f]{4}\/[0-9a-f]{4}\x1b\\/igy;
+    const variable = /\x1b\[[IO]|\x1b\[[1-9]\d*;[1-9]\d*R|\x1b\](?:10|11);rgb:[0-9a-f]{4}\/[0-9a-f]{4}\/[0-9a-f]{4}\x1b\\/igy;
     for (let i = 0; i < bytes.length;) {
         variable.lastIndex = i;
         const token = viewReply ? variable.exec(expected)?.[0] : undefined;
-        if (token?.startsWith("\x1b[")) {
+        if (token?.length === 3) {
+            i += token.length;
+        } else if (token?.startsWith("\x1b[")) {
             let response = "";
             while (!response.endsWith("R")) {
                 response += String.fromCharCode(await inbox.byte());
@@ -282,7 +290,8 @@ class Run {
             if (this.driver) { this.observeGrid(grid); return; }
             this.inbox.push({ kind: "resize", grid });
         } else {
-            this.inbox.push({ kind: "stdin", bytes: Buffer.from(data) });
+            const bytes = Buffer.from(data);
+            this.inbox.push({ kind: "stdin", bytes: this.view ? withoutFocusReports(bytes) : bytes });
         }
         if (this.phase === "done") throw Error("Unexpected input after final checkpoint");
     }

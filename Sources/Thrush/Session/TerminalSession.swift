@@ -101,6 +101,8 @@ extension TerminalSession {
 
     func setTheme(_ theme: TerminalTheme) async { await actor.setPalette(theme.palette, cursor: theme.cursor) }
 
+    func setFocused(_ focused: Bool) async throws { try await actor.setFocused(focused) }
+
     func send(_ input: Terminal.Input, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
         try await actor.send(input, onWriteStarted: onWriteStarted)
     }

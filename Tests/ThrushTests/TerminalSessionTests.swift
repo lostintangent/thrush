@@ -158,3 +158,46 @@ import Testing
     #expect(peer.receivedText.isEmpty)
     #expect(await actor.state == .idle)
 }
+
+@MainActor @Test func resumedReplayReportsTheCurrentFocusBeforeHeldKeys() async throws {
+    let peer = try ShellTestPeer()
+    defer { peer.stop() }
+    let deadline = ContinuousClock.now + .seconds(5)
+    func waitFor(_ expected: Comment, until condition: () -> Bool) async throws {
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(condition(), expected)
+    }
+    try await waitFor("The loopback peer must be listening.") { peer.port != nil }
+    let port = try #require(peer.port)
+    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
+    let actor = session.actor
+    let report = "\u{1b}[?1004h"
+
+    // A program that asks hears the current focus at once, then each change.
+    try #require(await actor.show())
+    #expect(try await actor.nextEvent() == .ready(resumed: false))
+    try peer.send(report, opcode: .binary)
+    #expect(try await actor.nextEvent() == .output)
+    try await actor.setFocused(true)
+    try await actor.setFocused(true)
+    try await actor.setFocused(false)
+    try await waitFor("The program must hear each focus change once.") { peer.receivedBinary.count == 3 }
+
+    // Focus returns while the network is down, and a key waits for the resumed shell.
+    peer.drop()
+    #expect(try await actor.nextEvent() == .reconnecting)
+    try await actor.setFocused(true)
+    try await actor.send(.text("x"))
+    peer.resumeNextAttachment = true
+    #expect(try await actor.nextEvent() == .ready(resumed: true))
+    try peer.send(report, opcode: .binary)
+    #expect(try await actor.nextEvent() == .replay)
+    try await waitFor("The resumed shell must hear focus, then the held key.") { peer.receivedBinary.count == 5 }
+    #expect(peer.receivedBinary == ["\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "\u{1b}[I", "x"])
+    withExtendedLifetime(session) {}
+}

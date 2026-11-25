@@ -91,9 +91,17 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         refresh()
     }
 
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        terminal.inputFocusDidChange()
+        return true
+    }
+
     override func resignFirstResponder() -> Bool {
         discardComposition()
-        return super.resignFirstResponder()
+        guard super.resignFirstResponder() else { return false }
+        terminal.inputFocusDidChange()
+        return true
     }
 
     private func discardComposition() {

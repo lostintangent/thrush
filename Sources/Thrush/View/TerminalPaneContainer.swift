@@ -346,7 +346,7 @@ private typealias NoticeHost = UIView & UIContentView
                              NSApplication.didHideNotification, NSApplication.didUnhideNotification,
                              NSWindow.didChangeOcclusionStateNotification, NSWindow.didMiniaturizeNotification,
                              NSWindow.didDeminiaturizeNotification, NSWindow.willCloseNotification,
-                             NSWindow.didBecomeKeyNotification]
+                             NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification]
         #else
         let notifications = [UIScene.didActivateNotification, UIScene.willDeactivateNotification,
                              UIScene.willEnterForegroundNotification, UIScene.didEnterBackgroundNotification,
@@ -386,6 +386,17 @@ private typealias NoticeHost = UIView & UIContentView
         #if os(macOS)
         return !NSApp.isHidden && window.isVisible && !window.isMiniaturized
             && window.occlusionState.contains(.visible)
+        #else
+        return (sceneState ?? window.windowScene?.activationState) == .foregroundActive
+        #endif
+    }
+
+    /// Whether keystrokes reach the terminal: its input is first responder in the key window of the
+    /// active app on Mac, or in the active foreground scene on iPhone.
+    var hasKeyboardFocus: Bool {
+        guard isShellPresented, terminal.hasInputFocus, let window else { return false }
+        #if os(macOS)
+        return NSApp.isActive && window.isKeyWindow
         #else
         return (sceneState ?? window.windowScene?.activationState) == .foregroundActive
         #endif

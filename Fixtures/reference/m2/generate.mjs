@@ -13,6 +13,7 @@ const { bracketTextForPaste, prepareTextForTerminal } = await source('browser/Cl
 const reference = {...pinned, colorReports:'@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService'};
 const utf8 = s => Buffer.from(s, 'utf8');
 const base64 = bytes => Buffer.from(bytes).toString('base64');
+const focusReports = new Set(['\x1b[I', '\x1b[O']);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 async function shellEdges() {
   const events = [];
@@ -204,7 +205,9 @@ async function generate(name) {
     if (event.bytes) await write(t, Buffer.from(event.bytes,'base64'));
     const reply = base64(Buffer.concat(replies));
     if (captureBytes || event.observedReply !== undefined) {
-      assert.equal(reply, event.observedReply ?? '', event.name + ' live PTY reply');
+      // These recordings predate focus reports, so their programs never received one.
+      const live = replies.filter(value => !focusReports.has(value.toString()));
+      assert.equal(base64(Buffer.concat(live)), event.observedReply ?? '', event.name + ' live PTY reply');
     }
     if (reply) event.reply = reply;
     delete event.observedReply;

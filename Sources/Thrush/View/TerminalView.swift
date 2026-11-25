@@ -107,6 +107,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     package var onGridSizeChange: ((Terminal.Size) -> Void)?
     /// Reports a change to the effective theme. Apply its palette to the terminal for OSC color replies.
     package var onThemeChange: ((TerminalTheme) -> Void)?
+    /// Reports that the input gained or lost first responder. Read ``hasInputFocus`` for the result.
+    var onInputFocusChange: (() -> Void)?
     /// The measured size in cells, or `nil` until the view lays out nonempty bounds.
     package private(set) var gridSize: Terminal.Size?
     /// The theme the view currently draws, including any explicit override.
@@ -518,6 +520,20 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #else
         return phoneInput.becomeFirstResponder()
         #endif
+    }
+
+    /// Whether the terminal's input is first responder, so keystrokes reach it while its window has focus.
+    var hasInputFocus: Bool {
+        #if os(macOS)
+        window?.firstResponder === macInput
+        #else
+        phoneInput.isFirstResponder
+        #endif
+    }
+
+    // The responder chain finishes updating after become and resign return.
+    func inputFocusDidChange() {
+        Task { @MainActor [weak self] in self?.onInputFocusChange?() }
     }
 
     /// Discard local composition and latched modifiers when the host detaches from the PTY.

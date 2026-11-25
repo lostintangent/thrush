@@ -154,6 +154,21 @@ package actor SessionActor {
         terminal.cursorColor = cursor
     }
 
+    /// Records whether the view has keyboard focus and tells a program that asked. A shell that isn't
+    /// attached hears the current focus when its replay sets mode 1004 again.
+    package func setFocused(_ focused: Bool) async throws {
+        guard terminal.isFocused != focused else { return }
+        terminal.isFocused = focused
+        try await send(.focus(focused))
+    }
+
+    /// A new shell or a replay starts from a blank terminal that keeps the host's theme and focus.
+    func resetTerminal(size: Terminal.Size) {
+        var next = Terminal(size: size, palette: terminal.palette, cursorColor: terminal.cursorColor)
+        next.isFocused = terminal.isFocused
+        terminal = next
+    }
+
     func publishMetadata(title: String? = nil, hasEnded: Bool? = nil) async {
         guard let observer else { return }
         let title = title ?? reportedTitle

@@ -9,6 +9,8 @@ struct ConformanceCase: Decodable, Sendable {
     enum Step: Sendable {
         case write([UInt8])
         case resize(Terminal.Size)
+        /// Gives or takes keyboard focus, as the host would.
+        case focus(Bool)
         /// Records a checkpoint. A visible-only checkpoint skips history and the inactive normal screen.
         case checkpoint(String, includesHistory: Bool)
     }
@@ -40,6 +42,10 @@ struct ConformanceCase: Decodable, Sendable {
                 replies += terminal.receive(bytes)
             case .resize(let size):
                 terminal.resize(to: size)
+            case .focus(let focused):
+                guard terminal.isFocused != focused else { continue }
+                terminal.isFocused = focused
+                replies += terminal.encode(.focus(focused))
             case .checkpoint(let name, let includesHistory):
                 checkpoints.append(Checkpoint(terminal, name: name, includesHistory: includesHistory, replies: replies))
                 replies = []
@@ -67,7 +73,7 @@ struct ConformanceCase: Decodable, Sendable {
 }
 
 extension ConformanceCase.Step: Decodable {
-    private enum CodingKeys: String, CodingKey { case write, resize, checkpoint, scope }
+    private enum CodingKeys: String, CodingKey { case write, resize, focus, checkpoint, scope }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -78,6 +84,8 @@ extension ConformanceCase.Step: Decodable {
             self = .write([UInt8](bytes))
         } else if let size = try container.decodeIfPresent([Int].self, forKey: .resize) {
             self = .resize(Terminal.Size(columns: size[0], rows: size[1]))
+        } else if let focused = try container.decodeIfPresent(Bool.self, forKey: .focus) {
+            self = .focus(focused)
         } else {
             let scope = try container.decodeIfPresent(String.self, forKey: .scope)
             self = .checkpoint(try container.decode(String.self, forKey: .checkpoint), includesHistory: scope != "visible")

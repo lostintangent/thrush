@@ -195,8 +195,7 @@ final class WebSocketTransport {
                 if let replay {
                     // The last screen stays visible until the complete replay can replace it.
                     let size = replay == .resumed ? attachmentSize : session.terminal.size
-                    session.terminal = Terminal(size: size, palette: session.terminal.palette,
-                                                cursorColor: session.terminal.cursorColor)
+                    session.resetTerminal(size: size)
                 }
                 let reply = session.apply(bytes)
                 frameTrace?.record("applied", attachment: attachment, message: message, received: session.receivedBytes, applied: session.appliedBytes)
@@ -228,8 +227,7 @@ final class WebSocketTransport {
                         nextReplay = .resumed
                         session.state = .awaitingReplay
                     } else {
-                        session.terminal = Terminal(size: attachmentSize, palette: session.terminal.palette,
-                                                    cursorColor: session.terminal.cursorColor)
+                        session.resetTerminal(size: attachmentSize)
                         session.lastReceiptTime = nil
                         discardHeldInput()
                         do { try await activate(current, in: session) }
@@ -277,7 +275,7 @@ final class WebSocketTransport {
             switch input {
             case .text(let text), .paste(let text): count = text.utf8.count
             default:
-                // Only typed input can follow a replay to a differently sized screen.
+                // Only typed input can follow a replay to a differently sized screen. The replay reports focus itself.
                 guard case .key(let key, _) = input else { return }
                 if case .character(let character) = key { count = character.utf8.count }
                 else { count = 1 }

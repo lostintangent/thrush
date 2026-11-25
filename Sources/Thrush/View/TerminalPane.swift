@@ -81,6 +81,7 @@ import ThrushCore
         private var view: TerminalView? { container?.terminal }
         private var pane: TerminalPane?
         private var active = false
+        private var reportedFocus = false
         private var isPresented = false
         private var drawingVisible = false
         private var epoch: UInt64 = 0
@@ -117,6 +118,7 @@ import ThrushCore
                 perform { session, _ in await session.setTheme(theme) }
             }
             container.terminal.onInput = { [weak self] in self?.input($0) }
+            container.terminal.onInputFocusChange = { [weak self] in self?.updateFocus() }
         }
 
         fileprivate func apply(_ next: TerminalPane) {
@@ -161,10 +163,20 @@ import ThrushCore
                 view?.setDrawingVisible(visible)
                 if visible { resumeReplacementTimer() } else { pauseReplacementTimer() }
             }
-            if !active {
-                active = true
-                if let measured = view?.gridSize { resize(measured) }
-            }
+            let starting = !active
+            active = true
+            // The session records focus before it opens, so its first DECSET 1004 reply is current.
+            updateFocus()
+            if starting, let measured = view?.gridSize { resize(measured) }
+        }
+
+        /// Programs that set mode 1004 hear whether keystrokes reach this pane.
+        private func updateFocus() {
+            let focused = active && container?.hasKeyboardFocus == true
+            guard focused != reportedFocus, let session = pane?.session else { return }
+            reportedFocus = focused
+            // A detached or reconnecting shell hears the current focus from its replay instead.
+            enqueue { try? await session.setFocused(focused) }
         }
 
         fileprivate func dismantle(_ surface: AnyObject) {
@@ -188,6 +200,7 @@ import ThrushCore
             pauseReplacementTimer()
             let previouslyActive = active
             active = false
+            updateFocus()
             drawingVisible = false
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
             view?.setRenderingActive(false)

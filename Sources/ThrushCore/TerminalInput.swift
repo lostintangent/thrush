@@ -12,6 +12,8 @@ extension Terminal {
         case pointer(Pointer)
         /// A hardware or accessory key and its active terminal modifiers.
         case key(Key, modifiers: Modifiers = [])
+        /// Whether the host now shows the terminal with keyboard focus, reported while the program sets mode 1004.
+        case focus(Bool)
 
         /// A key whose terminal sequence can depend on modifiers and the shell's current modes.
         package enum Key: Sendable {
@@ -89,6 +91,9 @@ extension Terminal {
             return bytes
         case .key(let key, let modifiers):
             return encodeKey(key, modifiers: modifiers.intersection([.shift, .alt, .control]))
+        case .focus(let focused):
+            guard modes.sendFocus else { return [] }
+            return [0x1b, 0x5b, focused ? UInt8(ascii: "I") : UInt8(ascii: "O")]
         }
     }
 

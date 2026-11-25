@@ -12,7 +12,7 @@ The script installs the reference from its lockfile, builds ThrushConformance in
 
 ## Corpora
 
-- **Functions** ([functions.mjs](functions.mjs)) have one case per control function, parameter form and edge. Each case draws a canvas of text, wide characters and colors, runs a setup, applies the subject, takes a checkpoint and prints a marker, so the next write shows where the subject left the cursor and rendition. The harness asserts that function cases reach every handler the reference registers.
+- **Functions** ([functions.mjs](functions.mjs)) have one case per control function, parameter form and edge. Each case draws a canvas of text, wide characters and colors, runs a setup, applies the subject, takes a checkpoint and prints a marker, so the next write shows where the subject left the cursor and rendition. Focus reporting cases also move the terminal's focus between writes. The harness asserts that function cases reach every handler the reference registers.
 - **Programs** ([programs.mjs](programs.mjs)) are real PTY recordings: the shell, Vim, Codex and Clang fixtures under `m2`–`m4`, and nine scenarios in [programs/](programs/) covering zsh, Bash, a pager, git, editors, process monitors, tmux and screen, Python and lazygit. Each replays read by read with every resize.
 - **Streams** ([streams.mjs](streams.mjs)) are 400 seeded random mixes of text and control functions, written in chunks split inside UTF-8 scalars and escape sequences.
 

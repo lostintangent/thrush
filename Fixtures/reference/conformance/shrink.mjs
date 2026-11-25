@@ -59,7 +59,7 @@ function pieces(steps) {
   const result = [];
   steps.forEach((step, index) => {
     if (step.write) for (const token of tokenize(step.write)) result.push({ write: token, chunk: index });
-    else if (step.resize) result.push({ resize: step.resize });
+    else if (!step.checkpoint) result.push({ step });
   });
   return result;
 }
@@ -77,7 +77,7 @@ export function assemble(tokens) {
   for (const token of tokens) {
     const last = steps.at(-1);
     if (token.write && last?.parts && last.chunk === token.chunk) last.parts.push(token.write);
-    else steps.push(token.write ? { parts: [token.write], chunk: token.chunk } : { resize: token.resize });
+    else steps.push(token.write ? { parts: [token.write], chunk: token.chunk } : token.step);
   }
   return steps.map(step => step.parts ? { write: concatenate(step.parts) } : step);
 }
@@ -192,9 +192,13 @@ export class Shrinker {
     return { steps: minimal, differences: await this.differences(testCase, minimal) };
   }
 
-  /** The functions the reference dispatched for the given steps, without repeats, with `resize` for a window change. */
+  /**
+   * The functions the reference dispatched for the given steps, without repeats, with `resize` for a
+   * window change and `focus` for a focus change.
+   */
   functions(testCase, steps) {
     const { functions } = this.reference.run({ ...testCase, steps }, { observe: true });
-    return [...new Set([...functions.flat(), ...steps.some(step => step.resize) ? ['resize'] : []])];
+    const host = [...steps.some(step => step.resize) ? ['resize'] : [], ...steps.some(step => step.focus !== undefined) ? ['focus'] : []];
+    return [...new Set([...functions.flat(), ...host])];
   }
 }

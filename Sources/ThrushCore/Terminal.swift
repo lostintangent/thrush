@@ -56,6 +56,9 @@ public struct Terminal: Sendable {
     package var cursorColor: RGB {
         didSet { if oldValue != cursorColor { generation &+= 1 } }
     }
+    /// Whether the host shows the terminal with keyboard focus. A program that sets mode 1004 hears it
+    /// right away, then hears each change the host sends as ``Input/focus(_:)``. Resets keep it.
+    package var isFocused = false
     /// The colors the program set over the host theme. They last until the program restores them,
     /// so a theme change or a resume never changes them.
     package private(set) var programColors = ProgramColors()
@@ -320,10 +323,10 @@ public struct Terminal: Sendable {
             setModes(enabled: false)
             return
         case .control(.setPrivateMode):
-            setPrivateModes(enabled: true)
+            setPrivateModes(enabled: true, replies: &replies)
             return
         case .control(.resetPrivateMode):
-            setPrivateModes(enabled: false)
+            setPrivateModes(enabled: false, replies: &replies)
             return
         case .control(.graphicRendition):
             style.applySGR(parser.parameters)
@@ -474,9 +477,12 @@ public struct Terminal: Sendable {
     }
 
     @inline(__always)
-    private mutating func setPrivateModes(enabled: Bool) {
+    private mutating func setPrivateModes(enabled: Bool, replies: inout [UInt8]) {
         for index in 0..<parser.parameters.count {
-            if let mode = PrivateMode(rawValue: parser.parameters[index]) { setPrivateMode(mode, enabled: enabled) }
+            guard let mode = PrivateMode(rawValue: parser.parameters[index]) else { continue }
+            setPrivateMode(mode, enabled: enabled)
+            // Setting focus reporting, even again, reports the current focus.
+            if mode == .sendFocus && enabled { replies += encode(.focus(isFocused)) }
         }
     }
 

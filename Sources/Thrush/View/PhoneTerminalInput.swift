@@ -165,9 +165,17 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         accessory.clearModifier()
     }
 
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        terminalView?.inputFocusDidChange()
+        return true
+    }
+
     override func resignFirstResponder() -> Bool {
         cancelPendingInput()
-        return super.resignFirstResponder()
+        guard super.resignFirstResponder() else { return false }
+        terminalView?.inputFocusDidChange()
+        return true
     }
 
     override func paste(_ sender: Any?) {
