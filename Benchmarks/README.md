@@ -4,7 +4,7 @@ Every benchmark checks what it measured. Replays compare each checkpoint with th
 
 | Report | Command | What it measures | Recorded result |
 | --- | --- | --- | --- |
-| [First bytes](first-bytes.md) | `swift run -c release ThrushBench` | A prompt, cursor query and Up key through the core | 8-byte prompt p95 875 ns, cursor query p95 542 ns |
+| [First bytes](first-bytes.md) | `swift run -c release ThrushBench` | A prompt, cursor query and Up key through the core | Median across five quiet hosted M1 runs was 8.94 MiB/s (8.66–10.78). Median per-run p95 was 1,000 ns for the prompt and 625 ns for the cursor query |
 | [Headless replay](headless.md) | The same command | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize | 193 MiB/s at 80 × 24, against a 100 MiB/s target. Worst full-history resize p95 0.582 ms, against 8.333 ms |
 | [Rendering](rendering.md) | `swift run -c release ThrushBench --render .build/demo/mac/Thrush.app` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app | Warm full grid p95 0.274 ms CPU and 0.102 ms GPU. Zero frames while idle or hidden |
 | [Native input](rendering.md#native-input-and-echo-latency) | `swift run -c release ThrushBench --interactions .build/demo/mac/Thrush.app` | Composition, paste and keys from the native responder to the socket and back | [Mac report](interactions-mac.json), p95 0.066 ms key to socket write and 0.440 ms key to receipt. All 20 echoes reached Metal |
@@ -15,4 +15,4 @@ Every benchmark checks what it measured. Replays compare each checkpoint with th
 
 Build the sample app with `scripts/build-demo.sh mac` before the rendering and input benchmarks. Run them from a logged-in, unlocked graphical session, since a locked display returns no presentation timestamps.
 
-All results so far come from one contended M1 Max running macOS 27.2.1. They show correctness and headroom, not a timing baseline. Compare runs on the same machine and power state, and use five quiet passes before setting a timing gate. Physical iPhone timings need a device run.
+The first-bytes row comes from five quiet runs on a hosted Apple M1 virtual Mac. The other Mac figures come from a contended M1 Max on macOS 27.2.1 and show correctness and headroom. Compare runs on the same machine and power state, and use five quiet passes before setting a timing gate. Physical iPhone timings need a device run.
