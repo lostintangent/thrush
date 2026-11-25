@@ -39,7 +39,7 @@ Both packaged apps passed 37 checkpoints on real shells. The four-workflow runs 
 | Platform | Shell, Vim, Codex and lifecycle | Silent recovery | Framebuffers | Vim grid before and after replay |
 | --- | --- | --- | ---: | ---: |
 | [Mac, macOS 27.0.1](live-workflows-mac.json) | 34 checkpoints, 29,511 bytes | 3 checkpoints, 296-byte replay at 80 × 24 | 15 | 298,944 matching RGB pixels |
-| [iPhone 17, iOS 27.2 Simulator](live-workflows-iphone.json) | 34 checkpoints, 24,943 bytes | 3 checkpoints, 1,319-byte replay at 47 × 25 | 15 | 1,529,550 matching RGB pixels |
+| [iPhone 17, iOS 27.2 Simulator](live-workflows-iphone.json) | 34 checkpoints, 24,943 bytes | 3 checkpoints, 1,319-byte replay at 47 × 24 | 15 | 1,529,550 matching RGB pixels |
 
 Vim’s block cursor remained visible at row 0, column 9, and both apps saved the exact 36-byte UTF-8 edit. Both copied the full soft-wrapped compiler path for unit 128. The Mac captures matched all 1,802 expected glyph cells and 84 selection fills. The iPhone captures matched all 2,090 expected glyph cells. Its leading selection handle covers one of 84 highlight fills and the trailing handle adds ink in the adjacent cell. Eleven iPhone captures also verified the software keyboard and its accessory controls.
 

@@ -206,9 +206,10 @@ async function generate(name) {
     if (event.bytes) await write(t, Buffer.from(event.bytes,'base64'));
     const reply = base64(Buffer.concat(replies));
     if (captureBytes || event.observedReply !== undefined) {
-      // These recordings predate focus reports, so their programs never received one.
-      const live = replies.filter(value => !focusReports.has(value.toString()));
-      assert.equal(base64(Buffer.concat(live)), event.observedReply ?? '', event.name + ' live PTY reply');
+      // Programs in recordings that predate focus reports never received one.
+      const observed = event.observedReply ?? '';
+      const live = reply === observed ? reply : base64(Buffer.concat(replies.filter(value => !focusReports.has(value.toString()))));
+      assert.equal(live, observed, event.name + ' live PTY reply');
     }
     if (reply) event.reply = reply;
     delete event.observedReply;

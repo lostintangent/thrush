@@ -35,7 +35,6 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         scroll.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         scroll.contentInsetAdjustmentBehavior = .never
         scroll.showsHorizontalScrollIndicator = false
-        scroll.keyboardDismissMode = .interactiveWithAccessory
         scroll.allowsKeyboardScrolling = false
         scroll.scrollsToTop = false
         scroll.bounces = false

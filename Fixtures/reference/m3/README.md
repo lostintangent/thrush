@@ -10,7 +10,7 @@ The recorder sends actual PTY reads into the pinned xterm emulator and returns i
 | Styled Swift portrait | 47 × 25 | (4, 20) | 23 |
 | Styled Swift landscape | 90 × 9 | (1, 20) | 7 |
 
-Both iPhone checkpoint sizes match the packaged Slate Dark prompt on the iPhone 17 simulator running iOS 27.2 at 3× scale. Each keyboard measurement includes the 44 pt terminal accessory.
+Both iPhone checkpoints were recorded with the packaged Slate Dark prompt on the iPhone 17 simulator running iOS 27.2 at 3× scale, with a 44 pt key row in each keyboard measurement. Landscape matches today's pane at 90 × 9. Today's portrait pane floats a 60 pt key row and measures 47 × 24, so the portrait checkpoint stays a recorded 47 × 25 workload.
 
 | Orientation | Window (pt) | Terminal view origin and size (pt) | Keyboard layout guide height (pt) |
 | --- | --- | --- | --- |

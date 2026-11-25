@@ -122,13 +122,17 @@ final class PhoneInteractionProof: XCTestCase {
     }
 
     private func assertKeyboard() throws {
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 12), app.debugDescription)
-        let keys = ["Esc", "Control", "Tab", "Left arrow", "Up arrow", "Down arrow", "Right arrow"]
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 12), app.debugDescription)
+        let keys = ["Esc", "Control", "Tab", "Left arrow", "Up arrow", "Down arrow", "Right arrow", "Hide Keyboard"]
         for name in keys {
             let key = app.buttons[name]
             XCTAssertTrue(key.exists, name)
             XCTAssertGreaterThanOrEqual(key.frame.width, 44, name)
-            XCTAssertGreaterThanOrEqual(key.frame.height, 44, name)
+            // Landscape's 36-point capsule floats 8 points above the keyboard, and its keys take
+            // taps down to the keyboard's edge, so every target stays 44 points tall.
+            XCTAssertGreaterThanOrEqual(key.frame.height, 36, name)
+            XCTAssertGreaterThanOrEqual(keyboard.frame.minY - key.frame.minY, 44, name)
         }
     }
 

@@ -217,12 +217,16 @@ import UIKit
         link = display
     }
 
+    private static func descendant(of view: UIView, labeled label: String) -> UIView? {
+        view.accessibilityLabel == label ? view : view.subviews.lazy.compactMap { descendant(of: $0, labeled: label) }.first
+    }
+
     @objc private func sampleFrame(_ display: CADisplayLink) {
         let window = host?.viewIfLoaded?.window
         let input = terminal?.subviews.first(where: \.isFirstResponder)
         let accessory = input?.inputAccessoryView
-        let stack = accessory?.subviews.compactMap { $0 as? UIStackView }.first
-        let right = stack?.arrangedSubviews.first { $0.accessibilityLabel == "Right arrow" }
+        let right = accessory.flatMap { Self.descendant(of: $0, labeled: "Right arrow") }
+        let stack = right?.superview as? UIStackView
         let sample = AccessorySample(displayTime: display.timestamp, receivingWindow: Geometry(window),
                                      accessoryWindow: Geometry(accessory?.window), accessory: Geometry(accessory),
                                      stack: Geometry(stack), rightButton: Geometry(right),

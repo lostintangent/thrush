@@ -222,7 +222,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
                 fixture_root = Path("Fixtures/replays") if name == "shell" else Path("Fixtures/reference/m4/phone")
                 fixture = json.loads((fixture_root / (WORKFLOWS[name] + ".json")).read_bytes())
                 expected = {}
-                grid = (47, 25)
+                grid = (47, 24)
                 for index, event in enumerate(fixture["events"]):
                     if "resize" in event:
                         change = event["resize"]

@@ -281,10 +281,11 @@ enum NativeWorkflowActions {
             let keyboard = host.view.keyboardLayoutGuide.layoutFrame
             let responder = view.subviews.compactMap { $0 as? UITextView }.first
             let accessory = responder?.inputAccessoryView?.bounds.height ?? 0
+            let floatingRow: CGFloat = host.traitCollection.verticalSizeClass == .compact ? 44 : 60
             let grid = view.gridSize
             if grid != previousGrid || keyboard != previousKeyboard || !requestedOrientation() ||
                 host.transitionCoordinator != nil || responder?.isFirstResponder != true ||
-                responder?.inputAccessoryView?.window == nil || abs(accessory - 44) > 0.5 ||
+                responder?.inputAccessoryView?.window == nil || abs(accessory - floatingRow) > 0.5 ||
                 keyboard.height <= host.view.safeAreaInsets.bottom + accessory + 1 {
                 unchangedSince = clock.now
             } else if grid != nil, clock.now - unchangedSince >= .milliseconds(300) {

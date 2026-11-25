@@ -40,8 +40,7 @@ import UIKit
         // The keyboard can install its destination height while the window is still in
         // the source orientation, before UIKit calls viewWillTransition on the pane.
         guard !releasing, !pane.terminal.holdsGridGeometry, pane.terminal.phoneInput.isFirstResponder,
-              source.height != pane.terminal.bounds.height, keyboardEnd != nil,
-              pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1,
+              source.height != pane.terminal.bounds.height, keyboardEnd != nil, pane.guideShowsKeyboard,
               !keyboardMatchesGuide() else { return }
         coordinatorFinished = true
         keyboardWasVisible = true
@@ -59,8 +58,7 @@ import UIKit
             releaseTask = nil
             rotation = coordinator
             coordinatorFinished = false
-            keyboardWasVisible = (pane.terminal.holdsGridGeometry && keyboardWasVisible)
-                || pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1
+            keyboardWasVisible = (pane.terminal.holdsGridGeometry && keyboardWasVisible) || pane.guideShowsKeyboard
             keyboardEnd = nil
             sourceWidth = pane.bounds.width
             lastBounds = nil
@@ -136,12 +134,13 @@ import UIKit
             && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
     }
 
-    /// After the window turns, UIKit moves the keyboard guide straight from the source
-    /// orientation's keyboard to the destination's. The keyboard can confirm that frame
-    /// only after the rotation ends, and in Dark it first reports a keyboard without keycaps.
+    /// After the window turns, UIKit moves the keyboard guide from the source orientation's
+    /// keyboard to the destination's. The keyboard can confirm that frame only after the
+    /// rotation ends, and in Dark it first reports a keyboard without keycaps. When the key
+    /// row changes height with the turn, the guide first passes through the bare safe area.
     private func guideFollowsTurn() -> Bool {
         guard let sourceWidth else { return false }
-        return abs(pane.bounds.width - sourceWidth) > 1 && guideSpansPane
+        return abs(pane.bounds.width - sourceWidth) > 1 && guideSpansPane && pane.guideShowsKeyboard
     }
 
     private var guideSpansPane: Bool { abs(pane.keyboardLayoutGuide.layoutFrame.width - pane.bounds.width) <= 1 }

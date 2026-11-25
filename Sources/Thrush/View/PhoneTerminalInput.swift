@@ -12,7 +12,10 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private var theme: TerminalTheme?
     private var ink: Terminal.RGB?
     private var paper: Terminal.RGB?
-    private lazy var accessory = TerminalKeyAccessory { [weak self] key in self?.sendKey(key) }
+    private lazy var accessory = TerminalKeyAccessory(
+        onKey: { [weak self] key in self?.sendKey(key) },
+        onHide: { [weak self] in _ = self?.resignFirstResponder() }
+    )
 
     init(terminalView: TerminalView) {
         self.terminalView = terminalView

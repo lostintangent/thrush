@@ -19,8 +19,9 @@ typealias PaneNativeView = UIView
     private let viewport = UIView()
     private var gridConstraints: [NSLayoutConstraint] = []
     private var rotationConstraints: [NSLayoutConstraint] = []
-    private var heldCursor: (top: NSLayoutConstraint, row: Int, rows: Int, history: Int)?
+    private var heldCursor: (top: NSLayoutConstraint, row: Int, rows: Int, history: Int, keyboard: Bool)?
     var viewportSize: CGSize { viewport.bounds.size }
+    var guideShowsKeyboard: Bool { keyboardLayoutGuide.layoutFrame.height > safeAreaInsets.bottom + 1 }
 
     private var sceneState: UIScene.ActivationState?
     private var visibilityObservations: [NSKeyValueObservation] = []
@@ -194,7 +195,7 @@ typealias PaneNativeView = UIView
         let top = terminal.topAnchor.constraint(equalTo: viewport.topAnchor)
         rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), top]
         if terminal.historyOffset == 0, let snapshot = terminal.snapshot {
-            heldCursor = (top, snapshot.cursorRow, snapshot.size.rows, snapshot.currentShellHistoryCount)
+            heldCursor = (top, snapshot.cursorRow, snapshot.size.rows, snapshot.currentShellHistoryCount, guideShowsKeyboard)
         }
         NSLayoutConstraint.deactivate(gridConstraints)
         NSLayoutConstraint.activate(rotationConstraints)
@@ -255,9 +256,11 @@ typealias PaneNativeView = UIView
     }
 
     // Follows the emulator's resize: a shorter grid scrolls the cursor into view, and a taller
-    // one pulls history back above a cursor on the bottom row.
+    // one pulls history back above a cursor on the bottom row. When the key row changes height
+    // with a turn, the keyboard guide briefly shows no keyboard outside the turn's animation,
+    // so a hold that began over the keyboard waits for the keyboard's own frame.
     private func alignHeldCursor() {
-        guard let held = heldCursor, let metrics = terminal.metrics else { return }
+        guard let held = heldCursor, let metrics = terminal.metrics, guideShowsKeyboard || !held.keyboard else { return }
         let rows = metrics.size(in: viewport.bounds.size).rows
         let row = if rows < held.rows { min(held.row, rows - 1) }
             else if held.row == held.rows - 1 { held.row + min(held.history, rows - held.rows) }
