@@ -9,7 +9,8 @@ import ThrushUI
         let windowID: Int
         let scene, appearance: String
         let keyWindow, activeApp, visible, hasTranscript, reduceMotion: Bool
-        let frontmostPID: Int32?
+        let frontmostPID, helperPID: Int32?
+        let helperError: String?
         let windowFrame, screenVisibleFrame: CGRect
         let scale: CGFloat
         let notice: VisiblePaneNotice?
@@ -18,12 +19,31 @@ import ThrushUI
 
     static func startIfRequested(session: DemoSession, window: NSWindow) {
         let args = CommandLine.arguments
-        guard let index = args.firstIndex(of: "--spinner-capture-state"), index + 1 < args.count,
+        guard let index = args.firstIndex(of: "--spinner-capture-state"), index + 2 < args.count,
               session.options.scene.capturesNotice else { return }
         let path = URL(fileURLWithPath: args[index + 1])
+        let helperURL = URL(fileURLWithPath: args[index + 2])
+        guard Bundle(url: helperURL)?.bundleIdentifier == "app.thrush.lifecycle-cover" else { return }
         Task { @MainActor [weak session, weak window] in
             var written: State?
+            var helper: NSRunningApplication?
+            var helperError: String?
+            let request = path.appendingPathExtension("focus")
             while let session, let window, !Task.isCancelled {
+                if helper == nil, helperError == nil, FileManager.default.fileExists(atPath: request.path) {
+                    do {
+                        let rect = try JSONDecoder().decode([Double].self, from: Data(contentsOf: request))
+                        guard rect.count == 4 else { return }
+                        let config = NSWorkspace.OpenConfiguration()
+                        config.activates = true
+                        config.createsNewApplicationInstance = true
+                        config.arguments = rect.map { String($0) } + ["--capture-geometry", path.appendingPathExtension("helper-frame").path]
+                        NSApp.yieldActivation(toApplicationWithBundleIdentifier: "app.thrush.lifecycle-cover")
+                        helper = try await NSWorkspace.shared.openApplication(at: helperURL, configuration: config)
+                    } catch {
+                        helperError = error.localizedDescription
+                    }
+                }
                 if let screen = window.screen, let root = window.contentView {
                     let indicator = spinner(in: root)
                     let frame = indicator.map {
@@ -38,6 +58,7 @@ import ThrushUI
                                       hasTranscript: session.view.snapshot?.rows.contains { $0.text == "Test run passed." } ?? false,
                                       reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
                                       frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+                                      helperPID: helper?.processIdentifier, helperError: helperError,
                                       windowFrame: window.frame, screenVisibleFrame: screen.visibleFrame,
                                       scale: window.backingScaleFactor, notice: session.view.visiblePaneNotice, spinnerFrame: frame)
                     if written != state {

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import plistlib
 import runpy
+import signal
 import struct
 import subprocess
 import sys
@@ -69,6 +70,34 @@ def helper_rect(state):
             if left + 36 < x or left - 12 > x + w or bottom + 36 < y or bottom - 12 > y + h:
                 return [left, bottom, 24, 24]
     raise ValueError("No free desktop corner for the inactive-window focus helper.")
+
+
+@contextmanager
+def focus_helper(path, process):
+    rect = helper_rect(read_state(path, process))
+    temporary = path.with_suffix(".request.tmp")
+    save(temporary, rect)
+    temporary.replace(str(path) + ".focus")
+    def launched():
+        state = read_state(path, process)
+        if state.get("helperError"):
+            raise RuntimeError(state["helperError"])
+        return state.get("helperPID")
+    pid = wait("foreground app to launch its focus helper", launched)
+    try:
+        geometry = Path(str(path) + ".helper-frame")
+        wait("focus helper window geometry", geometry.is_file)
+        actual = json.loads(geometry.read_text())
+        (hx, hy), (hw, hh) = actual
+        (tx, ty), (tw, th) = read_state(path, process)["windowFrame"]
+        if hx < tx + tw and tx < hx + hw and hy < ty + th and ty < hy + hh:
+            raise ValueError("The inactive terminal would be obscured by the focus helper.")
+        yield pid, actual
+    finally:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
 
 
 def capture(out, label, path, process, title, appearance, focus_pid, helper=None):
@@ -170,7 +199,7 @@ def main():
     samples, errors = {}, {}
     peer = runpy.run_path(str(SCRIPTS / "capture-simulator.py"))["peer"]
     measure = runpy.run_path(str(SCRIPTS / "check-spinner-contrast.py"))["measure"]
-    with tempfile.TemporaryDirectory() as scratch, peer(out, notices=True) as endpoint:
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out, notices=True) as endpoint:
         work = Path(scratch)
         focus = runpy.run_path(str(SCRIPTS / "pty/check-window.py"))["build_cover"](work)
         for appearance in ("dark", "light"):
@@ -178,7 +207,7 @@ def main():
                 name = f"{scene}-{appearance}"
                 path = out / (name + "-state.json")
                 args = ["--endpoint", endpoint, "--scene", "notice-" + scene, "--appearance", appearance,
-                        "--spinner-capture-state", str(path)]
+                        "--spinner-capture-state", str(path), str(focus)]
                 try:
                     with application(bundle, args, out / (name + "-host.log")) as process:
                         wait("mounted terminal", lambda: read_state(path, process))
@@ -191,18 +220,9 @@ def main():
                         title = scene.capitalize()
                         active = name + "-active"
                         samples[active] = capture(out, active, path, process, title, appearance, process.pid)
-                        rect = helper_rect(read_state(path, process))
-                        geometry = work / (name + "-helper.json")
-                        helper_args = [*map(str, rect), "--capture-geometry", str(geometry)]
-                        with application(focus, helper_args, out / (name + "-focus.log")) as helper:
-                            wait("focus helper window", geometry.is_file)
-                            actual = json.loads(geometry.read_text())
-                            (hx, hy), (hw, hh) = actual
-                            (tx, ty), (tw, th) = read_state(path, process)["windowFrame"]
-                            if hx < tx + tw and tx < hx + hw and hy < ty + th and ty < hy + hh:
-                                raise ValueError("The inactive terminal would be obscured by the focus helper.")
+                        with focus_helper(path, process) as (pid, actual):
                             inactive = name + "-inactive"
-                            samples[inactive] = capture(out, inactive, path, process, title, appearance, helper.pid, actual)
+                            samples[inactive] = capture(out, inactive, path, process, title, appearance, pid, actual)
                 except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
                     errors[name] = str(error)
     results = {}
