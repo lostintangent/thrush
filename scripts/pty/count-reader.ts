@@ -3,13 +3,16 @@ import { join } from "node:path";
 
 const [base, id, directory, mode] = Bun.argv.slice(2);
 const url = new URL("/socket", base);
-if (url.hostname !== "127.0.0.1" || url.protocol !== "http:" || !["count", "exit"].includes(mode)) {
+if (!["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) || !["http:", "https:"].includes(url.protocol) || !["count", "exit"].includes(mode)) {
   throw new Error("Run scripts/check-pty.sh --readers");
 }
-url.protocol = "ws:";
+url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 url.search = new URLSearchParams({ service: "terminal", clientId: id, cols: "80", rows: "24" }).toString();
 const socket = new WebSocket(url);
 socket.binaryType = "arraybuffer";
+const bootstrap = process.env.THRUSH_PTY_CHECK_BOOTSTRAP;
+const setupMarker = Buffer.from("\r\nTHRUSH-SETUP-" + id + "\r\n");
+let setupDone = !bootstrap, setupBytes = 0, setupTail = Buffer.alloc(0);
 let receivedBytes = 0, binaryFrames = 0, exitSeen = false, attached = false;
 let tail = Buffer.alloc(0);
 let awaitingReplay = false, replayFrames = 0, replayBytes = 0, finalInReplay = false;
@@ -23,12 +26,21 @@ socket.onclose = event => {
 const final = Buffer.from("THRUSH-SHELL-EXIT\r\n");
 
 function report(extra = {}) {
-  writeFileSync(join(directory, "client.json"), JSON.stringify({ reader: "bun", receivedBytes, binaryFrames, replayBytes, replayFrames, ...extra }));
+  writeFileSync(join(directory, "client.json"), JSON.stringify({ reader: "bun", setupBytes, receivedBytes, binaryFrames, replayBytes, replayFrames, ...extra }));
 }
 
 socket.onmessage = ({data}) => {
   if (typeof data !== "string") {
     if (!attached || exitSeen) throw new Error("Binary message outside the active shell");
+    if (!setupDone) {
+      setupBytes += data.byteLength;
+      setupTail = Buffer.concat([setupTail, Buffer.from(data)]).subarray(-setupMarker.length);
+      if (setupTail.equals(setupMarker)) {
+        setupDone = true;
+        writeFileSync(join(directory, "reader-ready"), "");
+      }
+      return;
+    }
     receivedBytes += data.byteLength;
     if (awaitingReplay) {
       awaitingReplay = false;
@@ -53,7 +65,8 @@ socket.onmessage = ({data}) => {
   const control = JSON.parse(data);
   if (control.type === "ready" && !attached && !control.resumed) {
     attached = true;
-    writeFileSync(join(directory, "reader-ready"), "");
+    if (bootstrap) socket.send(Buffer.from(bootstrap));
+    else writeFileSync(join(directory, "reader-ready"), "");
   } else if (control.type === "ready" && attached && control.resumed && !awaitingReplay && !exitSeen) {
     awaitingReplay = true;
   } else if (control.type === "exit" && attached && !awaitingReplay && !exitSeen) {
@@ -80,7 +93,7 @@ if (mode === "exit") {
   const deadline = performance.now() + 2000;
   while (openAfterExit && !pong && closeCode === null && performance.now() < deadline) await Bun.sleep(10);
 
-  // A same-ID attachment proves whether Toy Box can still replay the former PTY.
+  // A same-ID attachment proves whether the server can still replay the former PTY.
   const next = new WebSocket(url);
   const resumed = await new Promise<boolean>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Missing same-ID ready")), 3000);
@@ -89,6 +102,7 @@ if (mode === "exit") {
       const control = JSON.parse(data);
       if (control.type === "ready") {
         clearTimeout(timeout);
+        if (bootstrap && !control.resumed) next.send(Buffer.from(bootstrap));
         resolve(control.resumed);
       }
     };

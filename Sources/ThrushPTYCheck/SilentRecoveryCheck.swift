@@ -5,6 +5,7 @@ import Thrush
 enum SilentRecoveryCheck {
     struct Result: Encodable {
         let reader = "silent"
+        let setupBytes: Int
         let receivedBytes: Int
         let appliedBytes: Int
         let liveNumberedBytes: Int
@@ -14,7 +15,7 @@ enum SilentRecoveryCheck {
         let liveEchoReceived: Bool
     }
 
-    static func run(_ connection: TerminalConnection, id: String, directory: URL) async throws {
+    static func run(_ connection: TerminalConnection, id: String, directory: URL, setupBytes: Int) async throws {
         // The harness stops the entire process before allowing the producer to write its burst.
         let gate = directory.appending(path: "send-gap-input")
         let deadline = ContinuousClock.now.advanced(by: .seconds(30))
@@ -57,7 +58,8 @@ enum SilentRecoveryCheck {
                     }
                 }
                 guard echo, await connection.state == .ended else { throw PTYCheckFailure("Missing live echo before exit") }
-                let result = Result(receivedBytes: await connection.receivedBytes, appliedBytes: await connection.appliedBytes,
+                let result = Result(setupBytes: setupBytes, receivedBytes: await connection.receivedBytes - setupBytes,
+                                    appliedBytes: await connection.appliedBytes - setupBytes,
                                     liveNumberedBytes: liveBytes, replayBytes: replayBytes, restoredLastMarker: 131072,
                                     matchingRows: expected.count, liveEchoReceived: echo)
                 try JSONEncoder().encode(result).write(to: directory.appending(path: "client.json"))

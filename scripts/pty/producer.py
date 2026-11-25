@@ -1,4 +1,4 @@
-"""Executed by the disposable Toy Box shell, with stdout attached to the real PTY."""
+"""Executed by the disposable fixture shell, with stdout attached to the real PTY."""
 import json
 import os
 from pathlib import Path
@@ -37,7 +37,7 @@ def produce(scenario):
         "markers": count, "payloadBytes": count * 64, "seconds": seconds,
     }))
 
-    # Toy Box can skip the end fence during backpressure too. Retry until the host sees it.
+    # The server can skip the end fence during backpressure too. Retry until the host sees it.
     while True:
         out.write(b"\x1b[1;1HTHRUSH-END\x1b[K")
         out.flush()

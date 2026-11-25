@@ -1,4 +1,4 @@
-"""Start a private production Toy Box, exercise its PTYs, and check the independent numbered log."""
+"""Exercise real PTYs and compare numbered logs and terminal screens with an independent reference."""
 import argparse
 from contextlib import contextmanager
 import json
@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -27,24 +28,42 @@ def wait_for(description, check, process, seconds=45):
     raise TimeoutError(description)
 
 
+def local_endpoint(value):
+    match = re.fullmatch(r"(?:http|ws)(s?)://(127\.0\.0\.1|localhost|\[::1\])(?::([0-9]{1,5}))?(?:/socket|/)?", value)
+    if not match or (match[3] and not 0 < int(match[3]) <= 65535):
+        raise argparse.ArgumentTypeError("Expected a disposable loopback origin such as http://127.0.0.1:3129")
+    port = f":{int(match[3])}" if match[3] else ""
+    return f"http{match[1]}://{match[2]}{port}"
+
+
+def fixture_environment(endpoint, shell):
+    # Only an explicitly supplied endpoint needs to enter the private fixture from its configured login shell.
+    command = "exec " + shlex.quote(str(shell)) + "\r" if endpoint else ""
+    return {**os.environ, "THRUSH_PTY_CHECK_BOOTSTRAP": command}
+
+
 @contextmanager
-def server(repo, root, shell, log, working_tree=False):
-    launcher = Path(__file__).resolve().parents[1] / "serve-pty.py"
+def server(root, shell, log, executable, endpoint=None):
+    data = root / "data"
+    if endpoint:
+        (data / "work").mkdir(parents=True)
+        (data / "source.json").write_text(json.dumps({"server": "external", "endpoint": endpoint}) + "\n")
+        yield endpoint
+        return
     with log.open("w") as output, subprocess.Popen(
-        [sys.executable, launcher, "--toy-box", repo, "--data-dir", root / "data", "--shell", shell,
-         *(["--working-tree"] if working_tree else [])],
+        [executable, "--port", "0", "--data-dir", data, "--shell", shell],
         stdout=output, stderr=subprocess.STDOUT,
         start_new_session=True,
     ) as process:
         try:
             # Trust only the port bound by this process, read from its own stdout.
-            address = wait_for("Toy Box loopback listener",
+            address = wait_for("ThrushServer loopback listener",
                                lambda: re.search(r"Listening on: (http://127\.0\.0\.1:\d+)/", log.read_text()),
-                               process, seconds=900)
+                               process, seconds=15)
             yield address[1]
         finally:
             if process.poll() is None:
-                process.terminate()
+                os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=8)
                 except subprocess.TimeoutExpired:
@@ -54,6 +73,14 @@ def server(repo, root, shell, log, working_tree=False):
 
 def read_json(path):
     return json.loads(path.read_text())
+
+
+def report_path(kind, endpoint):
+    directory = Path(".build/benchmarks")
+    if endpoint:
+        directory /= "external"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / (kind + ".json")
 
 
 def timing(run, payload_offset, payload_length):
@@ -132,13 +159,13 @@ def check_log(run, scenario):
     }
 
 
-def exercise(binary, endpoint, token, work, scenario, limit=None):
+def exercise(binary, endpoint, token, work, scenario, env, limit=None):
     run = work / scenario
     run.mkdir()
     command = [binary, endpoint, token, scenario, run]
     if limit:
         command.append(str(limit * 1048576))
-    with subprocess.Popen(command) as process:
+    with subprocess.Popen(command, env=env) as process:
         try:
             wait_for("Real shell started its numbered log", (run / "armed").exists, process)
             if scenario == "suspended":
@@ -164,8 +191,8 @@ def exercise(binary, endpoint, token, work, scenario, limit=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
-    parser.add_argument("--toy-box", type=Path, default=Path("../toy-box"))
-    parser.add_argument("--working-tree", action="store_true", help="Test the current Toy Box checkout")
+    parser.add_argument("--endpoint", type=local_endpoint, help="Use a disposable local PTY server sharing this filesystem")
+    parser.add_argument("--server-binary", type=Path, help="Release ThrushServer executable beside the check client")
     args = parser.parse_args()
 
     def terminate(signum, frame):
@@ -173,48 +200,47 @@ def main():
 
     signal.signal(signal.SIGTERM, terminate)
     binary = args.binary.resolve()
-    report_path = Path(".build/benchmarks") / ("pty-smoke-candidate.json" if args.working_tree else "pty-smoke.json")
-    report_path.parent.mkdir(parents=True, exist_ok=True)
+    path = report_path("pty-smoke", args.endpoint)
     token = str(uuid.uuid4())
     with tempfile.TemporaryDirectory(prefix="thrush-pty-") as temp:
         root = Path(temp)
-        # A fresh nonce identifies exactly this server to the client before it sends shell input.
+        # Check the private shell's nonce before sending the producer command.
         shell = root / "shell"
-        shell.write_text(f"#!/bin/sh\nprintf 'THRUSH-{token}\\n'\nexec /bin/sh -i\n")
+        work = root / "data" / "work"
+        shell.write_text(f"#!/bin/sh\ncd {shlex.quote(str(work))} || exit 1\nprintf '\\nTHRUSH-{token}\\n'\nexec /bin/sh -i\n")
         shell.chmod(0o700)
+        env = fixture_environment(args.endpoint, shell)
         log = root / "server.log"
         try:
-            with server(args.toy_box, root, shell, log, working_tree=args.working_tree) as endpoint:
-                work = root / "data" / "work"
+            with server(root, shell, log, args.server_binary or binary.with_name("ThrushServer"), args.endpoint) as endpoint:
                 shutil.copyfile(Path(__file__).with_name("producer.py"), work / "producer.py")
                 source = read_json(root / "data" / "source.json")
                 runs = []
                 baseline = next(row["receiveMiBPerSecond"] for row in read_json(Path("Benchmarks/headless.json"))["bulk"]
                                 if row["grid"] == {"columns": 80, "rows": 24})
                 for scenario in ("paced", "live", "limited", "suspended"):
-                    result = exercise(binary, endpoint, token, work, scenario, baseline / 4 if scenario == "limited" else None)
+                    result = exercise(binary, endpoint, token, work, scenario, env, baseline / 4 if scenario == "limited" else None)
                     print(json.dumps(result), flush=True)
                     runs.append(result)
-                subprocess.run([binary, endpoint, token, "lifecycle", root], timeout=75, check=True)
+                subprocess.run([binary, endpoint, token, "lifecycle", root], env=env, timeout=75, check=True)
         except BaseException:
             if log.exists():
                 print(log.read_text()[-4000:], file=sys.stderr)
             raise
 
-    report = {**source, "bun": subprocess.check_output(["bun", "--version"], text=True).strip(),
-              "thrushHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+    report = {**source, "thrushHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "macOS": platform.mac_ver()[0], "hardware": subprocess.check_output(
                   ["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip(),
               "grid": [80, 24], "runs": runs}
-    report_path.write_text(json.dumps(report, indent=2) + "\n")
+    path.write_text(json.dumps(report, indent=2) + "\n")
     if not runs[0]["payloadMatches"]:
-        raise RuntimeError(f"Paced live output differs from the reference. See {report_path}")
+        raise RuntimeError(f"Paced live output differs from the reference. See {path}")
     if not all(run["replayScreenMatchesExpected"] for run in runs):
-        raise RuntimeError(f"Server replay did not restore the expected visible rows. See {report_path}")
+        raise RuntimeError(f"Server replay did not restore the expected visible rows. See {path}")
     if any(run["missingPayloadBytes"] < 0 for run in runs):
         raise RuntimeError("Live output contains extra payload bytes")
-    print(report_path)
+    print(path)
 
 
 if __name__ == "__main__":

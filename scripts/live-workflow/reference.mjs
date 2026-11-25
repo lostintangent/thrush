@@ -1,21 +1,10 @@
-// Observe the bytes delivered to the native pane with the server's independent emulator.
+// Observe the bytes delivered to the native pane with the independent reference emulator.
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { headless } from '../../Fixtures/reference/headless.mjs';
 import { Pool, checkpoint } from '../../Fixtures/reference/m2/checkpoint.mjs';
 
 export function openReference(grid) {
-    assert(process.env.THRUSH_XTERM_MODULES, 'Set THRUSH_XTERM_MODULES to the pinned Toy Box node_modules');
-    const load = createRequire(resolve(process.env.THRUSH_XTERM_MODULES, '..', 'package.json'));
-    for (const [name, version] of [['headless', '6.0.0'], ['addon-unicode11', '0.9.0']]) {
-        assert.equal(load('@xterm/' + name + '/package.json').version, version);
-    }
-    const { Terminal } = load('@xterm/headless');
-    const { Unicode11Addon } = load('@xterm/addon-unicode11');
-    const terminal = new Terminal({ cols: grid.columns, rows: grid.rows, scrollback: 1000, allowProposedApi: true });
-    terminal.loadAddon(new Unicode11Addon());
-    terminal.unicode.activeVersion = '11';
-    return terminal;
+    return headless(grid.columns, grid.rows);
 }
 
 export function logicalLines(terminal, viewportOnly = false) {
@@ -24,7 +13,10 @@ export function logicalLines(terminal, viewportOnly = false) {
     for (let row = viewportOnly ? buf.baseY : 0; row < buf.length;) {
         const first = row;
         let text = '';
-        while (buf.getLine(row + 1)?.isWrapped) text += buf.getLine(row++).translateToString(false, 0, terminal.cols);
+        // The reference line store is circular. The last physical row has no continuation.
+        while (row + 1 < buf.length && buf.getLine(row + 1).isWrapped) {
+            text += buf.getLine(row++).translateToString(false, 0, terminal.cols);
+        }
         const last = buf.getLine(row);
         text += last.translateToString(true, 0, terminal.cols);
         result.push({ first, last: row++, text });

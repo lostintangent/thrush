@@ -6,6 +6,7 @@ import Thrush
 enum ReaderComparison {
     struct Result: Encodable {
         var reader: String
+        var setupBytes = 0
         var receivedBytes = 0
         var appliedBytes: Int?
         var binaryFrames = 0
@@ -26,22 +27,44 @@ enum ReaderComparison {
         }
     }
 
+    /// A supplied server starts in its own shell. The producer cannot start until the full nonce line
+    /// has reached this reader, so the measured stream starts on a message boundary after setup.
+    private static func readSetup(id: String, next: () async throws -> Data) async throws -> Int {
+        let marker = Data("\r\nTHRUSH-SETUP-\(id)\r\n".utf8)
+        var tail = Data()
+        var bytes = 0
+        while tail != marker {
+            let frame = try await next()
+            bytes += frame.count
+            tail.append(frame)
+            tail = Data(tail.suffix(marker.count))
+        }
+        return bytes
+    }
+
     static func run(_ args: [String]) async throws {
         guard args.count == 6, ["thrush", "urlsession", "silent"].contains(args[2]), let url = URL(string: args[3]),
-              url.host == "127.0.0.1", url.scheme == "http", UUID(uuidString: args[4]) != nil else {
+              PTYCheck.isLoopback(url), UUID(uuidString: args[4]) != nil else {
             throw PTYCheckFailure("Run scripts/check-pty.sh --readers")
         }
         let reader = args[2], id = args[4], directory = URL(filePath: args[5], directoryHint: .isDirectory)
         let ready = directory.appending(path: "reader-ready")
         var result = Result(reader: reader)
         if reader == "thrush" || reader == "silent" {
-            let lastFrame = Mutex(0)
+            let lastFrame = Mutex(Data())
             let connection = try TerminalConnection(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
-                                                    onOutput: { data in lastFrame.withLock { $0 = data.count } })
+                                                    onOutput: { data in lastFrame.withLock { $0 = data } })
             guard try await connection.nextEvent() == .ready(resumed: false) else { throw PTYCheckFailure("Expected fresh PTY") }
+            if PTYCheck.fixtureCommand != nil {
+                try await PTYCheck.enterFixture(connection)
+                result.setupBytes = try await readSetup(id: id) {
+                    guard try await connection.nextEvent() == .output else { throw PTYCheckFailure("Missing fixture setup fence") }
+                    return lastFrame.withLock { $0 }
+                }
+            }
             try Data().write(to: ready)
             if reader == "silent" {
-                try await SilentRecoveryCheck.run(connection, id: id, directory: directory)
+                try await SilentRecoveryCheck.run(connection, id: id, directory: directory, setupBytes: result.setupBytes)
                 return
             }
             drain: while true {
@@ -49,18 +72,18 @@ enum ReaderComparison {
                 case .output: result.binaryFrames += 1
                 case .resynchronized:
                     result.replayFrames += 1
-                    result.replayBytes += lastFrame.withLock { $0 }
+                    result.replayBytes += lastFrame.withLock { $0.count }
                 case .exit: break drain
                 default: throw PTYCheckFailure("Unexpected lifecycle transition during the burst")
                 }
             }
             guard await connection.state == .ended else { throw PTYCheckFailure("Expected shell exit") }
-            result.receivedBytes = await connection.receivedBytes
-            result.appliedBytes = await connection.appliedBytes
+            result.receivedBytes = await connection.receivedBytes - result.setupBytes
+            result.appliedBytes = await connection.appliedBytes - result.setupBytes
         } else {
             // Match the adapter’s ephemeral URLSession and endpoint for a transport-only reader.
             var endpoint = URLComponents(url: url.appending(path: "socket"), resolvingAgainstBaseURL: false)!
-            endpoint.scheme = "ws"
+            endpoint.scheme = url.scheme == "https" ? "wss" : "ws"
             endpoint.queryItems = [
                 URLQueryItem(name: "service", value: "terminal"), URLQueryItem(name: "clientId", value: id),
                 URLQueryItem(name: "cols", value: "80"), URLQueryItem(name: "rows", value: "24")
@@ -87,6 +110,13 @@ enum ReaderComparison {
                     let message = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
                     if !attached, message?["type"] as? String == "ready", message?["resumed"] as? Bool == false {
                         attached = true
+                        if let command = PTYCheck.fixtureCommand {
+                            try await socket.send(.data(Data(command.utf8)))
+                            result.setupBytes = try await readSetup(id: id) {
+                                guard case let .data(bytes) = try await socket.receive() else { throw PTYCheckFailure("Missing fixture setup fence") }
+                                return bytes
+                            }
+                        }
                         try Data().write(to: ready)
                     } else if attached, !awaitingReplay, message?["type"] as? String == "ready", message?["resumed"] as? Bool == true {
                         awaitingReplay = true

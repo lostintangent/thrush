@@ -44,7 +44,7 @@ The separate app consumer builds the README integration using only the `Thrush` 
 
 To measure ThrushCore against libghostty-vt and @xterm/headless on the same workloads, run `python3 scripts/comparison/run.py --profile`. It downloads and builds the pinned libghostty-vt with Zig on first use, checks that every core ends on the same screen, and writes `.build/benchmarks/comparison.json`. See [the comparison report](Benchmarks/comparison.md).
 
-For real WebSocket and PTY checks, run `scripts/check-pty.sh --toy-box ../toy-box`. The [disposable server procedure](Benchmarks/pty.md) also starts an isolated endpoint for the native demos.
+For real WebSocket and PTY checks, run `scripts/check-pty.sh`. Start the standalone server with `swift run ThrushServer`. The [PTY measurements](Benchmarks/pty.md) also cover slow readers and shell lifecycle.
 
 Apps can build for Mac with only Command Line Tools, as Toy Box does, so Thrush must build without Xcode. CI checks this, and you can run the same build in a fresh shell with `DEVELOPER_DIR=/Library/Developer/CommandLineTools swift build -c release --target Thrush --scratch-path .build/command-line-tools`. The separate scratch path keeps it from rebuilding the Xcode toolchain's products.
 

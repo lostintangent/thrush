@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "purpose": "One-time compatibility check of the single-URL live workflow runner against an independently started, unmodified Toy Box server.",
+  "server": {
+    "revision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92",
+    "runtime": "Bun 1.4.6",
+    "entry": ".output/server/index.mjs",
+    "entrySHA256": "a1b9ed6f84336db6c8bd3323df54c1f6c5de0ab81c167bb2e5c07678247531b3",
+    "shell": "/bin/zsh"
+  },
+  "local": {
+    "setup": "A real loopback socket and disposable PTY per workflow. On fresh ready, a separate setup write starts the fixture Bash in a private HOME. Every upstream frame is forwarded and counted.",
+    "clients": {
+      "shellVimCodex": "Headless WebSocket driver at iPhone grid sizes. Real Bash, system Vim, native Codex 0.166.0 and a local Responses stream. The independent reference checks the transmitted screen.",
+      "lifecycle": "Swift TerminalConnection using Apple URLSession at 47×25 and 47×42. An independent comparator checked upstream, forwarded, observed, accepted and applied frames through the success footer."
+    },
+    "referencePackages": {
+      "@xterm/headless": "6.0.0",
+      "@xterm/addon-unicode11": "0.9.0"
+    },
+    "workflows": {
+      "shell": {
+        "checkpoints": 7,
+        "binaryFrames": 11,
+        "upstreamBytes": 883,
+        "forwardedBytes": 883,
+        "clientAppliedBytes": 883,
+        "freshShellSetupWrites": 1,
+        "controllerReportSHA256": "f2cb421bcbab84634c943ef09a70dd6eaac330cdd909861866aae069f79785cc",
+        "compiledObjectBytes": 520
+      },
+      "vim": {
+        "checkpoints": 10,
+        "binaryFrames": 105,
+        "upstreamBytes": 6635,
+        "forwardedBytes": 6635,
+        "clientAppliedBytes": 6635,
+        "freshShellSetupWrites": 1,
+        "controllerReportSHA256": "b269f20c7bb87e775415d08cc0b444e31bd0e872c0d6cdc2155f27fca52b85ae",
+        "savedBytes": 36,
+        "savedText": "note: 界 éfirst line\nsecond line\n",
+        "replays": 1
+      },
+      "codex": {
+        "checkpoints": 10,
+        "binaryFrames": 214,
+        "upstreamBytes": 21834,
+        "forwardedBytes": 21834,
+        "clientAppliedBytes": 21834,
+        "freshShellSetupWrites": 1,
+        "controllerReportSHA256": "a8ad3da79d961778cac5a8baa1b63053e4c720f179dc85130b123772592d5cc7",
+        "userBand": {
+          "background": "#131d27",
+          "composer": "#2f3840",
+          "history": "#384149"
+        },
+        "userBandVerified": true,
+        "usedIndexedFallback": false
+      },
+      "lifecycle": {
+        "checkpoints": 7,
+        "binaryFrames": 227,
+        "upstreamBytes": 2054,
+        "forwardedBytes": 2054,
+        "clientAppliedBytes": 2054,
+        "freshShellSetupWrites": 3,
+        "controllerReportSHA256": "f81ddb13352f7fb45d681bc65431089dc48fb20de49c498ab7fc2e07eb193f69",
+        "ready": [
+          false,
+          true,
+          true,
+          false,
+          false
+        ],
+        "replayFrames": 2,
+        "replayBytes": 218,
+        "orphanLifetimeMs": 30030,
+        "takeoverCloseCode": 4000,
+        "useHereInputBytes": 0,
+        "newShellInputBytes": 0,
+        "distinctShellPIDs": 3,
+        "explicitlyClosedPIDDead": true,
+        "frameComparison": "exact-completed",
+        "frameDifferences": 0,
+        "nativeTraceSHA256": "47f62eae4f5de608419d505587dde80be4291b80fd4410a0b21bb0ec1d41a0ec",
+        "comparisonSHA256": "24e1e3bd3b01ec0caecea5ff1bead4d833b737affe7c335f867c6603c46c2675"
+      }
+    }
+  },
+  "historicalPackagedRuns": {
+    "scope": "Prior hosted packaged-app checks with native framebuffers. The one-time local compatibility run used headless clients.",
+    "mac": {
+      "runID": 45583895283,
+      "attempt": 1,
+      "report": "live-workflows-mac-hosted.json"
+    },
+    "iPhoneSimulator": {
+      "runID": 45581538459,
+      "attempt": 2,
+      "report": "live-workflows-iphone.json"
+    }
+  }
+}

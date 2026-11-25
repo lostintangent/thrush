@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shlex
 import shutil
 import signal
 import subprocess
@@ -13,7 +14,7 @@ import time
 import uuid
 
 sys.dont_write_bytecode = True
-from check import read_json, server, wait_for
+from check import fixture_environment, local_endpoint, read_json, report_path, server, wait_for
 
 
 HERE = Path(__file__).resolve().parent
@@ -28,7 +29,7 @@ def dead(pid):
     return False
 
 
-def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=False, suspend=False):
+def exercise(binary, endpoint, work, name, reader, env, profile="paced16", probe=False, suspend=False):
     run = work / name
     run.mkdir()
     (work / "current-run").write_text(name)
@@ -37,13 +38,15 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
     if probe:
         (run / "exit-now").touch()
     shell_id = str(uuid.uuid4())
+    if env["THRUSH_PTY_CHECK_BOOTSTRAP"]:
+        (run / "reader-id").write_text(shell_id)
     if reader == "silent":
         (run / "gap-nonce").write_text(shell_id)
     if reader == "bun":
         command = ["bun", HERE / "count-reader.ts", endpoint, shell_id, run, "exit" if probe else "count"]
     else:
         command = [binary, "reader", reader, endpoint, shell_id, run]
-    with subprocess.Popen(command) as client:
+    with subprocess.Popen(command, env=env) as client:
         try:
             wait_for("fresh reader", (run / "reader-ready").exists, client)
             wait_for("real PTY producer", (run / "producer-ready").exists, client)
@@ -111,12 +114,10 @@ def exercise(binary, endpoint, work, name, reader, profile="paced16", probe=Fals
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
-    parser.add_argument("--toy-box", type=Path, default=Path("../toy-box"))
-    parser.add_argument("--working-tree", action="store_true", help="Test the current Toy Box checkout")
+    parser.add_argument("--endpoint", type=local_endpoint, help="Use a disposable local PTY server sharing this filesystem")
+    parser.add_argument("--server-binary", type=Path, help="Release ThrushServer executable beside the check client")
     parser.add_argument("--recovery", action="store_true", help="Run the silent repair and exit-order acceptance checks")
     args = parser.parse_args()
-    if args.recovery and not args.working_tree:
-        parser.error("--recovery needs a server with in-band repairs; select it with --working-tree")
     binary = args.binary.resolve()
 
     def terminate(signum, frame):
@@ -125,18 +126,20 @@ def main():
     signal.signal(signal.SIGTERM, terminate)
     with tempfile.TemporaryDirectory(prefix="thrush-readers-") as temp:
         root = Path(temp)
+        work = root / "data" / "work"
         shell = root / "shell"
         shell.write_text(
-            '#!/bin/sh\nset -eu\nstty -echo -onlcr\ncd "$(cat current-run)"\n'
+            f'#!/bin/sh\nset -eu\ncd {shlex.quote(str(work))}\nstty -echo -onlcr\ncd "$(cat current-run)"\n'
+            'if test -f reader-id; then printf "\\r\\nTHRUSH-SETUP-%s\\r\\n" "$(cat reader-id)"; fi\n'
             '/usr/bin/python3 ../reader-producer.py\n'
             'if test -f exit-now && ! test -f replacement-pid; then\n'
             "  printf 'THRUSH-SHELL-EXIT\\r\\n' && touch shell-exit-issued\nfi\nexit 0\n"
         )
         shell.chmod(0o700)
+        env = fixture_environment(args.endpoint, shell)
         log = root / "server.log"
         try:
-            with server(args.toy_box, root, shell, log, working_tree=args.working_tree) as endpoint:
-                work = root / "data" / "work"
+            with server(root, shell, log, args.server_binary or binary.with_name("ThrushServer"), args.endpoint) as endpoint:
                 shutil.copyfile(HERE / "reader-producer.py", work / "reader-producer.py")
                 readers = ["bun", "thrush", "urlsession"]
                 results = []
@@ -144,10 +147,10 @@ def main():
                     for profile in ("paced16", "unpaced"):
                         for reader in readers[iteration:] + readers[:iteration]:
                             name = f"{profile}-{iteration+1}-{reader}"
-                            results.append(exercise(binary, endpoint, work, name, reader, profile=profile))
-                exits = [exercise(binary, endpoint, work, "exit-live", "bun", probe=True),
-                         exercise(binary, endpoint, work, "exit-suspended", "bun", probe=True, suspend=True)]
-                silent = exercise(binary, endpoint, work, "silent", "silent", profile="unpaced", suspend=True) if args.recovery else None
+                            results.append(exercise(binary, endpoint, work, name, reader, env, profile=profile))
+                exits = [exercise(binary, endpoint, work, "exit-live", "bun", env, probe=True),
+                         exercise(binary, endpoint, work, "exit-suspended", "bun", env, probe=True, suspend=True)]
+                silent = exercise(binary, endpoint, work, "silent", "silent", env, profile="unpaced", suspend=True) if args.recovery else None
                 source = read_json(root / "data" / "source.json")
         except BaseException:
             if log.exists():
@@ -157,12 +160,10 @@ def main():
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "macOS": platform.mac_ver()[0],
               "grid": [80, 24], "sourceTargetMiBPerSecond": 16, "comparisons": results, "exits": exits}
-    kind = "pty-readers-candidate" if args.working_tree else "pty-readers"
+    kind = "pty-recovery" if args.recovery else "pty-readers"
     if args.recovery:
-        kind = "pty-recovery-candidate"
         report["silent"] = silent
-    path = Path(".build/benchmarks") / (kind + ".json")
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path = report_path(kind, args.endpoint)
     path.write_text(json.dumps(report, indent=2) + "\n")
     if not all(e["shellPIDDead"] and e["replacementShellHasNewPID"] and not e["resumed"] for e in exits):
         raise RuntimeError(f"Could not establish natural exit and fresh attachment. See {path}")

@@ -70,6 +70,7 @@ struct PTYLifecycle {
               await connection.snapshot().rows.allSatisfy({ $0.text.isEmpty }) else {
             throw PTYCheckFailure("Expected a fresh clean grid")
         }
+        try await PTYCheck.enterFixture(connection)
         try await row("THRUSH-\(token)", in: connection)
         try await connection.send(.text("stty -echo; printf '\\r\\nPID-%d\\n' $$\r"))
         while true {

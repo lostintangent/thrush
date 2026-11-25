@@ -93,6 +93,19 @@ struct PTYCheck {
         var replayRows: [String]
     }
 
+    static var fixtureCommand: String? {
+        guard let command = ProcessInfo.processInfo.environment["THRUSH_PTY_CHECK_BOOTSTRAP"], !command.isEmpty else { return nil }
+        return command
+    }
+
+    static func isLoopback(_ url: URL) -> Bool {
+        ["http", "https"].contains(url.scheme ?? "") && ["127.0.0.1", "localhost", "[::1]", "::1"].contains(url.host ?? "")
+    }
+
+    static func enterFixture(_ connection: TerminalConnection) async throws {
+        if let command = fixtureCommand { try await connection.send(.text(command)) }
+    }
+
     static func main() async throws {
         let args = CommandLine.arguments
         if args.count == 3, args[1] == "check-exit-screen" {
@@ -104,7 +117,7 @@ struct PTYCheck {
             return
         }
         guard args.count == 5 || args.count == 6, let endpoint = URL(string: args[1]),
-              endpoint.scheme == "http", endpoint.host == "127.0.0.1", UUID(uuidString: args[2]) != nil,
+              isLoopback(endpoint), UUID(uuidString: args[2]) != nil,
               ["paced", "live", "limited", "suspended", "lifecycle"].contains(args[3]) else {
             throw PTYCheckFailure("Run scripts/check-pty.sh to create a disposable server")
         }
@@ -125,6 +138,7 @@ struct PTYCheck {
         guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
+        try await enterFixture(live)
         while !(await live.snapshot().rows.contains { $0.text == "THRUSH-\(token)" }) {
             guard try await capture.next(live) == .output else { throw PTYCheckFailure("Missing disposable shell identity") }
         }

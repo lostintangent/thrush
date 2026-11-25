@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a packaged Thrush host against real processes on an isolated Toy Box PTY."""
+"""Run a packaged Thrush host against real processes on a disposable terminal server."""
 import argparse
 from contextlib import ExitStack, contextmanager
 import hashlib
@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 sys.dont_write_bytecode = True
@@ -106,9 +107,32 @@ def configure_workspace(work, home, env, codex, responses):
         )
 
 
+def loopback_origin(value):
+    url = urlsplit(value)
+    if (url.scheme not in ("http", "https", "ws", "wss") or url.hostname not in ("127.0.0.1", "localhost", "::1")
+            or url.username is not None or url.password is not None or url.query or url.fragment
+            or url.path not in ("", "/", "/socket")):
+        raise argparse.ArgumentTypeError("Pass a disposable loopback terminal URL, such as http://127.0.0.1:9138")
+    try:
+        url.port  # Reject a malformed or out-of-range port before starting the app.
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+    scheme = "https" if url.scheme in ("https", "wss") else "http"
+    return f"{scheme}://{url.netloc}"
+
+
+def build_server(output):
+    build = ["swift", "build", "--package-path", str(ROOT), "-c", "release"]
+    with (output / "server-build.log").open("xb") as log:
+        subprocess.run([*build, "--product", "ThrushServer"], stdout=log, stderr=subprocess.STDOUT,
+                       timeout=900, check=True)
+        directory = subprocess.check_output([*build, "--show-bin-path"], stderr=log, text=True, timeout=60).strip()
+    return Path(directory) / "ThrushServer"
+
+
 @contextmanager
-def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False, public_web=False):
-    """Yield the production endpoint, PTY cwd, pinned xterm modules and isolated tool environment."""
+def live_pty(root, output, bash, codex, workflows, endpoint=None):
+    """Prepare an isolated fixture shell and use either the local server or a supplied loopback endpoint."""
     # Codex keys workspace trust by the canonical path of its PTY's current directory.
     root = root.resolve()
     env = private_environment(root)
@@ -116,57 +140,48 @@ def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False, 
     bash_version = subprocess.check_output([bash, "--version"], env=env, text=True).splitlines()[0]
     if not bash_version.startswith("GNU bash, version "):
         raise ValueError("Pass --bash pointing to GNU Bash with Readline bracketed paste")
+    data = root / "data"
+    home, temp = data / "home", data / "tmp"
+    work = home / "workspace"  # Keep the Codex header and footer at ~/workspace on every machine.
     shell = root / "shell"
-    executable(shell, '#!/bin/sh\ncd "$HOME/workspace" || exit 1\nexport PATH="$HOME/bin:/usr/bin:/bin" INPUTRC="$HOME/inputrc" HISTFILE=/dev/null\n'
-               f"export PS1='thrush$ ' SHELL={shlex.quote(str(bash))}\nexec {shlex.quote(str(bash))} --noprofile --norc -i\n")
-    log = output / "toy-box.log"
-    overlay = None
-    if public_web:
-        # Keep the caller's checkout intact. The report fingerprints the modified tree and the original pin.
-        scratch_source = root / "public-server-source"
-        revision = load(ROOT / "scripts/serve-pty.py").REVISION
-        subprocess.run(["git", "clone", "-q", "--shared", "--no-checkout", toy_box, scratch_source], env=env, check=True)
-        subprocess.run(["git", "-C", scratch_source, "switch", "-q", "--detach", revision], env=env, check=True)
-        overlay_file = output / "server-build.json"
-        with (output / "public-dependencies.log").open("xb") as build_log:
-            subprocess.run(["bun", ROOT / "scripts/live-workflow/ci-web.ts", scratch_source, revision, overlay_file],
-                           env=env, check=True, stdout=build_log, stderr=subprocess.STDOUT)
-        overlay = json.loads(overlay_file.read_bytes())
-        toy_box = scratch_source
-    args = [sys.executable, "-B", ROOT / "scripts/serve-pty.py", "--toy-box", toy_box, "--data-dir", root / "data", "--shell", shell]
-    if working_tree or public_web:
-        args.append("--working-tree")
+    shell_env = dict(HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(temp), PATH=f"{home}/bin:/usr/bin:/bin",
+                     SHELL=str(bash), INPUTRC=str(home / "inputrc"), HISTFILE="/dev/null", PS1="thrush$ ",
+                     TERM="xterm-256color", COLORTERM="truecolor", LC_ALL="en_US.UTF-8")
+    # For an already running server, exec this same fixture from its ordinary interactive shell.
+    # Clear the setup command from the screen, then acknowledge it on the shared local filesystem.
+    executable(shell, "#!/bin/sh\nset -eu\ncd " + shlex.quote(str(work)) + "\n"
+               + """if [ "$#" -eq 1 ]; then printf '\\033c'; : > "$1"; fi\n"""
+               + "exec " + shlex.join(["/usr/bin/env", "-i", *(f"{k}={v}" for k, v in shell_env.items()),
+                                      str(bash), "--noprofile", "--norc", "-i"]) + "\n")
     with ExitStack() as stack:
         responses = None
         if "codex" in workflows:
             provider = load(ROOT / "Fixtures/reference/m4/songbird_stream.py")
             responses = stack.enter_context(provider.local_responses(provider.QUESTION, provider.MODEL))
-        process = stack.enter_context(service(args, log, env))
-        listener = wait_for(process, log, lambda: re.search(r"Listening on: (http://127\.0\.0\.1:\d+)/",
-                                                            log.read_text(errors="replace")), 900)
-        home = root / "data/home"
-        # Keep the Codex header and footer at ~/workspace on every machine.
-        work = home / "workspace"
+        if endpoint:
+            home.mkdir(mode=0o700, parents=True)
+            temp.mkdir(mode=0o700)
+            source = {"endpoint": endpoint, "source": "external"}
+        else:
+            log = output / "pty-server.log"
+            server = build_server(output)
+            digest = hashlib.sha256(server.read_bytes()).hexdigest()
+            args = [server, "--port", "0", "--data-dir", data, "--shell", shell]
+            process = stack.enter_context(service(args, log, os.environ))
+            listener = wait_for(process, log, lambda: re.search(r"Listening on: (http://127\.0\.0\.1:\d+)/?",
+                                                               log.read_text(errors="replace")), 30)
+            endpoint = listener[1]
+            source = json.loads((data / "source.json").read_bytes())
+            source["executableSHA256"] = digest
         work.mkdir(mode=0o700)
         configure_workspace(work, home, env, codex, responses)
         if "recovery" in workflows:
             shutil.copyfile(Path(__file__).with_name("recovery-producer.py"), work / "recovery-producer.py")
-        source = json.loads((root / "data/source.json").read_text())
-        bun = subprocess.check_output(["bun", "--version"], env=env, text=True).strip()
-        key = source["toyBoxRevision"]
-        if "toyBoxWorktreeSHA256" in source:
-            key += "-worktree-" + source["toyBoxWorktreeSHA256"]
-        modules = ROOT / ".build/pty-server" / f"{key}-bun-{bun}" / "node_modules"
-        for name, version in {"@xterm/headless": "6.0.0", "@xterm/addon-unicode11": "0.9.0"}.items():
-            if json.loads((modules / name / "package.json").read_text())["version"] != version:
-                raise ValueError(f"The controller requires {name} {version}")
-        metadata = dict(source, bun=bun, bash=bash_version, workflows=list(workflows))
-        if overlay:
-            metadata["webAnimationSubstitution"] = overlay
+        metadata = dict(source, bash=bash_version, workflows=list(workflows))
         if responses:
             metadata.update(codex=CODEX_VERSION, responses="local published songbird stream")
         (output / "server.json").write_text(json.dumps(metadata, indent=2) + "\n")
-        yield listener[1], work, modules, env
+        yield endpoint, work, env
 
 
 def controller_origins(log):
@@ -214,13 +229,15 @@ def stall_upstream(proxy, host, log, work, output, device):
         readerResumedAfterSeconds=resumed - stopped), indent=2) + "\n")
 
 
-def run_workflow(name, upstream, work, modules, env, app_executable, output, appearance, device, documents, pane, trace_lifecycle_frames=False):
+def run_workflow(name, upstream, work, env, app_executable, output, appearance, device, documents, pane, trace_lifecycle_frames=False, bootstrap_shell=None):
     output.mkdir()
     log = output / "controller.log"
     controller = ["bun", ROOT / "scripts/live-workflow/controller.ts", "--workflow", name,
                   "--upstream", upstream, "--work", work, "--report", output / "controller-report.json"]
+    if bootstrap_shell:
+        controller.extend(["--bootstrap-shell", str(bootstrap_shell)])
     trace = ["--trace-lifecycle-frames"] if trace_lifecycle_frames and name == "lifecycle" else []
-    with service([*controller, *trace], log, dict(env, THRUSH_XTERM_MODULES=str(modules))) as proxy:
+    with service([*controller, *trace], log, env) as proxy:
         endpoint, control = wait_for(proxy, log, lambda: controller_origins(log), 30)
         driver = Path(tempfile.mkdtemp(prefix="thrush-live-", dir=documents)) if device else output
         try:
@@ -292,29 +309,24 @@ def main():
     parser.add_argument("--platform", required=True, choices=("mac", "simulator"))
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark", help="Native terminal appearance (default: dark)")
     parser.add_argument("--output", type=Path, required=True, help="New or empty native evidence directory")
-    parser.add_argument("--toy-box", type=Path, default=ROOT.parent / "toy-box", help="Local checkout containing the pinned revision")
-    parser.add_argument("--public-web-build", action="store_true", help="Use the documented CI substitute for Toy Box’s web animation components in a disposable copy of the pin")
-    parser.add_argument("--working-tree", action="store_true", help="Build the current Toy Box files instead of the pinned revision")
-    parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"), help="Select workflows. Defaults to shell, vim, codex and lifecycle. Use recovery with --working-tree.")
+    parser.add_argument("--endpoint", type=loopback_origin,
+                        help="Use an existing disposable loopback PTY with a POSIX shell on this Mac instead of starting ThrushServer")
+    parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"),
+                        help="Select workflows. Defaults to shell, vim, codex and lifecycle; recovery exercises a stalled reader.")
     parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames for the disposable lifecycle workflow")
     parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
     parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")
     args = parser.parse_args()
-    if args.public_web_build and args.working_tree:
-        parser.error("The public web build uses the pinned server revision; select one source mode")
     workflows = args.workflow or list(WORKFLOWS)
     if args.trace_lifecycle_frames and "lifecycle" not in workflows:
         parser.error("--trace-lifecycle-frames requires the lifecycle workflow")
-    if "recovery" in workflows and not args.working_tree:
-        parser.error("The recovery workflow needs the candidate's in-band repair. Pass --working-tree with its Toy Box checkout.")
     if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
         parser.error("Choose each workflow once and use --device only with --platform simulator")
     if args.bash is None:
         parser.error("Pass --bash pointing to GNU Bash with Readline bracketed paste")
     out = args.output.resolve()
-    toy_box = args.toy_box.resolve()
     app = args.app.resolve() if args.app else ROOT / ".build/demo" / args.platform / "Thrush.app"
     bash = Path(args.bash).absolute()
     codex = Path(args.codex_bin).absolute() if args.codex_bin else None
@@ -329,9 +341,9 @@ def main():
             subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], stdout=log,
                            stderr=subprocess.STDOUT, timeout=900, check=True)
     pane = load(ROOT / "scripts/check-pane-workflows.py")
+    pane.install_reference(out)
     with tempfile.TemporaryDirectory(prefix="thrush-live-") as scratch, ExitStack() as stack:
-        endpoint, work, modules, env = stack.enter_context(live_pty(
-            Path(scratch), out, toy_box, bash, codex, workflows, args.working_tree, args.public_web_build))
+        endpoint, work, env = stack.enter_context(live_pty(Path(scratch), out, bash, codex, workflows, args.endpoint))
         with (app / ("Contents/Info.plist" if args.platform == "mac" else "Info.plist")).open("rb") as file:
             info = plistlib.load(file)
         app_executable = (app / "Contents/MacOS" if args.platform == "mac" else app) / info["CFBundleExecutable"]
@@ -351,8 +363,9 @@ def main():
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
             output = out / name
-            workflow_args = (name, endpoint, work, modules, env, app_executable, output,
-                             args.appearance, device, documents, pane, args.trace_lifecycle_frames)
+            workflow_args = (name, endpoint, work, env, app_executable, output,
+                             args.appearance, device, documents, pane, args.trace_lifecycle_frames,
+                             Path(scratch) / "shell" if args.endpoint else None)
             try:
                 run_workflow(*workflow_args)
             except Exception as error:

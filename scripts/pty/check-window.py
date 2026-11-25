@@ -1,40 +1,17 @@
 #!/usr/bin/env python3
 """Run the normal packaged Mac terminal on an interactive desktop, with a second app covering its window."""
 import argparse
-import contextlib
 import json
 import os
 from pathlib import Path
 import plistlib
-import re
+import shlex
+import shutil
 import subprocess
 import tempfile
-import time
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-@contextlib.contextmanager
-def real_shell(out):
-    with (out / "peer.log").open("w") as log, subprocess.Popen(
-        ["bun", "scripts/pty/cover-peer.ts"], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT
-    ) as peer:
-        try:
-            for _ in range(200):
-                match = re.search(r"^http://127\.0\.0\.1:\d+$", (out / "peer.log").read_text(), re.M)
-                if match:
-                    yield match[0]
-                    return
-                if peer.poll() is not None:
-                    break
-                time.sleep(0.05)
-            raise RuntimeError("The isolated shell peer did not start.")
-        finally:
-            peer.terminate()
-            try:
-                peer.wait(5)
-            except subprocess.TimeoutExpired:
-                peer.kill()
 
 
 def build_cover(scratch):
@@ -51,10 +28,13 @@ def build_cover(scratch):
 
 
 def main():
+    sys.dont_write_bytecode = True
+    from check import local_endpoint, server
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, default=ROOT / ".build/demo/mac/Thrush.app")
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--endpoint", help="Optional isolated Toy Box terminal endpoint. The check runs a shell loop and closes it.")
+    parser.add_argument("--endpoint", type=local_endpoint, help="Optional disposable loopback terminal. The check runs a shell loop and closes it.")
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -66,11 +46,21 @@ def main():
     with (app / "Contents/Info.plist").open("rb") as f:
         info = plistlib.load(f)
     (out / "source.json").write_text(json.dumps({"commit": info["ThrushGitCommit"], "dirty": info["ThrushWorktreeDirty"]}) + "\n")
+    server_binary = None
+    if not args.endpoint:
+        build = ["swift", "build", "--package-path", ROOT, "-c", "release"]
+        subprocess.run([*build, "--product", "ThrushServer"], check=True)
+        server_binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushServer"
     with tempfile.TemporaryDirectory() as scratch:
-        cover = build_cover(Path(scratch))
-        peer = contextlib.nullcontext(args.endpoint) if args.endpoint else real_shell(out)
+        root = Path(scratch)
+        cover = build_cover(root)
+        pids = out / "shell-pids.txt"
+        shell = root / "shell"
+        shell.write_text(f'#!/bin/sh\nprintf "%s\\n" "$$" >> {shlex.quote(str(pids))}\nexec /bin/sh -i\n')
+        shell.chmod(0o700)
         report = out / "window-lifecycle.json"
-        with peer as endpoint:
+        with server(root, shell, out / "server.log", server_binary, args.endpoint) as endpoint:
+            shutil.copyfile(root / "data" / "source.json", out / "server.json")
             subprocess.run(["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
                             "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
                             "--window-lifecycle-check", report, cover], check=True, timeout=195)
@@ -83,8 +73,7 @@ def main():
                 len({r["shellPID"] for r in rows}) != 1 or result["socketAttempts"] != 1 or result["readyEvents"] != 1):
             raise RuntimeError("Window lifecycle measurements failed.")
         if not args.endpoint:
-            shell = re.search(r"^PTY shell PID (\d+)$", (out / "peer.log").read_text(), re.M)
-            if not shell or int(shell[1]) != rows[0]["shellPID"]:
+            if pids.read_text().splitlines() != [str(rows[0]["shellPID"])]:
                 raise RuntimeError("The terminal PID did not match the independent PTY process.")
         print(json.dumps(result, indent=2))
 

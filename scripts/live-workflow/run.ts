@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { openReference, referenceDocument, observeBackgrounds } from "./reference.mjs";
 
@@ -33,6 +36,7 @@ export class LiveRun {
     readonly evidence: Record<string, unknown> = {};
     readonly acknowledgements: Record<string, unknown>[] = [];
     beforeComplete?: () => Promise<void>;
+    private readonly bootstrapWrites: { attachment: number; bytes: number }[] = [];
     attachments = 0;
     exits = 0;
     explicitCloses = 0;
@@ -59,7 +63,8 @@ export class LiveRun {
 
     private readonly recentFrames: FrameObservation[] = [];
     private observationCount = 0;
-    constructor(readonly fixture: Recording, readonly upstream: URL, readonly work: string, private readonly traceLifecycleFrames = false) {
+    constructor(readonly fixture: Recording, readonly upstream: URL, readonly work: string, private readonly traceLifecycleFrames = false,
+                private readonly bootstrapShell?: string) {
         this.grid = { columns: fixture.columns, rows: fixture.rows };
         this.reference = openReference(this.grid);
     }
@@ -67,7 +72,7 @@ export class LiveRun {
     get lastCloseCode() { return this.closures.at(-1)?.code; }
     get driverState() { return { ...this.state, outputBytes: this.outputBytes, attachments: this.attachments, grid: this.grid }; }
     get observations() {
-        return { state: this.driverState, wire: this.wire, inputBytes: this.inputBytes, attachments: this.attachments,
+        return { state: this.driverState, wire: this.wire, bootstrapWrites: this.bootstrapWrites, inputBytes: this.inputBytes, attachments: this.attachments,
             ready: this.ready, exits: this.exits, explicitCloses: this.explicitCloses, perAttachment: this.perAttachment,
             closures: this.closures, checkpoints: this.acknowledgements, evidence: this.evidence, error: this.failure?.message,
             queuedFrames: this.frames.length, queuedBytes: this.queuedBytes, forwardingAttachment: this.forwarding?.number,
@@ -264,6 +269,22 @@ export class LiveRun {
             assert(checkpoint.columns === this.grid.columns && checkpoint.rows === this.grid.rows,
                    detail + `; checkpoint grid ${checkpoint.columns}×${checkpoint.rows}, current ${this.grid.columns}×${this.grid.rows}`);
         }
+    }
+    async prepareFreshShell() {
+        if (!this.bootstrapShell) return;
+        const link = this.active;
+        assert(link?.open && this.ready.at(-1) === false, "Only a fresh shell accepts fixture setup");
+        const marker = ".thrush-ready-" + randomUUID();
+        // This is a separate harness write. Every byte the PTY emits still reaches the native pane and reference.
+        const quotedPath = "'" + this.bootstrapShell.replaceAll("'", "'\\''") + "'";
+        const command = Buffer.from("exec " + quotedPath + " " + marker + "\r");
+        link.server.send(command);
+        this.bootstrapWrites.push({ attachment: link.number, bytes: command.length });
+        await this.until(() => {
+            const buffer = this.reference.buffer.active;
+            return existsSync(join(this.work, marker)) && this.reference.modes.bracketedPasteMode &&
+                buffer.getLine(buffer.baseY + buffer.cursorY)?.translateToString(true) === "thrush$ ";
+        }, "the fixture Bash prompt on the supplied endpoint");
     }
     async input(index: number) {
         const event = this.fixture.events[index];

@@ -203,6 +203,7 @@ export async function runLifecycle(run: LiveRun) {
     assert(orphanMs >= 29_000, "The real PTY expired before its 30-second orphan window");
     run.phase("resume", index("returnAfterExpiry"));
     await waitReady(4, false);
+    await run.prepareFreshShell();
     const replacementFocus = await focus("focusReplacement");
     await command("identifyReplacement", "runIdentifyReplacement");
     const fresh = /^FRESH:unset:([0-9]+)$/;
@@ -220,6 +221,7 @@ export async function runLifecycle(run: LiveRun) {
     await waitReady(5, false);
     const restartBytes = run.inputBytes - beforeNew;
     assert.equal(restartBytes, 0, "New Shell sent terminal input");
+    await run.prepareFreshShell();
     const newShellFocus = await focus("focusNewShell");
     await command("identifyNewShell", "runIdentifyNewShell");
     const newShell = /^NEW:unset:([0-9]+)$/;

@@ -16,7 +16,7 @@ on:
       workflow:
         description: Terminal workflow to run
         type: choice
-        options: [all, shell, vim, codex, lifecycle]
+        options: [all, shell, vim, codex, lifecycle, recovery]
         default: all
       trace_lifecycle_frames:
         description: Record both ends of the scripted lifecycle WebSocket
@@ -44,12 +44,6 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.5
-      - name: Fetch the public Toy Box server pinned by Thrush
-        run: |
-          revision=$(python3 -c 'import runpy; print(runpy.run_path("scripts/serve-pty.py")["REVISION"])')
-          git init -q "$RUNNER_TEMP/toy-box"
-          git -C "$RUNNER_TEMP/toy-box" fetch --depth 1 https://github.com/lostintangent/toy-box.git "$revision"
-          git -C "$RUNNER_TEMP/toy-box" switch --detach FETCH_HEAD
       - name: Prepare Bash with bracketed paste
         run: |
           if [[ ! -x "$(brew --prefix)/bin/bash" ]]; then brew install bash; fi
@@ -78,7 +72,7 @@ jobs:
           if [[ "$TRACE_LIFECYCLE_FRAMES" == true ]]; then flags+=(--trace-lifecycle-frames); fi
           if [[ -x "$RUNNER_TEMP/codex-cli" ]]; then flags+=(--codex-bin "$RUNNER_TEMP/codex-cli"); fi
           python3 -B scripts/live-workflow/launch.py \
-            --public-web-build --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" --toy-box "$RUNNER_TEMP/toy-box" \
+            --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" \
             --bash "$(brew --prefix)/bin/bash" --output "$RUNNER_TEMP/thrush-live" "${flags[@]}"
       - name: Upload native checkpoints and server observations
         if: always()

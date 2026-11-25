@@ -18,7 +18,6 @@ type Attachment = {
     end: "detach" | "takeover" | "close" | "exit" | "lost" | "protocol error";
 };
 
-// Recorded from Toy Box ScrollbackBuffer.replay(), xterm 6.0.0 + addon-serialize 0.14.0.
 // While detached the shell clears its normal screen, prints four lines on a three-row grid,
 // enters 1049 alternate screen, homes, and prints "alt". Its application cursor mode is set.
 // The serializer restores that mode after both buffers. Each later replay includes prior echoes.
@@ -179,7 +178,7 @@ async function checkpoint(path: string) {
         const socket = shell?.owner;
         assert.equal(socket?.data.script.name, "slow reader");
         assert.equal(socket.data.received, 1, "Input must stay active and resize must wait for the replay");
-        // Toy Box ScrollbackBuffer.replay() after a clear, five lines and bracketed paste mode.
+        // The repaint restores five lines of output and re-enables bracketed paste.
         // Queue the next live write immediately. No fresh socket or extra control separates them.
         startInterval(socket);
         output(socket, ["oldest\r\nnewer\r\none\r\ntwo\r\nthree\x1b[?2004h", "!"]);

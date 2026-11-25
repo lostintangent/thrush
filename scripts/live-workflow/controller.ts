@@ -8,7 +8,7 @@ import { LiveRun, type Recording } from "./run";
 import { exercise, liveFixture, names, type Workflow } from "./workflows";
 
 const { values } = parseArgs({ args: Bun.argv.slice(2), options: {
-    "trace-lifecycle-frames": { type: "boolean" },
+    "trace-lifecycle-frames": { type: "boolean" }, "bootstrap-shell": { type: "string" },
     workflow: { type: "string" }, upstream: { type: "string" }, work: { type: "string" }, report: { type: "string" },
 }, strict: true });
 const workflow = values.workflow as Workflow | "lifecycle" | "recovery";
@@ -18,7 +18,7 @@ const upstream = new URL(values.upstream);
 const hosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
 assert(hosts.has(upstream.hostname) && ["http:", "https:"].includes(upstream.protocol) &&
     upstream.pathname === "/" && !upstream.search && !upstream.hash && !upstream.username && !upstream.password,
-    "Expected a loopback Toy Box origin");
+    "Expected a loopback terminal origin");
 const work = resolve(values.work);
 assert((await stat(work)).isDirectory(), "The disposable working directory must exist");
 const life = workflow === "lifecycle" ? await import("./lifecycle.ts") : undefined;
@@ -27,7 +27,7 @@ const name = names[workflow === "lifecycle" || workflow === "recovery" ? "shell"
 const recorded: Recording = JSON.parse(await readFile(new URL("../../Fixtures/replays/" + name + ".json", import.meta.url), "utf8"));
 const fixture = life ? life.lifecycleFixture(recorded) : recovery ? recovery.recoveryFixture(recorded) : liveFixture(recorded);
 assert(!values["trace-lifecycle-frames"] || workflow === "lifecycle", "Frame tracing requires the scripted lifecycle");
-const run = new LiveRun(fixture, upstream, work, values["trace-lifecycle-frames"]);
+const run = new LiveRun(fixture, upstream, work, values["trace-lifecycle-frames"], values["bootstrap-shell"]);
 const report = resolve(values.report);
 const local = (request: Request) => {
     const url = new URL(request.url);
@@ -95,6 +95,7 @@ console.log(JSON.stringify({ endpoint: terminal.url.origin, driver: control.url.
 try {
     await run.until(() => run.ready.length === 1, "first native terminal connection", 120_000);
     assert.equal(run.ready[0], false, "Workflow must start with a fresh disposable PTY");
+    await run.prepareFreshShell();
     await run.layout(-1);
     if (life) await life.runLifecycle(run);
     else if (recovery) await recovery.runRecovery(run);
