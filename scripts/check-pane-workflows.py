@@ -261,8 +261,8 @@ def main():
     reservation = contextlib.nullcontext(None)
     disposable = args.platform == "simulator" and args.udid == "new"
     if args.platform == "simulator":
+        capture = runpy.run_path("scripts/capture-simulator.py")
         if disposable:
-            capture = runpy.run_path("scripts/capture-simulator.py")
             reservation = capture["disposable_phone"](output)
         else:
             reservation = reserve_phone(args.udid)
@@ -278,16 +278,7 @@ def main():
             if device:
                 if not disposable:
                     ensure_demo_idle(device)
-                try:
-                    simctl("install", device, str(app), timeout=180)
-                except subprocess.TimeoutExpired:
-                    # CoreSimulator sometimes completes an install just after the host command times out.
-                    try:
-                        simctl("get_app_container", device, BUNDLE_ID, "app")
-                    except subprocess.SubprocessError:
-                        simctl("install", device, str(app), timeout=180)
-                documents = Path(simctl("get_app_container", device, BUNDLE_ID, "data")) / "Documents"
-                documents.mkdir(exist_ok=True)
+                documents = capture["install_and_locate_app"](device, app)
             for name in args.workflows:
                 print(f"Checking {name} in {output / name}", flush=True)
                 try:
