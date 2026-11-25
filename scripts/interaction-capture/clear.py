@@ -69,8 +69,7 @@ def one(platform, mode, out, device, docs, bundle, binary):
                     return path.exists()
                 until("seeded history and a submitted frame", lambda: received(driver / "ready") and received(out / "seeded"))
                 if device:
-                    phone = capture["Phone"](device, url, bundle, out, driver)
-                    recorder = phone.record_switch("clear")
+                    recorder = capture["record_simulator"](device, out, "clear")
                 else:
                     recorder = record_mac(out, app.pid, binary)
                 # The seed includes 128 numbered lines. Let the software keyboard and
@@ -87,7 +86,7 @@ def one(platform, mode, out, device, docs, bundle, binary):
                     (driver / "finish").touch()
                     until("the submitted frame report", lambda: received(driver / "frames.json"))
     finally:
-        if device:
+        if device and driver.is_dir():
             shutil.copytree(driver, out, dirs_exist_ok=True)
             shutil.rmtree(driver)
     frames = json.loads((out / "frames.json").read_text())
@@ -111,9 +110,10 @@ def one(platform, mode, out, device, docs, bundle, binary):
     if summary["offsets"] != [0] or summary["grids"] != 1:
         raise RuntimeError("The visible grid moved while the shell cleared its history")
     if device:
-        rowHeight = before["grid"][3] / before["rows"]
+        row_height = (before["scrollHeight"] - before["viewportHeight"]) / before["history"]
         for f in stable:
-            if abs(f["scrollHeight"] - (f["viewportHeight"] + f["history"] * rowHeight)) > f["history"] + 1:
+            if (abs(f["scrollHeight"] - (f["viewportHeight"] + f["history"] * row_height)) > 1 or
+                    abs(f["scrollY"] - (f["history"] - f["offset"]) * row_height) > 1):
                 raise RuntimeError("The transcript extent and visible terminal history disagree")
 
 

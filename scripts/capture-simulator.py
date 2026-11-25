@@ -175,6 +175,34 @@ def install_and_locate_app(device, app):
                 raise
 
 
+@contextlib.contextmanager
+def record_simulator(device, out, name):
+    log = out / "recording.log"
+    with log.open("w") as output:
+        process = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", "--codec=h264",
+                                    "--mask=black", "--force", str(out / (name + ".mov"))],
+                                   stdout=output, stderr=subprocess.STDOUT)
+        try:
+            def started():
+                if process.poll() is not None:
+                    raise RuntimeError("Simulator video recorder exited: " + log.read_text())
+                return "Recording started" in log.read_text()
+            wait_for("the first real video frame", started, 35)
+            yield
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+            try:
+                process.wait(30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise RuntimeError("Simulator did not finalize the screen recording.")
+            movie = out / (name + ".mov")
+            if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
+                raise RuntimeError("Simulator recording failed: " + log.read_text())
+
+
 class Phone:
     def __init__(self, device, endpoint, app, out, scratch):
         self.device, self.endpoint, self.app, self.out, self.scratch = device, endpoint, app, out, scratch
@@ -379,32 +407,8 @@ class Phone:
                     pass
             raise RuntimeError(f"{name}: {last_error}") from error
 
-    @contextlib.contextmanager
     def record_switch(self, name="appearance-switch"):
-        log = self.out / "recording.log"
-        with log.open("w") as output:
-            process = subprocess.Popen(["xcrun", "simctl", "io", self.device, "recordVideo", "--codec=h264",
-                                        "--mask=black", "--force", str(self.out / (name + ".mov"))],
-                                       stdout=output, stderr=subprocess.STDOUT)
-            try:
-                def started():
-                    if process.poll() is not None:
-                        raise RuntimeError("Simulator video recorder exited: " + log.read_text())
-                    return "Recording started" in log.read_text()
-                wait_for("the first real video frame", started, 35)
-                yield
-            finally:
-                if process.poll() is None:
-                    process.send_signal(signal.SIGINT)
-                try:
-                    process.wait(30)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
-                    raise RuntimeError("Simulator did not finalize the screen recording.")
-                movie = self.out / (name + ".mov")
-                if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
-                    raise RuntimeError("Simulator recording failed: " + log.read_text())
+        return record_simulator(self.device, self.out, name)
 
     def suite(self):
         failures = {}
