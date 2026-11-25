@@ -14,7 +14,7 @@ python3 -B scripts/live-workflow/launch.py --platform simulator --appearance dar
   --output .build/benchmarks/live-iphone
 ```
 
-The launcher builds the sample, starts the pinned server on an ephemeral loopback port with a private home, and removes its shell workspace when the run ends. The simulator command creates and deletes its own iPhone. Use `--workflow shell`, `vim`, `codex` or `lifecycle` to select a single flow. Use `--app /path/to/Thrush.app` to exercise an existing build, or `--appearance light` to verify the light palette. The manually dispatched [packaged-app workflow](../.github/workflows/live-pty.yml) fetches the pinned public Toy Box revision and verifies the Codex binary against its release checksum.
+The launcher builds the sample, starts the pinned server on an ephemeral loopback port with a private home, and removes its shell workspace when the run ends. The simulator command creates and deletes its own iPhone. Use `--workflow shell`, `vim`, `codex` or `lifecycle` to select a single flow. Use `--app /path/to/Thrush.app` to exercise an existing build, or `--appearance light` to verify the light palette. The [packaged-app workflow](../.github/workflows/live-pty.yml) fetches the pinned public Toy Box revision and verifies the Codex binary against its release checksum. Its `--public-web-build` option uses Toy Box Core’s public-build recipe in a temporary checkout. Two unrelated web components receive local stand-ins for their animations. The launcher checks that the retained package versions and integrity hashes match the original lockfile. It records the original Git tree, SHA-256 of the build inputs, and five patched-file hashes in `server.json`. The terminal WebSocket, PTY and scrollback sources come from the pin.
 
 | Workflow | Checked outcome |
 | --- | --- |
@@ -26,3 +26,8 @@ The launcher builds the sample, starts the pinned server on an ephemeral loopbac
 The Codex check records the pane’s OSC 11 reply, the CLI’s truecolor background SGRs, and the cell attributes across the editable and submitted user rows. Codex 0.166.0 uses different blends for the composer and transcript in each appearance. The expected RGB values come from the CLI’s pinned style definitions. [Composer](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L261) · [Submitted message](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L68)
 
 `server.json` records the server source, CLI version and response source. `source.json` identifies the app build, platform and appearance. Each workflow directory contains its native `workflow-report.json`, independent `controller-report.json`, and original captures. A locked Mac can supply window pixels and GPU completion while leaving presentation timestamps unavailable. The physical iPhone pass uses Toy Box’s TestFlight build.
+
+
+## Mac sample result
+
+The clean `f8c58c4` sample passed all 34 checkpoints across the four workflows on Slate Dark. All 32,429 original and replay bytes agreed between the server relay and the native received and applied counters. Thirteen window images matched 1,592 reference glyph cells and all 84 cells of the wrapped selection. The locked Mac reported GPU completion. [Run evidence](live-workflows-mac.json)
