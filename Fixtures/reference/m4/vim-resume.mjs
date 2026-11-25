@@ -3,13 +3,20 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { terminal, write } from '../m2/xterm-reference.mjs';
 
 const checkout = resolve(process.argv[2] ?? '../toy-box');
 const { ScrollbackBuffer } = await import(resolve(checkout, 'src/features/terminal/server/scrollback.ts'));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const source = await readFile(new URL('../m2/vim-edit.capture.json', import.meta.url));
+const directory = fileURLToPath(new URL('.', import.meta.url));
+const wideSource = resolve(directory, '../m2/vim-edit.capture.json');
+const wideDestination = resolve(directory, 'vim-resume.capture.json');
+const sourcePath = resolve(process.argv[3] ?? wideSource);
+const destination = resolve(process.argv[4] ?? wideDestination);
+assert(sourcePath === wideSource || destination !== wideDestination, 'Give a separate output for a new Vim source.');
+const source = await readFile(sourcePath);
 const recording = JSON.parse(source);
 assert.equal(recording.name, 'vim-edit');
 const server = new ScrollbackBuffer(recording.columns, recording.rows);
@@ -57,6 +64,16 @@ for (const original of recording.events) {
     await write(server,bytes);
     await write(client,bytes);
   }
+  if (event.name === 'Fresh prompt') {
+    assert(screen(client).lines.some(([text]) => text === 'thrush$ '));
+  }
+  if (event.name === 'Vim opens alternate screen' || event.name === 'Edited scratch file') {
+    const native = screen(client);
+    assert.equal(native.screen,'alternate');
+    const edited = event.name === 'Edited scratch file';
+    assert.equal(native.lines[0][0],edited ? 'note: 界 e\u0301first line' : 'first line');
+    assert.equal(native.lines[1][0],'second line');
+  }
   if (event.name !== 'Restored alternate grid') {
     events.push(event);
     continue;
@@ -96,7 +113,7 @@ assert.equal(after.lines[after.cursor[1]][0], 'thrush$ ');
 assert.deepEqual(after,screen(server),'The recorded save/quit must return both clients to the same shell.');
 const savedText = 'note: 界 e\u0301first line\nsecond line\n';
 const result = {...recording,name:'vim-resume',
-  overlay:{sourceCapture:'../m2/vim-edit.capture.json',sourceCaptureSHA256:sha(source),clientId,
+  overlay:{sourceCapture:relative(directory,sourcePath),sourceCaptureSHA256:sha(source),clientId,
     scriptedDetachMicroseconds:gap,serializer:'src/features/terminal/server/scrollback.ts:ScrollbackBuffer.replay',
     serializedBytes:replay.length,serializedSHA256:sha(replay),
     cursor:{beforeDetach:{row:0,column:9},afterReplay:{row:0,column:8}},
@@ -105,7 +122,7 @@ const result = {...recording,name:'vim-resume',
 delete result.events;
 const data = JSON.stringify(result).slice(0,-1) + ',\n"events":[\n'
   + events.map(event => JSON.stringify(event)).join(',\n') + '\n]}\n';
-await writeFile(new URL('vim-resume.capture.json',import.meta.url),data);
+await writeFile(destination,data);
 console.log(events.length,'events,',replay.length,'serialized bytes,',sha(replay));
 server.dispose();
 client.dispose();

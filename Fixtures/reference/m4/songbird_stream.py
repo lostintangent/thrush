@@ -12,6 +12,7 @@ import time
 QUESTION = "Name 12 songbirds on numbered lines. Start with Song thrush and end with European robin."
 MODEL = "gpt-6.1-sol"
 
+
 def published_answer():
     fixture = json.loads((Path(__file__).resolve().parents[2] / "replays/codex-session.json").read_text())
     entries = {}
@@ -43,9 +44,13 @@ def local_responses(question, model, *, port=0, check_single_answer=True):
             if self.path != "/v1/responses":
                 self.send_error(404)
                 return
-            payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            user_text = [part["text"] for item in payload.get("input", []) if item.get("role") == "user"
-                         for part in (item.get("content") or []) if part.get("type") == "input_text"]
+            try:
+                payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                user_text = [part["text"] for item in payload["input"] if item.get("role") == "user"
+                             for part in (item.get("content") or []) if part.get("type") == "input_text"]
+            except (AttributeError, KeyError, TypeError, ValueError):
+                self.send_error(400, "Expected a Responses input array")
+                return
             task = user_text[-1] if user_text else ""
             if task == question:
                 self.server.answers += 1
@@ -59,8 +64,9 @@ def local_responses(question, model, *, port=0, check_single_answer=True):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
-            response = dict(id="resp_songbirds", object="response", model=model, status="in_progress", output=[])
-            item = dict(id="msg_songbirds", type="message", role="assistant", status="in_progress", content=[])
+            label = "songbirds" if task == question else "title"
+            response = dict(id=f"resp_{label}", object="response", model=model, status="in_progress", output=[])
+            item = dict(id=f"msg_{label}", type="message", role="assistant", status="in_progress", content=[])
             part = dict(type="output_text", text="", annotations=[])
             indexes = dict(item_id=item["id"], output_index=0, content_index=0)
             sequence = 0
