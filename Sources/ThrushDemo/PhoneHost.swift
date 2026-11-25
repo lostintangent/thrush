@@ -82,6 +82,15 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
+        if session.options.checksToolbar && session.options.keyboard {
+            // The toolbar proof mounts only the public pane, so keep asking until its terminal is in the window.
+            Task { [weak self] in
+                while let host = self, !host.focusRequested {
+                    host.focusIfRequested()
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+            }
+        }
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
         // The trace forwards frame submissions to the capture hook it wraps.
         layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
@@ -116,10 +125,13 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     }
 
     func focusIfRequested() {
-        guard !focusRequested, session.options.keyboard, session.hasUsableSession || session.options.benchmarkURL != nil,
-              session.view.window != nil,
+        guard !focusRequested, session.options.keyboard,
               viewIfLoaded?.window?.windowScene?.activationState == .foregroundActive else { return }
-        focusRequested = session.view.focusInput()
+        if session.options.checksToolbar {
+            focusRequested = PhoneToolbarProof.terminal(in: view)?.focusInput() ?? false
+        } else if session.hasUsableSession || session.options.benchmarkURL != nil, session.view.window != nil {
+            focusRequested = session.view.focusInput()
+        }
     }
 
     private func applyChrome(_ theme: TerminalTheme) {

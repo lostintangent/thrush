@@ -25,6 +25,8 @@ struct DemoOptions {
     let interactionURL: URL?
     let runsWorkflowDriver: Bool
     let checksToolbar: Bool
+    /// The toolbar proof adds the `.ignoresSafeArea()` hosts wrote before the pane extended under bars itself.
+    let hostIgnoresSafeArea: Bool
     let frameTraceURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
@@ -34,6 +36,7 @@ struct DemoOptions {
             return arguments[index + 1]
         }
         checksToolbar = arguments.contains("--toolbar-proof")
+        hostIgnoresSafeArea = arguments.contains("--host-ignores-safe-area")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
             ? value(after: "--workflow-output").map { URL(fileURLWithPath: $0).appending(path: "native-wire.jsonl") } : nil

@@ -9,9 +9,9 @@ struct DemoSurface: View {
         if let terminalSession = session.terminalSession {
             if session.options.checksToolbar {
                 #if os(iOS)
-                PhoneToolbarProof(session: terminalSession)
+                PhoneToolbarProof(session: terminalSession, ignoresSafeArea: session.options.hostIgnoresSafeArea)
                 #else
-                MacToolbarProof(session: terminalSession)
+                MacToolbarProof(session: terminalSession, ignoresSafeArea: session.options.hostIgnoresSafeArea)
                 #endif
             } else {
                 session.pane(terminalSession)

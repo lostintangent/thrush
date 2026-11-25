@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Capture colors a program sets in the packaged Mac window, in both Slate appearances, under the
 demo's transparent title bar and under a full-size window toolbar. The colors scene picks the canvas
-the system didn't, so every frame puts program colors against the host's chrome."""
+the system didn't, so every frame puts program colors against the host's chrome. Under the toolbar,
+a host's own `.ignoresSafeArea()` must change no pixel."""
 import argparse
 import collections
 import os
@@ -87,9 +88,10 @@ def main():
         subprocess.run(["xcrun", "swiftc", source, "-o", finder], check=True, timeout=300)
         subprocess.run(["xcrun", "swiftc", SCRIPTS / "check-pane-capture.swift", "-o", checker], check=True, timeout=300)
         for appearance in ("dark", "light"):
-            for toolbar in (False, True):
-                label = f"colors-{'toolbar-' if toolbar else ''}{appearance}"
-                args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", appearance]
+            for toolbar, host in ((False, False), (True, False), (True, True)):
+                label = f"colors-{'toolbar-' if toolbar else ''}{'host-ignores-safe-area-' if host else ''}{appearance}"
+                args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", appearance,
+                        *(["--toolbar-proof"] if toolbar else []), *(["--host-ignores-safe-area"] if host else [])]
                 path = out / (label + ".png")
                 error = None
 
@@ -102,7 +104,7 @@ def main():
                     except ValueError as failure:
                         error = str(failure)
                         return False
-                with application(bundle, args + (["--toolbar-proof"] if toolbar else []), out / (label + ".log")) as process:
+                with application(bundle, args, out / (label + ".log")) as process:
                     window_id = window(finder, process)
                     subprocess.run(["open", "-a", bundle], check=True)
                     try:
@@ -111,6 +113,14 @@ def main():
                     except TimeoutError:
                         failures[label] = error
                         print(f"{label}: {error}", flush=True)
+            label = f"colors-toolbar-host-ignores-safe-area-{appearance}"
+            if not ({label, f"colors-toolbar-{appearance}"} & failures.keys()):
+                pane, host = (Capture(out / f"colors-toolbar-{name}.png", appearance)
+                              for name in (appearance, "host-ignores-safe-area-" + appearance))
+                if pane.pixels.tobytes() != host.pixels.tobytes():
+                    failures[label] = "The host's .ignoresSafeArea() changed the window's pixels."
+                else:
+                    print(f"The host's .ignoresSafeArea() changes no pixel in {label}.png", flush=True)
     if failures:
         raise SystemExit(f"Program colors proof failed: {failures}")
 

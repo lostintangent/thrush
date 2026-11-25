@@ -6,10 +6,12 @@ import UIKit
 /// The integration host uses only the public pane. Its capture reads the mounted UIKit views.
 struct PhoneToolbarProof: View {
     let session: TerminalSession
+    /// Whether to add the modifier hosts wrote before the pane extended under bars itself, which must change nothing.
+    let ignoresSafeArea: Bool
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            TerminalPane(session)
+            pane
                 .navigationTitle(session.title.isEmpty ? "Terminal" : session.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -18,6 +20,10 @@ struct PhoneToolbarProof: View {
                     }
                 }
         }
+    }
+
+    @ViewBuilder private var pane: some View {
+        if ignoresSafeArea { TerminalPane(session).ignoresSafeArea() } else { TerminalPane(session) }
     }
 
     private static func first(in root: UIView, matching test: (UIView) -> Bool) -> UIView? {
