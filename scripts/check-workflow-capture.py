@@ -37,17 +37,9 @@ def verify_ended_notice(image, path, notice, sx, sy):
     return left, top, right, bottom
 
 
-def check(image, state, require_keyboard=False, path=None):
-    phone = state.get("keyboard")
-    if require_keyboard or (phone is not None and phone["keyboardHeight"] > 90):
-        keyboard(image, phone)
-
+def grid_edges(image, state):
     rows, columns = state["rows"], state["columns"]
-    mask = state["inkMask"]
-    require(rows > 0 and columns > 1 and len(mask) == rows and
-            all(len(line) == columns and set(line) <= {"0", "1"} for line in mask),
-            "Invalid expected ink mask")
-
+    require(rows > 0 and columns > 1, "Invalid terminal grid size")
     x, y, w, h = state["gridInWindow"]
     window_w, window_h = state["windowSize"]
     require(all(math.isfinite(v) for v in (x, y, w, h, window_w, window_h))
@@ -58,6 +50,62 @@ def check(image, state, require_keyboard=False, path=None):
     ys = [round((y + j * h / rows) * sy) for j in range(rows + 1)]
     require(0 <= xs[0] < xs[-1] <= image.width and 0 <= ys[0] < ys[-1] <= image.height and
             w * sx / columns >= 4 and h * sy / rows >= 8, "Cell grid falls outside the screenshot or is too small")
+    return xs, ys, sx, sy
+
+
+def compare_grids(before, before_state, after, after_state, block_cursor=None):
+    require(before_state["appearance"] == after_state["appearance"], "Terminal appearances differ")
+    bx, by, _, _ = grid_edges(before, before_state)
+    ax, ay, _, _ = grid_edges(after, after_state)
+    for first, second in ((bx, ax), (by, ay)):
+        require([n - first[0] for n in first] == [n - second[0] for n in second],
+                "Terminal cell grid dimensions or pixel spacing differ")
+
+    differences = {}
+    width = bx[-1] - bx[0]
+    for row in range(len(by) - 1):
+        count = 0
+        for y in range(by[row], by[row + 1]):
+            left = y * before.width + bx[0]
+            right = (ay[0] + y - by[0]) * after.width + ax[0]
+            first = before.pixels[left:left + width]
+            second = after.pixels[right:right + width]
+            if first != second:
+                # The decoder's fourth byte is BMP padding, outside the sRGB comparison.
+                count += sum(bool((a ^ b) & 0xffffff) for a, b in zip(first, second))
+        if count:
+            differences[row] = count
+    total = width * (by[-1] - by[0])
+    errors = []
+    if differences:
+        errors.append(f"{sum(differences.values())} of {total} grid RGB pixels differ; "
+                      f"counts by zero-based row {differences}")
+    if block_cursor is not None:
+        row, col = block_cursor
+        require(0 <= row < len(by) - 1 and 0 <= col < len(bx) - 1, "Expected block cursor outside the grid")
+        for label, image, xs, ys in (("before", before, bx, by), ("after", after, ax, ay)):
+            cursor = image.matches("cursor")
+            cell = [image.pixels[y * image.width + x] for y in range(ys[row], ys[row + 1])
+                    for x in range(xs[col], xs[col + 1])]
+            # The Vim caret covers the paper of its cell; accent and letter strokes cover the remaining pixels.
+            fill = sum(pixel in cursor for pixel in cell)
+            if fill * 2 <= len(cell):
+                errors.append(f"{label}: expected visible block cursor at ({row}, {col}), "
+                              f"got {fill}/{len(cell)} cursor-colored pixels")
+    require(not errors, "; ".join(errors))
+    return f"all {total} grid RGB pixels match" + (f", visible block cursor at {tuple(block_cursor)}" if block_cursor else "")
+
+
+def check(image, state, require_keyboard=False, path=None):
+    phone = state.get("keyboard")
+    if require_keyboard or (phone is not None and phone["keyboardHeight"] > 90):
+        keyboard(image, phone)
+
+    xs, ys, sx, sy = grid_edges(image, state)
+    rows, columns = state["rows"], state["columns"]
+    mask = state["inkMask"]
+    require(len(mask) == rows and all(len(line) == columns and set(line) <= {"0", "1"} for line in mask),
+            "Invalid expected ink mask")
 
     panel = None
     if notice := state.get("endedNotice"):
@@ -133,10 +181,22 @@ def main():
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--require-keyboard", action="store_true",
                         help="require the iPhone software keyboard and accessory in the screenshot")
+    parser.add_argument("--compare-grid", nargs=2, type=Path, metavar=("PNG", "CHECKPOINT"),
+                        help="require every submitted grid RGB pixel to match a second capture")
+    parser.add_argument("--block-cursor", nargs=2, type=int, metavar=("ROW", "COLUMN"),
+                        help="also require the expected visible block cursor at this zero-based cell in both captures")
     args = parser.parse_args()
+    if args.block_cursor is not None and args.compare_grid is None:
+        parser.error("--block-cursor requires --compare-grid")
     state = json.loads(args.checkpoint.read_text())
     try:
-        result = check(Capture(args.image, state["appearance"]), state, args.require_keyboard, args.image)
+        image = Capture(args.image, state["appearance"])
+        if args.compare_grid:
+            other_image, other_checkpoint = args.compare_grid
+            other = json.loads(other_checkpoint.read_bytes())
+            result = compare_grids(image, state, Capture(other_image, other["appearance"]), other, args.block_cursor)
+        else:
+            result = check(image, state, args.require_keyboard, args.image)
     except ValueError as error:
         parser.exit(1, f"{state['name']}: {error}\n")
     print(f"{state['name']}: {result}")

@@ -2,6 +2,7 @@
 import argparse
 import contextlib
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -130,14 +131,18 @@ def peer_origins(peer, log):
     raise RuntimeError(f"peer did not publish its socket and driver origins; see {log}")
 
 
+def image_path(output, marker, checkpoint_name):
+    name = re.sub(r"[^a-z0-9]+", "-", checkpoint_name.lower()).strip("-")[:80]
+    return output / f"{marker.stem}-{name}.png"
+
+
 def collect_capture(marker, output, platform, target, *, require_keyboard=False):
     request = json.loads(marker.read_bytes())
     index = request["eventIndex"]
     if (type(index) is not int or index < 0 or marker.stem != f"capture-{index:03d}"
             or not isinstance(request["name"], str) or not request["name"].strip()):
         raise ValueError(f"invalid screenshot request in {marker}")
-    name = re.sub(r"[^a-z0-9]+", "-", request["name"].lower()).strip("-")[:80]
-    image = output / f"{marker.stem}-{name}.png"
+    image = image_path(output, marker, request["name"])
     raw = output / (marker.stem + "-framebuffer.png")
     deadline = time.monotonic() + 160
     error = "No native image received"
@@ -174,6 +179,26 @@ def collect_capture(marker, output, platform, target, *, require_keyboard=False)
     print(f"  {image.name}", flush=True)
 
 
+def verify_recorded_vim_replay(platform, driver, output, fixture_sha):
+    root = Path("Fixtures/reference/m4/phone" if platform == "simulator" else "Fixtures/replays")
+    data = (root / "vim-resume.json").read_bytes()
+    if hashlib.sha256(data).hexdigest() != fixture_sha:
+        raise ValueError("Native Vim run and recorded fixture hashes differ")
+    events = {e["name"]: (i, e) for i, e in enumerate(json.loads(data)["events"]) if e.get("checkpoint")}
+    pair = []
+    for name in ("Vim before detach", "Vim serialized replay"):
+        index, _ = events[name]
+        marker = driver / f"capture-{index:03d}.json"
+        if json.loads(marker.read_bytes())["name"] != name:
+            raise ValueError(f"Unexpected checkpoint name at {marker}")
+        pair.append((image_path(output, marker, name), marker))
+    source = events["Vim before detach"][1]["checkpoint"]
+    if source["cursorShape"] != "block" or source["cursorBlink"] or not source["modes"]["cursorVisible"]:
+        raise ValueError("Vim pre-detach reference must show a steady block cursor")
+    subprocess.run([sys.executable, "scripts/check-workflow-capture.py", *pair[0], "--compare-grid", *pair[1],
+                    "--block-cursor", str(source["cursorRow"]), str(source["cursorColumn"])], check=True)
+
+
 def await_report(name, app, peer, driver, output, platform, target, *, verify_fixture=True):
     completed_captures = set()
     deadline = time.monotonic() + 90
@@ -202,6 +227,8 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             images = {capture["name"] for capture in captures}
             if verify_fixture and images != CAPTURES[name]:
                 raise ValueError(f"{name} images differ: got {sorted(images)}, expected {sorted(CAPTURES[name])}")
+            if verify_fixture and name == "vim":
+                verify_recorded_vim_replay(platform, driver, output, result["sourceSHA256"])
             if verify_fixture and name == "codex" and any(capture["appearance"] != "dark" for capture in captures):
                 raise ValueError("Codex recorded its colors on a dark terminal; expected Slate Dark in the captured pane")
             if verify_fixture and platform == "simulator":
