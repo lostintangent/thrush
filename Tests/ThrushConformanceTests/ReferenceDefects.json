@@ -175,6 +175,47 @@
       }
     ]
   },
+  "resize · narrower above text": {
+    "reason": "Narrowing makes room for added rows by removing rows from the bottom while the cursor is above it. The reference's bottom-up pass keeps its starting index and goes on to reflow rows it has already removed, so the c of abc returns without the row that held ab. Thrush reflows only the rows that remain.",
+    "differences": [
+      {
+        "checkpoint": "resize 1",
+        "path": "active.history.count",
+        "reference": "1",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "resize 1",
+        "path": "active.visible[0].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "resize 1",
+        "path": "active.visible[0][0]",
+        "reference": "\"c\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.history.count",
+        "reference": "1",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"c\"",
+        "thrush": "blank"
+      }
+    ]
+  },
   "resize · narrower with combining marks": {
     "reason": "Narrowing shifts the cells of a continued row right within that row. The reference moves combining marks in column order, so a mark that lands on a later mark's column overwrites it before that mark moves, and the é becomes a second ñ. Thrush keeps each mark on its own character.",
     "differences": [

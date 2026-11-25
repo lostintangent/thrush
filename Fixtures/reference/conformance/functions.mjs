@@ -423,5 +423,7 @@ for (const [variant, [setup, steps]] of Object.entries(resizes)) {
   add('resize', variant, canvas + setup, ...steps.flatMap(step =>
     typeof step === 'string' ? [step] : [{ resize: step }, { checkpoint: `resize ${++count}` }]), '*');
 }
+// Narrowing with the cursor above rows that make room for the added ones.
+addSized([5, 3], 'resize', 'narrower above text', `\r\nabc\r\n12345${CSI}H`, { resize: [2, 3] }, { checkpoint: 'resize 1' }, '*');
 
 export const functionCases = cases;
