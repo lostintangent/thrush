@@ -163,7 +163,10 @@ package actor TerminalWorker {
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
     package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }
     package var currentTerminal: Terminal { terminal }
-    package func setPalette(_ palette: Terminal.Palette) { terminal.palette = palette }
+    package func setPalette(_ palette: Terminal.Palette, cursor: Terminal.RGB) {
+        terminal.palette = palette
+        terminal.cursorColor = cursor
+    }
 
     func publishMetadata(title: String? = nil, hasEnded: Bool? = nil) async {
         guard let observer else { return }

@@ -1,5 +1,5 @@
 // Defines the default, indexed and RGB colors of a terminal theme. Drawing and replies
-// to a program’s color queries use the same palette.
+// to a program’s color queries use the same palette, under any colors the program set.
 
 extension Terminal {
     /// An sRGB color with 8-bit channels.
@@ -17,6 +17,9 @@ extension Terminal {
             self.green = green
             self.blue = blue
         }
+
+        /// The cursor color when the host theme supplies none.
+        package static let white = RGB(0xffffff)
 
         fileprivate init(_ packed: UInt32) {
             self.init(red: UInt8(packed >> 16), green: UInt8(truncatingIfNeeded: packed >> 8),
@@ -63,42 +66,6 @@ extension Terminal {
             func intensity(_ coordinate: UInt8) -> UInt8 { coordinate == 0 ? 0 : 55 + 40 * coordinate }
             return RGB(red: intensity(cube / 36), green: intensity((cube / 6) % 6), blue: intensity(cube % 6))
         }
-
-        func appendReplies(to output: inout [UInt8], for queries: [ColorQuery]) {
-            for query in queries {
-                let color: RGB
-                switch query {
-                case .indexed(let index):
-                    output.append(contentsOf: "\u{1b}]4;".utf8)
-                    output.append(contentsOf: String(index).utf8)
-                    color = self[index: index]
-                case .foreground:
-                    output.append(contentsOf: "\u{1b}]10".utf8)
-                    color = foreground
-                case .background:
-                    output.append(contentsOf: "\u{1b}]11".utf8)
-                    color = background
-                }
-                output.append(contentsOf: ";rgb:".utf8)
-                Self.appendChannel(color.red, to: &output)
-                output.append(0x2f)
-                Self.appendChannel(color.green, to: &output)
-                output.append(0x2f)
-                Self.appendChannel(color.blue, to: &output)
-                output.append(contentsOf: [0x1b, 0x5c])
-            }
-        }
-
-        private static func appendChannel(_ channel: UInt8, to output: inout [UInt8]) {
-            func hex(_ digit: UInt8) -> UInt8 { digit < 10 ? 48 + digit : 87 + digit }
-            let high = hex(channel >> 4)
-            let low = hex(channel & 15)
-            // Replicating the 8-bit value gives the four-digit, 16-bit channel in an OSC reply.
-            output.append(contentsOf: [high, low, high, low])
-        }
     }
 }
 
-enum ColorQuery: Equatable, Sendable {
-    case indexed(UInt8), foreground, background
-}

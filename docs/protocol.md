@@ -22,7 +22,7 @@ The client delays a resize requested during attach until the initial replay is c
 
 ## Replay
 
-The repaint is ordinary VT output. It describes both buffers, retained history, soft wraps, cells and their styles, window title, cursor and input modes. The server tracks output even while detached. If a socket or PTY read ended partway through a UTF-8 character or control, the repaint ends with the corresponding unfinished prefix. The next live bytes complete it once. A client’s local palette still supplies default colors. The bundled server reconstructs partial queries for the indexed palette, foreground and background. A cursor-color query embedded in an unfinished list is outside its supported color replies.
+The repaint is ordinary VT output. It describes both buffers, retained history, soft wraps, cells and their styles, window title, the colors the program set, cursor and input modes. The server tracks output even while detached. If a socket or PTY read ended partway through a UTF-8 character or control, the repaint ends with the corresponding unfinished prefix, including the payload so far of an unfinished title or color command. The next live bytes complete it once. A client’s local theme supplies every color the program hasn't set.
 
 Two resize effects cannot be addressed by VT output at the current grid size.
 

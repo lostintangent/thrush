@@ -76,18 +76,6 @@
  "DECSTR": [
   "DECSTR"
  ],
- "OSC 11 ?": [
-  "OSC 11 ? · after OSC 11 set"
- ],
- "OSC 112": [
-  "OSC 112 · after OSC 12 set"
- ],
- "OSC 12 ?": [
-  "OSC 12 ?"
- ],
- "OSC 4 ?": [
-  "OSC 4 ? · after OSC 4 set"
- ],
  "OSC 8": [
   "OSC 8",
   "OSC 8 · with id"

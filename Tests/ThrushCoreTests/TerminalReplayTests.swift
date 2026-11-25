@@ -57,6 +57,9 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         (6, e + "]2;title", " end\u{07}Z"),
         (6, e + "[38:2::1:2", ":3mZ"),
         (6, e + "]4;16;?;2", ";?\u{07}Z"),
+        (6, e + "]4;1;#12", "34\u{07}" + e + "]4;1;?\u{07}Z"),
+        (6, e + "]10;#111;#2", "22;?\u{07}" + e + "]10;?\u{07}Z"),
+        (6, e + "]4;1;#123\u{07}" + e + "]104;", "1\u{07}" + e + "]4;1;?\u{07}Z"),
     ]
     func assertContinuation(_ columns: Int, prefix: [UInt8], suffix: [UInt8]) {
         var before = Terminal(size: .init(columns: columns, rows: 3))
@@ -67,6 +70,7 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         let a = before.snapshot(), b = resumed.snapshot()
         #expect(a.cursorColumn == b.cursorColumn && a.cursorRow == b.cursorRow)
         #expect(a.modes == b.modes && before.title == resumed.title)
+        #expect(a.programColors == b.programColors)
         for row in 0..<a.size.rows {
             for col in 0..<columns { #expect(a.rows[row][col] == b.rows[row][col]) }
         }
@@ -81,6 +85,37 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     }
 }
 
+@Test func programColorsOutliveThemeChangesAndResumes() {
+    let e = "\u{1b}"
+    let sets = Array((e + "]4;1;#102030\u{07}" + e + "]11;rgb:40/50/60\u{07}").utf8)
+    let query = Array((e + "]4;1;?;2;?\u{07}" + e + "]10;?;?;?\u{07}").utf8)
+    var ansi = Terminal.Palette.default.ansi
+    ansi[1] = .init(red: 0xaa, green: 0, blue: 0)
+    ansi[2] = .init(red: 0, green: 0xaa, blue: 0)
+    let theme = Terminal.Palette(foreground: .init(red: 0x11, green: 0x11, blue: 0x11),
+                                 background: .init(red: 0xee, green: 0xee, blue: 0xee), ansi: ansi)
+    let cursor = Terminal.RGB(red: 0x12, green: 0x34, blue: 0x56)
+    var server = Terminal(size: .init(columns: 4, rows: 2))
+    var client = Terminal(size: server.size)
+    _ = server.receive(sets)
+    _ = client.receive(sets)
+    let before = client.snapshot()
+    #expect(client.receive(query).count > 0)
+    #expect(client.snapshot().generation == before.generation)
+    client.palette = theme
+    client.cursorColor = cursor
+    #expect(client.snapshot().generation != before.generation)
+    #expect(client.snapshot().programColors == before.programColors)
+    let replies = client.receive(query)
+    #expect(String(decoding: replies, as: UTF8.self) == [
+        "]4;1;rgb:1010/2020/3030", "]4;2;rgb:0000/aaaa/0000",
+        "]10;rgb:1111/1111/1111", "]11;rgb:4040/5050/6060", "]12;rgb:1212/3434/5656",
+    ].map { e + $0 + e + "\\" }.joined())
+    var resumed = Terminal(size: server.size, palette: theme, cursorColor: cursor)
+    #expect(resumed.receive(server.replayBytes()).isEmpty)
+    #expect(resumed.programColors == client.programColors)
+    #expect(resumed.receive(query) == replies)
+}
 
 @Test func partialColorQueryKeepsItsLengthLimit() {
     var original = Terminal(size: .init(columns: 4, rows: 2))

@@ -190,7 +190,8 @@ final class WebSocketTransport {
                 if resynchronized {
                     // No actor suspension between resetting the parser and applying the checkpoint.
                     // The old grid kept its negotiated size while the new checkpoint was in flight.
-                    worker.terminal = Terminal(size: worker.terminal.size, palette: worker.terminal.palette)
+                    worker.terminal = Terminal(size: worker.terminal.size, palette: worker.terminal.palette,
+                                               cursorColor: worker.terminal.cursorColor)
                     isResynchronizing = false
                 }
                 let reply = worker.apply(bytes)
@@ -219,7 +220,8 @@ final class WebSocketTransport {
                     discardedHeldInputOnLastReady = !resumed && !heldInput.isEmpty
                     worker.hasSeenReady = true
                     retryMilliseconds = 250
-                    worker.terminal = Terminal(size: attachmentSize, palette: worker.terminal.palette)
+                    worker.terminal = Terminal(size: attachmentSize, palette: worker.terminal.palette,
+                                               cursorColor: worker.terminal.cursorColor)
                     worker.lastReceiptTime = nil
                     if resumed {
                         worker.state = .replaying

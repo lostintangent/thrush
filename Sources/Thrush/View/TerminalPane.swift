@@ -116,7 +116,7 @@ import ThrushCore
                 guard let self else { return }
                 pane?.onResolvedTheme?(theme)
                 self.container?.show(notice)
-                perform { worker, _ in await worker.setPalette(theme.palette) }
+                perform { worker, _ in await worker.setPalette(theme.palette, cursor: theme.cursor) }
             }
             container.terminal.onInput = { [weak self] in self?.input($0) }
         }
@@ -262,7 +262,8 @@ import ThrushCore
 
         private func start(_ worker: TerminalWorker, userInitiated: Bool, stamp: UInt64) async throws {
             guard epoch == stamp, active, reader == nil, let view else { return }
-            await worker.setPalette(view.resolvedTheme.palette)
+            let theme = view.resolvedTheme
+            await worker.setPalette(theme.palette, cursor: theme.cursor)
             guard epoch == stamp else { return }
             if !hasTranscript, await worker.hasSeenReady {
                 let retained = await worker.snapshot()

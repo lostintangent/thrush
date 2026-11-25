@@ -232,6 +232,34 @@ probe('OSC 104', 'without parameters', positions.middle, `${OSC}4;1;#abcdef${BEL
 probe('OSC 110', 'after OSC 10 set', positions.middle, `${OSC}10;#abcdef${BEL}${OSC}110${BEL}${OSC}10;?${BEL}`);
 probe('OSC 111', 'after OSC 11 set', positions.middle, `${OSC}11;#abcdef${BEL}${OSC}111${BEL}${OSC}11;?${BEL}`);
 probe('OSC 112', 'after OSC 12 set', positions.middle, `${OSC}12;#abcdef${BEL}${OSC}112${BEL}${OSC}12;?${BEL}`);
+// Program colors, observed through queries: each rule for fields, specifications, resets and lifetime.
+const queryColors = (...indices) => `${OSC}4;${indices.map(index => `${index};?`).join(';')}${BEL}${OSC}10;?;?;?${BEL}`;
+const colorSpecifications = ['rgb:f/0/8', 'rgb:ff/00/80', 'rgb:fff/000/888', 'rgb:ffff/0000/8888', 'RGB:AB/cD/eF', 'rgb:7/80/abc',
+  '#abc', '#aabbcc', '#aaabbbccc', '#aaaabbbbcccc', '#ABCDEF', '#123456789'];
+const invalidSpecifications = ['rgb:1/22/333', '#1234', 'rgb:1/2', 'rgb:1/2/3/4', 'rgb:g/0/0', 'red', '#', 'rgb:', 'rgb:+1/2/3',
+  '#+12', 'rgb:12345/0/0', ' #123', '#123 ', 'rgb:1/2/3 ', '#１２３'];
+probe('OSC 4 set', 'specifications', positions.middle,
+  `${OSC}4;${colorSpecifications.map((spec, i) => `${i + 1};${spec}`).join(';')}${BEL}` + queryColors(...colorSpecifications.map((_, i) => i + 1)));
+probe('OSC 4 set', 'invalid specifications', positions.middle,
+  `${OSC}4;${invalidSpecifications.map((spec, i) => `${i + 1};${spec}`).join(';')}${BEL}` + queryColors(...invalidSpecifications.map((_, i) => i + 1)));
+probe('OSC 4 set', 'indices', positions.middle, `${OSC}4;256;#111;x;#222;01;#333;-2;#444;;#555;0255;#666;7${BEL}` + queryColors(1, 2, 5, 7, 255));
+probe('OSC 4 set', 'then a query in one command', positions.middle, `${OSC}4;1;#555;1;?;1;#777${BEL}${OSC}4;1;?${BEL}`);
+probe('OSC 4 set', 'cancelled', positions.middle, `${OSC}4;1;#555\x18${OSC}4;2;#555\x1a` + queryColors(1, 2));
+probe('OSC 4 set', 'ended by another escape sequence', positions.middle, `${OSC}4;3;#555${ESC}[C` + queryColors(3));
+probe('OSC 4 ?', 'index 256', positions.middle, `${OSC}4;256;?;1${BEL}`);
+probe('OSC 10 set', 'through the cursor', positions.middle, `${OSC}10;#111;#222;#333;#444${BEL}` + queryColors());
+probe('OSC 10 set', 'skipping an invalid field', positions.middle, `${OSC}10;bad;#222;;#444${BEL}` + queryColors());
+probe('OSC 11 set', 'through the cursor', positions.middle, `${OSC}11;#222;#333;#444${BEL}` + queryColors());
+probe('OSC 12 set', 'then a query', positions.middle, `${OSC}12;rgb:12/34/56${ST}${OSC}12;?${ST}`);
+probe('OSC 10 ?', 'between sets', positions.middle, `${OSC}10;?;#222;?${BEL}${OSC}10;#111;?;?${BEL}`);
+probe('OSC 104', 'with a list', positions.middle, `${OSC}4;1;#111;2;#222;3;#333;4;#444${BEL}${OSC}104;1;x;003;300;-4${BEL}` + queryColors(1, 2, 3, 4));
+probe('OSC 104', 'with empty fields', positions.middle, `${OSC}4;1;#111${BEL}${OSC}104;;${BEL}` + queryColors(1));
+probe('OSC 104', 'keeps default colors', positions.middle, `${OSC}4;1;#111;200;#222${BEL}${OSC}10;#333;#444;#555${BEL}${OSC}104;${BEL}` + queryColors(1, 200));
+probe('OSC 110', 'with a payload', positions.middle, `${OSC}10;#111;#222;#333${BEL}${OSC}110;1;2${BEL}` + queryColors());
+probe('OSC 112', 'without its set', positions.middle, `${OSC}10;#111;#222;#333${BEL}${OSC}112${BEL}${OSC}111${BEL}` + queryColors());
+probe('RIS', 'keeps program colors', `${positions.middle}${OSC}4;1;#111${BEL}${OSC}10;#222;#333;#444${BEL}`, `${ESC}c` + queryColors(1));
+probe('DECSTR', 'keeps program colors', `${positions.middle}${OSC}4;1;#111${BEL}${OSC}10;#222;#333;#444${BEL}`, `${CSI}!p` + queryColors(1));
+add('OSC 4 set', 'split across writes', canvas + positions.middle, `${OSC}4;1;rgb:1`, `2/34/5`, `6${ESC}`, `\\${OSC}4;1;?${BEL}`, { checkpoint: 'subject' }, '*');
 for (const mode of [1, 3, 6, 7, 12, 25, 45, 47, 66, 1000, 1002, 1003, 1004, 1006, 1047, 1048, 1049, 2004, 2026, 9999]) {
   probe(`DECRQM ?${mode}`, '', positions.middle, `${CSI}?${mode}$p`);
   probe(`DECRQM ?${mode}`, 'after DECSET', positions.middle + `${CSI}?${mode}h`, `${CSI}?${mode}$p`);

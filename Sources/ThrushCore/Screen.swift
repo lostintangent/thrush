@@ -45,7 +45,10 @@ extension Terminal {
 
     package struct Snapshot: Sendable {
         package let size: Size
+        /// The host theme's palette. Draw through ``programColors`` to show what the program set.
         package let palette: Palette
+        /// The colors the program set over the host theme.
+        package let programColors: ProgramColors
         package let modes: Modes
         package private(set) var rows: [Row]
         package let history: History
@@ -259,8 +262,9 @@ extension Terminal {
             alternateCapacity = size.rows
         }
 
-        func snapshot(generation: UInt64, modes: Modes, palette: Palette) -> Snapshot {
-            Snapshot(size: size, palette: palette, modes: modes, rows: active.visible, history: active.history,
+        func snapshot(generation: UInt64, modes: Modes, palette: Palette, programColors: ProgramColors) -> Snapshot {
+            Snapshot(size: size, palette: palette, programColors: programColors, modes: modes,
+                     rows: active.visible, history: active.history,
                      normalHistoryCount: normalWhileAlternate?.history.count ?? active.history.count,
                      cursorRow: row, cursorColumn: column, cursorVisible: modes.cursorVisible,
                      cursorBlink: modes.cursorBlinkOverride ?? modes.cursorBlink, cursorShape: modes.cursorShape,

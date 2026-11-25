@@ -63,7 +63,7 @@ struct LoopbackCheck {
               await next.text(inRow: 1).isEmpty
         else { throw CheckFailure("Expected AB on row zero of the fresh two-column grid") }
         let beforeSwitch = await next.snapshot()
-        await next.setPalette(defaults)
+        await next.setPalette(defaults, cursor: .white)
         let afterSwitch = await next.snapshot()
         guard beforeSwitch.palette == light, afterSwitch.palette == defaults,
               beforeSwitch.generation != afterSwitch.generation,

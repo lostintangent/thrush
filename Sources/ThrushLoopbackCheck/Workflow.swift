@@ -28,7 +28,7 @@ extension LoopbackCheck {
             }
             if let nextPalette = event.palette {
                 palette = nextPalette
-                await connection.setPalette(palette)
+                await connection.setPalette(palette, cursor: .white)
             }
             if let requested = event.resize {
                 size = .init(columns: requested.columns, rows: requested.rows)

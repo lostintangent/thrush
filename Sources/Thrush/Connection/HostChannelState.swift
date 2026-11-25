@@ -89,7 +89,7 @@ final class HostChannelState {
                             stamp: UInt64, in worker: isolated TerminalWorker) async throws {
         self.channel = channel
         scheduledSize = size
-        worker.terminal = Terminal(size: size, palette: worker.terminal.palette)
+        worker.terminal = Terminal(size: size, palette: worker.terminal.palette, cursorColor: worker.terminal.cursorColor)
         worker.lastReceiptTime = nil
         await worker.publishMetadata(title: worker.terminal.title, hasEnded: false)
         guard worker.lifetime == stamp else { throw CancellationError() }

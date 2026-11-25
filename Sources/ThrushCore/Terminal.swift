@@ -46,12 +46,19 @@ public struct Terminal: Sendable {
 
     /// The current dimensions of the visible grid in character cells.
     package var size: Size { screen.size }
-    /// The colors reported to the shell when it queries the current theme.
+    /// The host theme's colors, which show wherever the program hasn't set its own.
     ///
     /// Set this when the host changes theme. Stored cells retain their original color indices.
     package var palette: Palette {
         didSet { if oldValue != palette { generation &+= 1 } }
     }
+    /// The host theme's cursor color, which shows unless the program set its own.
+    package var cursorColor: RGB {
+        didSet { if oldValue != cursorColor { generation &+= 1 } }
+    }
+    /// The colors the program set over the host theme. They last until the program restores them,
+    /// so a theme change or a resume never changes them.
+    package private(set) var programColors = ProgramColors()
     package private(set) var modes = Modes()
     private(set) var scanner = TextScanner()
     private(set) var parser = EscapeParser()
@@ -65,9 +72,10 @@ public struct Terminal: Sendable {
     // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
     private(set) var hasCombiningBase = false
 
-    /// Creates a terminal with a blank normal screen and the given colors for shell queries.
-    package init(size: Size, palette: Palette = .default) {
+    /// Creates a terminal with a blank normal screen and the host theme's colors.
+    package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
         self.palette = palette
+        self.cursorColor = cursorColor
         screen = Screen(size: size)
     }
 
@@ -114,10 +122,10 @@ public struct Terminal: Sendable {
                 hasCombiningBase = false
                 apply(.execute(control), replies: &replies)
                 index += 1
-            } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
+            } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isCollecting {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
-                if stringHandler.isReadingTitle { stringHandler.appendTitleASCII(bytes.extracting(start..<index)) }
+                if stringHandler.isCollecting { stringHandler.appendASCII(bytes.extracting(start..<index)) }
             } else {
                 consume(byte, replies: &replies)
                 index += 1
@@ -145,7 +153,7 @@ public struct Terminal: Sendable {
 
     /// A single, read-only generation for drawing, selection and accessibility.
     package func snapshot() -> Snapshot {
-        screen.snapshot(generation: generation, modes: modes, palette: palette)
+        screen.snapshot(generation: generation, modes: modes, palette: palette, programColors: programColors)
     }
 
     /// Text prints in runs only when each character lands in the next cell as itself. Insert mode,
@@ -353,17 +361,8 @@ public struct Terminal: Sendable {
             saveCursor()
             return
         case .control(.restoreCursor): restoreCursor()
-        case .command(.setIconAndWindowTitle), .command(.setWindowTitle):
-            stringHandler.start(.windowTitle)
-            return
-        case .command(.indexedColor):
-            stringHandler.start(.indexedColor)
-            return
-        case .command(.foregroundColor):
-            stringHandler.start(.foregroundColor)
-            return
-        case .command(.backgroundColor):
-            stringHandler.start(.backgroundColor)
+        case .command(let command):
+            stringHandler.start(command)
             return
         case .ignoredString:
             parser.discardStringPayload()
@@ -373,10 +372,14 @@ public struct Terminal: Sendable {
             stringHandler.put(scalar)
             return
         case .stringEnd(let success):
-            switch stringHandler.finish(success: success) {
-            case .title(let value): title = value
-            case .colorQueries(let queries): palette.appendReplies(to: &replies, for: queries)
-            case nil: break
+            guard let string = stringHandler.finish(success: success) else { return }
+            switch string.command {
+            case .setIconAndWindowTitle, .setWindowTitle: title = string.payload
+            default:
+                if programColors.apply(string.command, payload: string.payload, palette: palette,
+                                       cursor: cursorColor, replies: &replies) {
+                    generation &+= 1
+                }
             }
             return
         }
@@ -392,7 +395,7 @@ public struct Terminal: Sendable {
     }
 
     /// DECSTR resets modes, margins, the style, the character sets and the saved cursor. It keeps the
-    /// screen, the cursor position and mouse reporting.
+    /// screen, the cursor position, mouse reporting and the program's colors.
     private mutating func softReset() {
         let mouse = (tracking: modes.mouseTracking, sgr: modes.mouseSGR)
         resetModes()
@@ -403,7 +406,7 @@ public struct Terminal: Sendable {
     }
 
     /// RIS also resets mouse reporting and starts both screens over, without history. It keeps the title
-    /// and the palette.
+    /// and the colors, including those the program set.
     private mutating func fullReset() {
         resetModes()
         screen.reset()

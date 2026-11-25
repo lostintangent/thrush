@@ -155,12 +155,22 @@ enum TerminalControlFunction {
         case setIconAndWindowTitle = 0
         /// OSC 2 sets the window title.
         case setWindowTitle = 2
-        /// OSC 4, indexed colors.
+        /// OSC 4 sets or queries indexed colors.
         case indexedColor = 4
-        /// OSC 10, default foreground.
+        /// OSC 10 sets or queries the default foreground, then the colors after it.
         case foregroundColor = 10
-        /// OSC 11, default background.
+        /// OSC 11 sets or queries the default background, then the cursor color.
         case backgroundColor = 11
+        /// OSC 12 sets or queries the cursor color.
+        case cursorColor = 12
+        /// OSC 104 restores the listed indexed colors, or all of them.
+        case restoreIndexedColors = 104
+        /// OSC 110 restores the default foreground.
+        case restoreForegroundColor = 110
+        /// OSC 111 restores the default background.
+        case restoreBackgroundColor = 111
+        /// OSC 112 restores the cursor color.
+        case restoreCursorColor = 112
     }
 
     case execute(C0)

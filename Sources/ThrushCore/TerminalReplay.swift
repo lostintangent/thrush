@@ -4,6 +4,13 @@ extension Terminal {
     package func replayBytes() -> [UInt8] {
         var writer = ReplayWriter()
         writer.output += "\u{1b}]2;" + title + "\u{1b}\\"
+        if !programColors.isEmpty {
+            var reports: [UInt8] = []
+            for slot in (0...255).map(ColorSlot.indexed) + [.foreground, .background, .cursor] {
+                if let color = programColors[slot] { slot.report(color, to: &reports) }
+            }
+            writer.output += String(decoding: reports, as: UTF8.self)
+        }
         if let normal = screen.normalWhileAlternate {
             writer.draw(normal)
             writer.setStyle(.init())
@@ -253,9 +260,8 @@ private extension EscapeParser {
         case .dcsIgnore: return esc + "P1?"
         case .oscIdentifier: return esc + "]" + (oscIdentifier < 0 ? "" : String(oscIdentifier))
         case .oscPayload:
-            if let title = string.title { return esc + "]2;" + title }
-            if let color = string.color { return esc + "]" + String(oscIdentifier) + ";" + color.replayFields(command: oscIdentifier, length: string.consumedCodeUnits) }
-            return esc + "]999;"
+            guard let payload = string.payload else { return esc + "]999;" }
+            return esc + "]" + String(oscIdentifier) + ";" + payload
         case .invalidOSC: return esc + "]!"
         case .discardedOSC: return esc + "]999;"
         case .dcsPayload, .discardedDCS: return esc + "Pq"
@@ -280,57 +286,6 @@ private extension ControlParameters {
         default: break
         }
         return fields
-    }
-}
-
-private extension ColorQueryPayload {
-    func replayFields(command: Int, length: Int) -> String {
-        var fields: [String] = []
-        var padding: (index: Int, character: String)?
-        func number(_ value: Int) {
-            padding = (fields.count, "0")
-            fields.append(String(value))
-        }
-        func unanswered() {
-            padding = (fields.count, "!")
-            fields.append("")
-        }
-        func completed(_ query: ColorQuery) {
-            if queries.contains(query) { fields.append("?") } else { unanswered() }
-        }
-
-        if command == 4 {
-            for case .indexed(let index) in queries { number(Int(index)); fields.append("?") }
-            if case .indexedSpec(let index) = field {
-                if let index { number(Int(index)) } else { unanswered() }
-            }
-        } else {
-            switch field {
-            case .background, .ignore:
-                if command == 10 { completed(.foreground) }
-                if case .ignore = field { completed(.background) }
-            default: break
-            }
-        }
-        switch token {
-        case .empty: fields.append("")
-        case .invalid: padding = (fields.count, "!"); fields.append("!")
-        case .question: fields.append("?")
-        case .number(let value): number(value)
-        }
-        if case .ignore = field { padding = (fields.count - 1, "!") }
-        let missing = length - fields.joined(separator: ";").utf16.count
-        if missing > 0 {
-            // The parser discards invalid fields, leading zeroes and input past the last
-            // default-color query. Restore their length so the same next byte hits its limit.
-            if let padding {
-                fields[padding.index] = String(repeating: padding.character, count: missing) + fields[padding.index]
-            } else {
-                // Only an omitted, unanswered index/spec pair can be missing in this state.
-                return String(repeating: "!", count: max(0, missing - 2)) + ";;" + fields.joined(separator: ";")
-            }
-        }
-        return fields.joined(separator: ";")
     }
 }
 
