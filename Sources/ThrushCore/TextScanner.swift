@@ -16,12 +16,18 @@ struct TextScanner: Sendable {
     }
 
     /// The first non-printable or non-ASCII byte, or the end of the input.
-    /// A lane is printable ASCII exactly when subtracting space gives a value below 95.
     static func endOfASCII(in bytes: Span<UInt8>, from start: Int) -> Int {
         var index = start
         while bytes.count - index >= 16 {
-            let block = bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self)
-            if (block &- 0x20).max() >= 95 { break }
+            // A lane is printable ASCII exactly when subtracting space gives a value below 95.
+            // Adding 33 sets the high bit from 95 up, and anything past 127 has it already, so
+            // the high bits mark the lanes that end the run.
+            let offset = bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self) &- 0x20
+            let marks = unsafeBitCast((offset | (offset &+ 33)) & 0x80, to: SIMD2<UInt64>.self)
+            // Each half read as a little-endian word puts its first lane in the lowest byte.
+            let first = UInt64(littleEndian: marks[0]), second = UInt64(littleEndian: marks[1])
+            if first != 0 { return index + first.trailingZeroBitCount / 8 }
+            if second != 0 { return index + 8 + second.trailingZeroBitCount / 8 }
             index += 16
         }
         while index < bytes.count && isPrintableASCII(bytes[index]) { index += 1 }
