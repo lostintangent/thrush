@@ -59,11 +59,22 @@ Most output is text, so text never enters the state machine.
 - **The state machine is data.** Escape framing is a precomputed table indexed by state and byte that yields the next state and action in one load.
 - **Parameters stay where they're parsed.** The parser collects parameters in fixed storage it owns. Dispatch receives a small command identifier that packs the prefix, intermediates and final byte, then reads parameters in place. Dispatch needs no parameter array allocation or copy. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
 
-The comparison benchmark will guide these proposed storage changes.
+## Storage
 
-- **Cells are plain data.** Today a cell holds a scalar, width flags and its style, with grapheme clusters kept separately. Measure whether interning styles reduces the cost of scrolling and snapshots.
-- **History is a ring.** Visible rows already rotate through a circular index. Measure whether sharing row storage with history and reusing evicted rows improves sustained output.
-- **Steady output allocates nothing.** Add allocation counts for steady printing, cursor motion and scrolling, then use those measurements to remove recurring allocations.
+Nearly every printed byte ends as a store into a row, and every line feed moves rows. Storage is shaped so that printing writes each cell once, scrolling moves no cells and steady output allocates nothing, while a renderer keeps reading the frame it was handed. The [plan for 0.3.0](../Benchmarks/comparison.md#plan-for-030) builds this one measured step at a time. Rows already reserve their width once, and the rest describes where the other steps lead.
+
+- **A row reserves its width once.** A row stores cells up to the last one written, and the columns past it are blank in the default style, so a blank row holds nothing. The first write reserves the full width. Text past the stored cells is appended rather than filled with blanks and then overwritten, so a growing row never reallocates.
+- **A cell is 8 bytes of plain data.** It holds the glyph, a scalar in 21 bits with the width flags above it, and the position of its style. A blank cell in the default style is all zero bits, so clearing a row is a memset and printing a run stores one word per cell. A glyph with combining marks keeps its string in the row's cluster table, keyed by column.
+- **A row stores each style once.** The row keeps a short list of the styles its cells use, and each cell holds a position in that list. Printing finds the current style once per run, starting with the one it used last. The list travels with its row, so a row in history or in a snapshot can be read on its own, and nothing tracks when a style falls out of use. Clearing the row empties its list, and a list that outgrows the row's width is compacted to the styles still in use. `Style` can grow, with underline styles, underline color and links, without making cells bigger.
+- **A line feed recycles a row.** Once history is full, `History.append` hands back the row it evicts, and `advanceLine` clears it in place as the new bottom row. It keeps its reserved width, so scrolling at full speed allocates nothing. A full-screen erase clears rows in place the same way.
+- **A scroll region rotates.** Scrolling inside a region rotates the row slots between its margins, and the row that leaves becomes the new blank row, cleared in place. No row is copied, retained or released. Index, reverse index, inserting and deleting lines and scrolling up and down share the same rotation.
+- **The screen and history are rings.** The visible rows rotate through a circular index, so a full-height scroll moves one index. History is a ring of up to 1,000 rows that keeps its oldest row at index zero.
+
+### What a snapshot holds
+
+`Terminal.snapshot()` returns an immutable value with the visible rows, the history, the cursor, modes, palette and generation. It copies no cells. Rows and the history ring are copy-on-write values, so a snapshot shares their storage, and the terminal copies one only when it changes something a snapshot still holds. Recycling follows the same rule. Clearing a row that the renderer's snapshot still shares gives the terminal fresh storage and leaves the snapshot's row untouched. A frame never changes under the renderer, and a live snapshot costs at most one copy for each row it holds that changes, about 1,024 rows at 80 × 24.
+
+A renderer reads cells through `row[column]`, which returns a `Cell` with its text, width and resolved `Style`, and caches each row's geometry by `row.generation`. Every write, erase and recycle stamps the row with a new screen revision, as creating a blank row does, so a cleared row never matches geometry cached for its old content. Both stay the same through every storage step, so the view doesn't change.
 
 ## Modern Swift we use
 
