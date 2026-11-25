@@ -84,6 +84,7 @@ private func performRecordedInput(_ input: Terminal.Input, in view: TerminalView
         let (nativeKey, nativeModifiers) = try #require(PhoneTerminalInput.hardwareKey(usage, characters: characters, flags: flags))
         view.sendInput(.key(nativeKey, modifiers: nativeModifiers))
     case .pointer: Issue.record("Unexpected pointer event in typing workflow")
+    case .focus: Issue.record("Unexpected focus event in typing workflow")
     }
 }
 #endif
