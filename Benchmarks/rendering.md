@@ -28,14 +28,20 @@ For a capture of a running demo, use `scripts/capture-demo.sh mac "$pid" frame.p
 
 ## First Mac measurement
 
-The Release bundle at `1f9f8c0` drew an 80 × 24 grid on an M1 Max running macOS 27.2.1. The display link measured 16.667 ms. The system's one-minute load was 495.06 on ten cores and its thermal state was fair. This single contended run records cache behavior and provisional timings. [Saved render samples](render-mac.json)
+The resource-free Release bundle at `aac046b` drew an 80 × 24 grid on an M1 Max running macOS 27.2.1. The display link measured 16.667 ms. The system's one-minute load was 396.32 on ten cores and its thermal state was fair. This single contended run records cache behavior and provisional timings. [Saved render samples](render-mac.json)
+
+The new process compiled its embedded Metal shader in 279.336 ms. Its first content submission occurred 812.020 ms after view creation.
 
 | Operation | Frames | CPU p95, ms | GPU p95, ms | Glyph uploads | Maximum rows prepared |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Cold | 1 | 17.648 | 0.436 | 14 | 24 |
-| Cursor | 10 | 0.122 | 0.105 | 0 | 0 |
-| One row | 10 | 0.143 | 0.105 | 0 | 1 |
-| Scroll | 10 | 0.133 | 0.107 | 0 | 1 |
-| Full grid | 10 | 0.314 | 0.108 | 0 | 24 |
+| Cold | 1 | 10.783 | 1.380 | 14 | 24 |
+| Cursor | 10 | 0.126 | 0.105 | 0 | 0 |
+| One row | 10 | 0.134 | 0.102 | 0 | 1 |
+| Scroll | 10 | 0.135 | 0.105 | 0 | 1 |
+| Full grid | 10 | 0.274 | 0.102 | 0 | 24 |
 
-All three theme switches reused every visible row and glyph. The foreground-idle observation lasted 1.040 s, the suspended-renderer observation 1.066 s and the hidden-window observation 1.215 s. Each recorded zero additional submissions. The Mac session was locked. Its drawable callbacks reported zero presentation timestamps on all 41 workload frames, so this run supplies no receipt-to-presentation latency. A foreground run on an unlocked display is still required for that measurement.
+All three theme switches reused every visible row and glyph. The foreground-idle observation lasted 1.009 s, the suspended-renderer observation 1.057 s and the hidden-window observation 1.227 s. Each recorded zero additional submissions.
+
+Three partial generations inside synchronized output produced 0 submissions. Closing the block submitted one coherent screen. When the end marker was omitted, the watchdog submitted the latest generation 1000.665 ms after the block opened, followed by 1.027 s with zero further submissions.
+
+The Mac session was locked. Its drawable callbacks returned zero presentation timestamps on all 41 drawing workload frames and both synchronized-output releases. CPU preparation, GPU duration and submission timestamps are available. A foreground run on an unlocked display is still required for receipt-to-presentation latency.
