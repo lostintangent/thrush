@@ -146,9 +146,9 @@ def capture(out, label, path, process, title, appearance, focus_pid, helper=None
     return image, region
 
 
-def prepare_hosted_motion(out):
+def prepare_hosted_motion(out, reduced=False):
     # The disposable runner image can ship with Reduce Motion on. Query AppKit in
-    # fresh processes before and after writing the user's normal macOS preference.
+    # fresh processes before and after writing the user's macOS preference.
     if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise RuntimeError("Hosted motion preparation requires a disposable GitHub runner.")
     pref = ["com.apple.universalaccess", "reduceMotion"]
@@ -162,19 +162,19 @@ def prepare_hosted_motion(out):
         result = subprocess.run(["defaults", "read", *pref], text=True, capture_output=True)
         return result.stdout.strip() if result.returncode == 0 else None
 
-    report = dict(before=effective(), previousPreference=preference())
-    if report["before"]:
-        write = subprocess.run(["defaults", "write", *pref, "-bool", "false"], text=True, capture_output=True)
+    report = dict(requested=reduced, before=effective(), previousPreference=preference())
+    if report["before"] != reduced:
+        write = subprocess.run(["defaults", "write", *pref, "-bool", str(reduced).lower()], text=True, capture_output=True)
         report.update(writeStatus=write.returncode, writeOutput=(write.stdout + write.stderr).strip())
     for _ in range(5):
         report["after"] = effective()
-        if not report["after"]:
+        if report["after"] == reduced:
             break
         time.sleep(.5)
     report["currentPreference"] = preference()
-    save(out / "motion-settings.json", report)
-    if report["after"]:
-        raise RuntimeError("AppKit still reports Reduce Motion after setting the disposable host preference: " + str(report))
+    save(out / ("motion-reduced.json" if reduced else "motion-settings.json"), report)
+    if report["after"] != reduced:
+        raise RuntimeError(f"AppKit reports Reduce Motion {report['after']} after setting the disposable host preference: {report}")
 
 
 def main():

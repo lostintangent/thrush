@@ -26,6 +26,7 @@ enum PhoneCapture {
         var notice: VisiblePaneNotice?
         var keyboardLanguage: String?
         var toolbar: Toolbar?
+        var reducesMotion = false
     }
 
     /// UIKit can move the completed drawable or its keyboard without changing a pixel inside it.
@@ -107,6 +108,7 @@ enum PhoneCapture {
                 state.keyboardLanguage = input?.textInputMode?.primaryLanguage
             }
             if session.options.checksToolbar { state.toolbar = PhoneToolbarProof.measure(view) }
+            state.reducesMotion = view.reducesMotion
             let drawing = Drawing(state: state, generation: view.snapshot?.generation, size: view.snapshot?.size,
                                   drawableSize: view.drawableSize, fontSize: view.fontSize,
                                   theme: view.resolvedTheme, historyOffset: view.historyOffset)
