@@ -4,7 +4,7 @@ Thrush sustained **1,188.13 MiB/s** at 80 × 24 and resized a grid with 1,000 hi
 
 ## Recorded Mac measurements
 
-Five consecutive Release runs used clean revision `c528777` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed fair. All five runs reported host contention, with one-minute load averages from 14.75 to 15.96. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
+Five consecutive Release runs used clean revision `c528777` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed fair. All five runs reported contention on the Mac, with one-minute load averages from 14.75 to 15.96. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
 
 Run 4 had the median 80 × 24 ASCII throughput. The two published JSON reports and the workload tables use that complete run. Across the five runs, throughput ranged from 1,183.23 to 1,228.23 MiB/s, a spread of 45.00 MiB/s (3.79% of the median).
 
@@ -24,7 +24,7 @@ The sustained-output test feeds 1,048,640 bytes of printable ASCII and line endi
 | 40 × 32 | 720.07 | 5.083 | 5.542 |
 | 80 × 14 | 1,232.59 | 2.917 | 5.709 |
 
-Resizing the normal screen can reflow its scrollback even while Vim’s alternate screen is visible. The table includes every resize that began with **1,000 rows in the normal screen’s history**. Across all 29 recorded resize operations, every p95 fell within the 8.333 ms budget for one 120 Hz frame. The timer measures the synchronous resize call. [Resize measurements](headless.json)
+Resizing the normal screen can reflow its history even while Vim’s alternate screen is visible. The table includes every resize that began with **1,000 rows in the normal screen’s history**. Across all 29 recorded resize operations, every p95 fell within the 8.333 ms budget for one 120 Hz frame. The timer measures the synchronous resize call. [Resize measurements](headless.json)
 
 | Active screen | Grid change | Resize p95 (ms) |
 | --- | --- | ---: |
@@ -56,9 +56,9 @@ Receive throughput times `Terminal.receive` alone over 25 samples and reports th
 
 ## Starting a new shell and preparing a replay
 
-The current runner also measures two host actions at 80 × 24. The previous shell prints 1,016 numbered lines, leaving 992 in history and 24 on screen. Starting a new shell archives lines 17 through 1,016 in order. Its first PTY read is the bracketed-paste enable and `thrush$ ` prompt from the recorded `shell-workflow`. After eight rows from this shell have entered history, preparing for replay retains exactly lines 25 through 1,016 from the previous shell. Each action must leave a blank grid and a visible cursor at row zero, column zero. Applying the recorded prompt must place the cursor in column eight and enable bracketed paste.
+The current runner also measures two session actions at 80 × 24. The previous shell prints 1,016 numbered lines, leaving 992 in history and 24 on screen. Starting a new shell archives lines 17 through 1,016 in order. Its first PTY read is the bracketed-paste enable and `thrush$ ` prompt from the recorded `shell-workflow`. After eight rows from this shell have entered history, preparing for replay retains exactly lines 25 through 1,016 from the previous shell. Each action must leave a blank grid and a visible cursor at row zero, column zero. Applying the recorded prompt must place the cursor in column eight and enable bracketed paste.
 
-The table and generated JSON give p50 and p95 over 25 passes after one warmup. The timers cover only the two synchronous host calls. Preparing input, applying the prompt and checking every retained row happen outside the timers.
+The table and generated JSON give p50 and p95 over 25 passes after one warmup. The timers cover only the two synchronous session calls. Preparing input, applying the prompt and checking every retained row happen outside the timers.
 
 ## Run the benchmark
 
