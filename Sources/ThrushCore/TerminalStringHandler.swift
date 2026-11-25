@@ -13,8 +13,8 @@ struct TerminalStringHandler: Sendable {
     // The limit is measured in UTF-16 code units. An overlong command has no effect.
     private static let payloadLimit = 10_000_000
     private var remainingCodeUnits = 0
-    private var title: String?
-    private var color: ColorQueryPayload?
+    private(set) var title: String?
+    private(set) var color: ColorQueryPayload?
 
     mutating func start(_ function: Function?) {
         title = nil
@@ -30,6 +30,7 @@ struct TerminalStringHandler: Sendable {
     }
 
     var isReadingTitle: Bool { title != nil }
+    var consumedCodeUnits: Int { Self.payloadLimit - remainingCodeUnits }
 
     // Printable ASCII contributes exactly one UTF-16 code unit per byte.
     mutating func appendTitleASCII(_ bytes: Span<UInt8>) {
@@ -68,12 +69,12 @@ struct TerminalStringHandler: Sendable {
 
 /// OSC 4 accepts index/specification pairs. OSC 10 and 11 advance through default
 /// colors with each field. Only a complete question-mark field requests a reply.
-private struct ColorQueryPayload: Sendable {
+struct ColorQueryPayload: Sendable {
     enum Field {
         case index, indexedSpec(UInt8?), foreground, background, ignore
     }
 
-    private enum Token {
+    enum Token {
         case empty, number(Int), question, invalid
 
         mutating func append(_ scalar: Unicode.Scalar) {
@@ -90,9 +91,9 @@ private struct ColorQueryPayload: Sendable {
         }
     }
 
-    private var field: Field
-    private var token: Token = .empty
-    private var queries: [ColorQuery] = []
+    private(set) var field: Field
+    private(set) var token: Token = .empty
+    private(set) var queries: [ColorQuery] = []
 
     init(_ field: Field) {
         self.field = field

@@ -31,11 +31,11 @@ struct EscapeParser: Sendable {
 
     private enum Pending { case stringEnd(Bool), execute(UInt8) }
 
-    private var state = Tag(State.ground)
-    private var collected: UInt32 = 0
+    private(set) var state = Tag(State.ground)
+    private(set) var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
     private(set) var parameters = ControlParameters()
-    private var oscIdentifier = -1
+    private(set) var oscIdentifier = -1
     private var pending: Pending?
     var isGround: Bool { state.matches(.ground) }
 

@@ -99,6 +99,6 @@ extension Terminal {
     }
 }
 
-enum ColorQuery: Sendable {
+enum ColorQuery: Equatable, Sendable {
     case indexed(UInt8), foreground, background
 }

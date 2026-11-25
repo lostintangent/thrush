@@ -74,6 +74,10 @@ func run() throws {
         try runPackagedRenderer(arguments: arguments)
         return
     }
+    if arguments.first == "--serialize-replay" {
+        try serializeCheckpoints(arguments: arguments)
+        return
+    }
     if arguments.first == "--connection" {
         try runConnectionBenchmark(arguments: arguments)
         return

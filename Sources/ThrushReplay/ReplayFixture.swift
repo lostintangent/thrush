@@ -240,7 +240,7 @@ package struct ReplayFixture: Sendable {
             if checkpoint != nil { try verify(terminal.snapshot()) }
         }
 
-        package func verify(_ snapshot: Terminal.Snapshot) throws {
+        package func verify(_ snapshot: Terminal.Snapshot, serialized: Bool = false) throws {
             guard let checkpoint else { return }
             let modes = snapshot.modes
             if let expected = checkpoint.synchronizedOutput, (snapshot.synchronizedOutputID != nil) != expected {
@@ -263,32 +263,46 @@ package struct ReplayFixture: Sendable {
                   snapshot.cursorRow == checkpoint.cursorRow, snapshot.cursorColumn == checkpoint.cursorColumn else {
                 throw Failure("\(name) alternate/cursor: got \(snapshot.isAlternate) \(snapshot.cursorRow),\(snapshot.cursorColumn), expected \(checkpoint.isAlternate) \(checkpoint.cursorRow),\(checkpoint.cursorColumn)")
             }
-            try verifyRows(snapshot.history, expected: checkpoint.history, columns: checkpoint.columns, group: "history")
-            try verifyRows(snapshot.rows, expected: checkpoint.visible, columns: checkpoint.columns, group: "viewport")
+            try verifyRows(snapshot.history, expected: checkpoint.history, columns: checkpoint.columns, group: "history", serialized: serialized)
+            try verifyRows(snapshot.rows, expected: checkpoint.visible, columns: checkpoint.columns, group: "viewport", serialized: serialized)
         }
 
-        private func verifyRows<Rows: Collection>(_ actual: Rows, expected: [Int], columns: Int, group: String) throws
+        private func verifyRows<Rows: Collection>(_ actual: Rows, expected: [Int], columns: Int, group: String, serialized: Bool) throws
         where Rows.Element == Terminal.Row {
             guard actual.count == expected.count else {
                 throw Failure("\(name) \(group) count: got \(actual.count), expected \(expected.count)")
             }
             for (index, row) in actual.enumerated() {
                 let line = pool.lines[expected[index]]
-                guard row.text.utf8.elementsEqual(line.text.utf8) else {
+                let endsAtMargin = stride(from: 0, to: line.runs.count, by: 2).reduce(0) { $0 + line.runs[$1] } == columns
+                let clipped = serialized && endsAtMargin && line.runs.last.map { pool.cells[$0].width == 2 } == true
+                // When the last glyph extends past the grid, a repaint leaves its one visible cell empty.
+                // The cell-by-cell check below also distinguishes a printed space from an empty cell.
+                guard clipped || row.text.utf8.elementsEqual(line.text.utf8) else {
                     throw Failure("\(name) \(group) row \(index): got \(row.text.debugDescription), expected \(line.text.debugDescription)")
                 }
                 guard row.isWrapped == line.wrapped else {
                     throw Failure("\(name) \(group) row \(index) wrap: got \(row.isWrapped), expected \(line.wrapped), text \(row.text.debugDescription)")
                 }
                 var column = 0
+                var wideLead: Cell?
                 for pair in stride(from: 0, to: line.runs.count, by: 2) {
                     let cell = pool.cells[line.runs[pair + 1]]
                     guard line.runs[pair] <= columns - column else {
                         throw Failure("\(name) \(group) row \(index) exceeds \(columns) columns")
                     }
                     let end = column + line.runs[pair]
-                    for x in column..<end where !cell.matches(row[x]) {
-                        throw mismatch(group, index, x, row[x], cell)
+                    for x in column..<end {
+                        let expected: Cell
+                        if serialized, let wideLead, cell.width != 0 {
+                            // Widening a clipped glyph may leave an old character underneath
+                            // its second column. Printing the glyph restores the continuation.
+                            expected = Cell(text: "", width: 0, style: wideLead.style)
+                        } else {
+                            expected = clipped && x == columns - 1 ? pool.cells[0] : cell
+                        }
+                        if !expected.matches(row[x]) { throw mismatch(group, index, x, row[x], expected) }
+                        wideLead = expected.width == 2 ? expected : nil
                     }
                     column = end
                 }

@@ -60,8 +60,8 @@ extension Terminal {
             ]
         }
 
-        private var slots: InlineArray<4, Set> = .init(repeating: .ascii)
-        private var invoked = 0
+        private(set) var slots: InlineArray<4, Set> = .init(repeating: .ascii)
+        private(set) var invoked = 0
         /// The set that prints. Restoring a saved cursor replaces it until the next shift or designation.
         var active = Set.ascii
 

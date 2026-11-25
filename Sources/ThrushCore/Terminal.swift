@@ -53,17 +53,17 @@ public struct Terminal: Sendable {
         didSet { if oldValue != palette { generation &+= 1 } }
     }
     package private(set) var modes = Modes()
-    private var scanner = TextScanner()
-    private var parser = EscapeParser()
+    private(set) var scanner = TextScanner()
+    private(set) var parser = EscapeParser()
     /// The completed window title. An empty title asks the host to use its default.
     package private(set) var title = ""
-    private var stringHandler = TerminalStringHandler()
-    private var screen: Screen
-    private var style = Style()
-    private var characterSets = CharacterSets()
+    private(set) var stringHandler = TerminalStringHandler()
+    private(set) var screen: Screen
+    private(set) var style = Style()
+    private(set) var characterSets = CharacterSets()
     private var generation: UInt64 = 0
     // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
-    private var hasCombiningBase = false
+    private(set) var hasCombiningBase = false
 
     /// Creates a terminal with a blank normal screen and the given colors for shell queries.
     package init(size: Size, palette: Palette = .default) {

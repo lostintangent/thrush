@@ -39,9 +39,9 @@ struct TextScanner: Sendable {
         return nil
     }
 
-    private var value: UInt32 = 0
-    private var remaining = 0
-    private var nextRange: ClosedRange<UInt8> = 0x80...0xbf
+    private(set) var value: UInt32 = 0
+    private(set) var remaining = 0
+    private(set) var nextRange: ClosedRange<UInt8> = 0x80...0xbf
 
     var isComplete: Bool { remaining == 0 }
 

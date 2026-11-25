@@ -12,8 +12,8 @@ struct ControlParameters: Sendable {
     private(set) var count = 1
     private var totalSubparameters = 0
 
-    private enum Destination { case main, subparameter, discardSubparameters, discardRemainder }
-    private var destination: Destination = .main
+    enum Destination { case main, subparameter, discardSubparameters, discardRemainder }
+    private(set) var destination: Destination = .main
 
     subscript(_ index: Int) -> Int { self[index, default: 0] }
 

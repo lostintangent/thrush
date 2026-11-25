@@ -101,7 +101,7 @@ extension Terminal {
             for column in stride(from: 0, to: columns, by: Self.interval) { stops[column] = true }
         }
 
-        private subscript(column: Int) -> Bool { column >= 0 && column < stops.count && stops[column] }
+        subscript(column: Int) -> Bool { column >= 0 && column < stops.count && stops[column] }
 
         mutating func set(_ column: Int, _ isStop: Bool = true) {
             if column >= stops.count {
@@ -239,10 +239,10 @@ extension Terminal {
     typealias SizedScalar = (scalar: Unicode.Scalar, width: Int)
 
     package struct Screen: Sendable {
-        private var active: Buffer
-        private var normalWhileAlternate: Buffer?
+        private(set) var active: Buffer
+        private(set) var normalWhileAlternate: Buffer?
         // The reference keeps one alternate buffer, so its saved cursor outlasts each visit.
-        private var alternateSaved = SavedCursor()
+        private(set) var alternateSaved = SavedCursor()
         // The reference retains its empty alternate buffer’s row capacity across an inactive shrink.
         private var alternateCapacity: Int
         private var revision: UInt64 = 0
