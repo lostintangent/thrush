@@ -15,7 +15,8 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 
 ```
 bytes ─┬─ printable ASCII in ground state ─▶ TextScanner ─▶ Screen.writeASCII
-       ├─ ASCII controls ──────────────────▶ EscapeParser ─▶ Terminal.apply
+       ├─ single-byte C0 in ground state ─────────────────▶ Terminal.apply
+       ├─ other ASCII controls ────────────▶ EscapeParser ─▶ Terminal.apply
        └─ UTF-8 ─▶ TextScanner ─┬─ printable text ────────▶ Screen.writeRun / Screen.write
                                 └─ control or payload ────▶ EscapeParser
 ```
@@ -42,8 +43,8 @@ Here is how ThrushCore turns them into cells.
 1. **The chunk arrives.** The host calls `Terminal.receive(_:)` with a `Span` over the bytes. The first byte is ESC. The framer can read it directly because every ASCII byte is already a complete code point.
 2. **The parser enters a control sequence.** ESC followed by `[` introduces CSI, the control sequence introducer. The parser clears its previous header. A chunk can end immediately after ESC, after `[`, or between digits. In each case, the parser retains what it needs for the next read.
 3. **The parser finds the final byte.** It scans past the ASCII digits `3` and `2` to `m`. The whole unprefixed command is present, so the parser returns to ground and identifies the range containing `32` in this chunk. If the read ended between the digits, it would retain the first digit in `ControlParameters` and continue on the next read.
-4. **Dispatch names it.** `TerminalControlFunction(action)` maps the identifier to `.control(.graphicRendition)`, the function the specs call SGR.
-5. **`apply` runs it.** The `graphicRendition` case passes a borrowed span of the two digits to `style.applySGR`. The style reads the value 32 and sets the foreground to palette color 2, green. A command split across reads supplies its stored operands to the same rendition logic. The change affects future cells, so the frame generation stays the same.
+4. **The style reads the operands.** The framer lends the digit range only for the graphic rendition command, SGR. `receive` passes those two bytes straight to `style.applySGR`. For a command split across reads, the framer dispatches `.control(.graphicRendition)` with the operands it retained.
+5. **The foreground changes.** In either case the style reads 32 and selects palette color 2, green. The change affects future cells, so the frame generation stays the same.
 6. **Text takes the fast path.** Back in `receive`, `~` is printable ASCII, the parser is in the ground state and no scalar is half decoded. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
 7. **The rest repeats the pattern.** `ESC [ 0 m` resets the style through the same steps, and ` $ ` is one more run in the default style.
 
@@ -55,9 +56,10 @@ Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key
 
 Most output is text, so text never enters the state machine.
 
-- **Text runs skip the parser.** In the ground state, the scanner searches 16 bytes at a time for the end of printable ASCII. For non-ASCII text it decodes one UTF-8 scalar at a time. With autowrap enabled, insert mode off and the ASCII character set active, printable scalars go straight to the screen as a run. An encoded C1 control ends the run and goes to the framer. A partial scalar stays in the scanner for the next chunk.
+- **Text runs skip the parser.** In the ground state, the scanner searches 16 bytes at a time for the end of printable ASCII. For non-ASCII text it decodes one UTF-8 scalar at a time. With autowrap enabled, insert mode off and the ASCII character set active, printable scalars go straight to the screen as a run. The scanner skips a byte order mark and discards malformed input before the screen opens a row for writing. An encoded C1 control ends the run and goes to the framer. A partial scalar stays in the scanner for the next chunk.
 - **Printing fills cells in bulk.** The screen writes an ASCII run one row at a time. For non-ASCII text it appends consecutive scalars that fit at the stored end of the current row, along with continuation cells for double-width characters. The ordinary scalar writer handles overwrites, combining marks and right-margin wraps. Appending advances the screen and terminal generations once per scalar, just as individual writes do.
 - **Unicode widths take two lookups.** The high bits of a scalar select a 256-scalar page. The low bits select its two-bit width within that page. The generated Unicode 11 table shares identical pages across the code space. Its 4,352 one-byte page indices and 99 distinct 64-byte pages occupy 10,688 bytes.
+- **Single-byte controls have a direct path.** When both the framer and UTF-8 decoder are idle, a C0 function such as carriage return or line feed goes straight to its named handler. Inside a control sequence or after an incomplete scalar, the framer and decoder handle the byte in context.
 - **The state machine is data.** Escape framing is a precomputed table indexed by state and byte that yields the next state and action in one load.
 - **SGR reads one operand at a time.** For a complete `ESC [ … m` containing only digits, colons and semicolons in one span, the framer lends the parameter bytes to the style handler. The handler converts the digits as it applies the attributes in order. A cancelled header never reaches the style handler.
 - **Dispatch carries an identifier.** For other headers the parser keeps the decoded parameters in fixed storage. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.

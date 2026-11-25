@@ -28,6 +28,17 @@ struct TextScanner: Sendable {
         return index
     }
 
+    /// Returns the next decoded non-ASCII scalar before an ASCII byte or the end of this chunk.
+    @inline(__always)
+    mutating func nextNonASCII(in bytes: Span<UInt8>, index: inout Int) -> Unicode.Scalar? {
+        while index < bytes.count, bytes[index] >= 0x80 {
+            let byte = bytes[index]
+            index += 1
+            if let scalar = decode(byte), scalar != Self.byteOrderMark { return scalar }
+        }
+        return nil
+    }
+
     private var value: UInt32 = 0
     private var remaining = 0
     private var nextRange: ClosedRange<UInt8> = 0x80...0xbf

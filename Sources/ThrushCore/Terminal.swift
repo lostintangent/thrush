@@ -95,6 +95,7 @@ public struct Terminal: Sendable {
                 hasCombiningBase = true
                 generation &+= 1
             } else if byte == EscapeParser.escape, scanner.isComplete {
+                // Test ESC before C0 so each escape sequence skips a second control lookup.
                 hasCombiningBase = false
                 var borrowedParameters: Range<Int>?
                 let action = parser.consumeEscape(
@@ -102,16 +103,21 @@ public struct Terminal: Sendable {
                     borrowedParameters: &borrowedParameters
                 )
                 if let borrowedParameters {
-                    dispatch(action, replies: &replies, rendition: bytes.extracting(borrowedParameters))
+                    style.applySGR(bytes.extracting(borrowedParameters))
                 } else {
                     dispatch(action, replies: &replies)
                 }
+            } else if byte >= 0x80, parser.isGround, printsInRuns {
+                writeNonASCII(in: bytes, index: &index, replies: &replies)
+            } else if let control = TerminalControlFunction.C0(rawValue: byte), parser.isGround, scanner.isComplete {
+                // A single-byte C0 in ground state leaves the framer in ground state.
+                hasCombiningBase = false
+                apply(.execute(control), replies: &replies)
+                index += 1
             } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 if stringHandler.isReadingTitle { stringHandler.appendTitleASCII(bytes.extracting(start..<index)) }
-            } else if byte >= 0x80, parser.isGround, printsInRuns {
-                writeNonASCII(in: bytes, index: &index, replies: &replies)
             } else {
                 consume(byte, replies: &replies)
                 index += 1
@@ -147,23 +153,24 @@ public struct Terminal: Sendable {
     private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
 
     private mutating func writeNonASCII(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
-        var decoder = scanner
+        guard let first = scanner.nextNonASCII(in: bytes, index: &index) else { return }
         var control: Unicode.Scalar?
-        let written = screen.writeRun(style: style, joinsPrevious: &hasCombiningBase) {
-            while index < bytes.count, bytes[index] >= 0x80 {
-                let byte = bytes[index]
-                index += 1
-                guard let scalar = decoder.decode(byte), scalar != TextScanner.byteOrderMark else { continue }
+        if first.value < 0xa0 {
+            control = first
+        } else {
+            var decoder = scanner
+            let written = screen.writeRun(startingWith: (first, ColumnWidth.of(first)), style: style,
+                                          joinsPrevious: &hasCombiningBase) {
+                guard let scalar = decoder.nextNonASCII(in: bytes, index: &index) else { return nil }
                 if scalar.value < 0xa0 {
                     control = scalar
                     return nil
                 }
                 return (scalar, ColumnWidth.of(scalar))
             }
-            return nil
+            scanner = decoder
+            generation &+= written
         }
-        scanner = decoder
-        generation &+= written
         if let control {
             hasCombiningBase = false
             let action = parser.consume(control)
@@ -196,9 +203,9 @@ public struct Terminal: Sendable {
     }
 
     @inline(__always)
-    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8], rendition: Span<UInt8>? = nil) {
+    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
         if let action, let function = TerminalControlFunction(action) {
-            apply(function, replies: &replies, rendition: rendition)
+            apply(function, replies: &replies)
         }
         if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
             apply(function, replies: &replies)
@@ -206,7 +213,7 @@ public struct Terminal: Sendable {
     }
 
     /// Applies one named VT function. Screen operations advance the frame generation together below.
-    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8], rendition: Span<UInt8>? = nil) {
+    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
         switch function {
         case .execute(.backspace): screen.backspace()
         case .execute(.horizontalTab): screen.horizontalTab()
@@ -311,11 +318,7 @@ public struct Terminal: Sendable {
             setPrivateModes(enabled: false)
             return
         case .control(.graphicRendition):
-            if let rendition {
-                style.applySGR(rendition)
-            } else {
-                style.applySGR(parser.parameters)
-            }
+            style.applySGR(parser.parameters)
             return
         case .control(.deviceStatusReport):
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.

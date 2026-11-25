@@ -65,3 +65,20 @@ func firstBytesAtEachCheckpoint(chunkLimit: Int) throws {
     _ = terminal.receive(encodedSTSuffix)
     #expect(terminal.title == "new")
 }
+
+@Test func carriageReturnInterruptsUTF8AndIsIgnoredInsideATitle() {
+    // The interrupted bytes would spell 界 if CR left the UTF-8 decoder pending.
+    let interrupted: [UInt8] = [0xe7, 0x0d, 0x95, 0x8c]
+    let bytes = Array("AB".utf8) + interrupted + Array("X\u{1b}]2;left\r\nright\u{7}Y\u{1b}[6n".utf8)
+
+    for split in 0...bytes.count {
+        var terminal = Terminal(size: .init(columns: 9, rows: 3))
+        let prefix = sequence(state: bytes[..<split].makeIterator()) { $0.next() }
+        var reply = terminal.receive(prefix)
+        reply += terminal.receive(bytes[split...])
+
+        #expect(terminal.title == "leftright")
+        #expect(terminal.snapshot().rows.map(\.text) == ["XY", "", ""])
+        #expect(reply == Array("\u{1b}[1;3R".utf8))
+    }
+}

@@ -474,9 +474,10 @@ extension Terminal {
         }
 
         /// Writes non-ASCII scalars with autowrap on and insert mode off.
-        mutating func writeRun(style: Style, joinsPrevious: inout Bool, next: () -> SizedScalar?) -> UInt64 {
+        mutating func writeRun(startingWith first: SizedScalar, style: Style, joinsPrevious: inout Bool,
+                               next: () -> SizedScalar?) -> UInt64 {
             var count: UInt64 = 0
-            var pending = next()
+            var pending: SizedScalar? = first
             while let glyph = pending {
                 let index = active.index(of: row)
                 let limit = min(size.columns, active.rows[index].storageColumns)
