@@ -1,5 +1,5 @@
-// Cell-width observations from the pinned Toy Box Unicode 11 provider.
-// Regenerate with bun Fixtures/reference/generate-widths.mjs ../toy-box.
+// Cell widths observed from the pinned reference's Unicode 11 provider.
+// Regenerate with bun Fixtures/reference/generate-widths.mjs.
 extension ColumnWidth {
     static let pageIndices: [UInt8] = [
         0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 1, 17, 1, 1, 1, 18, 19, 20, 21, 22, 23, 24, 1, 1,

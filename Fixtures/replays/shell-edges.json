@@ -1,4 +1,4 @@
-{"version":1,"name":"shell-edges","reference":{"toyBoxRevision":"b9d0eca3c5f4e9036e58327ba633eff52474bb92","packages":{"@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0","@xterm/addon-unicode11":"0.9.0"},"scrollback":1000,"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"df9c8d3c1ca29bc04f1881cd3620b00e26613ecf47a15506b7ffa94212880dcb","columns":1,"rows":2,
+{"version":1,"name":"shell-edges","reference":{"packages":{"@xterm/addon-unicode11":"0.9.0","@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0"},"options":{"scrollback":1000,"allowProposedApi":true},"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"df9c8d3c1ca29bc04f1881cd3620b00e26613ecf47a15506b7ffa94212880dcb","columns":1,"rows":2,
 "cells":[
 {"text":"","width":1,"flags":0,"foreground":-1,"background":-1},
 {"text":"A","width":1,"flags":0,"foreground":-1,"background":-1},

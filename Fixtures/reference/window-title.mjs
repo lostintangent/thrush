@@ -1,17 +1,14 @@
-// Replay the recorded PTY and server frames through the pinned headless terminal.
+// Replay the recorded PTY and server frames through the pinned reference terminal.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { reference, terminal, write } from './m2/xterm-reference.mjs';
+import { reference, terminal, write } from './reference.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
-const { values, positionals } = parseArgs({args:process.argv.slice(3), allowPositionals:true,
-  options:{check:{type:'boolean', default:false}}});
-assert(positionals.length <= 1, 'Expected the pinned reference checkout and an optional serializer checkout.');
+const { values } = parseArgs({options:{check:{type:'boolean', default:false}}});
 const capture = JSON.parse(await readFile(new URL('window-title.capture.json', import.meta.url), 'utf8'));
-const { columns, rows, serializerSourceSHA256, replayFrames } = capture;
+const { columns, rows, replayFrames } = capture;
 assert.equal(replayFrames.length, 2);
 const [emptyReplay, titledReplay] = replayFrames.map(frame => Buffer.from(frame.bytes, 'base64'));
 const utf8 = text => Buffer.from(text, 'utf8');
@@ -21,18 +18,6 @@ const windowTitle = t => t._core._inputHandler._windowTitle;
 for (const [bytes, title] of [[emptyReplay, ''], [titledReplay, 'build']]) {
   const prefix = osc(2, title);
   assert(bytes.subarray(0, prefix.length).equals(prefix), 'Expected a server OSC 2 prefix, including an empty title.');
-}
-
-if (positionals.length) {
-  const path = resolve(positionals[0], 'src/features/terminal/server/scrollback.ts');
-  assert.equal(digest(await readFile(path)), serializerSourceSHA256, 'Serializer differs from the capture source.');
-  const { ScrollbackBuffer } = await import(path);
-  const server = new ScrollbackBuffer(columns, rows);
-  for (const frame of replayFrames) {
-    await write(server, Buffer.from(frame.input, 'base64'));
-    assert.deepEqual(Buffer.from(server.replay()), Buffer.from(frame.bytes, 'base64'), 'Server replay bytes changed.');
-  }
-  server.dispose();
 }
 
 async function observation(name, inputs) {
@@ -87,7 +72,7 @@ assert(Buffer.from(recording.events[clear.eventIndex].bytes, 'base64').includes(
   'The recording must explicitly clear the live title with an empty OSC 0.');
 t.dispose();
 
-const doc = {reference, serializerSourceSHA256, cases, codex:{fixtureSHA256:digest(canonical), checkpoints}};
+const doc = {reference, cases, codex:{fixtureSHA256:digest(canonical), checkpoints}};
 const output = new URL('../replays/metadata/window-title.json', import.meta.url);
 const data = JSON.stringify(doc, null, 2) + '\n';
 if (values.check) {

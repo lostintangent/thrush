@@ -1,4 +1,4 @@
-{"version":1,"name":"vim-swift-light","reference":{"toyBoxRevision":"b9d0eca3c5f4e9036e58327ba633eff52474bb92","packages":{"@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0","@xterm/addon-unicode11":"0.9.0"},"scrollback":1000,"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"131f2eda7acb22b32ae5090f9d6c7d036912f406066fdb8c5f9f8aed15815ce8","vimBackground":"light","columns":80,"rows":24,
+{"version":1,"name":"vim-swift-light","reference":{"packages":{"@xterm/addon-unicode11":"0.9.0","@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0"},"options":{"scrollback":1000,"allowProposedApi":true},"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"131f2eda7acb22b32ae5090f9d6c7d036912f406066fdb8c5f9f8aed15815ce8","vimBackground":"light","columns":80,"rows":24,
 "cells":[
 {"text":"","width":1,"flags":0,"foreground":-1,"background":-1},
 {"text":"t","width":1,"flags":0,"foreground":-1,"background":-1},

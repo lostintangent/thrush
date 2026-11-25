@@ -1,22 +1,9 @@
-// Project the recorded PTY onto the running pane's real grid with Toy Box's pinned xterm.
+// Project the recorded PTY onto the running pane's real grid with the pinned reference.
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { headless } from '../Fixtures/reference/headless.mjs';
 import { Pool, checkpoint } from '../Fixtures/reference/m2/checkpoint.mjs';
 
-function openTerminal(grid) {
-    const modules = process.env.THRUSH_XTERM_MODULES;
-    assert(modules, 'Set THRUSH_XTERM_MODULES to the pinned xterm installation');
-    const load = createRequire(resolve(modules, '..', 'package.json'));
-    assert.equal(load('@xterm/headless/package.json').version, '6.0.0');
-    assert.equal(load('@xterm/addon-unicode11/package.json').version, '0.9.0');
-    const { Terminal } = load('@xterm/headless');
-    const { Unicode11Addon } = load('@xterm/addon-unicode11');
-    const t = new Terminal({ cols: grid.columns, rows: grid.rows, scrollback: 1000, allowProposedApi: true });
-    t.loadAddon(new Unicode11Addon());
-    t.unicode.activeVersion = '11';
-    return t;
-}
+const openTerminal = grid => headless(grid.columns, grid.rows);
 
 function selection(t, expectedText) {
     const buffer = t.buffer.active;
@@ -37,7 +24,7 @@ function selection(t, expectedText) {
         while (column > 0 && end.getCell(column - 1).getChars() === '') column--;
         return { start: { row, column: 0 }, end: { row: last, column }, text };
     }
-    throw Error('The xterm viewport did not contain the recorded compiler path');
+    throw Error('The reference viewport did not contain the recorded compiler path');
 }
 
 export async function nativeCheckpoint(recording, grids, eventIndex, transitions) {

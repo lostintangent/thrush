@@ -1,6 +1,6 @@
-// The PTY recorder hands the server emulator and browser color service each read and writes its replies back to Vim.
+// The PTY recorder hands the reference terminal each read and writes its replies back to the program.
 import { createInterface } from 'node:readline';
-import { applyPalette, terminal, write } from './xterm-reference.mjs';
+import { applyPalette, terminal, write } from '../reference.mjs';
 
 const t = terminal(80, 24);
 let replies = [];

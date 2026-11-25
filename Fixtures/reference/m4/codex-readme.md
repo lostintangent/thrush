@@ -22,10 +22,10 @@ The raw stream contains 155 synchronized updates (DEC private mode 2026). Of tho
 
 ## Regenerate checkpoints offline
 
-Use the Toy Box checkout at `b9d0eca3c5f4e9036e58327ba633eff52474bb92` with its locked packages installed. The generator uses `@xterm/headless` 6.0.0, the color-report handler and ThemeService from `@xterm/xterm` 6.0.0, and Unicode 11. It checks every recorded automatic reply while rebuilding the reference cells and checkpoints.
+With the [pinned reference](../README.md) installed, the generator uses `@xterm/headless`, the color-report handler and ThemeService from `@xterm/xterm`, and Unicode 11. It checks every recorded automatic reply while rebuilding the reference cells and checkpoints.
 
 ```sh
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box codex-session
+bun Fixtures/reference/m2/generate.mjs codex-session
 ```
 
 ## Record another live session

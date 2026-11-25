@@ -22,7 +22,7 @@ from capture import PROMPT, Session, window
 class ReadlineSession(Session):
     """Use the shared recording protocol with a shell that negotiates bracketed paste."""
 
-    def __init__(self, directory, checkout, bash):
+    def __init__(self, directory, bash):
         self.events = []
         self.start = time.monotonic_ns()
         self.pid, self.fd = pty.fork()
@@ -34,18 +34,17 @@ class ReadlineSession(Session):
                        INPUTRC=str(directory / "inputrc"))
             os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
         self.reference = subprocess.Popen(
-            ["bun", M2 / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
-            env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
+            ["bun", M2 / "live-replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
 
-def capture(checkout, bash):
+def capture(bash):
     build = M2 / "build-log.py"
     with tempfile.TemporaryDirectory(prefix="thrush-shell-workflow-") as work:
         directory = Path(work)
         shutil.copyfile(build, directory / "build")
         (directory / "build").chmod(0o755)
         (directory / "inputrc").write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
-        session = ReadlineSession(directory, checkout, bash)
+        session = ReadlineSession(directory, bash)
         try:
             prompt = session.read("Shell prompt", PROMPT)
             assert prompt.endswith(PROMPT) and b"\x1b[?2004h" in prompt, "The shell must negotiate bracketed paste."
@@ -68,8 +67,7 @@ def capture(checkout, bash):
                              columns=80, rows=24, buildScriptSHA256=hashlib.sha256(build.read_bytes()).hexdigest(),
                              clangVersion=subprocess.check_output(["/usr/bin/clang","--version"], text=True).splitlines()[0])
             oracle = subprocess.run(
-                ["bun", ROOT / "shell-selection.mjs", checkout], check=True, capture_output=True, text=True,
-                env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")},
+                ["bun", ROOT / "shell-selection.mjs"], check=True, capture_output=True, text=True,
                 input=json.dumps({**recording, "events": session.events}))
             session.record("Copy soft-wrapped compiler path", copy=json.loads(oracle.stdout), checkpoint=True)
             compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
@@ -81,8 +79,7 @@ def capture(checkout, bash):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("checkout", type=Path, nargs="?", default=Path("../toy-box"))
     parser.add_argument("--bash", type=Path, default=Path(shutil.which("bash") or "/bin/bash"),
                         help="Bash with Readline bracketed-paste support (Bash 5.3.9 for the checked-in capture)")
     args = parser.parse_args()
-    capture(args.checkout.resolve(), args.bash.resolve())
+    capture(args.bash.resolve())

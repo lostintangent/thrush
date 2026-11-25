@@ -23,9 +23,9 @@ The runtime paints the `struct` keyword at row 1, column 3 with index 81 on dark
 
 ## Reproduce
 
-Run from the Thrush repository with the pinned Toy Box checkout and its dependencies at `../toy-box`. The first command records new PTY reads and timestamps. The second deterministically rebuilds expected screens from the checked-in captures. The generator checks the source and vimrc against their recorded hashes. [Pinned xterm and capture setup](../m2/README.md)
+Run from the repository root with the [pinned reference](../README.md) installed. The first command records new PTY reads and timestamps. The second deterministically rebuilds expected screens from the checked-in captures. The generator checks the source and vimrc against their recorded hashes. [Capture setup](../m2/README.md)
 
 ```sh
-python3 Fixtures/reference/m3/capture-styled.py ../toy-box
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box
+python3 Fixtures/reference/m3/capture-styled.py
+bun Fixtures/reference/m2/generate.mjs
 ```

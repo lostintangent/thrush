@@ -324,7 +324,7 @@ probe('CSI', 'with a private marker after parameters', positions.middle, `${CSI}
 probe('CSI', 'unknown final', positions.middle, `${CSI}1y`);
 probe('CSI', 'with a space intermediate and unknown final', positions.middle, `${CSI}1 z`);
 // Requests real programs send that the reference doesn't answer: vim's modifyOtherKeys query and
-// terminal check, the kitty keyboard protocol from Codex, and Toy Box's own agent state.
+// terminal check, the kitty keyboard protocol from Codex, and an agent state report.
 probe('CSI %m', 'from vim', positions.middle, `${CSI}0%m`);
 probe('DCS z', 'from vim', positions.middle, `${DCS}zz${ST}`);
 probe('CSI >u', 'push keyboard flags', positions.middle, `${CSI}>7u`);

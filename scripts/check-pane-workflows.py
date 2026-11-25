@@ -23,7 +23,6 @@ CAPTURES = {
     "codex": {"Codex ready", "First three songbirds streamed", "Received Codex answer", "Earlier transcript page", "Returned to shell"},
 }
 BUNDLE_ID = "app.thrush.demo"
-XTERM = {"@xterm/headless": "6.0.0", "@xterm/addon-unicode11": "0.9.0"}
 
 
 def arguments():
@@ -42,22 +41,10 @@ def arguments():
     return args
 
 
-def reference_modules(temp, output):
-    supplied = os.environ.get("THRUSH_XTERM_MODULES")
-    if supplied:
-        modules = Path(supplied).resolve()
-    else:
-        project = Path(temp)
-        (project / "package.json").write_text(json.dumps({"private": True, "dependencies": XTERM}))
-        with (output / "xterm-install.log").open("xb") as log:
-            subprocess.run(["bun", "install", "--ignore-scripts"], cwd=project, check=True,
-                           stdout=log, stderr=subprocess.STDOUT, timeout=120)
-        modules = project / "node_modules"
-    for name, version in XTERM.items():
-        manifest = json.loads((modules / name / "package.json").read_bytes())
-        if manifest["version"] != version:
-            raise ValueError(f"{name} version {manifest['version']} in {modules}; expected {version}")
-    return str(modules)
+def install_reference(output):
+    with (output / "reference-install.log").open("xb") as log:
+        subprocess.run(["bun", "install", "--cwd", "Fixtures/reference", "--frozen-lockfile"], check=True,
+                       stdout=log, stderr=subprocess.STDOUT, timeout=120)
 
 
 def simctl(*args, timeout=60):
@@ -253,13 +240,13 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
         time.sleep(0.1)
 
 
-def run_workflow(name, output, platform, device, documents, app_bundle, modules, *, disposable=False):
+def run_workflow(name, output, platform, device, documents, app_bundle, *, disposable=False):
     output.mkdir()
     driver = Path(tempfile.mkdtemp(prefix=f"thrush-{name}-", dir=documents)) if device else output
     try:
         peer_log = output / "peer.log"
         command = ["bun", "scripts/demo-peer.ts", "--workflow", name, "--view", "--driver"]
-        environment = {**os.environ, "THRUSH_PORT": "0", "THRUSH_DRIVER_PORT": "0", "THRUSH_XTERM_MODULES": modules}
+        environment = {**os.environ, "THRUSH_PORT": "0", "THRUSH_DRIVER_PORT": "0"}
         environment["THRUSH_WORKFLOW_GEOMETRY"] = "iphone" if device else "mac"
         with running(command, peer_log, env=environment) as peer:
             endpoint, control = peer_origins(peer, peer_log)
@@ -302,28 +289,27 @@ def main():
             reservation = capture["disposable_phone"](output)
         else:
             reservation = reserve_phone(args.udid)
-    with tempfile.TemporaryDirectory(prefix="thrush-workflow-reference-") as temp:
-        modules = reference_modules(temp, output)
-        print(f"Building packaged {args.platform} host; see {output / 'build.log'}", flush=True)
-        with (output / "build.log").open("xb") as log:
-            subprocess.run(["scripts/build-demo.sh", args.platform], check=True, stdout=log,
-                           stderr=subprocess.STDOUT, timeout=900)
-        app = Path(".build/demo", args.platform, "Thrush.app").resolve()
-        with reservation as device:
-            documents = None
-            if device:
-                if not disposable:
-                    ensure_demo_idle(device)
-                documents = capture["prepare_workflow_phone"](device, app, output)
-            for name in args.workflows:
-                print(f"Checking {name} in {output / name}", flush=True)
-                try:
-                    run_workflow(name, output / name, args.platform, device, documents, app, modules,
-                                 disposable=disposable)
-                except Exception as error:
-                    (output / name / "runner-error.txt").write_text(str(error) + "\n")
-                    raise
-            print(f"Passed {len(args.workflows)} packaged pane workflow(s). Evidence in {output}", flush=True)
+    install_reference(output)
+    print(f"Building packaged {args.platform} host; see {output / 'build.log'}", flush=True)
+    with (output / "build.log").open("xb") as log:
+        subprocess.run(["scripts/build-demo.sh", args.platform], check=True, stdout=log,
+                       stderr=subprocess.STDOUT, timeout=900)
+    app = Path(".build/demo", args.platform, "Thrush.app").resolve()
+    with reservation as device:
+        documents = None
+        if device:
+            if not disposable:
+                ensure_demo_idle(device)
+            documents = capture["prepare_workflow_phone"](device, app, output)
+        for name in args.workflows:
+            print(f"Checking {name} in {output / name}", flush=True)
+            try:
+                run_workflow(name, output / name, args.platform, device, documents, app,
+                             disposable=disposable)
+            except Exception as error:
+                (output / name / "runner-error.txt").write_text(str(error) + "\n")
+                raise
+        print(f"Passed {len(args.workflows)} packaged pane workflow(s). Evidence in {output}", flush=True)
 
 
 if __name__ == "__main__":

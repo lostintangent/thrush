@@ -41,13 +41,13 @@ def capture_display(session):
         assert prompt.endswith(PROMPT)
 
 
-def record(checkout, bash):
+def record(bash):
     columns, rows = 16, 25
     with tempfile.TemporaryDirectory(prefix="thrush-display-") as scratch:
         directory = Path(scratch)
         inputrc = directory / "inputrc"
         inputrc.write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
-        session = Session(directory, checkout, columns, rows, bash=bash, inputrc=inputrc)
+        session = Session(directory, columns, rows, bash=bash, inputrc=inputrc)
         try:
             prompt = session.read("Bash display prompt", PROMPT)
             assert prompt.endswith(PROMPT)
@@ -64,7 +64,6 @@ def record(checkout, bash):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("checkout", type=Path, help="pinned Toy Box checkout")
     parser.add_argument("--bash", type=Path, default=Path("/opt/homebrew/bin/bash"))
     args = parser.parse_args()
-    record(args.checkout.resolve(), args.bash.resolve())
+    record(args.bash.resolve())

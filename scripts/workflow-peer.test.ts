@@ -165,13 +165,13 @@ function control(origin: URL) {
     return { state, wait, ack, checkpoint, layout, observed };
 }
 
-for (const workflow of ["shell", "vim", "codex"]) {
-    test("native driver gates " + workflow + " after every recorded checkpoint", async () => {
+for (const [workflow, native] of ["shell", "vim", "codex"].flatMap(name => [[name, false], [name, true]] as const)) {
+    const grids = native ? " on the pane's own grids" : " on the recorded grid";
+    test("native driver gates " + workflow + " after every recorded checkpoint" + grids, async () => {
         const { server, driverServer, completed } = await serveWorkflow(workflow, { port: 0, view: true, driverPort: 0 });
         const driver = control(driverServer!.url);
         const fixture = await (await fetch(new URL("/fixture", driverServer!.url))).json();
         const initial = { columns: fixture.columns, rows: fixture.rows };
-        const native = Boolean(process.env.THRUSH_XTERM_MODULES);
         let grid = native ? { columns: 47, rows: 42 } : initial;
         let count = 0;
         let attachments = 1;
@@ -305,23 +305,20 @@ test("driver control is isolated from the wire and records native grids even on 
         const resized = await driver.wait("checkpoint");
         expect(resized.grid).toEqual(prompt.grid);
         expect((await driver.checkpoint(prompt.eventIndex)).status).toBe(409);
-        if (process.env.THRUSH_XTERM_MODULES) {
-            // Projecting a new grid uses the external pinned xterm development install.
-            const response = await driver.checkpoint(resized.eventIndex);
-            expect(response.status).toBe(200);
-            const native = await response.json();
-            expect(native.events.length).toBe(1);
-            expect(native.events[0].name).toBe(resized.name);
-            expect(native.events[0].checkpoint.columns).toBe(actual.columns);
-            expect(native.events[0].checkpoint.rows).toBe(actual.rows);
-            // UIKit can resize after a checkpoint starts. It invalidates the cached oracle.
-            const next = { columns: 42, rows: 30 };
-            peer.socket.send(JSON.stringify({ type: "resize", cols: next.columns, rows: next.rows }));
-            expect((await driver.observed(next)).phase).toBe("checkpoint");
-            const updated = await (await driver.checkpoint(resized.eventIndex)).json();
-            expect(updated.events[0].checkpoint.columns).toBe(next.columns);
-            expect(updated.events[0].checkpoint.rows).toBe(next.rows);
-        }
+        const response = await driver.checkpoint(resized.eventIndex);
+        expect(response.status).toBe(200);
+        const native = await response.json();
+        expect(native.events.length).toBe(1);
+        expect(native.events[0].name).toBe(resized.name);
+        expect(native.events[0].checkpoint.columns).toBe(actual.columns);
+        expect(native.events[0].checkpoint.rows).toBe(actual.rows);
+        // UIKit can resize after a checkpoint starts. It invalidates the cached oracle.
+        const next = { columns: 42, rows: 30 };
+        peer.socket.send(JSON.stringify({ type: "resize", cols: next.columns, rows: next.rows }));
+        expect((await driver.observed(next)).phase).toBe("checkpoint");
+        const updated = await (await driver.checkpoint(resized.eventIndex)).json();
+        expect(updated.events[0].checkpoint.columns).toBe(next.columns);
+        expect(updated.events[0].checkpoint.rows).toBe(next.rows);
         expect((await driver.state()).phase).toBe("checkpoint");
         peer.socket.close();
         await expect(completed).rejects.toThrow("Unexpected detach");

@@ -1,11 +1,11 @@
 """Records real programs in disposable PTYs for the conformance harness.
 
-Each scenario drives one program the way a person would, in a fresh home directory with the terminal
-environment Toy Box gives its shells. The pinned reference reads every byte as it arrives and answers
-the program's queries, so a recording follows the replies Toy Box would send. Recordings land in
+Each scenario drives one program the way a person would, in a fresh home directory with an
+xterm-256color terminal environment. The pinned reference reads every byte as it arrives and answers
+the program's queries, so a recording follows the replies a terminal would send. Recordings land in
 programs/<name>.capture.json, and harness.mjs replays them through the reference and ThrushCore.
 
-    python3 Fixtures/reference/conformance/capture-programs.py <toy-box checkout> [--only NAME ...]
+    python3 Fixtures/reference/conformance/capture-programs.py [--only NAME ...]
 
 Process monitors only list the recorder's own processes, and git uses a fixed identity and clock,
 so nothing about the recording machine beyond its load and memory ends up in a capture.
@@ -73,13 +73,12 @@ def window(fd, columns, rows):
 class Session:
     """One program in a PTY, with every read, key and window change recorded in order."""
 
-    def __init__(self, checkout, home, argv, env, columns=80, rows=24):
+    def __init__(self, home, argv, env, columns=80, rows=24):
         self.events = []
         self.start = time.monotonic_ns()
         self.application_cursor_keys = False
         self.replies = subprocess.Popen(
-            ["bun", HERE / "replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
-            env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
+            ["bun", HERE / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         self.exchange({"start": [columns, rows]})
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
@@ -507,7 +506,7 @@ SCENARIOS = {
 }
 
 
-def capture(name, checkout, destination):
+def capture(name, destination):
     argv, scenario, version = SCENARIOS[name]
     with tempfile.TemporaryDirectory(prefix="thrush-programs-", ignore_cleanup_errors=True) as work:
         home = Path(work).resolve()
@@ -515,7 +514,7 @@ def capture(name, checkout, destination):
         environ = environment(home)
         if name == "bash":
             environ.update(PS1=r"\[\e[1;32m\]\W\[\e[0m\] ❯ ", INPUTRC="/dev/null", HISTFILE="/dev/null")
-        session = Session(checkout, home, argv, environ)
+        session = Session(home, argv, environ)
         try:
             scenario(session, home)
             session.read("Exit", timeout=5)
@@ -534,7 +533,6 @@ def capture(name, checkout, destination):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("checkout", type=Path)
     parser.add_argument("--only", action="append", choices=list(SCENARIOS))
     options = parser.parse_args()
     destination = HERE / "programs"
@@ -542,7 +540,7 @@ if __name__ == "__main__":
     failed = []
     for name in options.only or SCENARIOS:
         try:
-            capture(name, options.checkout.resolve(), destination)
+            capture(name, destination)
         except Exception as error:
             print(f"Could not record {name}: {error}", flush=True)
             failed.append(name)

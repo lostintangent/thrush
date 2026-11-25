@@ -6,7 +6,7 @@ the cores in a shuffled order so load on a shared machine lands on all of them a
 reports its final screen, and the report lists every core whose visible text, cursor, active
 screen or history differs from @xterm/headless under Node.
 
-Usage: python3 scripts/comparison/run.py [--toy-box ../toy-box] [--rounds 5] [--profile]
+Usage: python3 scripts/comparison/run.py [--rounds 5] [--profile]
 """
 
 import argparse
@@ -36,6 +36,7 @@ HISTORY = 1000
 GRIDS = [(80, 24), (240, 60)]
 CHUNKS = [4096, 0]
 CORES = ["thrush", "ghostty", "xterm-node", "xterm-bun"]
+REFERENCE = ROOT / "Fixtures" / "reference"
 
 ZIG = ("0.17.1", "zig-aarch64-macos-0.17.1.tar.xz",
        "75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d",
@@ -104,7 +105,7 @@ def find_node():
     raise SystemExit("Node.js is required, and only Bun's node shim was found on PATH")
 
 
-def build(tools, toy_box):
+def build(tools):
     out = ROOT / ".build" / "comparison"
     out.mkdir(parents=True, exist_ok=True)
     log("Building ThrushBench in Release")
@@ -117,7 +118,8 @@ def build(tools, toy_box):
     node, bun = find_node(), shutil.which("bun")
     if not bun:
         raise SystemExit("Bun is required")
-    xterm = [str(HERE / "xterm.mjs"), str(toy_box)]
+    subprocess.run([bun, "install", "--cwd", REFERENCE, "--frozen-lockfile", "--silent"], check=True)
+    xterm = [str(HERE / "xterm.mjs")]
     commands = {
         "thrush": [str(ROOT / ".build" / "release" / "ThrushBench"), "--workload"],
         "ghostty": [str(out / "ghostty")],
@@ -301,8 +303,6 @@ def table(results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--toy-box", type=Path, default=ROOT.parent / "toy-box",
-                        help="Toy Box checkout whose node_modules hold the pinned @xterm/headless")
     parser.add_argument("--tools", type=Path, default=ROOT / ".build" / "comparison" / "tools",
                         help="cache for Zig and the libghostty-vt build")
     parser.add_argument("--rounds", type=int, default=5)
@@ -315,7 +315,7 @@ def main():
     options = parser.parse_args()
 
     options.tools.mkdir(parents=True, exist_ok=True)
-    commands, out = build(options.tools.resolve(), options.toy_box.resolve())
+    commands, out = build(options.tools.resolve())
     inputs = workloads.write(out / "workloads")
     if options.workloads:
         selected = options.workloads.split(",")
@@ -339,7 +339,8 @@ def main():
             "thrush": {"build": "swift build -c release"},
             "ghostty": {"version": GHOSTTY[0], "zig": ZIG[0], "build": "zig build -Doptimize=ReleaseFast",
                         "sources": GHOSTTY[2]},
-            "xterm": {"packages": {"@xterm/headless": "6.0.0", "@xterm/addon-unicode11": "0.9.0"},
+            "xterm": {"packages": {name: version for name, version in json.loads(
+                          (REFERENCE / "package.json").read_text())["dependencies"].items() if name != "@xterm/xterm"},
                       "runtimes": runtimes, "unicode": "11"},
         },
         "workloads": [{key: value for key, value in workload.items() if key != "path"} for workload in inputs],

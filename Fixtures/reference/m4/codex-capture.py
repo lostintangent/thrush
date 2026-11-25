@@ -40,17 +40,16 @@ def replace_resume_id(events):
     return {"field":"exit resume command thread ID", "replacement":SAMPLE_THREAD_ID.decode(), "count":count}
 
 
-def mark_split_paint(events, checkout, columns, rows):
+def mark_split_paint(events, columns, rows):
     """Ask the independent parser which real read first leaves a repaint pending."""
     reads = [e for e in events if "bytes" in e]
     requests = [{"resize":{"columns":columns, "rows":rows}}] + [{"bytes":e["bytes"]} for e in reads]
     result = subprocess.run(
-        ["bun", ROOT / "codex-reference.mjs", checkout], text=True, capture_output=True, check=True,
-        input="".join(json.dumps(r) + "\n" for r in requests),
-        env={"PATH":os.environ["PATH"], "NODE_PATH":str(checkout / "node_modules/@xterm/xterm/src")})
+        ["bun", ROOT / "codex-reference.mjs"], text=True, capture_output=True, check=True,
+        input="".join(json.dumps(r) + "\n" for r in requests), env={"PATH":os.environ["PATH"]})
     states = [json.loads(line) for line in result.stdout.splitlines()][1:]
     if len(states) != len(reads):
-        raise ValueError("Missing xterm responses during checkpoint verification")
+        raise ValueError("Missing reference responses during checkpoint verification")
     pending = False
     marked = False
     for event, state in zip(reads, states):
@@ -67,8 +66,8 @@ def mark_split_paint(events, checkout, columns, rows):
         raise ValueError("The live capture did not include a repaint split across reads")
 
 class CodexSession(Session):
-    """Capture the real interactive shell while feeding its PTY reads to the independent xterm."""
-    def __init__(self, home, workspace, checkout, columns, rows):
+    """Capture the real interactive shell while feeding its PTY reads to the pinned reference."""
+    def __init__(self, home, workspace, columns, rows):
         self.start = time.monotonic_ns()
         self.events = []
         self.pid, self.fd = pty.fork()
@@ -80,8 +79,8 @@ class CodexSession(Session):
                        INPUTRC="/dev/null", BASH_SILENCE_DEPRECATION_WARNING="1")
             os.execve("/bin/bash", ["bash", "--noprofile", "--norc", "-i"], env)
         self.reference = subprocess.Popen(
-            ["bun", ROOT / "codex-reference.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
-            env={"PATH":os.environ["PATH"], "HOME":str(home), "NODE_PATH":str(checkout / "node_modules/@xterm/xterm/src")})
+            ["bun", ROOT / "codex-reference.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            env={"PATH":os.environ["PATH"], "HOME":str(home)})
         self.exchange({"resize":{"columns":columns, "rows":rows}})
 
     def state(self):
@@ -164,7 +163,7 @@ class CodexSession(Session):
                 return
         raise RuntimeError("No complete answer; keep the checked-in capture")
 
-def capture(binary, login, checkout, columns=COLUMNS, rows=ROWS, local_url=None):
+def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
     version = subprocess.check_output([binary, "--version"], text=True).strip()
     if version != VERSION:
         raise ValueError(f"Expected {VERSION}, found {version}")
@@ -197,7 +196,7 @@ def capture(binary, login, checkout, columns=COLUMNS, rows=ROWS, local_url=None)
         # Only the official CLI opens the existing login. No credentials are serialized by the recorder.
         if local_url is None:
             (state / "auth.json").symlink_to(login)
-        session = CodexSession(home, workspace, checkout, columns, rows)
+        session = CodexSession(home, workspace, columns, rows)
         try:
             session.observe("Shell prompt", lambda rows: PROMPT.decode() in rows)
             session.text("Launch Codex", "codex\r")
@@ -226,7 +225,7 @@ def capture(binary, login, checkout, columns=COLUMNS, rows=ROWS, local_url=None)
         finally:
             session.close()
         sanitization = replace_resume_id(session.events)
-        mark_split_paint(session.events, checkout, columns, rows)
+        mark_split_paint(session.events, columns, rows)
         stream = b"".join(base64.b64decode(e.get("bytes", "")) for e in session.events)
         private_patterns = [b"/Users/", b"/private/", b"/tmp/thrush", rb"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}",
                             rb"sk-[\w-]{12,}|Bearer |refresh_token|access_token|id_token"]
@@ -249,7 +248,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--codex-bin", required=True, type=Path, help="native 0.166.0 Codex executable")
     parser.add_argument("--login-file", default=Path.home()/".codex/auth.json", type=Path)
-    parser.add_argument("--checkout", default=Path("../toy-box"), type=Path)
     parser.add_argument("--output", default=ROOT/"codex-session.capture.json", type=Path)
     parser.add_argument("--columns", default=COLUMNS, type=int)
     parser.add_argument("--rows", default=ROWS, type=int)
@@ -259,7 +257,7 @@ if __name__ == "__main__":
         parser.error("Give a separate --output for a local response or a different PTY size")
     if args.local_response:
         with local_responses(QUESTION, MODEL) as url:
-            text = capture(args.codex_bin.resolve(), None, args.checkout.resolve(), args.columns, args.rows, url)
+            text = capture(args.codex_bin.resolve(), None, args.columns, args.rows, url)
     else:
-        text = capture(args.codex_bin.resolve(), args.login_file.resolve(), args.checkout.resolve(), args.columns, args.rows)
+        text = capture(args.codex_bin.resolve(), args.login_file.resolve(), args.columns, args.rows)
     args.output.write_text(text)

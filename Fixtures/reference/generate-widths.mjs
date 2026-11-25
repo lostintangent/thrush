@@ -1,19 +1,12 @@
-// Sample the server provider through xterm's Unicode addon registration interface.
+// Samples the pinned reference's Unicode provider through the addon's registration interface, and writes
+// Sources/ThrushCore/Unicode11Widths.swift.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { Unicode11Addon, reference } from './headless.mjs';
 
-const checkout = resolve(process.argv[2] ?? '../toy-box');
-const require = createRequire(resolve(checkout, 'package.json'));
-assert.equal(execFileSync('git', ['-C', checkout, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-  'b9d0eca3c5f4e9036e58327ba633eff52474bb92');
-assert.equal(require('@xterm/addon-unicode11/package.json').version, '0.9.0');
-const { Unicode11Addon } = require('@xterm/addon-unicode11');
 let provider;
 new Unicode11Addon().activate({ unicode: { register(value) { provider = value; } } });
-assert.equal(provider.version, '11');
+assert.equal(provider.version, reference.unicode);
 
 // A 256-scalar page is identical across many Unicode blocks. Emit each distinct page once.
 const pageIndices = [];
@@ -48,8 +41,8 @@ for (const page of pages) {
 }
 
 const source = [
-  '// Cell-width observations from the pinned Toy Box Unicode 11 provider.',
-  '// Regenerate with bun Fixtures/reference/generate-widths.mjs ../toy-box.',
+  '// Cell widths observed from the pinned reference\'s Unicode 11 provider.',
+  '// Regenerate with bun Fixtures/reference/generate-widths.mjs.',
   'extension ColumnWidth {',
   '    static let pageIndices: [UInt8] = [', lines(pageIndices, 32), '    ]',
   '    static let widthWords: [UInt64] = [', lines(words, 4), '    ]',

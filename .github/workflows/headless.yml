@@ -77,9 +77,7 @@ jobs:
         with:
           bun-version: 1.4.5
       - name: Check conformance against the pinned reference
-        run: |
-          scripts/prepare-reference.sh "$RUNNER_TEMP/toy-box"
-          scripts/check-conformance.sh "$RUNNER_TEMP/toy-box"
+        run: scripts/check-conformance.sh
       - name: Verify the loopback exchange
         run: scripts/check-loopback.sh
       - name: Verify recorded shell, Vim and Codex workflows over WebSocket

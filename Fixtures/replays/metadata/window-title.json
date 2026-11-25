@@ -1,16 +1,16 @@
 {
   "reference": {
-    "toyBoxRevision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92",
     "packages": {
+      "@xterm/addon-unicode11": "0.9.0",
       "@xterm/headless": "6.0.0",
-      "@xterm/xterm": "6.0.0",
-      "@xterm/addon-unicode11": "0.9.0"
+      "@xterm/xterm": "6.0.0"
     },
-    "scrollback": 1000,
-    "unicode": "11",
-    "colorReports": "@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"
+    "options": {
+      "scrollback": 1000,
+      "allowProposedApi": true
+    },
+    "unicode": "11"
   },
-  "serializerSourceSHA256": "f4857aa8af1f38ff6d9f99df3e572fcdc10681ac6a827162d97218ad73a80e1d",
   "cases": [
     {
       "name": "Initial title and OSC 2 at the beginning of the stream",
@@ -141,7 +141,7 @@
     }
   ],
   "codex": {
-    "fixtureSHA256": "520235437cab1c3c7d5ac0fe162caf59eaee9b78e78d0a856bfd93ce2a61a5f1",
+    "fixtureSHA256": "0383a379107ea24f4332e3825585def94a3fe1808c1205a8bae532ff7a06e32a",
     "checkpoints": [
       {
         "eventIndex": 0,

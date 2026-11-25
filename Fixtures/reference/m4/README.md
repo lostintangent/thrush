@@ -14,7 +14,7 @@ At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3,
 
 ## Vim reattachment
 
-`vim-resume.mjs` feeds the real, saved-file-checked Vim recording to the local Toy Box server’s `ScrollbackBuffer`. It adds a scripted detach and a serialized replay at the restored 80 × 24 size. The original terminal stays alive on the server. The resumed client starts with a new terminal at the same size and palette.
+`vim-resume.mjs` derives this recording from the real, saved-file-checked Vim recording. It adds a scripted detach and a server's serialized replay at the restored 80 × 24 size. A reference terminal stands in for the server's, which stays alive and never detaches. The resumed client starts with a new terminal at the same size and palette, applies the replay and then the rest of the live output.
 
 | Boundary | Expected event |
 | --- | --- |
@@ -25,7 +25,7 @@ At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3,
 | `Vim first live output after replay` | Apply Vim’s response to `:wq` after the replay |
 | `Returned to shell` | Read the eight default-colored cells of the original `thrush$ ` prompt. The cursor follows the trailing space. |
 
-The wide and iPhone overlays use the reviewed local `src/features/terminal/server/scrollback.ts`, SHA-256 `f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641`. Its reset before entering the alternate screen and absolute cursor placement add ten bytes to each serialized replay. On iPhone the restored frame is 1,214 bytes at 47 × 25. The published Toy Box revision used by hosted live PTY checks still shifts this cursor to column 8 and leaves the prompt bright blue. The frozen Vim recordings and xterm oracle retain their original provenance.
+The wide and iPhone replays are part of their recordings. A PTY server's scrollback serializer produced them, from the reviewed source `scrollback.ts` with SHA-256 `f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641`. Its reset before entering the alternate screen and absolute cursor placement add ten bytes to each serialized replay. On iPhone the restored frame is 1,214 bytes at 47 × 25. The generator checks that each replay restores Vim's exact screen and that the later live output lands as it does on the uninterrupted terminal. `--replay FILE` substitutes another server's serialized bytes.
 
 ## Codex transcript
 
@@ -35,28 +35,28 @@ Codex uses synchronized output while drawing its interface. The core continues p
 
 ## Reproduction
 
-Regenerate the xterm checkpoints from the committed source recordings. A single name after the checkout path selects one recording.
+Regenerate the reference checkpoints from the committed source recordings. A single name selects one recording.
 
 ```sh
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box
+bun Fixtures/reference/m2/generate.mjs
 scripts/check-workflows.sh
 ```
 
-To record new shell bytes, run the following with the captured Bash version and the pinned Toy Box checkout. The Vim overlay uses the existing M2 scratch-file session. Use a local Toy Box checkout with the serializer digest above. If the local server moves beyond the original xterm revision, pass that original checkout as the first argument and add `--serializer-checkout PATH` for the server source.
+To record new shell bytes, run the first command with the captured Bash version. The second rebuilds the Vim resume recording from the existing M2 scratch-file session and its recorded replay. Add `--check` to verify the checked-in recording instead.
 
 ```sh
-python3 Fixtures/reference/m4/shell-workflow.py ../toy-box --bash /opt/homebrew/bin/bash
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m4/vim-resume.mjs ../toy-box
+python3 Fixtures/reference/m4/shell-workflow.py --bash /opt/homebrew/bin/bash
+bun Fixtures/reference/m4/vim-resume.mjs
 ```
 
 `codex-capture.py --help` describes the separate live recording procedure. A new recording uses the specified Codex binary and login and makes a new model request. The text, timing and PTY chunks can differ between live runs.
 
 ## Native pointer input
 
-The Codex transcript pager enables X11 button, drag and all-motion tracking and requests SGR coordinates. The pointer replay exercises those modes through xterm's mouse service at 240 × 8, including legacy binary coordinates above ASCII, the 223-column limit, SGR release and wheel events, modifiers and the return to local selection. Its expected frames come from the reference terminal's binary and text streams. Regenerate from the repository root.
+The Codex transcript pager enables X11 button, drag and all-motion tracking and requests SGR coordinates. The pointer replay exercises those modes through the reference's mouse service at 240 × 8, including legacy binary coordinates above ASCII, the 223-column limit, SGR release and wheel events, modifiers and the return to local selection. Its expected frames come from the reference terminal's binary and text streams. Regenerate from the repository root.
 
 ```sh
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box pointer-input
+bun Fixtures/reference/m2/generate.mjs pointer-input
 ```
 
 ## Running the native pane
@@ -68,7 +68,7 @@ scripts/check-pane-workflows.sh mac /tmp/thrush-mac-workflows
 scripts/check-pane-workflows.sh simulator new /tmp/thrush-phone-workflows
 ```
 
-The second command creates a disposable iPhone 17 Simulator. Supply its UDID in place of `new` to use an existing booted iPhone. Add one or more of `shell`, `vim` and `codex` to run a subset. A separate prompt opens the first system keyboard before recording. The image check verifies all seven accessory controls and three rows of native letter keys in each recorded iPhone screenshot. Keep the output directory empty before the run. Each workflow leaves its report, peer log and selected native window or framebuffer images there. An offline run can set `THRUSH_XTERM_MODULES` to an installation of `@xterm/headless` 6.0.0 and `@xterm/addon-unicode11` 0.9.0. Otherwise the runner installs those exact versions in a temporary directory.
+The second command creates a disposable iPhone 17 Simulator. Supply its UDID in place of `new` to use an existing booted iPhone. Add one or more of `shell`, `vim` and `codex` to run a subset. A separate prompt opens the first system keyboard before recording. The image check verifies all seven accessory controls and three rows of native letter keys in each recorded iPhone screenshot. Keep the output directory empty before the run. Each workflow leaves its report, peer log and selected native window or framebuffer images there. The runner first installs the [pinned reference](../README.md) for its checkpoint oracle.
 
 The phone fixture uses real Vim, its server's serializer and the installed Codex CLI at handset dimensions. The narrow Codex recording uses a localhost Responses endpoint that streams the existing published twelve-line answer into the CLI. The wide capture retains the original external provider response. Both recorded Codex sessions received white foreground and black background in their OSC 10 and 11 replies. The runner opens those sessions in Slate Dark so their fixed white pager shortcuts remain legible. Live Codex chooses its colors from the active pane. [Handset recording procedure](phone/README.md)
 

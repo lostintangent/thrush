@@ -1,6 +1,6 @@
 // Preserve the same ordered xterm parser, palette replies and Unicode-width behavior as the other PTY captures.
 import { createInterface } from 'node:readline';
-import { applyPalette, terminal, write } from '../m2/xterm-reference.mjs';
+import { applyPalette, terminal, write } from '../reference.mjs';
 
 const t = terminal(80, 24);
 let replies = [];

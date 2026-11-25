@@ -27,22 +27,22 @@ The last part of `shell-edges` replays `bash-display.capture.json`. It was recor
 Bash runs `printf 'name\tvalue'` and `printf 'progress...\r\033[2KDone'`. After each command, a silent `read -rsn1` waits for one input byte so xterm can record the line and cursor before Bash prints the next prompt. The replay’s `captureSHA256` identifies this raw Bash recording. Regenerate the four checkpoints offline from the committed bytes with the command below. Run the Python command first only to collect a new live recording.
 
 ```sh
-python3 Fixtures/reference/m2/capture-display.py ../toy-box --bash /opt/homebrew/bin/bash
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box shell-edges
+python3 Fixtures/reference/m2/capture-display.py --bash /opt/homebrew/bin/bash
+bun Fixtures/reference/m2/generate.mjs shell-edges
 ```
 
 ## Reproduce the reference files
 
-Use the Toy Box checkout at `b9d0eca3c5f4e9036e58327ba633eff52474bb92` with its locked dependencies installed. From Thrush, run the generator against the checked-in PTY recordings.
+With the [pinned reference](../README.md) installed, run the generator against the checked-in PTY recordings from the repository root.
 
 ```sh
-NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference/m2/generate.mjs ../toy-box
+bun Fixtures/reference/m2/generate.mjs
 shasum -a 256 Fixtures/replays/*.json
 ```
 
-The generator reads the pinned server's emulator configuration, xterm-headless 6.0.0 and Unicode 11 addon 0.9.0. It feeds the output bytes into xterm in recorded order. It obtains replies via `onData`, encodes special keys with xterm's browser keyboard evaluator, and uses xterm's paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes. [Server emulator](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/src/features/terminal/model/emulator.ts) · [Pinned packages](https://github.com/lostintangent/toy-box/blob/b9d0eca3c5f4e9036e58327ba633eff52474bb92/bun.lock)
+The generator feeds the output bytes into a reference terminal in recorded order. It obtains replies via `onData`, encodes special keys with the browser package's keyboard evaluator, and uses its paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes.
 
-To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture.py ../toy-box` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
+To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture.py` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
 
 ## Erasing through the cursor
 

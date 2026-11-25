@@ -1,30 +1,14 @@
-// Run with Bun against the Toy Box checkout listed in README.md.
+// Generates Fixtures/first-bytes.json with Bun. See README.md.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { reference, source, terminal as referenceTerminal } from './reference.mjs';
 
-const checkout = resolve(process.argv[2] ?? '../toy-box');
-const revision = 'b9d0eca3c5f4e9036e58327ba633eff52474bb92';
-assert.equal(execFileSync('git', ['-C', checkout, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), revision);
-const fromServer = createRequire(resolve(checkout, 'package.json'));
-const versions = Object.fromEntries(
-  ['@xterm/headless', '@xterm/xterm', '@xterm/addon-unicode11'].map(
-    name => [name, fromServer(name + '/package.json').version]
-  )
-);
-assert.deepEqual(versions, { '@xterm/headless': '6.0.0', '@xterm/xterm': '6.0.0', '@xterm/addon-unicode11': '0.9.0' });
-const { Terminal } = fromServer('@xterm/headless');
-const { emulatorOptions, loadUnicode11 } = await import(resolve(checkout, 'src/features/terminal/model/emulator.ts'));
-const { evaluateKeyboardEvent } = await import(fromServer.resolve('@xterm/xterm/src/common/input/Keyboard.ts'));
+const { evaluateKeyboardEvent } = await source('common/input/Keyboard');
 
 const columns = 80;
 const rows = 24;
-const terminal = new Terminal({ ...emulatorOptions, cols: columns, rows });
-loadUnicode11(terminal);
+const terminal = referenceTerminal(columns, rows);
 const utf8 = value => Array.from(new TextEncoder().encode(value));
-const reference = { toyBoxRevision: revision, packages: versions, scrollback: emulatorOptions.scrollback, unicode: terminal.unicode.activeVersion };
 const events = [];
 let reply = [];
 terminal.onData(value => reply.push(...utf8(value)));
@@ -70,3 +54,5 @@ const json = [
   events.map(event => '    ' + JSON.stringify(event)).join(',\n'), '  ]', '}', ''
 ].join('\n');
 await writeFile(new URL('../first-bytes.json', import.meta.url), json);
+// The browser package retains its process-wide scheduler after terminal disposal.
+process.exit(0);

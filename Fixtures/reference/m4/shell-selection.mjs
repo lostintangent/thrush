@@ -2,9 +2,9 @@
 // stdin contains the real PTY events through the return of the shell prompt.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { server, terminal, write } from '../m2/xterm-reference.mjs';
+import { source, terminal, write } from '../reference.mjs';
 
-const { SelectionService } = await import(server.resolve('@xterm/xterm/src/browser/services/SelectionService.ts'));
+const { SelectionService } = await source('browser/services/SelectionService');
 const recording = JSON.parse(readFileSync(0, 'utf8'));
 const t = terminal(recording.columns, recording.rows);
 const commands = new Map([

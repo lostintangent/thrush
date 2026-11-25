@@ -3,7 +3,7 @@ import Testing
 @testable import ThrushConformance
 
 // Each generated case replays through ThrushCore and must reach every checkpoint the reference emulator reached.
-// Regenerate the cases and lists with `scripts/check-conformance.sh <toy-box checkout> --write`.
+// Regenerate the cases and lists with `scripts/check-conformance.sh --write`.
 
 extension ConformanceCase: CustomTestStringConvertible {
     public var testDescription: String { name }

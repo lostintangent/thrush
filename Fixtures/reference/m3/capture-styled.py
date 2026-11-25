@@ -31,7 +31,7 @@ def slate_palette(appearance):
         bright.append(intense)
     return dict(foreground=fg, background=bg, ansi=normal + bright)
 
-def capture_styled(checkout, appearance):
+def capture_styled(appearance):
     name = "vim-swift-" + appearance
     palette = slate_palette(appearance)
     with tempfile.TemporaryDirectory(prefix="thrush-styled-") as work:
@@ -41,7 +41,7 @@ def capture_styled(checkout, appearance):
         (directory / "bin/vim").chmod(0o755)
         shutil.copyfile(ROOT / "styled.vim", directory / "vimrc")
         shutil.copyfile(ROOT / "Prompt.swift", directory / "Prompt.swift")
-        session = Session(directory, checkout)
+        session = Session(directory)
         try:
             session.record("Apply host palette", palette=palette)
             assert not session.exchange({"palette": palette})
@@ -72,6 +72,5 @@ def capture_styled(checkout, appearance):
             session.close()
 
 if __name__ == "__main__":
-    checkout = Path(sys.argv[1] if len(sys.argv) > 1 else "../toy-box").resolve()
     for appearance in ["dark", "light"]:
-        capture_styled(checkout, appearance)
+        capture_styled(appearance)

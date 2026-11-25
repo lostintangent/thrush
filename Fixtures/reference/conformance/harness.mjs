@@ -2,8 +2,8 @@
 // cases the Swift tests replay through ThrushCore, and, given a built ThrushConformance, ranks every
 // way Thrush still differs by how often real programs emit the functions involved.
 //
-//   NODE_PATH=<toy-box>/node_modules/@xterm/xterm/src bun Fixtures/reference/conformance/harness.mjs <toy-box>
-//     [--thrush .build/release/ThrushConformance] [--report <file.md>] [--check]
+//   bun Fixtures/reference/conformance/harness.mjs [--thrush .build/release/ThrushConformance]
+//     [--report <file.md>] [--check]
 //
 // `--check` regenerates everything in memory and fails if a checked-in file would change.
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { loadReference } from './xterm.mjs';
+import * as reference from './xterm.mjs';
 import { functionCases } from './functions.mjs';
 import { programCases } from './programs.mjs';
 import { streamCases } from './streams.mjs';
@@ -19,14 +19,9 @@ import { Pool, pack } from './state.mjs';
 import { Thrush, encodeCase } from './thrush.mjs';
 import { Shrinker, kindOf } from './shrink.mjs';
 
-const { values: options, positionals } = parseArgs({
-  allowPositionals: true,
+const { values: options } = parseArgs({
   options: { thrush: { type: 'string' }, report: { type: 'string' }, check: { type: 'boolean' } },
 });
-if (positionals.length !== 1) {
-  console.error('Usage: harness.mjs <toy-box checkout> [--thrush <ThrushConformance>] [--report <file.md>] [--check]');
-  process.exit(2);
-}
 
 const here = import.meta.dir;
 const root = resolve(here, '../../..');
@@ -40,7 +35,6 @@ const files = {
 // Handlers the reference registers that the function corpus deliberately leaves out, with why.
 const unobservable = new Map([]);
 
-const reference = await loadReference(positionals[0]);
 const corpora = { functions: functionCases, programs: programCases(resolve(here, '..')), streams: streamCases };
 for (const [corpus, cases] of Object.entries(corpora)) {
   const names = cases.map(testCase => testCase.name);
@@ -231,8 +225,8 @@ async function gapReport(results, emitted, defects, shrinker) {
   const revision = execFileSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
   const lines = [
     '# Conformance gap report', '',
-    `Thrush \`${revision}\` against the pinned reference emulator from Toy Box \`${reference.description.toyBox.slice(0, 7)}\`, `
-      + `with ${reference.description.scrollback} rows of history and Unicode ${reference.description.unicode} widths.`, '',
+    `Thrush \`${revision}\` against the pinned reference emulator, ${packageList(reference.description.packages)}, `
+      + `with ${reference.description.options.scrollback} rows of history and Unicode ${reference.description.unicode} widths.`, '',
     '| Corpus | Cases | Match | Differ | Reference defects |', '| --- | ---: | ---: | ---: | ---: |',
     ...Object.keys(results).map(corpus => {
       const defective = results[corpus].filter(result => defects[result.testCase.name]).length;
@@ -322,6 +316,10 @@ function tokens(bytes) {
 
 function code(text) { return `\`${String(text).replaceAll('`', 'ˋ').replaceAll('|', '\\|')}\``; }
 function cell(text) { return String(text).replaceAll('|', '\\|').replaceAll('\n', ' '); }
+function packageList(packages) {
+  const names = Object.entries(packages).map(([name, version]) => `${name} ${version}`);
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
 function sorted(object) { return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b))); }
 function json(value, depth) { return `${JSON.stringify(value, null, depth === undefined ? 1 : depth)}\n`; }
 function count(runs) { return Object.values(runs).reduce((sum, corpus) => sum + corpus.length, 0); }

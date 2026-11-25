@@ -36,7 +36,7 @@ def encoded(data):
     return base64.b64encode(data).decode("ascii")
 
 class Session:
-    def __init__(self, directory, checkout, columns=80, rows=24, *, bash="/bin/bash", inputrc="/dev/null"):
+    def __init__(self, directory, columns=80, rows=24, *, bash="/bin/bash", inputrc="/dev/null"):
         self.events = []
         self.start = time.monotonic_ns()
         self.pid, self.fd = pty.fork()
@@ -49,8 +49,7 @@ class Session:
             os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
 
         self.reference = subprocess.Popen(
-            ["bun", ROOT / "live-replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
-            env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
+            ["bun", ROOT / "live-replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
         self.exchange({"resize": {"columns": columns, "rows": rows}})
 
@@ -59,7 +58,7 @@ class Session:
         self.reference.stdin.flush()
         response = self.reference.stdout.readline()
         if not response:
-            raise RuntimeError("The xterm reference process exited during capture")
+            raise RuntimeError("The reference process exited during capture")
         return base64.b64decode(json.loads(response)["reply"], validate=True)
 
     def write(self, data):
@@ -90,7 +89,7 @@ class Session:
                 self.write(reply)
                 self.events[-1]["observedReply"] = encoded(reply)
                 self.events[-1]["replyOffsetMicroseconds"] = (time.monotonic_ns() - self.start) // 1000
-                print(f"{name}: xterm replied {reply!r}", flush=True)
+                print(f"{name}: the reference replied {reply!r}", flush=True)
             chunks.append(data)
         return b"".join(chunks)
 
@@ -121,7 +120,7 @@ class Session:
         self.reference.stdin.close()
         self.reference.stdout.close()
         if self.reference.wait() != 0:
-            raise RuntimeError("The xterm reference process exited unsuccessfully")
+            raise RuntimeError("The reference process exited unsuccessfully")
 
 def build_headers(session, directory, name, first, last):
     command = b"./build\r" if first == 1 else f"./build {first} {last}\r".encode()
@@ -131,7 +130,7 @@ def build_headers(session, directory, name, first, last):
     assert output.endswith(PROMPT) and b"The compiler did not" not in output
     assert (directory / "compile.o").stat().st_size > 0
 
-def capture(name, checkout, destination=ROOT, columns=80, rows=24, grids=GRIDS):
+def capture(name, destination=ROOT, columns=80, rows=24, grids=GRIDS):
     with tempfile.TemporaryDirectory(prefix="thrush-pty-") as work:
         directory = Path(work)
         (directory / "bin").mkdir()
@@ -141,7 +140,7 @@ def capture(name, checkout, destination=ROOT, columns=80, rows=24, grids=GRIDS):
         (directory / "build").chmod(0o755)
         (directory / "bin/vim").write_text(VIM, encoding="utf8")
         (directory / "bin/vim").chmod(0o755)
-        session = Session(directory, checkout, columns, rows)
+        session = Session(directory, columns, rows)
         try:
             output = session.read("Shell prompt", PROMPT)
             assert output.endswith(PROMPT), repr(output)
@@ -187,7 +186,6 @@ def capture(name, checkout, destination=ROOT, columns=80, rows=24, grids=GRIDS):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("checkout", nargs="?", type=Path, default=Path("../toy-box"))
     parser.add_argument("--only", choices=["shell-log", "vim-edit"])
     parser.add_argument("--columns", type=int, default=80)
     parser.add_argument("--rows", type=int, default=24)
@@ -201,4 +199,4 @@ if __name__ == "__main__":
             options.only != "vim-edit" or options.destination.resolve() == ROOT):
         parser.error("Provide --only vim-edit and a separate --destination for another native geometry")
     for name in [options.only] if options.only else ["shell-log", "vim-edit"]:
-        capture(name, options.checkout.resolve(), options.destination, options.columns, options.rows, grids)
+        capture(name, options.destination, options.columns, options.rows, grids)

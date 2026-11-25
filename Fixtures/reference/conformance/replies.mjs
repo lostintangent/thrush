@@ -1,14 +1,13 @@
 // Answers a recording program's queries the way the pinned reference does, so a capture follows the replies
-// Toy Box would send. capture-programs.py writes one JSON event per line and reads one reply per event.
+// a terminal would send. capture-programs.py writes one JSON event per line and reads one reply per event.
 //
 //   { "start": [columns, rows] } | { "bytes": base64 } | { "resize": [columns, rows] }
 //     →  { "reply": base64, "applicationCursorKeys": boolean }
 //
 // The cursor key mode tells the recorder which arrow key bytes the program expects.
 import { createInterface } from 'node:readline';
-import { loadReference } from './xterm.mjs';
+import * as reference from './xterm.mjs';
 
-const reference = await loadReference(process.argv[2]);
 let terminal, replies = [];
 for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
   const event = JSON.parse(line);

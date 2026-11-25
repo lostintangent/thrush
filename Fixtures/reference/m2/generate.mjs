@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { applyPalette, reference, server, terminal, write } from './xterm-reference.mjs';
+import { applyPalette, reference as pinned, source, terminal, write } from '../reference.mjs';
 import { Pool, checkpoint } from './checkpoint.mjs';
 import { pointerInput, encodePointer } from '../m4/pointer.mjs';
 import { hardwareKeys } from '../m4/hardware-keys.mjs';
 
-const { evaluateKeyboardEvent } = await import(server.resolve('@xterm/xterm/src/common/input/Keyboard.ts'));
-const { bracketTextForPaste, prepareTextForTerminal } = await import(server.resolve('@xterm/xterm/src/browser/Clipboard.ts'));
+const { evaluateKeyboardEvent } = await source('common/input/Keyboard');
+const { bracketTextForPaste, prepareTextForTerminal } = await source('browser/Clipboard');
+// Every terminal answers color queries with the browser package's own report handler and theme service.
+const reference = {...pinned, colorReports:'@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService'};
 const utf8 = s => Buffer.from(s, 'utf8');
 const base64 = bytes => Buffer.from(bytes).toString('base64');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -225,11 +227,10 @@ async function generate(name) {
   if (name === 'shell-log') assert.equal(fullHistory.size, 0, 'Missing full-history checkpoint');
   if (name.startsWith('vim-swift-')) await verifyStyledPaints(recording, events, cells, lines);
   t.dispose();
-  // The Vim PTY recording and xterm checkpoints use the historical oracle. Only its
-  // reattachment frame comes from the separately identified serializer source.
+  // The Vim resume checkpoints come from the reference like every other replay. Only its reattachment
+  // frame comes from a server's serializer, which ../m4/README.md records.
   const overlay = recording.overlay;
   const vimReplay = name === 'vim-resume' ? {sourceCaptureSHA256:overlay.sourceCaptureSHA256,
-    sourceReferenceRevision:overlay.sourceReferenceRevision, serializerSourceSHA256:overlay.serializerSourceSHA256,
     serializedSHA256:overlay.serializedSHA256} : undefined;
   const json = {version:1, name, reference, captureSHA256:captureBytes ? sha256(captureBytes) : recording.captureSHA256, vimReplay,
     vimBackground:recording.vimBackground, columns:recording.columns,rows:recording.rows,cells:cells.values,lines:lines.values,events};
@@ -245,9 +246,9 @@ async function generate(name) {
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
 const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', ...workflows];
-const phone = process.argv[3] === '--phone';
+const phone = process.argv[2] === '--phone';
 const available = phone ? ['vim-resume', 'codex-session'] : all;
-const requested = process.argv.slice(phone ? 4 : 3);
+const requested = process.argv.slice(phone ? 3 : 2);
 for (const name of requested.length ? requested : available) {
   assert(available.includes(name), 'Unknown replay: ' + name);
   await generate(name);
