@@ -24,6 +24,8 @@ public struct Terminal: Sendable {
         package var cursorBlink = false
         var cursorShape: CursorShape = .block
         var cursorBlinkOverride: Bool?
+        package var mouseTracking: MouseTracking = .off
+        package var mouseSGR = false
         package var sendFocus = false
         var synchronizedOutputID: UInt64?
         package var synchronizedOutput: Bool { synchronizedOutputID != nil }
@@ -209,6 +211,13 @@ public struct Terminal: Sendable {
             modes.cursorVisible = enabled
             generation &+= 1
         case 66: modes.applicationKeypad = enabled
+        case 1000, 1002, 1003:
+            let next: MouseTracking = enabled ? (mode == 1000 ? .press : mode == 1002 ? .drag : .all) : .off
+            if modes.mouseTracking != next {
+                modes.mouseTracking = next
+                generation &+= 1
+            }
+        case 1006: modes.mouseSGR = enabled
         case 1004: modes.sendFocus = enabled
         case 1049:
             guard enabled != screen.isAlternate else { return }
