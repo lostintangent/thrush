@@ -2,39 +2,74 @@
 /// A cancelled or overlong command discards even the color queries already parsed.
 struct TerminalStringHandler: Sendable {
     enum Function: Sendable {
-        case indexedColor, foregroundColor, backgroundColor
+        case windowTitle, indexedColor, foregroundColor, backgroundColor
     }
 
-    // Discard the entire command when its payload exceeds this many UTF-16 code units.
+    enum Effect {
+        case title(String)
+        case colorQueries([ColorQuery])
+    }
+
+    // The limit is measured in UTF-16 code units. An overlong command has no effect.
     private static let payloadLimit = 10_000_000
     private var remainingCodeUnits = 0
+    private var title: String?
     private var color: ColorQueryPayload?
 
     mutating func start(_ function: Function?) {
-        color = function.map(ColorQueryPayload.init)
+        title = nil
+        color = nil
+        switch function {
+        case .windowTitle: title = ""
+        case .indexedColor: color = .init(.index)
+        case .foregroundColor: color = .init(.foreground)
+        case .backgroundColor: color = .init(.background)
+        case nil: break
+        }
         remainingCodeUnits = Self.payloadLimit
     }
 
+    var isReadingTitle: Bool { title != nil }
+
+    // Printable ASCII contributes exactly one UTF-16 code unit per byte.
+    mutating func appendTitleASCII(_ bytes: Span<UInt8>) {
+        remainingCodeUnits -= bytes.count
+        if remainingCodeUnits < 0 {
+            title = nil
+        } else {
+            bytes.withUnsafeBufferPointer { title?.append(String(decoding: $0, as: UTF8.self)) }
+        }
+    }
+
     mutating func put(_ scalar: Unicode.Scalar) {
-        guard color != nil else { return }
+        guard title != nil || color != nil else { return }
         remainingCodeUnits -= scalar.value > 0xffff ? 2 : 1
         if remainingCodeUnits < 0 {
+            title = nil
             color = nil
+        } else if title != nil {
+            title?.unicodeScalars.append(scalar)
         } else {
             color?.put(scalar)
         }
     }
 
-    mutating func finish(success: Bool) -> [ColorQuery] {
-        defer { color = nil }
-        return success ? color?.finish() ?? [] : []
+    mutating func finish(success: Bool) -> Effect? {
+        defer {
+            title = nil
+            color = nil
+        }
+        guard success else { return nil }
+        if let title { return .title(title) }
+        if let queries = color?.finish(), !queries.isEmpty { return .colorQueries(queries) }
+        return nil
     }
 }
 
 /// OSC 4 accepts index/specification pairs. OSC 10 and 11 advance through default
 /// colors with each field. Only a complete question-mark field requests a reply.
 private struct ColorQueryPayload: Sendable {
-    private enum Field {
+    enum Field {
         case index, indexedSpec(UInt8?), foreground, background, ignore
     }
 
@@ -59,12 +94,8 @@ private struct ColorQueryPayload: Sendable {
     private var token: Token = .empty
     private var queries: [ColorQuery] = []
 
-    init(_ function: TerminalStringHandler.Function) {
-        switch function {
-        case .indexedColor: field = .index
-        case .foregroundColor: field = .foreground
-        case .backgroundColor: field = .background
-        }
+    init(_ field: Field) {
+        self.field = field
     }
 
     mutating func put(_ scalar: Unicode.Scalar) {

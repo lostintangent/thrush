@@ -69,7 +69,7 @@ python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output 
 
 ## Embed the pane
 
-Keep one `TerminalConnection` for each shell tab. Pass that connection to `TerminalPane(connection)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the screen palette, routes native input and owns attachment, reconnect, takeover and exit. Its optional `onExit` callback leaves the final transcript readable. Both native sample apps embed this pane.
+Keep one `TerminalShell` for each shell tab and pass it to `TerminalPane(shell)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the screen palette, routes native input and owns attachment, reconnect, takeover and exit. SwiftUI can read `shell.title` for the tab title and observe `shell.hasExited` when the shell ends. The pane keeps the final transcript readable. Call `try await shell.close()` to end a shell from the host. Both native sample apps embed this pane.
 
 Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, set `keyboardAccessory: .none` to hide the standard terminal keys or pass a custom native accessory.
 

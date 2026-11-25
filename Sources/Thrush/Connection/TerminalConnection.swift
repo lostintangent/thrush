@@ -2,12 +2,8 @@ import Foundation
 import QuartzCore
 import ThrushCore
 
-/// A connection that attaches a terminal to one remote shell over a host-supplied WebSocket.
-///
-/// Keep one connection per shell tab in a model that outlives its view. Present it with
-/// ``TerminalPane``, which manages attachment, input and drawing. Call ``closeShell()``
-/// when a person asks to end the shell.
-public actor TerminalConnection {
+/// Owns the ordered WebSocket reader, input writes and terminal state for a shell.
+package actor TerminalConnection {
     /// An attachment or screen update for a host running headlessly or driving its own view.
     ///
     /// A `TerminalPane` consumes these events when it presents the shell.
@@ -73,6 +69,11 @@ public actor TerminalConnection {
         deinit { session.invalidateAndCancel() }
     }
 
+    private let observer: TerminalShell.MetadataObserver?
+    private var reportedTitle = ""
+    private var reportedExit = false
+    private var metadataRevision: UInt64 = 0
+
     private let makeSocket: @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask
     private let clientID: String
     private let frameTrace: (any ConnectionFrameObserver)?
@@ -116,7 +117,8 @@ public actor TerminalConnection {
     package private(set) var appliedBytes = 0
 
     package init(baseURL: URL, clientID: String, size: Terminal.Size? = nil, palette: Terminal.Palette = .default,
-                 onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any ConnectionFrameObserver)? = nil) throws {
+                 onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any ConnectionFrameObserver)? = nil,
+                 observer: TerminalShell.MetadataObserver? = nil) throws {
         guard var location = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               location.host != nil, location.query == nil, location.fragment == nil
         else { throw ConnectionError.invalidEndpoint }
@@ -129,32 +131,20 @@ public actor TerminalConnection {
         let endpoint = location
         let owner = DemoSession()
         self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput,
-                  frameTrace: frameTrace) { id, size in
+                  frameTrace: frameTrace, observer: observer) { id, size in
             let url = try Self.url(for: endpoint, clientID: id, size: size)
             return owner.session.webSocketTask(with: url)
         }
     }
 
-    /// Creates a detached connection for a stable shell identifier.
-    ///
-    /// The pane supplies its measured grid size before opening the socket.
-    ///
-    /// - Parameters:
-    ///   - clientID: A nonempty identifier for the shell, reused across attachments.
-    ///   - makeSocket: A factory that receives the client ID and grid size for each
-    ///     attachment attempt. Return a fresh, suspended WebSocket task configured for
-    ///     that shell. The host owns the session and the connection manages the task.
-    public init(clientID: String,
-                makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
-        self.init(clientID: clientID, size: nil, makeSocket: makeSocket)
-    }
-
     package init(clientID: String, size: Terminal.Size?, palette: Terminal.Palette = .default,
                  onOutput: (@Sendable (Data) -> Void)? = nil,
                  frameTrace: (any ConnectionFrameObserver)? = nil,
+                 observer: TerminalShell.MetadataObserver? = nil,
                  sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
                  makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
         precondition(!clientID.isEmpty, "A shell needs a stable client ID")
+        self.observer = observer
         self.sleepForRetry = sleepForRetry
         self.clientID = clientID
         self.frameTrace = frameTrace
@@ -312,6 +302,8 @@ public actor TerminalConnection {
                 appliedBytes += bytes.count
                 frameTrace?.record("applied", attachment: attachment, message: message, received: receivedBytes, applied: appliedBytes)
                 onOutput?(bytes)
+                await publishMetadata(title: terminal.title)
+                guard lifetime == stamp else { throw CancellationError() }
                 do {
                     if !reply.isEmpty && state != .closing { try await write(.data(Data(reply)), to: current) }
                     if state == .replaying { try await activate(current) }
@@ -343,6 +335,9 @@ public actor TerminalConnection {
                         catch { guard lifetime == stamp, pendingEvent != nil else { throw error } }
                     }
                     guard lifetime == stamp else { throw CancellationError() }
+                    // A resumed ready precedes the replay that supplies the authoritative title.
+                    await publishMetadata(title: resumed ? nil : terminal.title, hasExited: false)
+                    guard lifetime == stamp else { throw CancellationError() }
                     return .ready(resumed: resumed)
                 case (.ready, .active) where control.resumed == true && !isResynchronizing:
                     frameTrace?.record("ready", attachment: attachment, message: message)
@@ -354,6 +349,9 @@ public actor TerminalConnection {
                         park(as: .ended)
                         exitedNaturally = true
                     }
+                    let exitLifetime = lifetime
+                    await publishMetadata(hasExited: true)
+                    guard lifetime == exitLifetime else { throw CancellationError() }
                     return .exit
                 default: throw ConnectionError.unexpectedMessage
                 }
@@ -365,6 +363,17 @@ public actor TerminalConnection {
             if socket === current, state != .closing { park(as: .detached) }
             throw error
         }
+    }
+
+    private func publishMetadata(title: String? = nil, hasExited: Bool? = nil) async {
+        guard let observer else { return }
+        let title = title ?? reportedTitle
+        let hasExited = hasExited ?? reportedExit
+        guard title != reportedTitle || hasExited != reportedExit else { return }
+        reportedTitle = title
+        reportedExit = hasExited
+        metadataRevision &+= 1
+        await observer.apply(title: title, hasExited: hasExited, revision: metadataRevision)
     }
 
     package func finishFrameTrace(_ result: String) async {
@@ -478,7 +487,16 @@ public actor TerminalConnection {
     /// request, the tab ends locally and the server's orphan deadline releases the shell.
     ///
     /// - Throws: An error if a close is already in progress or the connection cannot send the request.
-    public func closeShell() async throws {
+    package func closeShell() async throws {
+        do { try await requestClose() }
+        catch {
+            if state == .ended { await publishMetadata(hasExited: true) }
+            throw error
+        }
+        await publishMetadata(hasExited: true)
+    }
+
+    private func requestClose() async throws {
         exitedNaturally = false
         guard state != .closing else { throw ConnectionError.inactiveAttachment }
         guard let current = socket else {

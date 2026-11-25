@@ -50,7 +50,8 @@ final class PaneWorkflowDriver {
 
     private let control: URL, output: URL
     private let view: TerminalView
-    private let connection: TerminalConnection
+    private let shell: TerminalShell
+    private var connection: TerminalConnection { shell.connection }
     private let setActive: (Bool) -> Void
     private let activateAction: (String) -> Bool
     private let http = URLSession(configuration: .ephemeral)
@@ -62,17 +63,17 @@ final class PaneWorkflowDriver {
     private var entries: [Entry] = []
     private var lastCheckpoint: ReplayFixture.Event?
 
-    private init(control: URL, output: URL, view: TerminalView, connection: TerminalConnection,
+    private init(control: URL, output: URL, view: TerminalView, shell: TerminalShell,
                  setActive: @escaping (Bool) -> Void, activateAction: @escaping (String) -> Bool) {
         self.control = control
         self.output = output
         self.view = view
-        self.connection = connection
+        self.shell = shell
         self.setActive = setActive
         self.activateAction = activateAction
     }
 
-    static func startIfRequested(view: TerminalView, connection: TerminalConnection, setActive: @escaping (Bool) -> Void,
+    static func startIfRequested(view: TerminalView, shell: TerminalShell, setActive: @escaping (Bool) -> Void,
                                  activateAction: @escaping (String) -> Bool) {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--workflow-driver"), i + 1 < args.count,
@@ -86,10 +87,10 @@ final class PaneWorkflowDriver {
                     throw Failure("The fixture control listener must use a loopback HTTP address.")
                 }
                 let driver = PaneWorkflowDriver(control: url, output: folder, view: view,
-                                                connection: connection, setActive: setActive, activateAction: activateAction)
+                                                shell: shell, setActive: setActive, activateAction: activateAction)
                 try await driver.run()
             } catch {
-                await connection.finishFrameTrace("failure")
+                await shell.connection.finishFrameTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
@@ -201,7 +202,7 @@ final class PaneWorkflowDriver {
             case .failed:
                 throw Failure(state.error ?? "The peer rejected the workflow.")
             case .close:
-                try await connection.closeShell()
+                try await shell.close()
             case .completed:
                 let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
                 guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
@@ -362,6 +363,7 @@ final class PaneWorkflowDriver {
                 try await Task.sleep(for: .milliseconds(20))
             }
             guard notice != nil else { throw Failure("No settled Ended panel and completed drawable for the final shell.") }
+            guard shell.hasExited else { throw Failure("The final shell has not published its exit.") }
         }
         let base = String(format: "capture-%03d", entry.eventIndex)
         guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration,

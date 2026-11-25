@@ -116,7 +116,7 @@ extension Checkpoint {
             wraparound: modes.wraparound, reverseWraparound: false, cursorBlink: modes.cursorBlink,
             sendFocus: modes.sendFocus, synchronizedOutput: modes.synchronizedOutput,
             mouseTracking: "\(modes.mouseTracking)", mouseEncoding: modes.mouseSGR ? "sgr" : "default")
-        title = ""
+        title = terminal.title
         self.replies = String(String.UnicodeScalarView(replies.map(Unicode.Scalar.init)))
         active = Screen(snapshot, includesHistory: includesHistory)
         if snapshot.isAlternate && includesHistory {

@@ -1,7 +1,6 @@
 {
  "C0": [
-  "C0 · inside a CSI",
-  "C0 · inside an OSC"
+  "C0 · inside a CSI"
  ],
  "C1 CSI": [
   "C1 CSI · as UTF-8"
@@ -11,9 +10,6 @@
  ],
  "C1 NEL": [
   "C1 NEL · as UTF-8"
- ],
- "C1 OSC": [
-  "C1 OSC · as UTF-8"
  ],
  "CBT": [
   "CBT · no parameter",
@@ -412,9 +408,6 @@
   "NEL · below a scroll region",
   "NEL · with a background color"
  ],
- "OSC 0": [
-  "OSC 0"
- ],
  "OSC 11 ?": [
   "OSC 11 ? · after OSC 11 set"
  ],
@@ -423,16 +416,6 @@
  ],
  "OSC 12 ?": [
   "OSC 12 ?"
- ],
- "OSC 2": [
-  "OSC 2 · split across writes",
-  "OSC 2",
-  "OSC 2 · with ST",
-  "OSC 2 · UTF-8",
-  "OSC 2 · with semicolons",
-  "OSC 2 · then OSC 1",
-  "OSC 2 · long",
-  "OSC 2 · with C1 ST"
  ],
  "OSC 4 ?": [
   "OSC 4 ? · after OSC 4 set"
@@ -444,17 +427,8 @@
  "program editors": [
   "editors program"
  ],
- "program git": [
-  "git program"
- ],
  "program lazygit": [
   "lazygit program"
- ],
- "program m4/codex-session": [
-  "m4/codex-session program"
- ],
- "program m4/phone/codex-session": [
-  "m4/phone/codex-session program"
  ],
  "program monitors": [
   "monitors program"

@@ -6,9 +6,9 @@ import UIKit
 
 @MainActor @Test func navigationToolbarOverlaysThePaneButClearsRowOne() async throws {
     let url = try #require(URL(string: "ws://127.0.0.1:1/socket"))
-    let connection = TerminalConnection(clientID: "toolbar-layout") { _, _ in URLSession.shared.webSocketTask(with: url) }
+    let shell = TerminalShell(clientID: "toolbar-layout") { _, _ in URLSession.shared.webSocketTask(with: url) }
     let host = UIHostingController(rootView: NavigationStack {
-        TerminalPane(connection)
+        TerminalPane(shell)
             .ignoresSafeArea()
             .navigationTitle("Terminal")
             .navigationBarTitleDisplayMode(.inline)

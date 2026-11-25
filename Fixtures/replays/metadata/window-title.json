@@ -1,0 +1,324 @@
+{
+  "reference": {
+    "toyBoxRevision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92",
+    "packages": {
+      "@xterm/headless": "6.0.0",
+      "@xterm/xterm": "6.0.0",
+      "@xterm/addon-unicode11": "0.9.0"
+    },
+    "scrollback": 1000,
+    "unicode": "11",
+    "colorReports": "@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"
+  },
+  "serializerSourceSHA256": "f4857aa8af1f38ff6d9f99df3e572fcdc10681ac6a827162d97218ad73a80e1d",
+  "cases": [
+    {
+      "name": "Initial title and OSC 2 at the beginning of the stream",
+      "steps": [
+        {
+          "bytes": "",
+          "title": ""
+        },
+        {
+          "bytes": "77u/G10yO2J1aWxkIOeVjGXMgQc=",
+          "title": "build 界é"
+        }
+      ]
+    },
+    {
+      "name": "ST commits on ESC, including a split OSC introducer and UTF-8 scalar",
+      "steps": [
+        {
+          "bytes": "G10wO29sZAc=",
+          "title": "old"
+        },
+        {
+          "bytes": "Gw==",
+          "title": "old"
+        },
+        {
+          "bytes": "XTI7",
+          "title": "old"
+        },
+        {
+          "bytes": "5w==",
+          "title": "old"
+        },
+        {
+          "bytes": "lYw=",
+          "title": "old"
+        },
+        {
+          "bytes": "Gw==",
+          "title": "界"
+        },
+        {
+          "bytes": "XA==",
+          "title": "界"
+        }
+      ]
+    },
+    {
+      "name": "UTF-8-encoded C1 OSC and ST",
+      "steps": [
+        {
+          "bytes": "wp0wO2NoZWNrwpw=",
+          "title": "check"
+        }
+      ]
+    },
+    {
+      "name": "Cancelled titles preserve the previous title",
+      "steps": [
+        {
+          "bytes": "G10yO3JldGFpbgc=",
+          "title": "retain"
+        },
+        {
+          "bytes": "G10wO2NhbmNlbGxlZBg=",
+          "title": "retain"
+        },
+        {
+          "bytes": "G10yO2NhbmNlbGxlZBo=",
+          "title": "retain"
+        }
+      ]
+    },
+    {
+      "name": "OSC 1 and disabled window-title stack operations",
+      "steps": [
+        {
+          "bytes": "G10yO29yaWdpbmFsBw==",
+          "title": "original"
+        },
+        {
+          "bytes": "G10xO2ljb24H",
+          "title": "original"
+        },
+        {
+          "bytes": "G1syMjsydA==",
+          "title": "original"
+        },
+        {
+          "bytes": "G10wO3JlcGxhY2VtZW50Bw==",
+          "title": "replacement"
+        },
+        {
+          "bytes": "G1syMzsydA==",
+          "title": "replacement"
+        }
+      ]
+    },
+    {
+      "name": "RIS retains the title and an empty server replay clears it",
+      "steps": [
+        {
+          "bytes": "G10yO3N0YWxlBw==",
+          "title": "stale"
+        },
+        {
+          "bytes": "G2M=",
+          "title": "stale"
+        },
+        {
+          "bytes": "G10yOwcbWzE7MUg=",
+          "title": ""
+        }
+      ]
+    },
+    {
+      "name": "Server replay restores a nonempty title",
+      "steps": [
+        {
+          "bytes": "G10wO3N0YWxlBw==",
+          "title": "stale"
+        },
+        {
+          "bytes": "G10yO2J1aWxkBxtbMTsxSA==",
+          "title": "build"
+        }
+      ]
+    }
+  ],
+  "codex": {
+    "fixtureSHA256": "520235437cab1c3c7d5ac0fe162caf59eaee9b78e78d0a856bfd93ce2a61a5f1",
+    "checkpoints": [
+      {
+        "eventIndex": 0,
+        "title": ""
+      },
+      {
+        "eventIndex": 19,
+        "title": "workspace"
+      },
+      {
+        "eventIndex": 39,
+        "title": "⠇ workspace"
+      },
+      {
+        "eventIndex": 42,
+        "title": "⠏ workspace"
+      },
+      {
+        "eventIndex": 46,
+        "title": "⠋ workspace"
+      },
+      {
+        "eventIndex": 50,
+        "title": "⠙ workspace"
+      },
+      {
+        "eventIndex": 54,
+        "title": "⠹ workspace"
+      },
+      {
+        "eventIndex": 58,
+        "title": "⠸ workspace"
+      },
+      {
+        "eventIndex": 62,
+        "title": "⠼ workspace"
+      },
+      {
+        "eventIndex": 67,
+        "title": "⠴ workspace"
+      },
+      {
+        "eventIndex": 71,
+        "title": "⠦ workspace"
+      },
+      {
+        "eventIndex": 75,
+        "title": "⠧ workspace"
+      },
+      {
+        "eventIndex": 79,
+        "title": "⠇ workspace"
+      },
+      {
+        "eventIndex": 83,
+        "title": "⠏ workspace"
+      },
+      {
+        "eventIndex": 87,
+        "title": "⠋ workspace"
+      },
+      {
+        "eventIndex": 91,
+        "title": "⠙ workspace"
+      },
+      {
+        "eventIndex": 96,
+        "title": "⠹ workspace"
+      },
+      {
+        "eventIndex": 99,
+        "title": "⠸ workspace"
+      },
+      {
+        "eventIndex": 103,
+        "title": "⠼ workspace"
+      },
+      {
+        "eventIndex": 107,
+        "title": "⠴ workspace"
+      },
+      {
+        "eventIndex": 110,
+        "title": "⠦ workspace"
+      },
+      {
+        "eventIndex": 115,
+        "title": "⠧ workspace"
+      },
+      {
+        "eventIndex": 119,
+        "title": "⠇ workspace"
+      },
+      {
+        "eventIndex": 124,
+        "title": "⠏ workspace"
+      },
+      {
+        "eventIndex": 129,
+        "title": "⠋ workspace"
+      },
+      {
+        "eventIndex": 133,
+        "title": "⠙ workspace"
+      },
+      {
+        "eventIndex": 137,
+        "title": "⠹ workspace"
+      },
+      {
+        "eventIndex": 141,
+        "title": "⠸ workspace"
+      },
+      {
+        "eventIndex": 145,
+        "title": "⠼ workspace"
+      },
+      {
+        "eventIndex": 153,
+        "title": "⠴ workspace"
+      },
+      {
+        "eventIndex": 154,
+        "title": "⠦ workspace"
+      },
+      {
+        "eventIndex": 158,
+        "title": "⠧ workspace"
+      },
+      {
+        "eventIndex": 159,
+        "title": "⠏ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 170,
+        "title": "⠋ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 171,
+        "title": "⠙ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 176,
+        "title": "⠸ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 182,
+        "title": "⠼ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 188,
+        "title": "⠴ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 189,
+        "title": "⠦ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 196,
+        "title": "⠧ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 204,
+        "title": "⠇ List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 207,
+        "title": "List 12 songbirds | workspace"
+      },
+      {
+        "eventIndex": 232,
+        "title": ""
+      },
+      {
+        "eventIndex": 236,
+        "title": ""
+      }
+    ]
+  }
+}

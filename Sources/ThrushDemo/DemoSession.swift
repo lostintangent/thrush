@@ -68,7 +68,7 @@ final class DemoSession: ObservableObject {
     private(set) var options: DemoOptions
     @Published private(set) var isActive = false
     @Published var theme: TerminalTheme?
-    @Published private(set) var connection: TerminalConnection?
+    @Published private(set) var shell: TerminalShell?
     private(set) var endpointError: String?
 
     var onThemeChange: ((TerminalTheme) -> Void)?
@@ -78,7 +78,6 @@ final class DemoSession: ObservableObject {
     private(set) var hasUsableShell = false
     var onReady: ((Bool) -> Void)?
     var onOutput: ((UInt64, CFTimeInterval) -> Void)?
-    var onExit: (() -> Void)?
     private var interaction: InteractionBenchmark?
     private var benchmarkTask: Task<Void, Never>?
     private var benchmarkStarted = false
@@ -91,7 +90,7 @@ final class DemoSession: ObservableObject {
             view.onThemeChange = { [weak self] in self?.onThemeChange?($0) }
             view.onGridSizeChange = { [weak self] _ in self?.scheduleRenderBenchmark() }
         } else {
-            prepareConnection()
+            prepareShell()
         }
     }
 
@@ -106,28 +105,29 @@ final class DemoSession: ObservableObject {
 
     func replay(_ scene: DemoOptions.Scene) {
         options.scene = scene
-        prepareConnection()
+        prepareShell()
     }
 
-    private func prepareConnection() {
+    private func prepareShell() {
+        hasUsableShell = false
         let id = options.runsWorkflowDriver ? PaneWorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
         do {
             endpointError = nil
             let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
-            let next = try TerminalConnection(baseURL: options.endpoint, clientID: id, frameTrace: trace)
-            connection = next
+            let next = try TerminalShell(baseURL: options.endpoint, clientID: id, frameTrace: trace)
+            shell = next
             if options.runsWorkflowDriver {
-                PaneWorkflowDriver.startIfRequested(view: view, connection: next, setActive: setActive,
+                PaneWorkflowDriver.startIfRequested(view: view, shell: next, setActive: setActive,
                                                     activateAction: view.activatePaneAction(named:))
             }
         } catch {
             endpointError = String(describing: error)
-            connection = nil
+            shell = nil
         }
     }
 
-    func pane(_ connection: TerminalConnection) -> TerminalPane {
-        var pane = TerminalPane(connection, isActive: isActive, theme: theme, onExit: { [weak self] in self?.onExit?() })
+    func pane(_ shell: TerminalShell) -> some View {
+        var pane = TerminalPane(shell, isActive: isActive, theme: theme)
         pane.preparedView = view
         pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
@@ -136,12 +136,12 @@ final class DemoSession: ObservableObject {
             if options.scene == .glyphs {
                 view.selection = .init(anchorRow: 1, anchorColumn: 2, headRow: 1, headColumn: 2)
             }
-            if !resumed { markShellUsable() }
+            if !resumed { markShellUsable(shell) }
             onReady?(resumed)
         }
         pane.onOutput = { [weak self] generation, receivedAt in
             guard let self else { return }
-            markShellUsable()
+            markShellUsable(shell)
             interaction?.received(generation: generation, at: receivedAt)
             onOutput?(generation, receivedAt)
             let first = onFirstOutput
@@ -154,11 +154,13 @@ final class DemoSession: ObservableObject {
                 Task { @MainActor in self?.interaction?.writeStarted(at: time) }
             }
         }
-        return pane
+        return pane.onChange(of: shell.hasExited) {
+            if self.shell === shell, shell.hasExited { self.hasUsableShell = false }
+        }
     }
 
-    private func markShellUsable() {
-        guard !hasUsableShell else { return }
+    private func markShellUsable(_ shell: TerminalShell) {
+        guard self.shell === shell, !shell.hasExited, !hasUsableShell else { return }
         hasUsableShell = true
         onFirstUsable?()
         onFirstUsable = nil

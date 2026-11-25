@@ -36,6 +36,14 @@ struct EscapeParser: Sendable {
     private var oscIdentifier = -1
     private var pending: Pending?
     var isGround: Bool { state == State.ground.rawValue }
+    // Printable ASCII is inert in these payloads. Controls still use the transition table.
+    var discardsASCII: Bool {
+        switch state {
+        case State.discardedOSC.rawValue, State.discardedDCS.rawValue, State.ignoredString.rawValue, State.invalidOSC.rawValue: true
+        default: false
+        }
+    }
+
 
     /// A scalar can finish an empty OSC or interrupt a string and execute a C1
     /// control. Drain the second notification after an OSC start or string end.

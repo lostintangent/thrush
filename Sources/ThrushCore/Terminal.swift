@@ -51,6 +51,8 @@ public struct Terminal: Sendable {
     package private(set) var modes = Modes()
     private var scanner = TextScanner()
     private var parser = EscapeParser()
+    /// The completed window title. An empty title asks the host to use its default.
+    package private(set) var title = ""
     private var stringHandler = TerminalStringHandler()
     private var screen: Screen
     private var style = Style()
@@ -87,6 +89,10 @@ public struct Terminal: Sendable {
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
                 hasCombiningBase = true
                 generation &+= 1
+            } else if byte >= 0x20, byte < 0x7f, scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
+                let start = index
+                index = TextScanner.endOfASCII(in: bytes, from: start)
+                if stringHandler.isReadingTitle { stringHandler.appendTitleASCII(bytes.extracting(start..<index)) }
             } else {
                 consume(byte, replies: &replies)
                 index += 1
@@ -188,6 +194,9 @@ public struct Terminal: Sendable {
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
             screen.move(toRow: 0, column: 0)
+        case .command(.setIconAndWindowTitle), .command(.setWindowTitle):
+            stringHandler.start(.windowTitle)
+            return
         case .command(.indexedColor):
             stringHandler.start(.indexedColor)
             return
@@ -205,7 +214,11 @@ public struct Terminal: Sendable {
             stringHandler.put(scalar)
             return
         case .stringEnd(let success):
-            palette.appendReplies(to: &replies, for: stringHandler.finish(success: success))
+            switch stringHandler.finish(success: success) {
+            case .title(let value): title = value
+            case .colorQueries(let queries): palette.appendReplies(to: &replies, for: queries)
+            case nil: break
+            }
             return
         }
         generation &+= 1

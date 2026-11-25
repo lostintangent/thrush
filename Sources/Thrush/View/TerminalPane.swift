@@ -2,48 +2,44 @@ import QuartzCore
 import SwiftUI
 import ThrushCore
 
-/// A SwiftUI terminal that attaches its connection while the pane is shown.
-/// Keep the connection in a model that outlives the pane's SwiftUI updates.
+/// A SwiftUI terminal that attaches its shell while the pane is shown.
+/// Keep the shell in a model that outlives the pane's SwiftUI updates.
 @MainActor public struct TerminalPane: View {
-    /// The host-owned connection for this shell.
-    package let connection: TerminalConnection
+    private let shell: TerminalShell
+    private var connection: TerminalConnection { shell.connection }
     /// Whether the host is showing the pane. Set this to false when hiding a retained tab.
     package var isActive: Bool
     /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
     package var theme: TerminalTheme?
     /// The font size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
     package var fontSize: CGFloat?
-    /// Called after the pane presents the shell's final output on exit or explicit close.
-    package var onExit: (() -> Void)?
     #if os(iOS)
     /// The controls above the iPhone software keyboard. Defaults to the standard terminal keys.
     package var keyboardAccessory: TerminalKeyboardAccessory = .standard
     #endif
 
-    /// Creates a pane for a connection, using the system appearance unless a theme is supplied.
+    /// Creates a pane for a shell, using the system appearance unless a theme is supplied.
     /// The pane manages attachment and, on iPhone, supplies the standard terminal keys.
     ///
     /// - Parameters:
-    ///   - connection: The host's connection for this shell.
+    ///   - shell: The shell whose output and input the pane presents.
     ///   - isActive: Pass `false` while hiding a tab that remains in the view hierarchy.
     ///   - theme: A theme override. The default follows the system appearance.
     ///   - fontSize: A size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
-    ///   - onExit: Called after the pane presents the shell's final output.
-    public init(_ connection: TerminalConnection, isActive: Bool = true, theme: TerminalTheme? = nil,
-                fontSize: CGFloat? = nil, onExit: (() -> Void)? = nil) {
-        self.connection = connection
+    public init(_ shell: TerminalShell, isActive: Bool = true, theme: TerminalTheme? = nil,
+                fontSize: CGFloat? = nil) {
+        self.shell = shell
         self.isActive = isActive
         self.theme = theme
         self.fontSize = fontSize
-        self.onExit = onExit
     }
 
     #if os(iOS)
     /// Creates a pane with the specified iPhone keyboard accessory.
     /// Pass `.none` to hide the key row or `.custom(_:)` to supply a native view.
-    public init(_ connection: TerminalConnection, isActive: Bool = true, theme: TerminalTheme? = nil,
-                fontSize: CGFloat? = nil, keyboardAccessory: TerminalKeyboardAccessory, onExit: (() -> Void)? = nil) {
-        self.init(connection, isActive: isActive, theme: theme, fontSize: fontSize, onExit: onExit)
+    public init(_ shell: TerminalShell, isActive: Bool = true, theme: TerminalTheme? = nil,
+                fontSize: CGFloat? = nil, keyboardAccessory: TerminalKeyboardAccessory) {
+        self.init(shell, isActive: isActive, theme: theme, fontSize: fontSize)
         self.keyboardAccessory = keyboardAccessory
     }
     #endif
@@ -374,7 +370,6 @@ import ThrushCore
             deliveredExit = true
             hasTranscript = true
             blockInput(.exited, notice: natural ? .exited : .closed)
-            pane?.onExit?()
         }
 
         private func becomeLive() {

@@ -425,12 +425,6 @@
       },
       {
         "checkpoint": "end",
-        "path": "title",
-        "reference": "\"±\"",
-        "thrush": "\"\""
-      },
-      {
-        "checkpoint": "end",
         "path": "active.visible[0][6]",
         "reference": "\"\\u{200D}\" width 0",
         "thrush": "blank"

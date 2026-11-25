@@ -2,13 +2,13 @@ import Thrush
 
 @MainActor
 struct ShellTab {
-    let terminal: TerminalConnection
+    let shell: TerminalShell
 
     init(clientID: String, api: ServerAPI) {
-        terminal = TerminalConnection(clientID: clientID) { id, size in
+        shell = TerminalShell(clientID: clientID) { id, size in
             api.terminalSocket(clientID: id, size: size)
         }
     }
 
-    var pane: TerminalPane { TerminalPane(terminal) }
+    var pane: TerminalPane { TerminalPane(shell) }
 }

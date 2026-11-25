@@ -22,19 +22,39 @@ struct ServerAPI: Sendable {
 
 @main
 struct AppConsumer: App {
-    private let tab = ShellTab(clientID: UUID().uuidString, api: ServerAPI(session: .shared))
-    #if os(iOS)
-    private let interruptButton = InterruptButton()
-    #endif
-
     var body: some Scene {
-        WindowGroup {
-            #if os(iOS)
-            TerminalPane(tab.terminal, theme: .slateDark, keyboardAccessory: .custom(interruptButton))
-            #else
-            tab.pane
-            #endif
+        WindowGroup { ShellWindow() }
+    }
+}
+
+@MainActor private final class WindowModel: ObservableObject {
+    let tab = ShellTab(clientID: UUID().uuidString, api: ServerAPI(session: .shared))
+    #if os(iOS)
+    let interruptButton = InterruptButton()
+    #endif
+}
+
+private struct ShellWindow: View {
+    @StateObject private var model = WindowModel()
+
+    var body: some View {
+        NavigationStack {
+            pane.navigationTitle(title)
         }
+    }
+
+    private var title: String {
+        let shell = model.tab.shell
+        let name = shell.title.isEmpty ? "Terminal" : shell.title
+        return shell.hasExited ? "\(name) (Ended)" : name
+    }
+
+    @ViewBuilder private var pane: some View {
+        #if os(iOS)
+        TerminalPane(model.tab.shell, theme: .slateDark, keyboardAccessory: .custom(model.interruptButton))
+        #else
+        model.tab.pane
+        #endif
     }
 }
 

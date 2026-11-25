@@ -63,6 +63,10 @@ enum TerminalControlFunction {
     }
 
     enum OSC: Int {
+        /// OSC 0 sets the icon name and window title. A shell presents only its title.
+        case setIconAndWindowTitle = 0
+        /// OSC 2 sets the window title.
+        case setWindowTitle = 2
         /// OSC 4, indexed colors.
         case indexedColor = 4
         /// OSC 10, default foreground.

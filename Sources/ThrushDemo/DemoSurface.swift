@@ -6,15 +6,15 @@ struct DemoSurface: View {
     @ObservedObject var session: DemoSession
 
     @ViewBuilder var body: some View {
-        if let connection = session.connection {
+        if let shell = session.shell {
             #if os(iOS)
             if session.options.checksToolbar {
-                PhoneToolbarProof(connection: connection)
+                PhoneToolbarProof(shell: shell)
             } else {
-                session.pane(connection)
+                session.pane(shell)
             }
             #else
-            session.pane(connection)
+            session.pane(shell)
             #endif
         } else if session.options.benchmarkURL != nil {
             RendererSurface(view: session.view)
