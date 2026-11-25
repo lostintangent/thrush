@@ -5,7 +5,7 @@ import type { ServerWebSocket } from "bun";
 import fixture from "../Fixtures/first-bytes.json";
 
 type Session = {
-    closeOnly: boolean;
+    minimumGrid: boolean;
     received: number;
     complete: boolean;
 };
@@ -50,16 +50,16 @@ const server = Bun.serve({
             const items = url.searchParams;
             assert.deepEqual([...items.keys()].sort(), ["clientId", "cols", "rows", "service"]);
             assert.equal(items.get("service"), "terminal");
-            assert.equal(items.get("cols"), String(fixture.columns));
-            assert.equal(items.get("rows"), String(fixture.rows));
+            const minimumGrid = !standalone && attachmentCount === 1;
+            assert.equal(items.get("cols"), String(minimumGrid ? 2 : fixture.columns));
+            assert.equal(items.get("rows"), String(minimumGrid ? 2 : fixture.rows));
             assert(items.get("clientId"));
             if (!standalone) {
                 assert.equal(items.get("clientId"), "thrush + check");
                 assert(attachmentCount < 2, "Unexpected extra attachment");
                 if (attachmentCount === 1) assert.equal(fixturesAccepted, 1);
             }
-            const closeOnly = !standalone && attachmentCount === 1;
-            if (!server.upgrade(request, { data: { closeOnly, received: 0, complete: false } })) {
+            if (!server.upgrade(request, { data: { minimumGrid, received: 0, complete: false } })) {
                 throw new Error("Expected a WebSocket upgrade");
             }
             attachmentCount++;
@@ -72,15 +72,23 @@ const server = Bun.serve({
         data: {} as Session,
         open(socket) {
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
-            if (!socket.data.closeOnly) void replay(socket).catch(fail);
+            if (socket.data.minimumGrid) socket.sendBinary(new TextEncoder().encode("AB"));
+            else void replay(socket).catch(fail);
         },
         message(socket, message) {
             try {
                 const state = socket.data;
                 assert(!state.complete, "Unexpected frame after session completion");
-                if (state.closeOnly) {
-                    assert.equal(typeof message, "string", "Expected text close control");
-                    assert.deepEqual(JSON.parse(message as string), { type: "close" });
+                if (state.minimumGrid) {
+                    assert.equal(typeof message, "string", "Expected a resize or close control");
+                    const control = JSON.parse(message as string);
+                    const controls = [{ type: "resize", cols: 5, rows: 3 }, { type: "resize", cols: 2, rows: 2 }];
+                    if (state.received < controls.length) {
+                        assert.deepEqual(control, controls[state.received++]);
+                        if (state.received === controls.length) socket.sendBinary(new TextEncoder().encode("\x1b[HXYZ"));
+                        return;
+                    }
+                    assert.deepEqual(control, { type: "close" });
                     state.complete = true;
                     closesAccepted++;
                     socket.close(1000);
@@ -120,7 +128,7 @@ if (standalone) {
         assert.equal(fixturesAccepted, 1);
         assert.equal(closesAccepted, 1);
         console.log("Loopback passed: " + fixture.events.length + " output chunks, " + expectedInput.length
-            + " ordered binary writes, fresh ready, resize, exit, reattach and explicit close.");
+            + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, deduplicated resize and explicit close.");
     } finally {
         clearTimeout(timeout);
         client.kill();

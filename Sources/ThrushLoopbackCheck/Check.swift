@@ -39,11 +39,19 @@ struct LoopbackCheck {
               let final = fixture.events.last, await connection.text(inRow: final.row) == final.text
         else { throw CheckFailure("Expected the last output to remain readable at exit") }
 
-        // A fresh shell at the same client ID tests explicit close independently of shell exit.
-        let next = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size)
-        guard try await next.nextEvent() == .ready(resumed: false),
-              await next.text(inRow: 0).isEmpty
-        else { throw CheckFailure("Expected a clean attachment after exit") }
+        // A width-one request must use xterm's effective width in the attach URL and every resize.
+        let minimum = Terminal.Size(columns: 1, rows: 2)
+        let next = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: minimum)
+        guard try await next.nextEvent() == .ready(resumed: false), await next.text(inRow: 0).isEmpty,
+              try await next.nextEvent() == .output, await next.text(inRow: 0) == "AB",
+              await next.text(inRow: 1).isEmpty
+        else { throw CheckFailure("Expected AB on row zero of the fresh two-column grid") }
+        try await next.sendResize(to: .init(columns: 5, rows: 3))
+        try await next.sendResize(to: minimum)
+        try await next.sendResize(to: .init(columns: 2, rows: 2))
+        guard try await next.nextEvent() == .output, await next.text(inRow: 0) == "XY",
+              await next.text(inRow: 1) == "Z"
+        else { throw CheckFailure("The peer and the resized terminal must share a two-column grid") }
         try await next.closeShell()
     }
 }

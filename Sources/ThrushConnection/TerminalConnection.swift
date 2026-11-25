@@ -76,7 +76,7 @@ package actor TerminalConnection {
             switch message {
             case .data(let data):
                 guard phase == .active || phase == .closing else { throw ConnectionError.unexpectedMessage }
-                let reply = terminal.receive(data)
+                let reply = data.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
                 if !reply.isEmpty && phase == .active { try await write(.data(Data(reply))) }
                 return .output
             case .string(let json):
@@ -109,9 +109,11 @@ package actor TerminalConnection {
         if !bytes.isEmpty { try await write(.data(Data(bytes))) }
     }
 
-    /// Sends the protocol's resize control. Applying grid reflow belongs to the core resize milestone.
+    /// Apply and send each change once, using the same effective grid dimensions on both sides.
     package func sendResize(to size: Terminal.Size) async throws {
         guard phase == .active else { throw ConnectionError.inactiveAttachment }
+        guard size != terminal.size else { return }
+        terminal.resize(to: size)
         try await writeControl(ClientControl(type: .resize, cols: size.columns, rows: size.rows))
     }
 
