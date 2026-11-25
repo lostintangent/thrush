@@ -31,7 +31,8 @@ import ThrushUI
                         return CGRect(x: rect.minX, y: window.frame.height - rect.maxY, width: rect.width, height: rect.height)
                     }
                     let state = State(pid: ProcessInfo.processInfo.processIdentifier, windowID: window.windowNumber,
-                                      scene: session.options.scene.rawValue, appearance: session.options.appearance.rawValue,
+                                      scene: session.options.scene.rawValue,
+                                      appearance: session.view.resolvedTheme == .slateDark ? "dark" : "light",
                                       keyWindow: window.isKeyWindow, activeApp: NSApp.isActive,
                                       visible: window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible),
                                       hasTranscript: session.view.snapshot?.rows.contains { $0.text == "Test run passed." } ?? false,

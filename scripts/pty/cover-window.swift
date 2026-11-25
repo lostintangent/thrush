@@ -9,13 +9,15 @@ enum CoverWindow {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
         let rect = NSRect(x: coordinates[0], y: coordinates[1], width: coordinates[2], height: coordinates[3])
-        let window = NSWindow(contentRect: rect.insetBy(dx: -12, dy: -12), styleMask: .borderless,
+        let capturesFocus = CommandLine.arguments.contains("--capture-geometry")
+        let window = NSWindow(contentRect: rect.insetBy(dx: -12, dy: -12),
+                              styleMask: capturesFocus ? .titled : .borderless,
                               backing: .buffered, defer: false)
         window.title = "Thrush lifecycle test"
         window.backgroundColor = .windowBackgroundColor
         window.isOpaque = true
         window.level = .floating
-        window.orderFrontRegardless()
+        if capturesFocus { window.makeKeyAndOrderFront(nil) } else { window.orderFrontRegardless() }
         app.activate()
         if let index = CommandLine.arguments.firstIndex(of: "--capture-geometry"),
            index + 1 < CommandLine.arguments.count {

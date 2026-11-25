@@ -71,23 +71,33 @@ def helper_rect(state):
     raise ValueError("No free desktop corner for the inactive-window focus helper.")
 
 
-def capture(out, label, path, process, title, focus_pid, helper=None):
+def capture(out, label, path, process, title, appearance, focus_pid, helper=None):
     active = helper is None
 
     def settled():
         state = read_state(path, process)
-        if (state.get("visible") and state["keyWindow"] == active and state["activeApp"] == active
+        if (state.get("visible") and state["appearance"] == appearance and state["keyWindow"] == active and state["activeApp"] == active
                 and state.get("frontmostPID") == focus_pid and (state.get("notice") or {}).get("title") == title
                 and state.get("spinnerFrame") and not state["reduceMotion"]):
             return state
         return None
 
-    before = wait(label, settled)
-    time.sleep(.6)
+    wait(label, settled)
     image = out / (label + ".png")
-    subprocess.run([SCRIPTS / "capture-demo.sh", "mac", str(process.pid), image], check=True, timeout=60)
-    if settled() != before:
-        raise RuntimeError(f"{label} changed focus, geometry or notice while the window was captured.")
+    # The Dock can change the screen's available desktop area when focus moves to a
+    # helper. Only the target window's actual content, geometry and activation matter.
+    fields = ("pid", "windowID", "scene", "appearance", "keyWindow", "activeApp", "visible",
+              "hasTranscript", "reduceMotion", "frontmostPID", "windowFrame", "scale", "notice", "spinnerFrame")
+    for attempt in (1, 2):
+        time.sleep(.6)
+        before = wait(label, settled)
+        subprocess.run([SCRIPTS / "capture-demo.sh", "mac", str(process.pid), image], check=True, timeout=60)
+        after = read_state(path, process)
+        if all(before.get(key) == after.get(key) for key in fields):
+            break
+        save(out / f"{label}-transition-{attempt}.json", dict(before=before, after=after))
+        if attempt == 2:
+            raise RuntimeError(f"{label} changed focus, geometry or notice during both capture attempts.")
     with image.open("rb") as png:
         header = png.read(24)
     if header[:8] != b"\x89PNG\r\n\x1a\n":
@@ -180,7 +190,7 @@ def main():
                                     raise RuntimeError("The mock shell did not enter the requested outage.")
                         title = scene.capitalize()
                         active = name + "-active"
-                        samples[active] = capture(out, active, path, process, title, process.pid)
+                        samples[active] = capture(out, active, path, process, title, appearance, process.pid)
                         rect = helper_rect(read_state(path, process))
                         geometry = work / (name + "-helper.json")
                         helper_args = [*map(str, rect), "--capture-geometry", str(geometry)]
@@ -191,9 +201,8 @@ def main():
                             (tx, ty), (tw, th) = read_state(path, process)["windowFrame"]
                             if hx < tx + tw and tx < hx + hw and hy < ty + th and ty < hy + hh:
                                 raise ValueError("The inactive terminal would be obscured by the focus helper.")
-                            subprocess.run(["open", "-a", focus], check=True)
                             inactive = name + "-inactive"
-                            samples[inactive] = capture(out, inactive, path, process, title, helper.pid, actual)
+                            samples[inactive] = capture(out, inactive, path, process, title, appearance, helper.pid, actual)
                 except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
                     errors[name] = str(error)
     results = {}
