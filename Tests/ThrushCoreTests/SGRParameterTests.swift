@@ -37,6 +37,23 @@ import ThrushCore
     #expect(row[3].style.bold)
 }
 
+@Test func sgrColorComponentsSaturateAtEverySplit() {
+    // Both decimal readers stop at Int32.max, whose low byte is 255. Twenty digits would
+    // overflow an Int without the clamp at every digit, and 2^32 would wrap to zero.
+    let bytes = Array("\u{1b}[38;5;99999999999999999999;48:2::1:4294967296:2147483647mA".utf8)
+    var expected = Terminal.Style()
+    expected.foreground = .indexed(255)
+    expected.background = .rgb(1, 255, 255)
+
+    for split in 0...bytes.count {
+        var terminal = Terminal(size: .init(columns: 8, rows: 2))
+        _ = terminal.receive(bytes[..<split])
+        let remaining = sequence(state: bytes[split...].makeIterator()) { $0.next() }
+        _ = terminal.receive(remaining)
+        #expect(terminal.snapshot().rows[0][0].style == expected, "SGR split at byte \(split)")
+    }
+}
+
 @Test func sgrOperandLimitsAndCancellationMatchAtEverySplit() {
     let csi = "\u{1b}["
     let text = csi + "1;4;38:2::9:8:7;48;5;42mA" + csi + "0;31;7\u{18}B"

@@ -61,14 +61,15 @@ struct ControlParameters: Sendable {
             totalSubparameters += 1
             destination = .subparameter
         default:
-            let digit = Int(byte - 0x30)
+            // A stored field fits in Int32, so the next digit can't overflow an Int before clamping.
+            let digit = Int(byte &- 0x30)
             switch destination {
             case .main:
                 let index = count - 1
-                main[index] = Int32(clamping: Int(main[index]) * 10 + digit)
+                main[index] = Int32(clamping: Int(main[index]) &* 10 &+ digit)
             case .subparameter:
                 let index = totalSubparameters - 1
-                subparameters[index] = Int32(clamping: max(0, Int(subparameters[index])) * 10 + digit)
+                subparameters[index] = Int32(clamping: max(0, Int(subparameters[index])) &* 10 &+ digit)
             case .discardSubparameters, .discardRemainder:
                 break
             }

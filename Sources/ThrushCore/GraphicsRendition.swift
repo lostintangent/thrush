@@ -74,7 +74,8 @@ extension Terminal.Style {
         guard index < bytes.count, bytes[index] <= UInt8(ascii: "9") else { return nil }
         var value = 0
         repeat {
-            value = min(Int(Int32.max), value * 10 + Int(bytes[index] - UInt8(ascii: "0")))
+            // Clamping at every digit keeps the value far from overflow.
+            value = min(Int(Int32.max), value &* 10 &+ Int(bytes[index] &- UInt8(ascii: "0")))
             index += 1
         } while index < bytes.count && bytes[index] <= UInt8(ascii: "9")
         return value
