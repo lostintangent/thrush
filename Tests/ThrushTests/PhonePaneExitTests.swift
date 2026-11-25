@@ -122,4 +122,30 @@ import UIKit
     try checkRestoredAction().sendActions(for: .touchUpInside)
     #expect(activations == [.displaced, .exited, .exited])
 }
+
+@MainActor @Test func paneActionFollowsThePaneTextSizeWhenItMountsFirst() async throws {
+    let pane = TerminalPaneContainer(terminal: TerminalView(frame: .zero))
+    let controller = UIViewController()
+    controller.view = pane
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+    window.rootViewController = controller
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+    // A host can give the pane a text size other than the app's, such as by limiting Dynamic Type.
+    let size: UIContentSizeCategory = window.traitCollection.preferredContentSizeCategory == .accessibilityLarge
+        ? .extraExtraLarge : .accessibilityLarge
+    pane.traitOverrides.preferredContentSizeCategory = size
+    pane.show(.exited)
+    window.layoutIfNeeded()
+    try await Task.sleep(for: .milliseconds(200))
+    window.layoutIfNeeded()
+
+    func button(in view: UIView) -> UIButton? {
+        view as? UIButton ?? view.subviews.lazy.compactMap(button(in:)).first
+    }
+    let action = try #require(pane.mountedNoticeView.flatMap(button(in:)))
+    let expected = UIFontMetrics(forTextStyle: .subheadline).scaledFont(
+        for: .systemFont(ofSize: 15, weight: .semibold), compatibleWith: UITraitCollection(preferredContentSizeCategory: size))
+    #expect(action.titleLabel?.font.pointSize == expected.pointSize)
+}
 #endif

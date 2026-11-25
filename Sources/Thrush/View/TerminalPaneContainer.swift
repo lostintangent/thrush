@@ -209,7 +209,8 @@ extension PaneActionButton: UIViewRepresentable {
         context.coordinator.action = activate
         var style = UIButton.Configuration.filled()
         style.title = caption
-        let traits = button.traitCollection
+        // A new button can still report the app's text size here, so follow the size the notice lays out at.
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
         style.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var result = attributes
             result.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 15, weight: .semibold),
