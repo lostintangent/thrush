@@ -113,9 +113,33 @@ extension TerminalSession {
 
     func statusAfterError() async -> Update? { await actor.statusAfterError() }
 
-    /// The pane can wait for a quiet shell without keeping the app's session alive.
-    var readUpdate: @Sendable () async throws -> Update {
-        { [actor] in try await actor.nextUpdate() }
+
+}
+
+extension SessionActor {
+    /// Ordinary output can run ahead of the view. A replay, lifecycle change or DEC synchronized
+    /// output must reach the view in order before another socket message is consumed.
+    func readUpdates(into output: OutputMailbox, notify: @escaping @MainActor @Sendable () -> Void,
+                     deliver: @MainActor @Sendable (TerminalSession.Update) async -> Bool) async throws {
+        var synchronized = terminal.modes.synchronizedOutput
+        while !Task.isCancelled {
+            let update = try await nextUpdate()
+            try Task.checkCancellation()
+            switch update {
+            case .output(let screen, let receipt):
+                let wasSynchronized = synchronized
+                synchronized = screen.synchronizedOutputID != nil
+                if !wasSynchronized, !synchronized {
+                    if output.offer(screen, receivedAt: receipt) { Task { @MainActor in notify() } }
+                    continue
+                }
+            case .fresh(let screen), .replacedShell(let screen, _), .screen(let screen), .replay(let screen, _):
+                synchronized = screen.synchronizedOutputID != nil
+            default:
+                break
+            }
+            guard await deliver(update) else { return }
+        }
     }
 }
 
