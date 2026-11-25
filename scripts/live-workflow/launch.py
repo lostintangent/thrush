@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.request import urlopen
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
@@ -237,12 +238,27 @@ def run_workflow(name, upstream, work, modules, env, app_executable, output, app
                                       driver, output, "simulator" if device else "mac", device or str(host.pid),
                                       verify_fixture=False)
                     verify_controller(name, output, driver)
+                except Exception:
+                    # The controller can still be waiting for the native acknowledgement that failed.
+                    try:
+                        with urlopen(control + "/observations?clientId=thrush-native-workflow", timeout=5) as response:
+                            observations = json.load(response)
+                        (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
+                    except (OSError, ValueError) as error:
+                        print(f"Could not retain controller observations: {error}", file=sys.stderr)
+                    raise
                 finally:
                     if device and host.poll() is None:
                         # simctl --console is the console reader. Explicitly release our app
                         # before the next workflow uses this reserved device.
-                        subprocess.run(["xcrun", "simctl", "terminate", device, pane.BUNDLE_ID],
-                                       timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        already_failed = sys.exc_info()[0] is not None
+                        try:
+                            subprocess.run(["xcrun", "simctl", "terminate", device, pane.BUNDLE_ID],
+                                           timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        except subprocess.TimeoutExpired as error:
+                            if not already_failed:
+                                raise
+                            print(f"Simulator termination: {error}", file=sys.stderr)
         finally:
             if device:
                 shutil.copytree(driver, output, dirs_exist_ok=True)
