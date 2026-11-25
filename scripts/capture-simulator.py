@@ -403,6 +403,37 @@ class Phone:
         if failures:
             raise RuntimeError("iPhone checks failed: " + ", ".join(failures))
 
+    def capture_named(self, scene, options, oracle):
+        keyboard = options.keyboard
+        if scene in NOTICE_SCENES and keyboard == "any":
+            keyboard = "visible" if scene == "notice-reconnecting" else "hidden"
+        pid = self.launch(scene, options.appearance, options.orientation, keyboard)
+        if scene == "notice-reconnecting":
+            self.interrupt_after_focus(pid, keyboard)
+        self.frame(scene, options.appearance, options.orientation, keyboard, pid, oracle, layout_only=options.layout_only)
+
+    def capture_notices(self, options, oracle):
+        failures = {}
+        warmed_keyboard = False
+        # Four scenes use a closed keyboard. Collect them even when the system keyboard
+        # or one of the other app launches takes longer than the hosted simulator allows.
+        order = [scene for scene in NOTICE_SCENES if scene != "notice-reconnecting"] + ["notice-reconnecting"]
+        for scene in order:
+            try:
+                needs_keyboard = (options.keyboard == "visible" or
+                                  (options.keyboard == "any" and scene == "notice-reconnecting"))
+                if needs_keyboard and not warmed_keyboard and not options.layout_only:
+                    self.warm_keyboard(options.appearance)
+                    warmed_keyboard = True
+                self.capture_named(scene, options, oracle)
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+                failures[scene] = str(error)
+                save_json(self.out / (scene + "-last-state.json"), self.state())
+                save_json(self.out / "failures.json", failures)
+                print(f"{scene}: {error}", file=sys.stderr, flush=True)
+        if failures:
+            raise RuntimeError("iPhone notices failed: " + ", ".join(failures))
+
     def capture_scene(self, scene, appearance, orientation):
         pid = self.launch(scene, appearance, orientation, "visible")
         self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
@@ -481,22 +512,16 @@ def main():
             phone = Phone(device, endpoint, app, out, Path(work))
             opens_keyboard = (not args.scene or args.keyboard == "visible" or
                               (args.scene in {"notices", "notice-reconnecting", "notice-reconnect-motion"} and args.keyboard == "any"))
-            if not args.layout_only and args.scene != "render-benchmark" and opens_keyboard:
+            if not args.layout_only and args.scene not in {"render-benchmark", "notices"} and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")
             if args.scene == "render-benchmark":
                 phone.benchmark()
             elif args.scene == "notice-reconnect-motion":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
+            elif args.scene == "notices":
+                phone.capture_notices(args, oracle)
             elif args.scene:
-                scenes = NOTICE_SCENES if args.scene == "notices" else [args.scene]
-                for scene in scenes:
-                    keyboard = args.keyboard
-                    if scene in NOTICE_SCENES and keyboard == "any":
-                        keyboard = "visible" if scene == "notice-reconnecting" else "hidden"
-                    pid = phone.launch(scene, args.appearance, args.orientation, keyboard)
-                    if scene == "notice-reconnecting":
-                        phone.interrupt_after_focus(pid, keyboard)
-                    phone.frame(scene, args.appearance, args.orientation, keyboard, pid, oracle, layout_only=args.layout_only)
+                phone.capture_named(args.scene, args, oracle)
             else:
                 phone.suite()
         except Exception:
