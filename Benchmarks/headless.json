@@ -6,8 +6,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 8541,
-        "p95Nanoseconds" : 10709
+        "p50Nanoseconds" : 3000,
+        "p95Nanoseconds" : 5834
       },
       "grid" : {
         "columns" : 80,
@@ -15,7 +15,7 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 445.2648153965714,
+      "receiveMiBPerSecond" : 1188.132134038134,
       "receivedBytes" : 5243200
     },
     {
@@ -23,8 +23,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 9917,
-        "p95Nanoseconds" : 10417
+        "p50Nanoseconds" : 5083,
+        "p95Nanoseconds" : 5542
       },
       "grid" : {
         "columns" : 40,
@@ -32,7 +32,7 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 388.2521130326455,
+      "receiveMiBPerSecond" : 720.0655588003129,
       "receivedBytes" : 5243200
     },
     {
@@ -40,8 +40,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 8541,
-        "p95Nanoseconds" : 10667
+        "p50Nanoseconds" : 2917,
+        "p95Nanoseconds" : 5709
       },
       "grid" : {
         "columns" : 80,
@@ -49,44 +49,44 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 446.50884219119325,
+      "receiveMiBPerSecond" : 1232.5947113035718,
       "receivedBytes" : 5243200
     }
   ],
   "environment" : {
-    "commit" : "75860e3c02a62c2e8f44fb0d65171c1f4f7b6cf3",
+    "commit" : "c528777f5f666abeb100d2227c0f294179b4747f",
     "contended" : true,
     "coreCount" : 10,
     "displayInterval" : "headless",
     "hardwareModel" : "MacBookPro18,4",
     "loadAverage" : {
-      "fifteenMinutes" : 343.630859375,
-      "fiveMinutes" : 326.2412109375,
-      "oneMinute" : 208.40673828125
+      "fifteenMinutes" : 35.3837890625,
+      "fiveMinutes" : 30.02880859375,
+      "oneMinute" : 15.24560546875
     },
     "lowPowerMode" : false,
     "operatingSystem" : "Version 27.2.1 (Build 26B131)",
     "powerSource" : "AC Power",
     "processor" : "Apple M1 Max",
     "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
-    "thermalState" : "nominal",
+    "thermalState" : "fair",
     "worktreeDirty" : false
   },
-  "recordedAt" : "2026-11-25T17:58:39Z",
+  "recordedAt" : "2026-11-25T21:29:39Z",
   "recordings" : [
     {
       "appliedBytes" : 2604175,
       "burstDrain" : {
-        "p50Nanoseconds" : 2549375,
-        "p95Nanoseconds" : 2799042
+        "p50Nanoseconds" : 2775125,
+        "p95Nanoseconds" : 3025792
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 6959,
-        "p95Nanoseconds" : 7500
+        "p50Nanoseconds" : 7250,
+        "p95Nanoseconds" : 7792
       },
       "encodedInputBytes" : 1600,
       "fixturePeakBytesInOneSecond" : 58076,
-      "fixturePeakMultiple" : 2576.5049549933788,
+      "fixturePeakMultiple" : 2528.0267929565316,
       "fixtureSHA256" : "4d85512cc865904ba436e56c5589270b33e64b153635d5473f13bd9df8b286ad",
       "initialGrid" : {
         "columns" : 80,
@@ -98,39 +98,39 @@
           "name" : "Build numbered log",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 18,
           "name" : "Refill landscape history",
           "timing" : {
-            "p50Nanoseconds" : 125,
-            "p95Nanoseconds" : 500
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 709
           }
         },
         {
           "bytesPerCall" : 18,
           "name" : "Refill history before Vim",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 125
+            "p50Nanoseconds" : 125,
+            "p95Nanoseconds" : 208
           }
         },
         {
           "bytesPerCall" : 16,
           "name" : "Open scratch file",
           "timing" : {
-            "p50Nanoseconds" : 125,
-            "p95Nanoseconds" : 291
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 333
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "Save and quit Vim",
           "timing" : {
-            "p50Nanoseconds" : 125,
-            "p95Nanoseconds" : 500
+            "p50Nanoseconds" : 209,
+            "p95Nanoseconds" : 583
           }
         }
       ],
@@ -143,7 +143,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 142.7012460386233,
+      "receiveMiBPerSecond" : 140.0162544515071,
+      "receiveReplaysPerSample" : 1,
+      "receiveSamples" : 25,
       "receivedBytes" : 2604175,
       "referenceCheckpointsPerReplay" : 14,
       "replyBytes" : 2050,
@@ -165,8 +167,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 607209,
-            "p95Nanoseconds" : 795667
+            "p50Nanoseconds" : 679209,
+            "p95Nanoseconds" : 716542
           },
           "to" : {
             "columns" : 40,
@@ -187,8 +189,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 276000,
-            "p95Nanoseconds" : 284792
+            "p50Nanoseconds" : 282083,
+            "p95Nanoseconds" : 285958
           },
           "to" : {
             "columns" : 80,
@@ -209,8 +211,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 29875,
-            "p95Nanoseconds" : 32542
+            "p50Nanoseconds" : 59375,
+            "p95Nanoseconds" : 61458
           },
           "to" : {
             "columns" : 80,
@@ -231,8 +233,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 611250,
-            "p95Nanoseconds" : 787167
+            "p50Nanoseconds" : 674125,
+            "p95Nanoseconds" : 800792
           },
           "to" : {
             "columns" : 40,
@@ -253,8 +255,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 280833,
-            "p95Nanoseconds" : 292709
+            "p50Nanoseconds" : 283167,
+            "p95Nanoseconds" : 304792
           },
           "to" : {
             "columns" : 80,
@@ -275,8 +277,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 15834,
-            "p95Nanoseconds" : 17250
+            "p50Nanoseconds" : 30917,
+            "p95Nanoseconds" : 34833
           },
           "to" : {
             "columns" : 80,
@@ -289,16 +291,16 @@
     {
       "appliedBytes" : 218000,
       "burstDrain" : {
-        "p50Nanoseconds" : 38958,
-        "p95Nanoseconds" : 40917
+        "p50Nanoseconds" : 27167,
+        "p95Nanoseconds" : 28792
       },
       "chunkTime" : {
         "p50Nanoseconds" : 750,
-        "p95Nanoseconds" : 2958
+        "p95Nanoseconds" : 2167
       },
       "encodedInputBytes" : 1175,
       "fixturePeakBytesInOneSecond" : 5611,
-      "fixturePeakMultiple" : 61776.933020977674,
+      "fixturePeakMultiple" : 90092.18434803272,
       "fixtureSHA256" : "6d9077f9576ad2a0e47206eaef4679ca2854376de82682ace184fd6a94e2d7c0",
       "initialGrid" : {
         "columns" : 80,
@@ -309,7 +311,7 @@
           "bytesPerCall" : 16,
           "name" : "Open scratch file",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -317,7 +319,7 @@
           "bytesPerCall" : 1,
           "name" : "Enter insert mode",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -325,8 +327,8 @@
           "bytesPerCall" : 25,
           "name" : "Paste scratch text",
           "timing" : {
-            "p50Nanoseconds" : 208,
-            "p95Nanoseconds" : 209
+            "p50Nanoseconds" : 167,
+            "p95Nanoseconds" : 250
           }
         },
         {
@@ -355,7 +357,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 330.57248228140423,
+      "receiveMiBPerSecond" : 482.0892776268116,
+      "receiveReplaysPerSample" : 1,
+      "receiveSamples" : 25,
       "receivedBytes" : 218000,
       "referenceCheckpointsPerReplay" : 8,
       "replyBytes" : 2050,
@@ -377,8 +381,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 5500,
-            "p95Nanoseconds" : 5584
+            "p50Nanoseconds" : 1750,
+            "p95Nanoseconds" : 1875
           },
           "to" : {
             "columns" : 40,
@@ -399,8 +403,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 3834,
-            "p95Nanoseconds" : 4000
+            "p50Nanoseconds" : 3083,
+            "p95Nanoseconds" : 3333
           },
           "to" : {
             "columns" : 80,
@@ -421,8 +425,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 1041,
-            "p95Nanoseconds" : 1125
+            "p50Nanoseconds" : 1208,
+            "p95Nanoseconds" : 1333
           },
           "to" : {
             "columns" : 80,
@@ -435,16 +439,16 @@
     {
       "appliedBytes" : 439075,
       "burstDrain" : {
-        "p50Nanoseconds" : 67834,
-        "p95Nanoseconds" : 74042
+        "p50Nanoseconds" : 56250,
+        "p95Nanoseconds" : 61208
       },
       "chunkTime" : {
         "p50Nanoseconds" : 125,
-        "p95Nanoseconds" : 1166
+        "p95Nanoseconds" : 625
       },
       "encodedInputBytes" : 4375,
       "fixturePeakBytesInOneSecond" : 17261,
-      "fixturePeakMultiple" : 38066.15303476157,
+      "fixturePeakMultiple" : 55753.21038083319,
       "fixtureSHA256" : "226b76424fba08b1ad6d6601bdcffbc1ade1a65b205851484fc51afe2a22b63f",
       "initialGrid" : {
         "columns" : 2,
@@ -455,7 +459,7 @@
           "bytesPerCall" : 3,
           "name" : "key up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -463,7 +467,7 @@
           "bytesPerCall" : 3,
           "name" : "key left",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -472,14 +476,14 @@
           "name" : "key right",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "key down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -511,7 +515,7 @@
           "bytesPerCall" : 1,
           "name" : "key enter",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -527,7 +531,7 @@
           "bytesPerCall" : 3,
           "name" : "key up",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -536,7 +540,7 @@
           "name" : "key left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -591,7 +595,7 @@
           "bytesPerCall" : 1,
           "name" : "Move left one character",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -599,7 +603,7 @@
           "bytesPerCall" : 1,
           "name" : "Delete at cursor",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -623,7 +627,7 @@
           "bytesPerCall" : 1,
           "name" : "Move left one character",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -647,7 +651,7 @@
           "bytesPerCall" : 1,
           "name" : "Insert at cursor",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -655,7 +659,7 @@
           "bytesPerCall" : 1,
           "name" : "Cancel edited command",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -663,15 +667,15 @@
           "bytesPerCall" : 45,
           "name" : "Type printf command",
           "timing" : {
-            "p50Nanoseconds" : 84,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Run printf command",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -679,7 +683,7 @@
           "bytesPerCall" : 1,
           "name" : "Return to prompt",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -695,7 +699,7 @@
           "bytesPerCall" : 1,
           "name" : "Run printf command",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -704,7 +708,7 @@
           "name" : "Return to prompt",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         }
       ],
@@ -721,7 +725,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 626.6211200075335,
+      "receiveMiBPerSecond" : 917.7743572078339,
+      "receiveReplaysPerSample" : 1,
+      "receiveSamples" : 25,
       "receivedBytes" : 439075,
       "referenceCheckpointsPerReplay" : 63,
       "replyBytes" : 44500,
@@ -743,8 +749,8 @@
             "rows" : 3
           },
           "timing" : {
-            "p50Nanoseconds" : 917,
-            "p95Nanoseconds" : 1042
+            "p50Nanoseconds" : 459,
+            "p95Nanoseconds" : 500
           },
           "to" : {
             "columns" : 6,
@@ -765,8 +771,8 @@
             "rows" : 2
           },
           "timing" : {
-            "p50Nanoseconds" : 625,
-            "p95Nanoseconds" : 750
+            "p50Nanoseconds" : 209,
+            "p95Nanoseconds" : 250
           },
           "to" : {
             "columns" : 2,
@@ -787,8 +793,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 1042,
-            "p95Nanoseconds" : 1125
+            "p50Nanoseconds" : 500,
+            "p95Nanoseconds" : 542
           },
           "to" : {
             "columns" : 12,
@@ -809,8 +815,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 2583,
-            "p95Nanoseconds" : 2833
+            "p50Nanoseconds" : 2417,
+            "p95Nanoseconds" : 2750
           },
           "to" : {
             "columns" : 7,
@@ -831,8 +837,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 2250,
-            "p95Nanoseconds" : 2417
+            "p50Nanoseconds" : 1708,
+            "p95Nanoseconds" : 1833
           },
           "to" : {
             "columns" : 12,
@@ -853,8 +859,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 3333,
-            "p95Nanoseconds" : 3709
+            "p50Nanoseconds" : 3708,
+            "p95Nanoseconds" : 4000
           },
           "to" : {
             "columns" : 6,
@@ -875,8 +881,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 2917,
-            "p95Nanoseconds" : 3250
+            "p50Nanoseconds" : 2250,
+            "p95Nanoseconds" : 2667
           },
           "to" : {
             "columns" : 12,
@@ -897,8 +903,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 3042,
-            "p95Nanoseconds" : 3292
+            "p50Nanoseconds" : 3292,
+            "p95Nanoseconds" : 3625
           },
           "to" : {
             "columns" : 5,
@@ -919,8 +925,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 2916,
-            "p95Nanoseconds" : 3167
+            "p50Nanoseconds" : 2958,
+            "p95Nanoseconds" : 3166
           },
           "to" : {
             "columns" : 4,
@@ -941,8 +947,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 2792,
-            "p95Nanoseconds" : 3083
+            "p50Nanoseconds" : 2084,
+            "p95Nanoseconds" : 2459
           },
           "to" : {
             "columns" : 8,
@@ -963,8 +969,8 @@
             "rows" : 3
           },
           "timing" : {
-            "p50Nanoseconds" : 1000,
-            "p95Nanoseconds" : 1084
+            "p50Nanoseconds" : 1209,
+            "p95Nanoseconds" : 1292
           },
           "to" : {
             "columns" : 8,
@@ -985,8 +991,8 @@
             "rows" : 25
           },
           "timing" : {
-            "p50Nanoseconds" : 4584,
-            "p95Nanoseconds" : 5000
+            "p50Nanoseconds" : 2458,
+            "p95Nanoseconds" : 6417
           },
           "to" : {
             "columns" : 16,
@@ -999,16 +1005,16 @@
     {
       "appliedBytes" : 375,
       "burstDrain" : {
-        "p50Nanoseconds" : 416,
-        "p95Nanoseconds" : 459
+        "p50Nanoseconds" : 417,
+        "p95Nanoseconds" : 500
       },
       "chunkTime" : {
         "p50Nanoseconds" : 208,
-        "p95Nanoseconds" : 250
+        "p95Nanoseconds" : 334
       },
       "encodedInputBytes" : 0,
       "fixturePeakBytesInOneSecond" : 15,
-      "fixturePeakMultiple" : 4615952.732644018,
+      "fixturePeakMultiple" : 4444119.46313087,
       "fixtureSHA256" : "6c49073e0aaa5daa5e650e6803be68cf00d19f90ec7a1b3369e0a55e24bf5026",
       "initialGrid" : {
         "columns" : 80,
@@ -1026,7 +1032,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 66.03173350301768,
+      "receiveMiBPerSecond" : 63.57363886543565,
+      "receiveReplaysPerSample" : 547,
+      "receiveSamples" : 25,
       "receivedBytes" : 375,
       "referenceCheckpointsPerReplay" : 1,
       "replyBytes" : 150,
@@ -1041,16 +1049,16 @@
     {
       "appliedBytes" : 204750,
       "burstDrain" : {
-        "p50Nanoseconds" : 40917,
-        "p95Nanoseconds" : 44792
+        "p50Nanoseconds" : 32209,
+        "p95Nanoseconds" : 42875
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 1125,
-        "p95Nanoseconds" : 4500
+        "p50Nanoseconds" : 708,
+        "p95Nanoseconds" : 4292
       },
       "encodedInputBytes" : 700,
       "fixturePeakBytesInOneSecond" : 8044,
-      "fixturePeakMultiple" : 33127.035939900044,
+      "fixturePeakMultiple" : 41415.99747972277,
       "fixtureSHA256" : "58ba7b47ccf53ddff7bb8625b5eb55e6b4658c0603590d677e994163e5b5bc78",
       "initialGrid" : {
         "columns" : 80,
@@ -1061,7 +1069,7 @@
           "bytesPerCall" : 17,
           "name" : "Open Swift file",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1096,14 +1104,16 @@
       "meetsTwiceRecordedPeak" : true,
       "name" : "vim-swift-dark",
       "paletteChangeTime" : {
-        "p50Nanoseconds" : 0,
+        "p50Nanoseconds" : 41,
         "p95Nanoseconds" : 42
       },
       "paletteChangesPerReplay" : 1,
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 254.1292925839958,
+      "receiveMiBPerSecond" : 317.71686909379,
+      "receiveReplaysPerSample" : 2,
+      "receiveSamples" : 25,
       "receivedBytes" : 204750,
       "referenceCheckpointsPerReplay" : 7,
       "replyBytes" : 2050,
@@ -1125,8 +1135,8 @@
             "rows" : 25
           },
           "timing" : {
-            "p50Nanoseconds" : 4417,
-            "p95Nanoseconds" : 4709
+            "p50Nanoseconds" : 1417,
+            "p95Nanoseconds" : 1625
           },
           "to" : {
             "columns" : 47,
@@ -1147,8 +1157,8 @@
             "rows" : 9
           },
           "timing" : {
-            "p50Nanoseconds" : 3125,
-            "p95Nanoseconds" : 3333
+            "p50Nanoseconds" : 2625,
+            "p95Nanoseconds" : 2833
           },
           "to" : {
             "columns" : 90,
@@ -1161,16 +1171,16 @@
     {
       "appliedBytes" : 194700,
       "burstDrain" : {
-        "p50Nanoseconds" : 39417,
-        "p95Nanoseconds" : 43084
+        "p50Nanoseconds" : 30292,
+        "p95Nanoseconds" : 31292
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 959,
-        "p95Nanoseconds" : 5334
+        "p50Nanoseconds" : 625,
+        "p95Nanoseconds" : 5083
       },
       "encodedInputBytes" : 700,
       "fixturePeakBytesInOneSecond" : 7642,
-      "fixturePeakMultiple" : 34745.78341965322,
+      "fixturePeakMultiple" : 43252.05612210862,
       "fixtureSHA256" : "d235a7a5c46ee42d8bed2180d51392001c6a117b4eca15d437e99a965a0c402f",
       "initialGrid" : {
         "columns" : 80,
@@ -1181,7 +1191,7 @@
           "bytesPerCall" : 17,
           "name" : "Open Swift file",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1205,7 +1215,7 @@
           "bytesPerCall" : 3,
           "name" : "Quit to shell",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         }
@@ -1216,14 +1226,16 @@
       "meetsTwiceRecordedPeak" : true,
       "name" : "vim-swift-light",
       "paletteChangeTime" : {
-        "p50Nanoseconds" : 41,
+        "p50Nanoseconds" : 0,
         "p95Nanoseconds" : 42
       },
       "paletteChangesPerReplay" : 1,
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 253.2265442781352,
+      "receiveMiBPerSecond" : 315.2200821734944,
+      "receiveReplaysPerSample" : 2,
+      "receiveSamples" : 25,
       "receivedBytes" : 194700,
       "referenceCheckpointsPerReplay" : 7,
       "replyBytes" : 2050,
@@ -1245,8 +1257,8 @@
             "rows" : 25
           },
           "timing" : {
-            "p50Nanoseconds" : 4417,
-            "p95Nanoseconds" : 4958
+            "p50Nanoseconds" : 1375,
+            "p95Nanoseconds" : 1417
           },
           "to" : {
             "columns" : 47,
@@ -1267,8 +1279,8 @@
             "rows" : 9
           },
           "timing" : {
-            "p50Nanoseconds" : 3125,
-            "p95Nanoseconds" : 3375
+            "p50Nanoseconds" : 2584,
+            "p95Nanoseconds" : 2625
           },
           "to" : {
             "columns" : 90,
@@ -1281,8 +1293,8 @@
     {
       "appliedBytes" : 250,
       "burstDrain" : {
-        "p50Nanoseconds" : 15625,
-        "p95Nanoseconds" : 17166
+        "p50Nanoseconds" : 15458,
+        "p95Nanoseconds" : 17333
       },
       "chunkTime" : {
         "p50Nanoseconds" : 42,
@@ -1290,7 +1302,7 @@
       },
       "encodedInputBytes" : 12775,
       "fixturePeakBytesInOneSecond" : 10,
-      "fixturePeakMultiple" : 10158472.165786266,
+      "fixturePeakMultiple" : 11992687.385740403,
       "fixtureSHA256" : "5b4953192e1b737be4270a4be6dcffd10b873691cb9d6c7d2d0a609c8a8a5862",
       "initialGrid" : {
         "columns" : 80,
@@ -1301,7 +1313,7 @@
           "bytesPerCall" : 3,
           "name" : "normal up",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1309,7 +1321,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1358,7 +1370,7 @@
           "name" : "normal alt down",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1381,7 +1393,7 @@
           "bytesPerCall" : 3,
           "name" : "normal left",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1398,7 +1410,7 @@
           "name" : "normal alt left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1406,7 +1418,7 @@
           "name" : "normal control left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1414,7 +1426,7 @@
           "name" : "normal shift alt control left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1422,7 +1434,7 @@
           "name" : "normal right",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1438,7 +1450,7 @@
           "name" : "normal alt right",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1446,7 +1458,7 @@
           "name" : "normal control right",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1478,7 +1490,7 @@
           "name" : "normal alt home",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1510,7 +1522,7 @@
           "name" : "normal shift end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1518,7 +1530,7 @@
           "name" : "normal alt end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1549,7 +1561,7 @@
           "bytesPerCall" : 0,
           "name" : "normal shift pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -1557,7 +1569,7 @@
           "bytesPerCall" : 4,
           "name" : "normal alt pageUp",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1581,7 +1593,7 @@
           "bytesPerCall" : 4,
           "name" : "normal pageDown",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1613,7 +1625,7 @@
           "bytesPerCall" : 0,
           "name" : "normal shift alt control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1669,7 +1681,7 @@
           "bytesPerCall" : 1,
           "name" : "normal shift escape",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -1693,7 +1705,7 @@
           "bytesPerCall" : 2,
           "name" : "normal shift alt control escape",
           "timing" : {
-            "p50Nanoseconds" : 0,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -1741,7 +1753,7 @@
           "bytesPerCall" : 1,
           "name" : "normal tab",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -1789,7 +1801,7 @@
           "bytesPerCall" : 1,
           "name" : "normal shift backspace",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1805,8 +1817,8 @@
           "bytesPerCall" : 1,
           "name" : "normal control backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 41,
+            "p95Nanoseconds" : 42
           }
         },
         {
@@ -1821,7 +1833,7 @@
           "bytesPerCall" : 3,
           "name" : "application up",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1846,7 +1858,7 @@
           "name" : "application control up",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1861,8 +1873,8 @@
           "bytesPerCall" : 3,
           "name" : "application down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1870,7 +1882,7 @@
           "name" : "application shift down",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1878,7 +1890,7 @@
           "name" : "application alt down",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1894,7 +1906,7 @@
           "name" : "application shift alt control down",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -1934,14 +1946,14 @@
           "name" : "application shift alt control left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "application right",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -1981,7 +1993,7 @@
           "bytesPerCall" : 3,
           "name" : "application home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1998,7 +2010,7 @@
           "name" : "application alt home",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2014,7 +2026,7 @@
           "name" : "application shift alt control home",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2022,7 +2034,7 @@
           "name" : "application end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 42
           }
         },
         {
@@ -2038,7 +2050,7 @@
           "name" : "application alt end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2046,7 +2058,7 @@
           "name" : "application control end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2061,7 +2073,7 @@
           "bytesPerCall" : 4,
           "name" : "application pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2077,7 +2089,7 @@
           "bytesPerCall" : 4,
           "name" : "application alt pageUp",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2086,14 +2098,14 @@
           "name" : "application control pageUp",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 0,
           "name" : "application shift alt control pageUp",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2101,7 +2113,7 @@
           "bytesPerCall" : 4,
           "name" : "application pageDown",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2117,7 +2129,7 @@
           "bytesPerCall" : 4,
           "name" : "application alt pageDown",
           "timing" : {
-            "p50Nanoseconds" : 0,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2125,15 +2137,15 @@
           "bytesPerCall" : 6,
           "name" : "application control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 0,
           "name" : "application shift alt control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2149,7 +2161,7 @@
           "bytesPerCall" : 6,
           "name" : "application shift delete",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -2181,7 +2193,7 @@
           "bytesPerCall" : 1,
           "name" : "application escape",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2189,7 +2201,7 @@
           "bytesPerCall" : 1,
           "name" : "application shift escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2213,7 +2225,7 @@
           "bytesPerCall" : 2,
           "name" : "application shift alt control escape",
           "timing" : {
-            "p50Nanoseconds" : 0,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2261,7 +2273,7 @@
           "bytesPerCall" : 1,
           "name" : "application tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2277,7 +2289,7 @@
           "bytesPerCall" : 1,
           "name" : "application alt tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2310,14 +2322,14 @@
           "name" : "application shift backspace",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "application alt backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2350,7 +2362,7 @@
           "name" : "Control chord \"c\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 125
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2430,7 +2442,7 @@
           "name" : "Control chord \"8\"",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2453,7 +2465,7 @@
           "bytesPerCall" : 1,
           "name" : "Control chord \"]\"",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         }
@@ -2467,7 +2479,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 96.87873998438135,
+      "receiveMiBPerSecond" : 114.37117944469836,
+      "receiveReplaysPerSample" : 820,
+      "receiveSamples" : 25,
       "receivedBytes" : 250,
       "referenceCheckpointsPerReplay" : 2,
       "replyBytes" : 0,
@@ -2482,8 +2496,8 @@
     {
       "appliedBytes" : 1050,
       "burstDrain" : {
-        "p50Nanoseconds" : 3333,
-        "p95Nanoseconds" : 3750
+        "p50Nanoseconds" : 3292,
+        "p95Nanoseconds" : 4083
       },
       "chunkTime" : {
         "p50Nanoseconds" : 83,
@@ -2491,7 +2505,7 @@
       },
       "encodedInputBytes" : 2275,
       "fixturePeakBytesInOneSecond" : 42,
-      "fixturePeakMultiple" : 3329781.5663292487,
+      "fixturePeakMultiple" : 4408655.360115165,
       "fixtureSHA256" : "db1d5bd377bf75a034af7bbf3d5ed24d8382b23c131701d9e212152b36b82cfb",
       "initialGrid" : {
         "columns" : 240,
@@ -2518,15 +2532,15 @@
           "bytesPerCall" : 6,
           "name" : "X11 release with modifiers",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 125
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "X11 byte above ASCII",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2535,7 +2549,7 @@
           "name" : "X11 column limit",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2550,7 +2564,7 @@
           "bytesPerCall" : 0,
           "name" : "X11 ignores motion",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2558,7 +2572,7 @@
           "bytesPerCall" : 11,
           "name" : "SGR right button",
           "timing" : {
-            "p50Nanoseconds" : 125,
+            "p50Nanoseconds" : 166,
             "p95Nanoseconds" : 167
           }
         },
@@ -2574,7 +2588,7 @@
           "bytesPerCall" : 12,
           "name" : "SGR button release",
           "timing" : {
-            "p50Nanoseconds" : 167,
+            "p50Nanoseconds" : 166,
             "p95Nanoseconds" : 167
           }
         },
@@ -2582,7 +2596,7 @@
           "bytesPerCall" : 0,
           "name" : "Drag mode ignores hover",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -2590,15 +2604,15 @@
           "bytesPerCall" : 11,
           "name" : "Wheel toward history",
           "timing" : {
-            "p50Nanoseconds" : 166,
-            "p95Nanoseconds" : 167
+            "p50Nanoseconds" : 167,
+            "p95Nanoseconds" : 208
           }
         },
         {
           "bytesPerCall" : 11,
           "name" : "Wheel toward prompt",
           "timing" : {
-            "p50Nanoseconds" : 166,
+            "p50Nanoseconds" : 167,
             "p95Nanoseconds" : 167
           }
         },
@@ -2606,7 +2620,7 @@
           "bytesPerCall" : 10,
           "name" : "SGR hover",
           "timing" : {
-            "p50Nanoseconds" : 166,
+            "p50Nanoseconds" : 125,
             "p95Nanoseconds" : 167
           }
         },
@@ -2622,7 +2636,7 @@
           "bytesPerCall" : 0,
           "name" : "Exit leaves mouse local",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         }
@@ -2636,7 +2650,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 133.3721406801495,
+      "receiveMiBPerSecond" : 176.58569824680035,
+      "receiveReplaysPerSample" : 196,
+      "receiveSamples" : 25,
       "receivedBytes" : 1050,
       "referenceCheckpointsPerReplay" : 4,
       "replyBytes" : 0,
@@ -2651,16 +2667,16 @@
     {
       "appliedBytes" : 10650,
       "burstDrain" : {
-        "p50Nanoseconds" : 8709,
-        "p95Nanoseconds" : 9125
+        "p50Nanoseconds" : 5542,
+        "p95Nanoseconds" : 6042
       },
       "chunkTime" : {
         "p50Nanoseconds" : 125,
-        "p95Nanoseconds" : 1667
+        "p95Nanoseconds" : 1584
       },
       "encodedInputBytes" : 750,
       "fixturePeakBytesInOneSecond" : 339,
-      "fixturePeakMultiple" : 418655.77296828124,
+      "fixturePeakMultiple" : 472348.9581046432,
       "fixtureSHA256" : "cdaa7ba845bba72da3e5a70ed1383f778ea02171a7df6a299f2d3585de63d6e3",
       "initialGrid" : {
         "columns" : 80,
@@ -2679,8 +2695,8 @@
           "bytesPerCall" : 1,
           "name" : "Correct typo",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2695,7 +2711,7 @@
           "bytesPerCall" : 1,
           "name" : "Run numbered compiler log",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         }
@@ -2709,7 +2725,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 135.34956649422392,
+      "receiveMiBPerSecond" : 152.70833663699537,
+      "receiveReplaysPerSample" : 20,
+      "receiveSamples" : 25,
       "receivedBytes" : 10650,
       "referenceCheckpointsPerReplay" : 7,
       "replyBytes" : 0,
@@ -2731,8 +2749,8 @@
             "rows" : 25
           },
           "timing" : {
-            "p50Nanoseconds" : 3834,
-            "p95Nanoseconds" : 4000
+            "p50Nanoseconds" : 667,
+            "p95Nanoseconds" : 834
           },
           "to" : {
             "columns" : 47,
@@ -2745,16 +2763,16 @@
     {
       "appliedBytes" : 264450,
       "burstDrain" : {
-        "p50Nanoseconds" : 45750,
-        "p95Nanoseconds" : 46709
+        "p50Nanoseconds" : 32792,
+        "p95Nanoseconds" : 34833
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 916,
-        "p95Nanoseconds" : 4000
+        "p50Nanoseconds" : 750,
+        "p95Nanoseconds" : 3084
       },
       "encodedInputBytes" : 1175,
       "fixturePeakBytesInOneSecond" : 6377,
-      "fixturePeakMultiple" : 54338.56192654152,
+      "fixturePeakMultiple" : 79454.60162136512,
       "fixtureSHA256" : "ccbb77f7e550c3e497a51d8ea312f79aed9493fdcf5e28d2db4b54ad85b7f3f8",
       "initialGrid" : {
         "columns" : 80,
@@ -2765,15 +2783,15 @@
           "bytesPerCall" : 16,
           "name" : "Open scratch file",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Enter insert mode",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 84
           }
         },
@@ -2782,7 +2800,7 @@
           "name" : "Paste scratch text",
           "timing" : {
             "p50Nanoseconds" : 167,
-            "p95Nanoseconds" : 250
+            "p95Nanoseconds" : 209
           }
         },
         {
@@ -2811,7 +2829,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 330.46437206798106,
+      "receiveMiBPerSecond" : 483.20960477776083,
+      "receiveReplaysPerSample" : 1,
+      "receiveSamples" : 25,
       "receivedBytes" : 264450,
       "referenceCheckpointsPerReplay" : 10,
       "replyBytes" : 2050,
@@ -2833,8 +2853,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 5458,
-            "p95Nanoseconds" : 5708
+            "p50Nanoseconds" : 1750,
+            "p95Nanoseconds" : 1834
           },
           "to" : {
             "columns" : 40,
@@ -2855,8 +2875,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 3834,
-            "p95Nanoseconds" : 4042
+            "p50Nanoseconds" : 3042,
+            "p95Nanoseconds" : 3208
           },
           "to" : {
             "columns" : 80,
@@ -2877,8 +2897,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 1042,
-            "p95Nanoseconds" : 1125
+            "p50Nanoseconds" : 1167,
+            "p95Nanoseconds" : 1209
           },
           "to" : {
             "columns" : 80,
@@ -2891,16 +2911,16 @@
     {
       "appliedBytes" : 459550,
       "burstDrain" : {
-        "p50Nanoseconds" : 92333,
-        "p95Nanoseconds" : 99375
+        "p50Nanoseconds" : 87792,
+        "p95Nanoseconds" : 99250
       },
       "chunkTime" : {
         "p50Nanoseconds" : 167,
-        "p95Nanoseconds" : 2125
+        "p95Nanoseconds" : 1750
       },
       "encodedInputBytes" : 2750,
       "fixturePeakBytesInOneSecond" : 6717,
-      "fixturePeakMultiple" : 34166.825811176306,
+      "fixturePeakMultiple" : 38163.64115899578,
       "fixtureSHA256" : "0383a379107ea24f4332e3825585def94a3fe1808c1205a8bae532ff7a06e32a",
       "initialGrid" : {
         "columns" : 80,
@@ -2911,7 +2931,7 @@
           "bytesPerCall" : 6,
           "name" : "Launch Codex",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2936,7 +2956,7 @@
           "name" : "Codex transcript shortcut",
           "timing" : {
             "p50Nanoseconds" : 84,
-            "p95Nanoseconds" : 125
+            "p95Nanoseconds" : 167
           }
         },
         {
@@ -2959,7 +2979,7 @@
           "bytesPerCall" : 5,
           "name" : "Enter quit command",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2967,7 +2987,7 @@
           "bytesPerCall" : 1,
           "name" : "Submit",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         }
@@ -2981,7 +3001,9 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 218.86689088217852,
+      "receiveMiBPerSecond" : 244.46981207368339,
+      "receiveReplaysPerSample" : 1,
+      "receiveSamples" : 25,
       "receivedBytes" : 459550,
       "referenceCheckpointsPerReplay" : 11,
       "replyBytes" : 1575,

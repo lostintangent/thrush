@@ -32,7 +32,7 @@ On an M1 Max running macOS 27.2.1, the standalone server and client restored the
 | Rate-limited burst | 55,024 / 131,072 | 4,867,072 | 4 | 36.66 / 10.55 | 5,974,016 |
 | Suspended burst | 12,560 / 131,072 | 7,584,768 | 1 | 19.36 / 13.61 | 8,388,608 |
 
-The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 111.316 MiB/s, one quarter of the measured 80 × 24 parser throughput. The suspended process resumes one second after the producer finishes. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference](headless.json)
+The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 111.316 MiB/s, one quarter of the 80 × 24 parser throughput archived when the check ran. The suspended process resumes one second after the producer finishes. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference at 75860e3](https://github.com/lostintangent/thrush/blob/bab33fda31fca69f965bbfc1b37507e7b28e17e8/Benchmarks/headless.json)
 
 ## Reader comparison
 
