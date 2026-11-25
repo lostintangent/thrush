@@ -14,7 +14,7 @@ type Attachment = {
     resumed: boolean;
     output: string[];
     exchanges: Exchange[];
-    end: "detach" | "takeover" | "close" | "exit";
+    end: "detach" | "takeover" | "close" | "exit" | "lost";
 };
 
 // Recorded from Toy Box ScrollbackBuffer.replay(), xterm 6.0.0 + addon-serialize 0.14.0.
@@ -56,6 +56,31 @@ const attachments: Attachment[] = [
     {
         name: "after explicit close", resumed: false, output: ["last ", "bytes"], exchanges: [], end: "exit",
     },
+    {
+        name: "before outage", resumed: false, output: [],
+        exchanges: [{ input: "once", output: ["seen"], observation: "Ready to last write before loss" }], end: "lost",
+    },
+    {
+        name: "automatic resume", resumed: true, output: ["\x1b[?1h\x1b[?2004h"],
+        exchanges: [
+            { input: "\x1bOA", observation: "Recovery ready and replay to held Up" },
+            { input: "\x1b[200~a\rb\x1b[201~", observation: "Held Up to bracketed paste" },
+            { input: "\x1bOD", output: ["ok"], observation: "Held paste to replay-time Left" },
+            { input: "again", observation: "Drained input echo to next outage" },
+        ], end: "lost",
+    },
+    {
+        name: "automatic replacement", resumed: false, output: [],
+        exchanges: [{ input: "clean", output: ["done"], observation: "Replacement ready to fresh input" }], end: "exit",
+    },
+    {
+        name: "user restart", resumed: false, output: [],
+        exchanges: [{ input: "pause", observation: "User restart ready to input" }], end: "lost",
+    },
+    {
+        name: "visible again", resumed: true, output: ["$ "],
+        exchanges: [{ input: "back", observation: "Visible replay to new input" }], end: "exit",
+    },
 ];
 
 type State = { script: Attachment; received: number; acceptsInput: boolean; start: number };
@@ -74,6 +99,8 @@ const foreground = Promise.withResolvers<void>();
 const leftAfterReclaim = Promise.withResolvers<void>();
 const explicitlyClosed = Promise.withResolvers<void>();
 const allowFreshReady = Promise.withResolvers<void>();
+const originalLifecycleEnded = Promise.withResolvers<void>();
+const interruptedSocketClosed = Promise.withResolvers<void>();
 const finished = Promise.withResolvers<void>();
 const checkpoints = new Set<string>();
 const closedSockets = new Set<string>();
@@ -131,6 +158,9 @@ async function checkpoint(path: string) {
         await explicitlyClosed.promise;
         assert.equal(shell, undefined, "Explicit close must release the shell");
         break;
+    case "/check/interrupted":
+        await interruptedSocketClosed.promise;
+        break;
     default:
         assert.fail("Unknown checkpoint " + path);
     }
@@ -138,6 +168,11 @@ async function checkpoint(path: string) {
 
 function output(socket: Socket, frames: string[]) {
     for (const text of frames) assert(socket.sendBinary(encoder.encode(text)) > 0, "Failed to send binary output");
+}
+
+function shellExited(socket: Socket) {
+    shell = undefined;
+    assert(socket.sendText(JSON.stringify({ type: "exit" })) > 0);
 }
 
 function ready(socket: Socket) {
@@ -148,10 +183,7 @@ function ready(socket: Socket) {
     if (script.name === "reclaimed") return; // The host resizes while awaiting this replay.
     output(socket, script.output);
     socket.data.acceptsInput = true;
-    if (script.end === "exit") {
-        shell = undefined;
-        assert(socket.sendText(JSON.stringify({ type: "exit" })) > 0);
-    }
+    if (script.end === "exit" && script.exchanges.length === 0) shellExited(socket);
 }
 
 const server = Bun.serve({
@@ -176,6 +208,8 @@ const server = Bun.serve({
             if (script.name === "foreground") await foreground.promise;
             if (script.name === "reclaimed") assert(checkpoints.has("/check/owner-b"), "Displaced owner reconnected before user input");
             if (script.name === "after explicit close") assert(checkpoints.has("/check/closed"));
+            if (script.name === "before outage") await originalLifecycleEnded.promise;
+            if (script.name === "automatic resume") await interruptedSocketClosed.promise;
             assert(server.upgrade(request, { data: { script, received: 0, acceptsInput: false, start: 0 } }), "Expected a WebSocket upgrade");
         } catch (error) {
             finished.reject(error);
@@ -228,6 +262,13 @@ const server = Bun.serve({
                     socket.close(1000);
                     explicitlyClosed.resolve();
                 }
+                if (state.received === state.script.exchanges.length) {
+                    if (state.script.end === "exit") shellExited(socket);
+                    if (state.script.name === "automatic resume" || state.script.name === "user restart") {
+                        shell = state.script.name === "automatic resume" ? undefined : { orphanedAt: now };
+                        socket.close(1011, "connection lost");
+                    }
+                }
             } catch (error) {
                 finished.reject(error);
             }
@@ -237,7 +278,11 @@ const server = Bun.serve({
                 const { script, received } = socket.data;
                 assert.equal(received, script.exchanges.length, script.name + " disconnected before its last expected frame");
                 closedSockets.add(script.name);
-                if (shell?.owner === socket) {
+                if (script.name === "before outage") {
+                    assert.equal(shell?.owner, socket);
+                    shell = { orphanedAt: now };
+                    interruptedSocketClosed.resolve();
+                } else if (shell?.owner === socket) {
                     assert.equal(script.end, "detach", script.name + " unexpectedly lost ownership");
                     shell = { orphanedAt: now };
                     if (script.name === "fresh") {
@@ -248,7 +293,10 @@ const server = Bun.serve({
                         leftAfterReclaim.resolve();
                     }
                 }
-                if (script.end === "exit") recordInterval(socket, "Final ready, output and exit to socket close");
+                if (script.name === "after explicit close") {
+                    recordInterval(socket, "Final ready, output and exit to socket close");
+                    originalLifecycleEnded.resolve();
+                }
                 if (closedSockets.size === attachments.length) finished.resolve();
             } catch (error) {
                 finished.reject(error);
@@ -266,13 +314,13 @@ try {
         deadline.promise,
     ]);
     assert.equal(attachmentCount, attachments.length);
-    assert.equal(freshShells, 3);
+    assert.equal(freshShells, 6);
     assert.equal(takeovers, 2);
-    assert.equal(checkpoints.size, 6);
+    assert.equal(checkpoints.size, 7);
     if (observe) {
         console.log(JSON.stringify({ bunVersion: Bun.version, attachmentCount, freshShells, takeovers, observations }));
     } else {
-        console.log("Lifecycle peer verified six attachments, two takeovers, ordered stdin, deduplicated and deferred resize, orphan expiry, explicit close and final output before exit.");
+        console.log("Lifecycle peer verified eleven attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, orphan expiry, explicit close and shell restart.");
     }
 } finally {
     clearTimeout(timeout);

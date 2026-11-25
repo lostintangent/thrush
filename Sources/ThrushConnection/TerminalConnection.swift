@@ -7,6 +7,7 @@ import Thrush
 public actor TerminalConnection {
     /// Each event follows the preceding one on the same WebSocket. Binary output is already applied.
     public enum Event: Equatable, Sendable {
+        case reconnecting, displaced
         case ready(resumed: Bool)
         case output
         case exit
@@ -14,11 +15,11 @@ public actor TerminalConnection {
 
     /// A displaced tab remains idle until a person asks to reclaim it. Ended is terminal.
     public enum State: Equatable, Sendable {
-        case connecting, replaying, active, detached, displaced, closing, ended
+        case connecting, reconnecting, replaying, active, detached, displaced, closing, ended
     }
 
     private enum ConnectionError: Error {
-        case invalidEndpoint, unexpectedMessage, concurrentRead, inactiveAttachment
+        case invalidEndpoint, unexpectedMessage, concurrentRead, inactiveAttachment, inputBufferFull
     }
 
     private struct ServerControl: Decodable {
@@ -43,6 +44,23 @@ public actor TerminalConnection {
     private let makeSocket: @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask
     private let clientID: String
     private let onOutput: (@Sendable (Data) -> Void)?
+    private let sleepForRetry: @Sendable (Duration) async throws -> Void
+    private var retryWait: Task<Void, Error>?
+    private var retryMilliseconds = 250
+    private var pendingEvent: Event?
+    private var hasSeenReady = false
+    private var exitedNaturally = false
+    private var recovering = false
+    private var lifetime: UInt64 = 0
+    private var heldInput: [HeldInput] = []
+    private var heldBytes = 0
+
+    private struct HeldInput {
+        let input: Terminal.Input
+        let byteCount: Int
+        let onWriteStarted: (@Sendable () -> Void)?
+    }
+
     private var socket: URLSessionWebSocketTask?
     private var requestedSize: Terminal.Size
     private var attachmentSize: Terminal.Size
@@ -50,7 +68,11 @@ public actor TerminalConnection {
     private var isReading = false
     private var lastWrite: Task<Void, Error>?
 
-    public private(set) var state = State.connecting
+    /// True at fresh ready when a previously attached shell disappeared. A user's intentional
+    /// restart after natural exit starts a new shell without reporting an unexpected replacement.
+    public private(set) var replacedPreviousShell = false
+    package private(set) var discardedHeldInputOnLastReady = false
+    public private(set) var state = State.detached
     package private(set) var lastReceiptTime: CFTimeInterval?
     package private(set) var receivedBytes = 0
     package private(set) var appliedBytes = 0
@@ -68,7 +90,7 @@ public actor TerminalConnection {
         location.path = baseURL.appending(path: "socket").path
         let endpoint = location
         let owner = DemoSession()
-        try self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput) { id, size in
+        self.init(clientID: clientID, size: size, palette: palette, onOutput: onOutput) { id, size in
             let url = try Self.url(for: endpoint, clientID: id, size: size)
             return owner.session.webSocketTask(with: url)
         }
@@ -78,14 +100,16 @@ public actor TerminalConnection {
     /// sendResize(to:) before attaching. A headless caller can use the default 80 × 24.
     /// Return a fresh, suspended WebSocket task from the host's session on every attachment.
     public init(clientID: String, palette: Terminal.Palette = .default,
-                makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) throws {
-        try self.init(clientID: clientID, size: nil, palette: palette, onOutput: nil, makeSocket: makeSocket)
+                makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
+        self.init(clientID: clientID, size: nil, palette: palette, onOutput: nil, makeSocket: makeSocket)
     }
 
     package init(clientID: String, size: Terminal.Size?, palette: Terminal.Palette = .default,
                  onOutput: (@Sendable (Data) -> Void)? = nil,
-                 makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) throws {
-        guard !clientID.isEmpty else { throw ConnectionError.invalidEndpoint }
+                 sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+                 makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
+        precondition(!clientID.isEmpty, "A shell needs a stable client ID")
+        self.sleepForRetry = sleepForRetry
         self.clientID = clientID
         self.onOutput = onOutput
         self.makeSocket = makeSocket
@@ -94,27 +118,48 @@ public actor TerminalConnection {
         attachmentSize = initialSize
         terminal = Terminal(size: initialSize, palette: palette)
         if let size {
-            let first = try makeSocket(clientID, size)
-            socket = first
-            first.resume()
-        } else {
-            state = .detached
+            do {
+                let first = try makeSocket(clientID, size)
+                socket = first
+                state = .connecting
+                first.resume()
+            } catch {
+                state = .reconnecting
+                pendingEvent = .reconnecting
+                recovering = true
+            }
         }
     }
 
-    deinit { socket?.cancel(with: .goingAway, reason: nil) }
+    deinit {
+        retryWait?.cancel()
+        socket?.cancel(with: .goingAway, reason: nil)
+    }
 
-    /// Reattach on foreground return or after a transport error. Only a user's explicit input
-    /// can reclaim a displaced client. A closed or exited shell needs a new connection.
+    /// Attach on foreground return. Use an explicit user action to reclaim a displaced shell
+    /// or open a new shell after natural exit. An explicitly closed tab stays ended.
     @discardableResult
-    public func attach(userInitiated: Bool = false) throws -> Bool {
-        guard state == .detached || (state == .displaced && userInitiated) else { return false }
-        let next = try makeSocket(clientID, requestedSize)
-        attachmentSize = requestedSize
-        socket = next
-        state = .connecting
-        next.resume()
+    public func attach(userInitiated: Bool = false) -> Bool {
+        guard state == .detached || (userInitiated && (state == .displaced || exitedNaturally)) else { return false }
+        if exitedNaturally { hasSeenReady = false }
+        exitedNaturally = false
+        pendingEvent = nil
+        isReading = false
+        lifetime &+= 1
+        openSocket()
         return true
+    }
+
+    private func openSocket() {
+        do {
+            let next = try makeSocket(clientID, requestedSize)
+            attachmentSize = requestedSize
+            socket = next
+            state = .connecting
+            next.resume()
+        } catch {
+            beginRecovery()
+        }
     }
 
     private static func url(for endpoint: URLComponents, clientID: String, size: Terminal.Size) throws -> URL {
@@ -131,53 +176,111 @@ public actor TerminalConnection {
         return url
     }
 
-    /// On resume, ready is followed by one binary frame containing the server's serialized
-    /// terminal. Applying it restores the input modes before the connection accepts keystrokes.
+    /// Keep pulling after reconnecting. One pull waits for the retry delay and requests the
+    /// next message. Displacement and exit park this pump until a user asks to attach again.
     public func nextEvent() async throws -> Event {
-        guard let current = socket, state != .closing else { throw ConnectionError.inactiveAttachment }
+        try Task.checkCancellation()
         guard !isReading else { throw ConnectionError.concurrentRead }
         isReading = true
-        defer { if socket === current { isReading = false } }
+        let stamp = lifetime
+        defer { if lifetime == stamp { isReading = false } }
+
+        if let event = takePendingEvent() { return event }
+        if state == .reconnecting {
+            let delay = Duration.milliseconds(retryMilliseconds)
+            retryMilliseconds = min(retryMilliseconds * 2, 4_000)
+            let wait = Task { [sleepForRetry] in try await sleepForRetry(delay) }
+            retryWait = wait
+            try await withTaskCancellationHandler {
+                try await wait.value
+            } onCancel: {
+                wait.cancel()
+            }
+            try Task.checkCancellation()
+            guard lifetime == stamp, state == .reconnecting else { throw CancellationError() }
+            retryWait = nil
+            openSocket()
+            if let event = takePendingEvent() { return event }
+        }
+
+        guard let current = socket, state != .closing else { throw ConnectionError.inactiveAttachment }
+        let message: URLSessionWebSocketTask.Message
         do {
-            let message = try await current.receive()
-            guard socket === current else { throw CancellationError() }
+            message = try await current.receive()
+        } catch {
+            guard lifetime == stamp, state != .closing else { throw CancellationError() }
+            if socket === current { lost(current) }
+            if let event = takePendingEvent() { return event }
+            throw error
+        }
+        guard lifetime == stamp else { throw CancellationError() }
+        guard socket === current else {
+            if let event = takePendingEvent() { return event }
+            throw CancellationError()
+        }
+
+        do {
             switch message {
-            case .data(let data):
+            case .data(let bytes):
                 guard state == .active || state == .replaying || state == .closing else {
                     throw ConnectionError.unexpectedMessage
                 }
                 lastReceiptTime = CACurrentMediaTime()
-                receivedBytes += data.count
-                let reply = data.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
-                appliedBytes += data.count
-                onOutput?(data)
-                if !reply.isEmpty && state != .closing { try await write(.data(Data(reply)), to: current) }
-                if state == .replaying { try await activate(current) }
+                receivedBytes += bytes.count
+                let reply = bytes.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
+                appliedBytes += bytes.count
+                onOutput?(bytes)
+                do {
+                    if !reply.isEmpty && state != .closing { try await write(.data(Data(reply)), to: current) }
+                    if state == .replaying { try await activate(current) }
+                } catch {
+                    // Output was already applied. Present it before reporting its reply's transport failure.
+                    guard lifetime == stamp, pendingEvent != nil else { throw error }
+                }
+                guard lifetime == stamp else { throw CancellationError() }
                 return .output
+
             case .string(let json):
                 let control = try JSONDecoder().decode(ServerControl.self, from: Data(json.utf8))
                 switch (control.type, state) {
                 case (.ready, .connecting):
                     guard let resumed = control.resumed else { throw ConnectionError.unexpectedMessage }
+                    replacedPreviousShell = hasSeenReady && !resumed
+                    discardedHeldInputOnLastReady = !resumed && !heldInput.isEmpty
+                    hasSeenReady = true
+                    retryMilliseconds = 250
                     terminal = Terminal(size: attachmentSize, palette: terminal.palette)
                     lastReceiptTime = nil
-                    if resumed { state = .replaying } else { try await activate(current) }
+                    if resumed {
+                        state = .replaying
+                    } else {
+                        discardHeldInput()
+                        do { try await activate(current) }
+                        catch { guard lifetime == stamp, pendingEvent != nil else { throw error } }
+                    }
+                    guard lifetime == stamp else { throw CancellationError() }
                     return .ready(resumed: resumed)
                 case (.exit, .active), (.exit, .closing):
-                    if state != .closing { finish(current, as: .ended) }
+                    if state != .closing {
+                        park(as: .ended)
+                        exitedNaturally = true
+                    }
                     return .exit
-                default:
-                    throw ConnectionError.unexpectedMessage
+                default: throw ConnectionError.unexpectedMessage
                 }
-            @unknown default:
-                throw ConnectionError.unexpectedMessage
+            @unknown default: throw ConnectionError.unexpectedMessage
             }
         } catch {
-            // A read waiting when closeShell sent its control may observe the peer's FIN
-            // before the send completion. The closing writer owns teardown in that case.
-            if socket === current && state != .closing { lost(current) }
+            // A malformed server frame fails the protocol. Retrying the same endpoint could
+            // otherwise repeat that error forever.
+            if socket === current, state != .closing { park(as: .detached) }
             throw error
         }
+    }
+
+    private func takePendingEvent() -> Event? {
+        defer { pendingEvent = nil }
+        return pendingEvent
     }
 
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
@@ -191,11 +294,41 @@ public actor TerminalConnection {
     /// Set the colors used for queries from the running program, including while the view is hidden.
     public func setPalette(_ palette: Terminal.Palette) { terminal.palette = palette }
 
-    /// Input is scoped to the active socket. Never retain a key for an unknown future PTY.
+    /// During automatic recovery, hold up to 256 inputs and 64 KiB of source text. A full
+    /// queue rejects the newest input as a whole. Resumed modes determine its eventual encoding.
     public func send(_ input: Terminal.Input) async throws {
+        try await send(input, notify: nil)
+    }
+
+    /// The host's latency probe timestamps the first actual write attempt for this input.
+    package func send(_ input: Terminal.Input, onWriteStarted: @escaping @Sendable () -> Void) async throws {
+        try await send(input, notify: onWriteStarted)
+    }
+
+    private func send(_ input: Terminal.Input, notify: (@Sendable () -> Void)?) async throws {
+        if recovering {
+            let count: Int
+            switch input {
+            case .text(let text), .paste(let text): count = text.utf8.count
+            default:
+                // Only typed input can follow a replay to a differently sized screen.
+                guard case .key(let key, _) = input else { return }
+                if case .character(let character) = key { count = character.utf8.count }
+                else { count = 1 }
+            }
+            guard heldInput.count < 256, count <= 65_536 - heldBytes else { throw ConnectionError.inputBufferFull }
+            heldInput.append(.init(input: input, byteCount: count, onWriteStarted: notify))
+            heldBytes += count
+            return
+        }
         guard let current = socket, state == .active else { throw ConnectionError.inactiveAttachment }
+        try await send(input, on: current, notify: notify)
+    }
+
+    private func send(_ input: Terminal.Input, on current: URLSessionWebSocketTask,
+                      notify: (@Sendable () -> Void)?) async throws {
         let bytes = terminal.encode(input)
-        if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current) }
+        if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current, onWriteStarted: notify) }
     }
 
     /// A size change during attach is sent after ready and any replay at the URL's original size.
@@ -206,8 +339,22 @@ public actor TerminalConnection {
     }
 
     private func activate(_ current: URLSessionWebSocketTask) async throws {
-        state = .active
-        try await resizeIfNeeded(current)
+        // A second loss drops only an attempted write, whose delivery is ambiguous. Later keys
+        // still belong to the unsent queue and will use the next resumed shell's input modes.
+        while socket === current && state != .closing {
+            if terminal.size != requestedSize {
+                try await resizeIfNeeded(current)
+            } else if !heldInput.isEmpty {
+                let next = heldInput.removeFirst()
+                heldBytes -= next.byteCount
+                try await send(next.input, on: current, notify: next.onWriteStarted)
+            } else {
+                recovering = false
+                state = .active
+                return
+            }
+        }
+        throw CancellationError()
     }
 
     private func resizeIfNeeded(_ current: URLSessionWebSocketTask) async throws {
@@ -217,35 +364,69 @@ public actor TerminalConnection {
                                to: current)
     }
 
-    /// End the active PTY and release its socket. Ordinary dismissal uses detach().
+    /// Explicit close stops recovery. With no transport to carry the close control, the tab
+    /// still ends locally and throws. The server's orphan deadline then releases the remote PTY.
     public func closeShell() async throws {
-        guard let current = socket, state == .active else { throw ConnectionError.inactiveAttachment }
+        exitedNaturally = false
+        guard state != .closing else { throw ConnectionError.inactiveAttachment }
+        guard let current = socket else {
+            park(as: .ended)
+            throw ConnectionError.inactiveAttachment
+        }
         state = .closing
+        discardHeldInput()
+        defer { if socket === current { park(as: .ended) } }
         try await writeControl(ClientControl(type: .close), to: current)
-        finish(current, as: .ended)
     }
 
-    /// Background or dismissal releases the socket and allows Toy Box to retain its PTY.
+    /// Release the attachment and any retry delay when the view leaves the foreground.
     public func detach() {
-        guard let current = socket, state != .closing else { return }
-        lost(current)
+        guard state != .displaced, state != .ended, state != .closing else { return }
+        park(as: socket?.closeCode.rawValue == 4000 ? .displaced : .detached)
+    }
+
+    private func discardHeldInput() {
+        heldInput.removeAll()
+        heldBytes = 0
+        recovering = false
+    }
+
+    private func releaseSocket() {
+        let current = socket
+        socket = nil
+        lastWrite = nil
+        current?.cancel(with: .normalClosure, reason: nil)
+    }
+
+    private func park(as state: State) {
+        lifetime &+= 1
+        isReading = false
+        retryWait?.cancel()
+        retryWait = nil
+        retryMilliseconds = 250
+        pendingEvent = nil
+        discardHeldInput()
+        releaseSocket()
+        self.state = state
+    }
+
+    private func beginRecovery() {
+        recovering = true
+        state = .reconnecting
+        pendingEvent = .reconnecting
     }
 
     private func lost(_ current: URLSessionWebSocketTask) {
-        if current.closeCode.rawValue == 4000 {
-            finish(current, as: .displaced)
+        let displaced = current.closeCode.rawValue == 4000
+        releaseSocket()
+        if displaced {
+            discardHeldInput()
+            retryMilliseconds = 250
+            state = .displaced
+            pendingEvent = .displaced
         } else {
-            finish(current, as: state == .closing ? .ended : .detached)
+            beginRecovery()
         }
-    }
-
-    private func finish(_ current: URLSessionWebSocketTask, as nextState: State) {
-        guard socket === current else { return }
-        socket = nil
-        state = nextState
-        isReading = false
-        lastWrite = nil
-        current.cancel(with: .normalClosure, reason: nil)
     }
 
     private func writeControl(_ control: ClientControl, to current: URLSessionWebSocketTask) async throws {
@@ -255,11 +436,13 @@ public actor TerminalConnection {
 
     /// Actor methods can interleave at send and receive. Every queued write and its completion
     /// belong to the socket captured when the operation began.
-    private func write(_ message: URLSessionWebSocketTask.Message, to current: URLSessionWebSocketTask) async throws {
+    private func write(_ message: URLSessionWebSocketTask.Message, to current: URLSessionWebSocketTask,
+                       onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
         let previous = lastWrite
         let next = Task {
             try await previous?.value
             guard self.socket === current else { throw CancellationError() }
+            onWriteStarted?()
             try await current.send(message)
         }
         lastWrite = next
@@ -267,7 +450,7 @@ public actor TerminalConnection {
             try await next.value
             guard socket === current else { throw CancellationError() }
         } catch {
-            if socket === current { lost(current) }
+            if socket === current, state != .closing { lost(current) }
             throw error
         }
     }

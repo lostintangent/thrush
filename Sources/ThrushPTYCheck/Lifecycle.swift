@@ -18,7 +18,7 @@ struct PTYLifecycle {
         try await row("SIZE-25 61", in: first)
 
         await first.detach()
-        guard try await first.attach(), try await first.nextEvent() == .ready(resumed: true),
+        guard await first.attach(), try await first.nextEvent() == .ready(resumed: true),
               try await first.nextEvent() == .output else { throw PTYCheckFailure("Missing foreground replay") }
         // Read the replay itself before issuing a command so the live shell cannot mask a lost screen.
         let replay = await first.snapshot()
@@ -32,12 +32,10 @@ struct PTYLifecycle {
         let owner = try connect()
         guard try await owner.nextEvent() == .ready(resumed: true),
               try await owner.nextEvent() == .output else { throw PTYCheckFailure("Missing takeover replay") }
-        do {
-            while try await first.nextEvent() == .output {}
-        } catch {
-            guard await first.state == .displaced else { throw error }
-        }
-        guard await first.state == .displaced, try await !first.attach() else {
+        var event = try await first.nextEvent()
+        while event == .output { event = try await first.nextEvent() }
+        guard event == .displaced else { throw PTYCheckFailure("Missing takeover event on the first socket") }
+        guard await first.state == .displaced, await !first.attach() else {
             throw PTYCheckFailure("Displaced client attempted an automatic reconnect")
         }
         try await owner.send(.text("printf '\\r\\nOWNER-%s-%d\\n' \"$KEEP\" $$\r"))
@@ -51,7 +49,7 @@ struct PTYLifecycle {
         let detached = ContinuousClock.now
         try await waitForProcessExit(orphanPID, within: .seconds(40))
         let orphanAge = detached.duration(to: .now)
-        guard orphanAge >= .seconds(29), try await orphan.attach() else {
+        guard orphanAge >= .seconds(29), await orphan.attach() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
         _ = try await freshShell(orphan)

@@ -44,7 +44,7 @@ struct LifecycleCheck {
         try await expectOutput(second, rows: ["alt!A!B", "", ""])
         try await checkpoint("owner-b")
 
-        guard try await first.attach(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
+        guard await first.attach(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
         try await first.sendResize(to: .init(columns: 20, rows: 3))
         try await expectReady(first, resumed: true)
         let editorSize = Terminal.Size(columns: 17, rows: 3)
@@ -66,7 +66,7 @@ struct LifecycleCheck {
         await first.detach()
         try await first.sendResize(to: size)
         try await checkpoint("expire")
-        guard try await first.attach() else { throw Failure("Could not attach after orphan expiry") }
+        guard await first.attach() else { throw Failure("Could not attach after orphan expiry") }
         // The peer withholds ready until the rejected keystroke has had a chance to queue.
         try await rejectInput(first)
         try await checkpoint("ready")
@@ -76,7 +76,7 @@ struct LifecycleCheck {
         try await expectOutput(first, rows: ["new$ N", "", ""])
         try await closeWithPendingRead(first)
         try await checkpoint("closed")
-        try await expectEnded(first)
+        try await expectEnded(first, closed: true)
 
         // The previous socket's displacement must leave the host-owned session usable.
         let observed = Mutex(Data())
@@ -90,7 +90,7 @@ struct LifecycleCheck {
               await final.appliedBytes == expected.count else {
             throw Failure("Exit must follow the final output and preserve it on screen")
         }
-        try await expectEnded(final)
+        try await expectEnded(final, closed: false)
     }
 
     private func open() throws -> TerminalConnection {
@@ -99,7 +99,7 @@ struct LifecycleCheck {
 
     private func open(in session: URLSession,
                       onOutput: (@Sendable (Data) -> Void)? = nil) throws -> TerminalConnection {
-        try TerminalConnection(clientID: "thrush lifecycle", size: size, palette: palette, onOutput: onOutput) { id, grid in
+        TerminalConnection(clientID: "thrush lifecycle", size: size, palette: palette, onOutput: onOutput) { id, grid in
             let address = endpoint.appending(path: "socket").appending(queryItems: [
                 URLQueryItem(name: "service", value: "terminal"),
                 URLQueryItem(name: "clientId", value: id),
@@ -143,21 +143,21 @@ struct LifecycleCheck {
     }
 
     private func expectDisplacement(_ connection: TerminalConnection) async throws {
-        if (try? await connection.nextEvent()) != nil {
+        guard try await connection.nextEvent() == .displaced else {
             throw Failure("Expected the peer to displace the old socket with close code 4000")
         }
         await connection.detach() // The user backgrounds and returns to the displaced window.
-        guard await connection.state == .displaced, try await !connection.attach() else {
+        guard await connection.state == .displaced, await !connection.attach() else {
             throw Failure("Foregrounding a displaced owner must wait for user input")
         }
         try await rejectInput(connection)
     }
 
-    private func expectEnded(_ connection: TerminalConnection) async throws {
-        guard await connection.state == .ended, try await !connection.attach(),
-              try await !connection.attach(userInitiated: true) else {
+    private func expectEnded(_ connection: TerminalConnection, closed: Bool) async throws {
+        guard await connection.state == .ended, await !connection.attach() else {
             throw Failure("A closed or exited shell must stay ended")
         }
+        if closed, await connection.attach(userInitiated: true) { throw Failure("Explicitly closed shell restarted") }
         try await rejectInput(connection)
     }
 
@@ -174,7 +174,7 @@ struct LifecycleCheck {
         let pendingInput = Task.immediate { try await connection.send(.text("stale")) }
         connection.detach()
         try await connection.sendResize(to: size)
-        guard try connection.attach() else { throw Failure("Could not resume on foreground return") }
+        guard connection.attach() else { throw Failure("Could not resume on foreground return") }
         try await checkpoint("detached")
         guard case .failure = await pendingRead.result,
               case .failure(let error) = await pendingInput.result, error is CancellationError,

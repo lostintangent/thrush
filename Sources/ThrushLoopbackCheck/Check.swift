@@ -19,6 +19,7 @@ struct LoopbackCheck {
         }
         if arguments.count == 3, arguments[1] == "--lifecycle", let endpoint = URL(string: arguments[2]) {
             try await LifecycleCheck(endpoint: endpoint).run()
+            try await ReconnectCheck(endpoint: endpoint).run()
             return
         }
         guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {

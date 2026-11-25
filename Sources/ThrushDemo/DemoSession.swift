@@ -169,7 +169,9 @@ final class DemoSession {
                     await display(current, receivedAt: await current.lastReceiptTime)
                     onFirstOutput?()
                     onFirstOutput = nil
-                case .exit:
+                case .reconnecting:
+                    ready = false
+                case .displaced, .exit:
                     ready = false
                     return
                 }
