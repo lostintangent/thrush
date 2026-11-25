@@ -23,4 +23,15 @@ The product is Thrush. The folder, the GitHub repo and anything path-like are lo
 
 ## Commands
 
-The Core owner fills this in as the package lands.
+Run from the repository root. Use the full Xcode toolchain for Swift Testing macros and the SwiftSyntax modules in the core import check. This setting applies to the current shell.
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+swift build
+swift test
+scripts/check-core.sh
+scripts/check-consumer.sh
+swift run -c release ThrushBench
+```
+
+The separate consumer prints its row and reply, then checks binary linkage with `otool`. The Release benchmark writes `.build/benchmarks/first-bytes.json`. See [the measurement procedure](Benchmarks/README.md) and [the fixture reference](Fixtures/reference/README.md).
