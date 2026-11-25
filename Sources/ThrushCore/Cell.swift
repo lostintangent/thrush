@@ -85,7 +85,7 @@ extension Terminal {
         /// A scalar in the low 21 bits, with the width flags above it.
         var glyph: UInt32 = 0
         /// Zero is the default style. Any other value `n` is `styles[n - 1]` in the cell's row.
-        var style: UInt32 = 0
+        var stylePosition: UInt32 = 0
 
         var scalar: UInt32 { glyph & 0x1f_ffff }
         var width: Int {
@@ -135,7 +135,7 @@ extension Terminal {
         private mutating func fill(with style: Style) {
             guard style != Style() else { return }
             styles.append(style)
-            cells.append(contentsOf: repeatElement(StoredCell(style: 1), count: columns))
+            cells.append(contentsOf: repeatElement(StoredCell(stylePosition: 1), count: columns))
         }
 
         func stored(at column: Int) -> StoredCell {
@@ -143,7 +143,7 @@ extension Terminal {
         }
 
         func style(of cell: StoredCell) -> Style {
-            cell.style == 0 ? Style() : styles[Int(cell.style) - 1]
+            cell.stylePosition == 0 ? Style() : styles[Int(cell.stylePosition) - 1]
         }
 
         package subscript(column: Int) -> Cell {
@@ -219,7 +219,7 @@ extension Terminal {
         private mutating func compactStyles() {
             withUnsafeTemporaryAllocation(of: UInt32.self, capacity: styles.count + 1) { renumbered in
                 renumbered.initialize(repeating: 0)
-                for cell in cells { renumbered[Int(cell.style)] = 1 }
+                for cell in cells { renumbered[Int(cell.stylePosition)] = 1 }
                 renumbered[0] = 0
                 var kept = 0
                 for position in 1..<renumbered.count where renumbered[position] != 0 {
@@ -228,7 +228,7 @@ extension Terminal {
                     renumbered[position] = UInt32(kept)
                 }
                 styles.removeLast(styles.count - kept)
-                for column in cells.indices { cells[column].style = renumbered[Int(cells[column].style)] }
+                for column in cells.indices { cells[column].stylePosition = renumbered[Int(cells[column].stylePosition)] }
             }
         }
 
@@ -240,7 +240,7 @@ extension Terminal {
 
         private mutating func clearWideLead(before column: Int, style: UInt32) {
             if column > 0, stored(at: column - 1).width == 2 {
-                cells[column - 1] = StoredCell(style: style)
+                cells[column - 1] = StoredCell(stylePosition: style)
                 if !clusters.isEmpty { clusters.removeValue(forKey: column - 1) }
             }
         }
@@ -250,7 +250,7 @@ extension Terminal {
             clearWideLead(before: range.lowerBound, style: style)
             let end = range.upperBound
             if end < cells.count, cells[end].glyph == StoredCell.continuation {
-                cells[end] = StoredCell(style: style)
+                cells[end] = StoredCell(stylePosition: style)
             }
         }
 
@@ -267,13 +267,13 @@ extension Terminal {
             if overwritten > 0 {
                 var target = cells.mutableSpan
                 for offset in 0..<overwritten {
-                    target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), style: style)
+                    target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style)
                 }
             }
             if overwritten < bytes.count {
                 cells.append(addingCapacity: bytes.count - overwritten) { appended in
                     for offset in overwritten..<bytes.count {
-                        appended.append(StoredCell(glyph: UInt32(bytes[offset]), style: style))
+                        appended.append(StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style))
                     }
                 }
             }
@@ -286,8 +286,8 @@ extension Terminal {
             discardClusters(in: column..<end)
             ensureLength(end)
             let flag: UInt32 = width == 2 ? StoredCell.wide : (width == 0 ? StoredCell.zeroWidth : 0)
-            cells[column] = StoredCell(glyph: scalar.value | flag, style: style)
-            if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, style: style) }
+            cells[column] = StoredCell(glyph: scalar.value | flag, stylePosition: style)
+            if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style) }
         }
 
         /// Append complete, non-combining scalars that fit at the stored end of this row.
@@ -299,8 +299,8 @@ extension Terminal {
             if cells.isEmpty { reserveWidth() }
             while let glyph = pending, glyph.width > 0, cells.count + glyph.width <= limit {
                 let flag: UInt32 = glyph.width == 2 ? StoredCell.wide : 0
-                cells.append(StoredCell(glyph: glyph.scalar.value | flag, style: style))
-                if glyph.width == 2 { cells.append(StoredCell(glyph: StoredCell.continuation, style: style)) }
+                cells.append(StoredCell(glyph: glyph.scalar.value | flag, stylePosition: style))
+                if glyph.width == 2 { cells.append(StoredCell(glyph: StoredCell.continuation, stylePosition: style)) }
                 written &+= 1
                 pending = next()
             }
@@ -340,7 +340,7 @@ extension Terminal {
                 return
             }
             ensureLength(range.upperBound)
-            let blank = StoredCell(style: style)
+            let blank = StoredCell(stylePosition: style)
             for column in range { cells[column] = blank }
         }
 
@@ -393,7 +393,7 @@ extension Terminal {
             ensureLength(start + range.count)
             for offset in 0..<range.count {
                 var cell = source.stored(at: range.lowerBound + offset)
-                cell.style = position(of: source.style(of: cell))
+                cell.stylePosition = position(of: source.style(of: cell))
                 cells[start + offset] = cell
             }
             discardClusters(in: start..<(start + range.count))

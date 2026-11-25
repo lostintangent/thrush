@@ -68,7 +68,7 @@ extension Terminal.Style {
         }
     }
 
-    /// The framer has already restricted this span to digits, colons and semicolons.
+    /// The parser has already restricted this span to digits, colons and semicolons.
     @inline(__always)
     private static func decimal(in bytes: Span<UInt8>, at index: inout Int) -> Int? {
         guard index < bytes.count, bytes[index] <= UInt8(ascii: "9") else { return nil }

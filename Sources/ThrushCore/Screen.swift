@@ -90,7 +90,7 @@ extension Terminal {
         var row = 0  // Absolute, including history, as in the reference buffer.
         var column = 0
         var style = Style()
-        var characterSet = CharacterSets.Set.ascii
+        var characterSet = CharacterSet.ascii
     }
 
     /// The columns where HT stops. Each buffer starts with a stop every eight columns.
@@ -297,7 +297,7 @@ extension Terminal {
         }
 
         /// The column may be just past the right margin, so a restore can bring back a pending wrap.
-        mutating func saveCursor(style: Style, characterSet: CharacterSets.Set) {
+        mutating func saveCursor(style: Style, characterSet: CharacterSet) {
             active.saved = SavedCursor(row: active.history.count + row, column: column, style: style, characterSet: characterSet)
         }
 

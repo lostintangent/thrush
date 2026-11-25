@@ -1,6 +1,6 @@
-/// Reads a supported string command’s payload as it arrives and commits its effect at the terminator.
+/// Collects a control string’s payload and returns the completed command at its terminator.
 /// A cancelled or overlong command has no effect.
-struct TerminalStringHandler: Sendable {
+struct ControlStringHandler: Sendable {
     // The limit is measured in UTF-16 code units. An overlong command has no effect.
     private static let payloadLimit = 10_000_000
     private var remainingCodeUnits = 0

@@ -64,7 +64,7 @@ public struct Terminal: Sendable {
     private(set) var parser = EscapeParser()
     /// The completed window title. An empty title asks the host to use its default.
     package private(set) var title = ""
-    private(set) var stringHandler = TerminalStringHandler()
+    private(set) var stringHandler = ControlStringHandler()
     private(set) var screen: Screen
     private(set) var style = Style()
     private(set) var characterSets = CharacterSets()
@@ -118,7 +118,7 @@ public struct Terminal: Sendable {
             } else if byte >= 0x80, parser.isGround, printsInRuns {
                 writeNonASCII(in: bytes, index: &index, replies: &replies)
             } else if let control = TerminalControlFunction.C0(rawValue: byte), parser.isGround, scanner.isComplete {
-                // A single-byte C0 in ground state leaves the framer in ground state.
+                // A single-byte C0 in ground state leaves the parser in ground state.
                 hasCombiningBase = false
                 apply(.execute(control), replies: &replies)
                 index += 1

@@ -29,14 +29,14 @@ struct EscapeParser: Sendable {
         case stringPut(Unicode.Scalar), stringEnd(success: Bool)
     }
 
-    private enum Pending { case stringEnd(Bool), execute(UInt8) }
+    private enum PendingAction { case stringEnd(Bool), execute(UInt8) }
 
     private(set) var state = Tag(State.ground)
     private(set) var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
     private(set) var parameters = ControlParameters()
     private(set) var oscIdentifier = -1
-    private var pending: Pending?
+    private var pending: PendingAction?
     var isGround: Bool { state.matches(.ground) }
 
     /// Printable ASCII has no effect inside these strings. Controls still need framing.

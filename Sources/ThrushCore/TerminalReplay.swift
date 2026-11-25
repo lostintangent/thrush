@@ -40,7 +40,7 @@ extension Terminal {
             writer.finishGlyph(in: buffer, insert: modes.insert)
             writer.setStyle(style)
         } else {
-            // An ignored SGR preserves the pen and pending wrap while breaking the combining run.
+            // An ignored SGR preserves the current style and pending wrap while breaking the combining run.
             writer.output += "\u{1b}[999m"
         }
         return Array((writer.output + parser.replayPrefix(string: stringHandler)).utf8) + scanner.replayPrefix
@@ -48,13 +48,13 @@ extension Terminal {
 
     private struct ReplayWriter {
         var output = ""
-        private var pen = Style()
+        private var currentStyle = Style()
         private let escape = "\u{1b}"
         private let csi = "\u{1b}["
 
         mutating func restoreSaved(_ saved: SavedCursor) {
             output += escape + "8"
-            pen = saved.style
+            currentStyle = saved.style
         }
 
         mutating func saveInactiveAlternate(_ saved: SavedCursor, size: Size) {
@@ -180,8 +180,8 @@ extension Terminal {
         }
 
         mutating func setStyle(_ style: Style) {
-            guard pen != style else { return }
-            pen = style
+            guard currentStyle != style else { return }
+            currentStyle = style
             var sgr = ["0"]
             for (set, code) in [(style.bold, "1"), (style.dim, "2"), (style.italic, "3"),
                                 (style.underline, "4"), (style.blink, "5"), (style.inverse, "7"),
@@ -229,7 +229,7 @@ extension Terminal {
             }
         }
 
-        private mutating func designate(_ set: CharacterSets.Set, slot: Int) {
+        private mutating func designate(_ set: CharacterSet, slot: Int) {
             let final: String = switch set {
             case .ascii: "B"; case .lineDrawing: "0"; case .british: "A"; case .dutch: "4"
             case .finnish: "C"; case .french: "R"; case .frenchCanadian: "Q"; case .german: "K"
@@ -243,7 +243,7 @@ extension Terminal {
 // A socket can detach in the middle of a control or scalar. End the repaint with an
 // equivalent unfinished prefix so the next live PTY byte completes the same operation.
 private extension EscapeParser {
-    func replayPrefix(string: TerminalStringHandler) -> String {
+    func replayPrefix(string: ControlStringHandler) -> String {
         if isGround { return "" }
         let esc = "\u{1b}"
         let bytes = [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: collected >> $0) }.filter { $0 != 0 }

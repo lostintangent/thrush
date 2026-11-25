@@ -176,7 +176,7 @@ enum TerminalControlFunction {
     case execute(C0)
     case escape(Escape)
     /// SCS, ESC I F. The intermediate names the slot and the final names the set.
-    case designate(Terminal.CharacterSets.Set, slot: Int)
+    case designate(Terminal.CharacterSet, slot: Int)
     case control(CSI)
     case command(OSC)
     case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
@@ -194,7 +194,7 @@ enum TerminalControlFunction {
         case .esc(let id):
             if let function = Escape(rawValue: id.rawValue) {
                 self = .escape(function)
-            } else if let slot = Self.designatedSlot(id), let set = Terminal.CharacterSets.Set(final: UInt8(truncatingIfNeeded: id.rawValue)) {
+            } else if let slot = Self.designatedSlot(id), let set = Terminal.CharacterSet(final: UInt8(truncatingIfNeeded: id.rawValue)) {
                 self = .designate(set, slot: slot)
             } else {
                 return nil
