@@ -39,17 +39,42 @@ def record(phone, appearance, wait_for, save_json):
                         and terminal.get("keyboardHeight", 0) > 90 and terminal.get("accessoryHeight", 0) >= 44)
 
             wait_for("the live English keyboard on the running terminal", ready, 120)
+            initial = phone.state()
+            reconnecting = None
+            final = None
+
+            def finished():
+                nonlocal reconnecting, final
+                terminal = phone.state()
+                if (terminal.get("notice") or {}).get("title") == "Reconnecting":
+                    reconnecting = terminal
+                proof = state()
+                if not proof["complete"] and test.poll() is not None:
+                    raise RuntimeError("Native typing stopped before the remote echo. See reconnect-ui.log.")
+                if proof["complete"] and terminal.get("gpuCompleted") and not terminal.get("notice"):
+                    final = terminal
+                    return True
+                return False
+
             with phone.record_switch("reconnect-typing"):
                 with urlopen(Request(phone.endpoint + "/motion/start", method="POST"), timeout=5):
                     pass
-                wait_for("held input echoed exactly once after the resumed replay", lambda: state()["complete"], 90)
+                wait_for("held input echoed exactly once after the resumed replay", finished, 90)
+            with urlopen(Request(phone.endpoint + "/motion/observed", method="POST"), timeout=5):
+                pass
             if test.wait(45):
                 raise RuntimeError("The native reconnect typing test failed. See reconnect-ui.log.")
             proof = state()
             if (proof["attachments"] != 2 or not proof["replayAcknowledged"] or
                     bytes.fromhex(proof["liveBytesHex"]) != b"git" or bytes.fromhex(proof["heldBytesHex"]) != b" status"):
                 raise RuntimeError("Peer bytes or attachment count disagreed with the native proof.")
+            if not reconnecting or reconnecting["notice"].get("detail") != "Typing waits for this shell to resume.":
+                raise RuntimeError("The mounted reconnect instructions did not appear during recording.")
+            for observed in [reconnecting, final]:
+                if any(observed.get(key) != initial.get(key) for key in ("pid", "keyboardHeight", "accessoryHeight", "keyboardLanguage")):
+                    raise RuntimeError("The native keyboard moved or changed during reconnect.")
             save_json(phone.out / "reconnect-wire.json", proof)
+            save_json(phone.out / "reconnect-view.json", dict(live=initial, reconnecting=reconnecting, resumed=final))
         finally:
             if test.poll() is None:
                 test.terminate()

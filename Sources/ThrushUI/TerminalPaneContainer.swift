@@ -246,6 +246,7 @@ private typealias NoticeHost = UIView & UIContentView
     var onNoticeReadChange: ((Bool) -> Void)?
 
     private let viewport = PaneNativeView()
+    private let rowCover = PaneNativeView()
     private let backing = PaneNativeView()
     private let divider = PaneNativeView()
     private var noticeView: NoticeHost?
@@ -253,7 +254,8 @@ private typealias NoticeHost = UIView & UIContentView
     var mountedNoticeView: PaneNativeView? { noticeView }
     private var lastTheme: TerminalTheme?
     private var gridTop: NSLayoutConstraint!
-    private var clipBottom: NSLayoutConstraint!
+    private var coveredHeight: NSLayoutConstraint!
+    private var hiddenBackingTop: NSLayoutConstraint!
     private var dividerHeight: NSLayoutConstraint!
     private var availableHeight: NSLayoutDimension!
     private var lowerEdge: NSLayoutYAxisAnchor!
@@ -270,6 +272,7 @@ private typealias NoticeHost = UIView & UIContentView
         wantsLayer = true
         viewport.wantsLayer = true
         viewport.layer?.masksToBounds = true
+        rowCover.wantsLayer = true
         backing.wantsLayer = true
         divider.wantsLayer = true
         let guide = NSLayoutGuide()
@@ -294,21 +297,25 @@ private typealias NoticeHost = UIView & UIContentView
         availableHeight = guide.heightAnchor
         lowerEdge = guide.bottomAnchor
         addSubview(viewport)
+        addSubview(rowCover)
         addSubview(backing)
         backing.addSubview(divider)
         viewport.addSubview(terminal)
-        for view in [viewport, backing, divider, terminal] { view.translatesAutoresizingMaskIntoConstraints = false }
+        for view in [viewport, rowCover, backing, divider, terminal] { view.translatesAutoresizingMaskIntoConstraints = false }
         backing.isHidden = true
         gridTop = terminal.topAnchor.constraint(equalTo: guide.topAnchor)
-        clipBottom = viewport.bottomAnchor.constraint(equalTo: lowerEdge)
+        coveredHeight = rowCover.heightAnchor.constraint(equalToConstant: 0)
         dividerHeight = divider.heightAnchor.constraint(equalToConstant: 1)
-        let hiddenBackingTop = backing.topAnchor.constraint(equalTo: lowerEdge)
-        hiddenBackingTop.priority = .defaultLow
+        hiddenBackingTop = backing.topAnchor.constraint(equalTo: lowerEdge)
         NSLayoutConstraint.activate([
             viewport.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
             viewport.trailingAnchor.constraint(equalTo: guide.trailingAnchor),
             viewport.topAnchor.constraint(equalTo: guide.topAnchor),
-            clipBottom,
+            viewport.bottomAnchor.constraint(equalTo: lowerEdge),
+            rowCover.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
+            rowCover.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
+            rowCover.bottomAnchor.constraint(equalTo: lowerEdge),
+            coveredHeight,
             terminal.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
             terminal.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
             terminal.heightAnchor.constraint(equalTo: guide.heightAnchor),
@@ -445,10 +452,12 @@ private typealias NoticeHost = UIView & UIContentView
 
     private func updateBacking(_ theme: TerminalTheme) {
         #if os(macOS)
+        rowCover.layer?.backgroundColor = theme.palette.background.paneCGColor
         layer?.backgroundColor = theme.palette.background.paneCGColor
         backing.layer?.backgroundColor = theme.hostBacking.paneCGColor
         divider.layer?.backgroundColor = theme.separator.paneCGColor
         #else
+        rowCover.backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
         backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
         backing.backgroundColor = UIColor(cgColor: theme.hostBacking.paneCGColor)
         divider.backgroundColor = UIColor(cgColor: theme.separator.paneCGColor)
@@ -480,6 +489,7 @@ private typealias NoticeHost = UIView & UIContentView
                 guard let self, current == nil, noticeView === outgoing else { return }
                 NSLayoutConstraint.deactivate(noticeConstraints)
                 noticeConstraints.removeAll()
+                hiddenBackingTop.isActive = true
                 noticeView?.removeFromSuperview()
                 noticeView = nil
                 backing.isHidden = true
@@ -524,6 +534,7 @@ private typealias NoticeHost = UIView & UIContentView
             #endif
         }
         NSLayoutConstraint.deactivate(noticeConstraints)
+        hiddenBackingTop.isActive = notice.isCentered
         if notice.isCentered {
             backing.isHidden = true
             resetClip()
@@ -549,7 +560,7 @@ private typealias NoticeHost = UIView & UIContentView
 
     private func resetClip() {
         gridTop.constant = 0
-        clipBottom.constant = 0
+        coveredHeight.constant = 0
         if terminal.noticeBottomInset != 0 { terminal.noticeBottomInset = 0 }
     }
 
@@ -580,7 +591,9 @@ private typealias NoticeHost = UIView & UIContentView
         let rows = max(0, floor((available + lift - cell.minY) / cell.height))
         let edge = max(0, cell.minY + rows * cell.height - lift)
         let clipped = max(0, terminal.bounds.height - edge)
-        if clipBottom.constant != -clipped { clipBottom.constant = -clipped }
+        // Keep the Metal layer's parent at its original size. Resizing a layer-backed AppKit
+        // clipping view can translate the drawable in WindowServer even with stable NSView bounds.
+        if coveredHeight.constant != clipped { coveredHeight.constant = clipped }
         let obscured = max(0, clipped - lift)
         if terminal.noticeBottomInset != obscured { terminal.noticeBottomInset = obscured }
     }

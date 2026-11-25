@@ -69,6 +69,8 @@ import UIKit
         pane.show(notice)
         layout()
         #expect(grid.bounds.size == measured)
+        #expect(grid.superview?.bounds.size == measured)
+        #expect((pane.mountedNoticeView?.bounds.height ?? 0) > 0)
         #expect(grid.selection == range)
         #expect(grid.selectedText == "Last line")
         #expect(resizes == originalResizes)

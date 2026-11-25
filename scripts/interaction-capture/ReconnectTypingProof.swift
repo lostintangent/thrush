@@ -19,14 +19,7 @@ import XCTest
         XCTAssertTrue(app.buttons["Control"].exists)
         let initial = keyboard.frame
         try await post("app-ready")
-        let deadline = Date.now.addingTimeInterval(50)
-        while true {
-            let (data, _) = try await URLSession.shared.data(from: base.appending(path: "motion/state"))
-            let state = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            if state?["recording"] as? Bool == true { break }
-            guard Date.now < deadline else { throw NSError(domain: "Simulator recorder did not start", code: 1) }
-            try await Task.sleep(for: .milliseconds(80))
-        }
+        try await waitForRecorder("recording")
         try tap("git")
         let live = app.staticTexts["~/thrush % git"]
         XCTAssertTrue(live.waitForExistence(timeout: 8), app.debugDescription)
@@ -44,6 +37,18 @@ import XCTest
         XCTAssertEqual(keyboard.frame, initial)
         try await Task.sleep(for: .milliseconds(700))
         try await post("complete")
+        try await waitForRecorder("observed")
+    }
+
+    private func waitForRecorder(_ field: String) async throws {
+        let deadline = Date.now.addingTimeInterval(50)
+        while true {
+            let (data, _) = try await URLSession.shared.data(from: base.appending(path: "motion/state"))
+            let state = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            if state?[field] as? Bool == true { break }
+            guard Date.now < deadline else { throw NSError(domain: "Simulator recorder checkpoint timed out", code: 1) }
+            try await Task.sleep(for: .milliseconds(80))
+        }
     }
 
     private func tap(_ text: String) throws {

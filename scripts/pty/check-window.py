@@ -65,10 +65,12 @@ def main():
         subprocess.run(["codesign", "--force", "--sign", "-", cover], check=True)
         peer = contextlib.nullcontext(args.endpoint) if args.endpoint else real_shell(out)
         report = out / "window-lifecycle.json"
-        with peer as endpoint, (out / "host.log").open("w") as log:
-            subprocess.run([app / "Contents/MacOS/ThrushDemo", "--endpoint", endpoint, "--appearance", "dark",
-                            "--window-lifecycle-check", report, cover], stdout=log, stderr=subprocess.STDOUT,
-                           check=True, timeout=195)
+        with peer as endpoint:
+            subprocess.run(["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
+                            "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
+                            "--window-lifecycle-check", report, cover], check=True, timeout=195)
+        if not report.exists():
+            raise RuntimeError("The native window check did not finish. " + (out / "host.log").read_text()[-1200:])
         result = json.loads(report.read_text())
         rows = result["intervals"]
         if ({r["phase"] for r in rows} != {"covered", "minimized", "hidden"} or

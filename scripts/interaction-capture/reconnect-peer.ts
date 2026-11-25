@@ -14,6 +14,7 @@ export class ReconnectRecording {
     private interrupted = false;
     private resumed = false;
     private complete = false;
+    private observed = false;
     private error?: string;
     private firstAck = false;
     private replayAck = false;
@@ -55,7 +56,7 @@ export class ReconnectRecording {
         if (path === "/motion/state" && request.method === "GET") return Response.json({
             appReady: this.appReady, recording: this.recording, interrupted: this.interrupted,
             attachments: this.attachments, resumed: this.resumed, replayAcknowledged: this.replayAck,
-            liveBytesHex: this.liveBytes.toString("hex"), heldBytesHex: this.heldBytes.toString("hex"), complete: this.complete,
+            liveBytesHex: this.liveBytes.toString("hex"), heldBytesHex: this.heldBytes.toString("hex"), complete: this.complete, observed: this.observed,
         });
         if (request.method !== "POST") return new Response(null, {status: 405});
         switch (path) {
@@ -77,6 +78,10 @@ export class ReconnectRecording {
             this.resumed = true;
             this.socket.sendText(JSON.stringify({type: "ready", resumed: true}));
             this.socket.sendBinary(Buffer.from(this.transcript + promptInput + "\x1b[6n"));
+            return new Response(null, {status: 204});
+        case "/motion/observed":
+            if (!this.complete) break;
+            this.observed = true;
             return new Response(null, {status: 204});
         case "/motion/complete":
             if (!this.replayAck || !this.heldBytes.equals(Buffer.from(held))) break;

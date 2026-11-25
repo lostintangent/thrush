@@ -94,8 +94,10 @@ final class MacWindowLifecycleCheck {
 
     private func run() async throws -> Report {
         guard let connection = session.connection else { throw RenderBenchmark.Failure("Missing shell connection.") }
-        try await wait("An uncovered Thrush window must be frontmost on an unlocked desktop", timeout: 20) {
-            readyEvents == 1 && visible && NSApp.isActive && lastCompleted != nil
+        try await wait("The uncovered terminal must render its first shell output", timeout: 25) {
+            guard self.readyEvents == 1, self.visible, let snapshot = self.session.view.snapshot,
+                  let completed = self.lastCompleted, completed >= snapshot.generation else { return false }
+            return snapshot.rows.contains { row in row.text.contains { !$0.isWhitespace } }
         }
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
