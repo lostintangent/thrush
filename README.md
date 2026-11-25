@@ -13,10 +13,10 @@ The terminal pixels are unretouched captures from the sample apps. The Mac windo
 
 ## Add a terminal to an app
 
-Add the package and depend on its `ThrushUI` and `ThrushConnection` products. Until the first release is tagged, depend on `main`.
+Add the package and depend on its `ThrushUI` and `ThrushConnection` products.
 
 ```swift
-.package(url: "https://github.com/lostintangent/thrush", branch: "main")
+.package(url: "https://github.com/lostintangent/thrush", from: "0.1.0")
 ```
 
 Create one connection per shell in a model that outlives the view, and give it a socket factory. Then show it with one view.

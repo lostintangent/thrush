@@ -14,16 +14,18 @@ At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3,
 
 ## Vim reattachment
 
-`vim-resume.mjs` feeds the real, saved-file-checked Vim recording to the pinned Toy Box server’s `ScrollbackBuffer`. It adds a scripted detach and a serialized replay at the restored 80 × 24 size. The original terminal stays alive on the server. The resumed client starts with a new terminal at the same size and palette.
+`vim-resume.mjs` feeds the real, saved-file-checked Vim recording to the local Toy Box server’s `ScrollbackBuffer`. It adds a scripted detach and a serialized replay at the restored 80 × 24 size. The original terminal stays alive on the server. The resumed client starts with a new terminal at the same size and palette.
 
 | Boundary | Expected event |
 | --- | --- |
 | `Vim before detach` | Edited alternate screen with cursor at row 0, column 9 |
 | `Vim detached` | Close the socket and retain client ID `r5-vim` |
 | `Vim resumed ready` | Receive the ready control with `resumed: true`. The fresh client grid is empty. |
-| `Vim serialized replay` | Apply one 1,848-byte binary frame. The recorded server restores the edited text and modes, with the cursor at row 0, column 8. |
+| `Vim serialized replay` | Apply one 1,858-byte binary frame. Both buffers, cell colors and styles, modes and the cursor at row 0, column 9 match the uninterrupted session. |
 | `Vim first live output after replay` | Apply Vim’s response to `:wq` after the replay |
-| `Returned to shell` | Read the original `thrush$ ` prompt |
+| `Returned to shell` | Read the eight default-colored cells of the original `thrush$ ` prompt. The cursor follows the trailing space. |
+
+The wide and iPhone overlays use the reviewed local `src/features/terminal/server/scrollback.ts`, SHA-256 `f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641`. Its reset before entering the alternate screen and absolute cursor placement add ten bytes to each serialized replay. On iPhone the restored frame is 1,214 bytes at 47 × 25. The published Toy Box revision used by hosted live PTY checks still shifts this cursor to column 8 and leaves the prompt bright blue. The frozen Vim recordings and xterm oracle retain their original provenance.
 
 ## Codex transcript
 
@@ -40,7 +42,7 @@ NODE_PATH="$PWD/../toy-box/node_modules/@xterm/xterm/src" bun Fixtures/reference
 scripts/check-workflows.sh
 ```
 
-To record new shell bytes, run the following with the captured Bash version and the pinned Toy Box checkout. The Vim overlay is reproducible from the existing M2 scratch-file session.
+To record new shell bytes, run the following with the captured Bash version and the pinned Toy Box checkout. The Vim overlay uses the existing M2 scratch-file session. Use a local Toy Box checkout with the serializer digest above. If the local server moves beyond the original xterm revision, pass that original checkout as the first argument and add `--serializer-checkout PATH` for the server source.
 
 ```sh
 python3 Fixtures/reference/m4/shell-workflow.py ../toy-box --bash /opt/homebrew/bin/bash
@@ -86,4 +88,4 @@ The controller holds a phase until the corresponding action or acknowledgement a
 
 For a new live PTY recording, keep the actual input and output on the terminal server connection. Derive the xterm expectation from the bytes, resizes and replay that server delivered. The recorded fixture peer provides the same control interface with `bun scripts/demo-peer.ts --workflow shell --view --driver`. Its terminal and control listeners can select separate free ports with `THRUSH_PORT=0 THRUSH_DRIVER_PORT=0`.
 
-The capture handshake uses `capture-NNN.json` for the app's verified, settled checkpoint. The runner writes its PNG and touches `capture-NNN.done`, then the app releases the peer. An intermediate synchronized Codex repaint checks that the previous coherent native frame stayed visible and immediately releases the batch. On a resumed Vim attachment, the parser starts empty while the last editor frame remains displayed until the serialized replay.
+The capture handshake uses `capture-NNN.json` for the app's verified, settled checkpoint. The runner writes its PNG and touches `capture-NNN.done`, then the app releases the peer. An intermediate synchronized Codex repaint checks that the previous coherent native frame stayed visible and immediately releases the batch. On a resumed Vim attachment, the parser starts empty while the last editor frame remains displayed until the serialized replay. The recorded workflow compares every RGB pixel inside the grid before detach and after replay, and checks that the block cursor is visible in the expected cell in both frames.

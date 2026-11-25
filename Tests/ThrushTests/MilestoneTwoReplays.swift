@@ -7,6 +7,18 @@ enum Delivery: String, CaseIterable, Sendable { case recorded, whole, singleByte
 @Test(arguments: ReplayFixture.names, Delivery.allCases)
 func milestoneTwoReplay(named name: String, delivery: Delivery) throws {
     let fixture = try ReplayFixture.load(named: name)
+    try verifyReplay(fixture, delivery: delivery)
+}
+
+@Test(arguments: Delivery.allCases)
+func handsetVimResumeReplay(delivery: Delivery) throws {
+    // The handset reference is copied to the bundle root. The desktop fixture has the same name.
+    let fixture = try ReplayFixture.load(named: "vim-resume", subdirectory: nil)
+    try #require(fixture.columns == 47 && fixture.rows == 25)
+    try verifyReplay(fixture, delivery: delivery)
+}
+
+private func verifyReplay(_ fixture: ReplayFixture, delivery: Delivery) throws {
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
     var pending: [UInt8] = []
     var expectedReplies: [UInt8] = []

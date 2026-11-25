@@ -1,4 +1,4 @@
-{"version":1,"name":"vim-resume","reference":{"toyBoxRevision":"b9d0eca3c5f4e9036e58327ba633eff52474bb92","packages":{"@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0","@xterm/addon-unicode11":"0.9.0"},"scrollback":1000,"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"7fecd621ad7f05311f536569216a7f924d932d965d825f5501715f660ad12c54","columns":47,"rows":25,
+{"version":1,"name":"vim-resume","reference":{"toyBoxRevision":"b9d0eca3c5f4e9036e58327ba633eff52474bb92","packages":{"@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0","@xterm/addon-unicode11":"0.9.0"},"scrollback":1000,"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"943bf6ccd1546079e53202b942220541577fa9defadef4466ff2631d37664769","vimReplay":{"sourceCaptureSHA256":"d3e513cd3fd6f243a54ee68ccd9b32d0cd97ebfe2a104eb1cd9cfdec49df8b61","sourceReferenceRevision":"b9d0eca3c5f4e9036e58327ba633eff52474bb92","serializerSourceSHA256":"f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641","serializedSHA256":"7c7f2fa452a76926b42142ae28e6b1523a549a15439d4482ee968d0dbded6bf3"},"columns":47,"rows":25,
 "cells":[
 {"text":"","width":1,"flags":0,"foreground":-1,"background":-1},
 {"text":"t","width":1,"flags":0,"foreground":-1,"background":-1},
@@ -31,26 +31,8 @@
 {"text":"界","width":2,"flags":0,"foreground":-1,"background":-1},
 {"text":"","width":0,"flags":0,"foreground":-1,"background":-1},
 {"text":"é","width":1,"flags":0,"foreground":-1,"background":-1},
-{"text":"n","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"o","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"t","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"e","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":":","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"界","width":2,"flags":0,"foreground":12,"background":-1},
-{"text":"","width":0,"flags":0,"foreground":12,"background":-1},
-{"text":"é","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"f","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"i","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"r","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"s","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"l","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"c","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"d","width":1,"flags":0,"foreground":12,"background":-1},
 {"text":"v","width":1,"flags":0,"foreground":-1,"background":-1},
-{"text":"m","width":1,"flags":0,"foreground":-1,"background":-1},
-{"text":"h","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"u","width":1,"flags":0,"foreground":12,"background":-1},
-{"text":"$","width":1,"flags":0,"foreground":12,"background":-1}
+{"text":"m","width":1,"flags":0,"foreground":-1,"background":-1}
 ],
 "lines":[
 {"wrapped":false,"text":"thrush$ ","runs":[1,1,1,2,1,3,1,4,1,5,1,2,1,6,1,7]},
@@ -60,10 +42,7 @@
 {"wrapped":false,"text":"~                                              ","runs":[1,16,46,17]},
 {"wrapped":false,"text":"\"scratch.txt\" 2L, 23B","runs":[1,18,1,5,1,13,1,3,1,19,1,1,1,13,1,2,1,20,1,1,1,21,1,1,1,18,1,7,1,22,1,23,1,24,1,7,1,22,1,25,1,26]},
 {"wrapped":false,"text":"note: 界 éfirst line","runs":[1,11,1,14,1,1,1,12,1,27,1,7,1,28,1,29,1,7,1,30,1,8,1,9,1,3,1,5,1,1,1,7,1,10,1,9,1,11,1,12]},
-{"wrapped":false,"text":"note: 界 éfirst line","runs":[1,31,1,32,1,33,1,34,1,35,1,17,1,36,1,37,1,17,1,38,1,39,1,40,1,41,1,42,1,33,1,17,1,43,1,40,1,31,1,34]},
-{"wrapped":false,"text":"second line","runs":[1,42,1,34,1,44,1,32,1,31,1,45,1,17,1,43,1,40,1,31,1,34]},
-{"wrapped":false,"text":"thrush$ vim scratch.txt","runs":[1,1,1,2,1,3,1,4,1,5,1,2,1,6,1,7,1,46,1,9,1,47,1,7,1,5,1,13,1,3,1,19,1,1,1,13,1,2,1,20,1,1,1,21,1,1]},
-{"wrapped":false,"text":"thrush$ ","runs":[1,33,1,48,1,41,1,49,1,42,1,48,1,50,1,17]}
+{"wrapped":false,"text":"thrush$ vim scratch.txt","runs":[1,1,1,2,1,3,1,4,1,5,1,2,1,6,1,7,1,31,1,9,1,32,1,7,1,5,1,13,1,3,1,19,1,1,1,13,1,2,1,20,1,1,1,21,1,1]}
 ],
 "events":[
 {"name":"Shell prompt","offsetMicroseconds":685755,"bytes":"G1s/MTAzNGh0aHJ1c2gkIA=="},
@@ -93,12 +72,12 @@
 {"name":"Vim before detach","offsetMicroseconds":3161651,"checkpoint":{"columns":47,"rows":25,"cursorRow":0,"cursorColumn":9,"cursorShape":"block","cursorBlink":false,"isAlternate":true,"modes":{"applicationCursorKeys":true,"bracketedPaste":true,"applicationKeypad":true,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":true},"history":[],"visible":[6,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1]}},
 {"name":"Vim detached","offsetMicroseconds":3161651,"lifecycle":{"type":"detach","clientId":"r5-vim"}},
 {"name":"Vim resumed ready","offsetMicroseconds":3411651,"lifecycle":{"type":"ready","resumed":true,"clientId":"r5-vim"},"checkpoint":{"columns":47,"rows":25,"cursorRow":0,"cursorColumn":0,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}},
-{"name":"Vim serialized replay","offsetMicroseconds":3411651,"bytes":"dGhydXNoJCB2aW0gc2NyYXRjaC50eHQbWzFCG1syM0QbWzk0bRtbPzEwNDloG1tIbm90ZTog55WMIGXMgWZpcnN0IGxpbmUNCnNlY29uZCBsaW5lDQobWzk0bX4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgG1syM0EbWzM4RBtbPzFoG1s/NjZoG1s/MjAwNGgbWz8xMDA0aA==","checkpoint":{"columns":47,"rows":25,"cursorRow":0,"cursorColumn":8,"cursorShape":"block","cursorBlink":false,"isAlternate":true,"modes":{"applicationCursorKeys":true,"bracketedPaste":true,"applicationKeypad":true,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":true},"history":[],"visible":[7,8,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1]}},
+{"name":"Vim serialized replay","offsetMicroseconds":3411651,"bytes":"dGhydXNoJCB2aW0gc2NyYXRjaC50eHQbWzFCG1syM0QbWzk0bRtbbRtbPzEwNDloG1tIbm90ZTog55WMIGXMgWZpcnN0IGxpbmUNCnNlY29uZCBsaW5lDQobWzk0bX4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQp+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KfiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCn4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgG1syM0EbWzM4RBtbPzFoG1s/NjZoG1s/MjAwNGgbWz8xMDA0aBtbMTsxMEg=","checkpoint":{"columns":47,"rows":25,"cursorRow":0,"cursorColumn":9,"cursorShape":"block","cursorBlink":false,"isAlternate":true,"modes":{"applicationCursorKeys":true,"bracketedPaste":true,"applicationKeypad":true,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":true},"history":[],"visible":[6,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1]}},
 {"name":"Save and quit Vim","offsetMicroseconds":3411671,"input":"OndxDQ==","action":{"kind":"text","value":":wq\r"}},
 {"name":"Vim first live output after replay","offsetMicroseconds":3411823,"bytes":"G1s/MjVsG1syNTsxSBtbbTp3cQ0="},
 {"name":"Save and quit Vim","offsetMicroseconds":3413381,"bytes":"G1s/MjAwNGwbWz40O20ic2NyYXRjaC50eHQi"},
 {"name":"Save and quit Vim","offsetMicroseconds":3613113,"bytes":"IDJMLCAzNkIgd3JpdHRlbg=="},
 {"name":"Save and quit Vim","offsetMicroseconds":3673352,"bytes":"DRtbMjM7MnQbWzIzOzF0DQ0KG1s/MTAwNGwbWz8yMDA0bBtbPzFsGz4="},
 {"name":"Save and quit Vim","offsetMicroseconds":3675035,"bytes":"G1s/MTA0OWwbWz8yNWgbWz40O210aHJ1c2gkIA=="},
-{"name":"Returned to shell","offsetMicroseconds":3881839,"checkpoint":{"columns":47,"rows":25,"cursorRow":1,"cursorColumn":8,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[9,10,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}}
+{"name":"Returned to shell","offsetMicroseconds":3881839,"checkpoint":{"columns":47,"rows":25,"cursorRow":1,"cursorColumn":8,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[7,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}}
 ]}

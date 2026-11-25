@@ -1,20 +1,28 @@
 // Add a scripted brief detach to the frozen real Vim PTY recording. The replay
-// is the exact binary emitted by the pinned server for a same-size reattach.
+// is the exact binary emitted by the selected server for a same-size reattach.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { parseArgs } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { terminal, write } from '../m2/xterm-reference.mjs';
+import { reference, terminal, write } from '../m2/xterm-reference.mjs';
+import { assertDefaultShellPrompt, assertSameVimScreen } from './vim-replay-state.mjs';
 
 const checkout = resolve(process.argv[2] ?? '../toy-box');
-const { ScrollbackBuffer } = await import(resolve(checkout, 'src/features/terminal/server/scrollback.ts'));
+const { positionals, values } = parseArgs({args:process.argv.slice(3), allowPositionals:true,
+  options:{'serializer-checkout':{type:'string'}}});
+assert(positionals.length <= 2, 'Expected optional Vim source and overlay output paths.');
+const serializerCheckout = resolve(values['serializer-checkout'] ?? checkout);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+const serializerPath = resolve(serializerCheckout, 'src/features/terminal/server/scrollback.ts');
+const serializerSourceSHA256 = sha(await readFile(serializerPath));
+const { ScrollbackBuffer } = await import(serializerPath);
 const directory = fileURLToPath(new URL('.', import.meta.url));
 const wideSource = resolve(directory, '../m2/vim-edit.capture.json');
 const wideDestination = resolve(directory, 'vim-resume.capture.json');
-const sourcePath = resolve(process.argv[3] ?? wideSource);
-const destination = resolve(process.argv[4] ?? wideDestination);
+const sourcePath = resolve(positionals[0] ?? wideSource);
+const destination = resolve(positionals[1] ?? wideDestination);
 assert(sourcePath === wideSource || destination !== wideDestination, 'Give a separate output for a new Vim source.');
 const source = await readFile(sourcePath);
 const recording = JSON.parse(source);
@@ -25,24 +33,16 @@ const clientId = 'r5-vim';
 const gap = 250_000;
 const events = [];
 let replay;
+let cursor;
 let firstLive = false;
 
-function screen(t) {
+function visible(t) {
   const buffer = t.buffer.active;
-  const normal = t.buffer.normal;
-  return {
-    screen:buffer.type, cursor:[buffer.cursorX,buffer.cursorY], history:buffer.baseY,
-    lines:Array.from({length:t.rows}, (_, row) => {
-      const line = buffer.getLine(buffer.baseY + row);
-      return [line.translateToString(true),line.isWrapped];
-    }),
-    normalLines:Array.from({length:normal.length}, (_, row) => {
-      const line = normal.getLine(row);
-      return [line.translateToString(true),line.isWrapped];
-    }),
-    applicationCursor:t.modes.applicationCursorKeysMode, keypad:t.modes.applicationKeypadMode,
-    bracketedPaste:t.modes.bracketedPasteMode
-  };
+  return Array.from({length:t.rows}, (_, y) => buffer.getLine(buffer.baseY + y).translateToString(true, 0, t.cols));
+}
+function position(t) {
+  const buffer = t.buffer.active;
+  return {row:buffer.cursorY, column:buffer.cursorX};
 }
 
 for (const original of recording.events) {
@@ -64,15 +64,16 @@ for (const original of recording.events) {
     await write(server,bytes);
     await write(client,bytes);
   }
+  if (replay && (event.bytes || event.resize)) assertSameVimScreen(client, server);
   if (event.name === 'Fresh prompt') {
-    assert(screen(client).lines.some(([text]) => text === 'thrush$ '));
+    assertDefaultShellPrompt(client);
   }
   if (event.name === 'Vim opens alternate screen' || event.name === 'Edited scratch file') {
-    const native = screen(client);
-    assert.equal(native.screen,'alternate');
+    const lines = visible(client);
+    assert.equal(client.buffer.active.type,'alternate');
     const edited = event.name === 'Edited scratch file';
-    assert.equal(native.lines[0][0],edited ? 'note: 界 e\u0301first line' : 'first line');
-    assert.equal(native.lines[1][0],'second line');
+    assert.equal(lines[0],edited ? 'note: 界 e\u0301first line' : 'first line');
+    assert.equal(lines[1],'second line');
   }
   if (event.name !== 'Restored alternate grid') {
     events.push(event);
@@ -80,43 +81,41 @@ for (const original of recording.events) {
   }
 
   assert.equal(replay,undefined);
-  const before = screen(client);
-  assert.equal(before.screen,'alternate');
-  assert(before.lines.some(([text]) => text.includes('note: 界 e\u0301first line')));
+  const before = client;
+  assert.equal(before.buffer.active.type,'alternate');
+  assert(visible(before).includes('note: 界 e\u0301first line'));
+  assert.deepEqual(position(before), {row:0, column:9});
+  assertSameVimScreen(server, before);
   events.push({...event,name:'Vim before detach'});
   events.push({name:'Vim detached',offsetMicroseconds:event.offsetMicroseconds,lifecycle:{type:'detach',clientId}});
   const resumedAt = event.offsetMicroseconds + gap;
   events.push({name:'Vim resumed ready',offsetMicroseconds:resumedAt,
     lifecycle:{type:'ready',resumed:true,clientId},checkpoint:true});
-  client.dispose();
   client = terminal(server.cols,server.rows);
   assert.equal(client.buffer.active.type,'normal');
-  assert(screen(client).lines.every(([text]) => text === ''));
+  assert(visible(client).every(text => text === ''));
   replay = Buffer.from(server.replay());
   assert(replay.length > 0);
   await write(client,replay);
-  const restored = screen(client);
-  // SerializeAddon 0.14.0 repositions this cursor one column left of its
-  // pre-detach location on the edited wide/combining-text row.
-  assert.deepEqual(before.cursor,[9,0]);
-  assert.deepEqual(restored.cursor,[8,0]);
-  assert.deepEqual({...restored,cursor:before.cursor},before,
-    'The serialized frame must restore edited text, wraps, alternate screen and recorded input modes.');
+  assertSameVimScreen(client, before);
+  cursor = {beforeDetach:position(before), afterReplay:position(client)};
+  before.dispose();
   events.push({name:'Vim serialized replay',offsetMicroseconds:resumedAt,bytes:replay.toString('base64'),checkpoint:true});
 }
 
 assert(firstLive && replay);
 assert.equal(events.at(-1).name,'Returned to shell');
-const after = screen(client);
-assert.equal(after.screen,'normal');
-assert.equal(after.lines[after.cursor[1]][0], 'thrush$ ');
-assert.deepEqual(after,screen(server),'The recorded save/quit must return both clients to the same shell.');
+assertDefaultShellPrompt(server);
+assertDefaultShellPrompt(client);
+assertSameVimScreen(client, server);
+assert.equal(sha(await readFile(serializerPath)), serializerSourceSHA256, 'Serializer changed during generation.');
 const savedText = 'note: 界 e\u0301first line\nsecond line\n';
 const result = {...recording,name:'vim-resume',
-  overlay:{sourceCapture:relative(directory,sourcePath),sourceCaptureSHA256:sha(source),clientId,
+  overlay:{sourceCapture:relative(directory,sourcePath),sourceCaptureSHA256:sha(source),
+    sourceReferenceRevision:reference.toyBoxRevision,serializerSourceSHA256,clientId,
     scriptedDetachMicroseconds:gap,serializer:'src/features/terminal/server/scrollback.ts:ScrollbackBuffer.replay',
     serializedBytes:replay.length,serializedSHA256:sha(replay),
-    cursor:{beforeDetach:{row:0,column:9},afterReplay:{row:0,column:8}},
+    cursor,
     savedFile:{name:'scratch.txt',text:savedText,sha256:sha(Buffer.from(savedText)),
       verifiedBy:'Fixtures/reference/m2/capture.py checks the saved PTY scratch file before recording vim-edit.'}}};
 delete result.events;

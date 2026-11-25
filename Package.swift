@@ -24,7 +24,7 @@ let package = Package(
             dependencies: ["Thrush", "ThrushReplay"],
             path: "Fixtures",
             exclude: ["reference"],
-            resources: [.copy("first-bytes.json"), .copy("replays")]
+            resources: [.copy("first-bytes.json"), .copy("replays"), .copy("reference/m4/phone/vim-resume.json")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["Thrush", "ThrushFixtures"]),
         .executableTarget(
