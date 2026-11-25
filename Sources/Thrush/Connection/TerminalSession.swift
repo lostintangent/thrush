@@ -50,13 +50,17 @@ import ThrushCore
 
     deinit {
         let worker = worker
-        Task { await worker.releaseStream() }
+        Task { await worker.releaseSession() }
     }
 
-    /// Ends this session and closes the host channel or asks the WebSocket server to close its shell.
+    /// Ends the session and prevents it from opening another shell.
     ///
-    /// If the socket is unavailable, the session ends locally and the server releases the
-    /// detached shell at its orphan deadline. A failed request throws an error.
+    /// For a host-supplied channel, Thrush calls its `close()` method. If the factory is
+    /// still opening the channel, Thrush closes it when the factory returns.
+    ///
+    /// For a WebSocket, Thrush asks the server to end the shell. If the socket is
+    /// unavailable or the request fails, the session ends locally and this method throws.
+    /// The server releases any orphaned shell when its configured timeout expires.
     public func close() async throws { try await worker.closeShell() }
 
     /// The worker owns this observer. Its weak reference lets an outstanding transport
