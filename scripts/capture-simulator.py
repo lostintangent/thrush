@@ -180,10 +180,10 @@ class Phone:
         self.device, self.endpoint, self.app, self.out, self.scratch = device, endpoint, app, out, scratch
         self.state_path = install_and_locate_app(device, app) / "capture-state.json"
 
-    def launch(self, scene, appearance, orientation, keyboard):
+    def launch(self, scene, appearance, orientation, keyboard, *, extra_arguments=()):
         if appearance is not None:
             self.set_appearance(appearance)
-        args = ["--endpoint", self.endpoint, "--scene", scene, "--capture-state"]
+        args = ["--endpoint", self.endpoint, "--scene", scene, "--capture-state", *extra_arguments]
         if orientation == "landscape":
             args.append("--capture-landscape")
         if keyboard == "hidden":
@@ -510,7 +510,7 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
-    if args.scene in {"render-benchmark", "notice-reconnect-motion"} and (args.layout_only or args.oracle):
+    if args.scene in {"render-benchmark", "notice-reconnect-motion", "toolbar-proof"} and (args.layout_only or args.oracle):
         parser.error("The named workload produces its own evidence.")
     oracle = None
     if args.oracle:
@@ -535,17 +535,19 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    notices = args.scene in NOTICE_SCENES or args.scene in {"notices", "notice-reconnect-motion"}
+    notices = args.scene in NOTICE_SCENES or args.scene in {"notices", "notice-reconnect-motion", "toolbar-proof"}
     with peer(out, notices=notices) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
             opens_keyboard = (not args.scene or args.keyboard == "visible" or
                               (args.scene in {"notices", "notice-reconnecting", "notice-reconnect-motion"} and args.keyboard == "any"))
-            if not args.layout_only and args.scene not in {"render-benchmark", "notices"} and opens_keyboard:
+            if not args.layout_only and args.scene not in {"render-benchmark", "notices", "toolbar-proof"} and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")
             if args.scene == "render-benchmark":
                 phone.benchmark()
+            elif args.scene == "toolbar-proof":
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["capture"](phone, args)
             elif args.scene == "notice-reconnect-motion":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
             elif args.scene == "notices":
