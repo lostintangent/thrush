@@ -3,7 +3,7 @@ import MetalKit
 import Thrush
 
 enum RendererFailure: Error {
-    case allocation, missingEncoder
+    case allocation, missingEncoder, missingRenderTarget
 }
 
 @MainActor
@@ -17,6 +17,7 @@ final class MetalRenderer {
     private var atlas: GlyphAtlas?
     private struct RowKey: Hashable {
         let revision: UInt64
+        let columns: Int
         let selection: Range<Int>?
     }
     private var cached: [RowKey: RowGeometry] = [:]
@@ -44,8 +45,10 @@ final class MetalRenderer {
     }
 
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
-                pass: MTLRenderPassDescriptor, viewport: CGSize, selection: TerminalView.Selection? = nil,
+                pass: MTLRenderPassDescriptor, selection: TerminalView.Selection? = nil,
                 showsCursor: Bool = true) throws -> Prepared {
+        guard let target = pass.colorAttachments[0].texture else { throw RendererFailure.missingRenderTarget }
+        let viewport = CGSize(width: target.width, height: target.height)
         if previousTheme != theme {
             let table = Paint.table(theme)
             colorTable = table.withUnsafeBytes { bytes in
@@ -70,7 +73,7 @@ final class MetalRenderer {
             let count = min(columns, area.columns)
             for (y, row) in snapshot.rows.prefix(area.rows).enumerated() {
                 let range = selection?.columns(in: y, width: count)
-                let key = RowKey(revision: row.generation, selection: range)
+                let key = RowKey(revision: row.generation, columns: count, selection: range)
                 let geo: RowGeometry
                 if let existing = cached[key] ?? next[key] {
                     geo = existing

@@ -461,9 +461,14 @@ extension NativePane: NSViewRepresentable {
     static func dismantleNSView(_ view: NSView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
 }
 #else
-extension NativePane: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView { pane.makeContainer(owner) }
-    func updateUIView(_ view: UIView, context: Context) { owner.apply(pane) }
-    static func dismantleUIView(_ view: UIView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
+extension NativePane: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> PhonePaneController {
+        PhonePaneController(pane.makeContainer(owner))
+    }
+    func updateUIViewController(_ controller: PhonePaneController, context: Context) { owner.apply(pane) }
+    static func dismantleUIViewController(_ controller: PhonePaneController, coordinator: TerminalPane.Coordinator) {
+        coordinator.dismantle(controller.view)
+        controller.finishRotation()
+    }
 }
 #endif

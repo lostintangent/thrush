@@ -4,6 +4,26 @@ import Thrush
 @testable import ThrushUI
 import UIKit
 
+@MainActor
+@Test func phoneKeepsDrawablePixelsAtNativeSizeAcrossKeyboardOpenRotation() throws {
+    let portrait = CGSize(width: 402, height: 467)
+    let landscape = CGSize(width: 750, height: 178)
+    let view = TerminalView(frame: CGRect(origin: .zero, size: portrait))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    view.layoutIfNeeded()
+    let cell = view.cellRect(row: 0, column: 0)
+    for size in [landscape, portrait] {
+        view.bounds.size = size
+        view.layoutIfNeeded()
+        #expect(view.contentMode == .topLeft)
+        #expect(view.layer.contentsGravity != .resize)
+        #expect(view.cellRect(row: 0, column: 0) == cell)
+        let scale = view.traitCollection.displayScale
+        #expect(view.drawableSize == CGSize(width: size.width * scale, height: size.height * scale))
+    }
+}
+
 /// Read the same logical line through the accessible container and the edit selection.
 @MainActor
 @Test func phoneReadsAndSelectsSoftWrappedTextAtCellBoundaries() throws {
@@ -45,6 +65,10 @@ import UIKit
     var terminal = Terminal(size: .init(columns: 24, rows: 3))
     _ = terminal.receive((1...6).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
+    #expect(latest.isHidden)
+    // UIKit adjusts contentOffset during layout even when nobody scrolled.
+    scroll.setContentOffset(.zero, animated: false)
+    #expect(view.historyOffset == 0)
     #expect(latest.isHidden)
 
     #expect(transcript.accessibilityScroll(.up))

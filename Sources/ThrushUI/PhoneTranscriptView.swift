@@ -179,7 +179,9 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard !syncing else { return }
+        // UIKit also adjusts contentOffset when the viewport or keyboard changes size.
+        // Only a person's pan or its deceleration changes the terminal's reading position.
+        guard !syncing, scrollView.isDragging || scrollView.isDecelerating else { return }
         let first = Int((scrollView.contentOffset.y / rowHeight).rounded())
         let offset = min(terminal.historyCount, max(0, terminal.historyCount - first))
         if terminal.historyOffset != offset {

@@ -109,4 +109,6 @@ The **M4 iPhone interaction proof** Actions workflow runs the same native tests 
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions
 ```
 
+For a keyboard-open rotation check in both appearances, add `--rotation-only` or dispatch the workflow with `-f rotation_only=true`. The check compares the complete shell resize sequence with the two settled grids and keeps the native recordings, screenshots and peer trace.
+
 Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The test asks VoiceOver to read a control in Settings, then a known terminal line and the pane actions. It saves the spoken responses in `voiceover.log` and the app’s focus and announcement events in JSON. On the hosted iOS 27.2 simulator, Settings and Thrush both returned `No speech available`. Use the physical iPhone TestFlight pass to hear the line, confirm the reading position survives a reconnect and count the reconnect announcements. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45577502508)
