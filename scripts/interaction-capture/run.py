@@ -223,6 +223,7 @@ def main():
         info = plistlib.loads((app / "Info.plist").read_bytes())
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
+        os.environ["THRUSH_CAPTURE_GRID"] = "1"
         with simulator.peer(out) as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}

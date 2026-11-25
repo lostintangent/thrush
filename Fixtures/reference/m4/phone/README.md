@@ -2,6 +2,8 @@
 
 The running-pane driver uses these recordings when the phone has the recorded grid. Bash and Vim receive the PTY dimensions before launch. The pinned Toy Box server serializes the edited alternate buffer after Vim returns to portrait. The recorder checks the saved scratch file on disk and the serializer checks its restored text and modes.
 
+The iPhone 17 Vim recording starts at 47 columns by 25 rows in portrait. It confirms portrait, rotates to 90 columns by 9 rows, and returns to 47 by 25 before detach and replay. The native view measured keyboard guides of 345 pt in portrait and 224 pt in landscape, each including the 44 pt accessory. [Hosted landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563)
+
 Codex CLI 0.166.0 runs in a fresh home and trusted Git workspace. Its loopback Responses endpoint streams the twelve numbered lines from the published live session. The CLI draws the prompt, working indicator, partial answer and both transcript pages inside the narrow PTY. The source records every PTY read, independent terminal reply, user action and relative timestamp. The exit resume ID receives the same length-preserving replacement used for the original capture. The wide recording retains the live provider turn. [Original Codex recording](../codex-readme.md)
 
 Rebuild the saved xterm checkpoints from the phone sources at the repository root. Use the Toy Box checkout pinned in the reference generator.

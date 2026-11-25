@@ -39,6 +39,7 @@ final class PhoneInteractionProof: XCTestCase {
         try waitForOrientation(landscape: true)
         try assertKeyboard()
         try screenshot("shell-\(appearance)-landscape")
+        let retainedBuild = built.exists
         XCUIDevice.shared.orientation = .portrait
         try waitForOrientation(landscape: false)
         try assertKeyboard()
@@ -87,6 +88,7 @@ final class PhoneInteractionProof: XCTestCase {
         let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '1030  compile'")).firstMatch
         XCTAssertTrue(live.exists)
         try finishClip("history-\(appearance)", since: history)
+        XCTAssertTrue(retainedBuild, "Rotation should keep the build completion line visible above the prompt.")
     }
 
     private func launch(scene: String) throws {
