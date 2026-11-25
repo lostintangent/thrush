@@ -10,5 +10,9 @@ struct ShellTab {
         }
     }
 
+    init<Channel: TerminalTransport>(openChannel: @escaping @Sendable (Terminal.Size) async throws -> Channel) {
+        session = TerminalSession(openTransport: { size in try await openChannel(size) })
+    }
+
     var pane: TerminalPane { TerminalPane(session) }
 }

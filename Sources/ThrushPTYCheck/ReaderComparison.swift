@@ -52,7 +52,7 @@ enum ReaderComparison {
         var result = Result(reader: reader)
         if reader == "thrush" || reader == "silent" {
             let lastFrame = Mutex(Data())
-            let connection = try TerminalConnection(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
+            let connection = try TerminalWorker(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
                                                     onOutput: { data in lastFrame.withLock { $0 = data } })
             guard try await connection.nextEvent() == .ready(resumed: false) else { throw PTYCheckFailure("Expected fresh PTY") }
             if PTYCheck.fixtureCommand != nil {

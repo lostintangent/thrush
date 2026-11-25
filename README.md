@@ -11,7 +11,7 @@ Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no de
 
 ## Add a terminal to an app
 
-Add the package and link the `Thrush` product to your app target.
+Add the package and link the `Thrush` product to your app target. Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ```swift
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
@@ -29,7 +29,7 @@ let session = TerminalSession { size in
 TerminalPane(session)
 ```
 
-The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. It stays attached while it's shown, including in a Mac window behind other apps, minimized or hidden, and detaches when it leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
+The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and owns focus, selection, copy and history. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background. A lost socket reconnects after 250 ms, backing off to 4 s, and typing waits for the same shell to resume. When something needs a person's attention, the pane says so in a native status strip.
 
 | State | What the pane shows |
 | --- | --- |
@@ -59,7 +59,34 @@ SwiftUI observes `session.title` and `session.hasEnded` directly. The title star
 
 On every attachment, the socket factory receives the current `Terminal.Size` in columns and rows. Return a fresh, suspended `URLSessionWebSocketTask` for the same client ID each time, created from your app’s `URLSession` so its authentication and TLS settings apply. Connect to `/socket?service=terminal&clientId=…&cols=…&rows=…`. Binary messages carry terminal input and output in order. Small JSON messages handle ready, resize, close and exit. Reattaching with the same ID during the orphan window restores the previous shell. [Terminal protocol](docs/protocol.md)
 
-Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
+### Use a local PTY or SSH channel
+
+Tag `v0.2.0` provides the socket initializer above. On `main`, `TerminalSession(openTransport:)` also accepts a host’s local PTY or SSH channel. Here `ssh` and its sendable `ShellChannel` belong to the host app.
+
+```swift
+import Foundation
+import Thrush
+
+struct SSHTransport: TerminalTransport {
+    let channel: ShellChannel
+
+    func read() async throws -> Data? { try await channel.readOutput() }
+    func write(_ bytes: Data) async throws { try await channel.sendInput(bytes) }
+    func resize(to size: Terminal.Size) async throws {
+        try await channel.setWindowSize(columns: size.columns, rows: size.rows)
+    }
+    func close() async { await channel.shutdown() }
+}
+
+let session = TerminalSession(openTransport: { size in
+    let channel = try await ssh.openShell(columns: size.columns, rows: size.rows)
+    return SSHTransport(channel: channel)
+})
+
+TerminalPane(session)
+```
+
+The factory receives the pane’s measured grid. A local PTY adapter uses the same four methods. Return `nil` from `read()` after the final bytes. Make `close()` release the channel and wake any pending I/O. While the app can run, the session keeps reading and answering terminal queries with the pane hidden. Showing it again displays the current screen. EOF or a transport error leaves the final screen visible with **Ended**. **New Shell** opens a fresh channel. Calling `session.close()` ends the session permanently. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
 
 ## Try the sample apps
 

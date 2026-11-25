@@ -51,7 +51,7 @@ final class PaneWorkflowDriver {
     private let control: URL, output: URL
     private let view: TerminalView
     private let session: TerminalSession
-    private var connection: TerminalConnection { session.connection }
+    private var connection: TerminalWorker { session.worker }
     private let setActive: (Bool) -> Void
     private let activateAction: (String) -> Bool
     private let http = URLSession(configuration: .ephemeral)
@@ -90,7 +90,7 @@ final class PaneWorkflowDriver {
                                                 session: session, setActive: setActive, activateAction: activateAction)
                 try await driver.run()
             } catch {
-                await session.connection.finishFrameTrace("failure")
+                await session.worker.finishFrameTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)

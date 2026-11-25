@@ -16,6 +16,8 @@ The peer advances an independent virtual clock to test the 30-second orphan dead
 
 The JSON records each interval’s five samples in nanoseconds, nearest-rank p50 and p95, the peer script’s SHA-256 and the host environment. Five samples make p95 the slowest measured sample. The report describes scripted, headless macOS loopback. Presentation and physical iPhone measurements have separate workloads. CI checks wire and screen correctness independently of elapsed time.
 
+Run `swift run -c release ThrushBench --transport` to time the public byte-stream transport from its first read through EOF. The checker verifies the first-bytes fixture’s final rows, reply bytes and received/applied counts. One warmup and five measured passes produce `.build/benchmarks/transport.json`.
+
 ## Recorded run
 
 The M1 Max completed five measured passes on `559d507`. The one-minute load average was 91.70 across ten active cores, with thermal state fair. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](connection.json)

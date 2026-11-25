@@ -92,13 +92,13 @@ struct LifecycleCheck {
         try await expectEnded(final, closed: false)
     }
 
-    private func open() throws -> TerminalConnection {
-        try TerminalConnection(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+    private func open() throws -> TerminalWorker {
+        try TerminalWorker(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
     }
 
     private func open(in session: URLSession,
-                      onOutput: (@Sendable (Data) -> Void)? = nil) throws -> TerminalConnection {
-        TerminalConnection(size: size, palette: palette, onOutput: onOutput) { grid in
+                      onOutput: (@Sendable (Data) -> Void)? = nil) throws -> TerminalWorker {
+        TerminalWorker(size: size, palette: palette, onOutput: onOutput) { grid in
             let address = endpoint.appending(path: "socket").appending(queryItems: [
                 URLQueryItem(name: "service", value: "terminal"),
                 URLQueryItem(name: "clientId", value: "thrush lifecycle"),
@@ -112,7 +112,7 @@ struct LifecycleCheck {
         }
     }
 
-    private func expectReady(_ connection: TerminalConnection, resumed: Bool) async throws {
+    private func expectReady(_ connection: TerminalWorker, resumed: Bool) async throws {
         guard try await connection.nextEvent() == .ready(resumed: resumed) else {
             throw Failure("Expected ready(resumed: \(resumed)) before any output")
         }
@@ -125,14 +125,14 @@ struct LifecycleCheck {
         if resumed { try await rejectInput(connection) }
     }
 
-    private func expectOutput(_ connection: TerminalConnection, rows: [String]) async throws {
+    private func expectOutput(_ connection: TerminalWorker, rows: [String]) async throws {
         let event = try await connection.nextEvent()
         guard event == .output else { throw Failure("Expected output for \(rows), got \(event)") }
         let actual = await connection.snapshot().rows.map(\.text)
         guard actual == rows else { throw Failure("Expected \(rows), got \(actual)") }
     }
 
-    private func expectEditorReplay(_ connection: TerminalConnection, row: String) async throws {
+    private func expectEditorReplay(_ connection: TerminalWorker, row: String) async throws {
         try await expectOutput(connection, rows: [row, "", ""])
         let grid = await connection.snapshot()
         guard grid.isAlternate, grid.normalHistoryCount == 1, grid.cursorRow == 0,
@@ -141,7 +141,7 @@ struct LifecycleCheck {
         }
     }
 
-    private func expectDisplacement(_ connection: TerminalConnection) async throws {
+    private func expectDisplacement(_ connection: TerminalWorker) async throws {
         guard try await connection.nextEvent() == .displaced else {
             throw Failure("Expected the peer to displace the old socket with close code 4000")
         }
@@ -152,7 +152,7 @@ struct LifecycleCheck {
         try await rejectInput(connection)
     }
 
-    private func expectEnded(_ connection: TerminalConnection, closed: Bool) async throws {
+    private func expectEnded(_ connection: TerminalWorker, closed: Bool) async throws {
         guard await connection.state == .ended, await !connection.attach() else {
             throw Failure("A closed or exited shell must stay ended")
         }
@@ -160,13 +160,13 @@ struct LifecycleCheck {
         try await rejectInput(connection)
     }
 
-    private func rejectInput(_ connection: TerminalConnection) async throws {
+    private func rejectInput(_ connection: TerminalWorker) async throws {
         do { try await connection.send(.text("stale")) }
         catch { return }
         throw Failure("Accepted input outside the active attachment")
     }
 
-    private func resumeWithPendingRead(_ connection: isolated TerminalConnection) async throws {
+    private func resumeWithPendingRead(_ connection: isolated TerminalWorker) async throws {
         // Each immediate task enters the actor and suspends at its first I/O wait. The input is
         // already queued for this socket when we detach, before its writer gets the actor again.
         let pendingRead = Task.immediate { try await connection.nextEvent() }
@@ -182,7 +182,7 @@ struct LifecycleCheck {
         }
     }
 
-    private func closeWithPendingRead(_ connection: isolated TerminalConnection) async throws {
+    private func closeWithPendingRead(_ connection: isolated TerminalWorker) async throws {
         let pendingRead = Task.immediate { try await connection.nextEvent() }
         try await connection.closeShell()
         guard case .failure = await pendingRead.result else {

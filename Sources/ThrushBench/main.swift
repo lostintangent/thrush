@@ -18,7 +18,7 @@ func outputURL(arguments: [String]) throws -> URL {
         return URL(filePath: ".build/benchmarks/first-bytes.json")
     }
     guard arguments.count == 2, arguments[0] == "--output", !arguments[1].isEmpty else {
-        throw BenchmarkError("Usage: ThrushBench [--output PATH], ThrushBench --connection [--output PATH], or ThrushBench --render MAC_APP [--output PATH]")
+        throw BenchmarkError("Usage: ThrushBench [--output PATH], ThrushBench --connection [--output PATH], ThrushBench --transport [--output PATH], or ThrushBench --render MAC_APP [--output PATH]")
     }
     return URL(filePath: arguments[1])
 }
@@ -78,7 +78,7 @@ func run() throws {
         try serializeCheckpoints(arguments: arguments)
         return
     }
-    if arguments.first == "--connection" {
+    if arguments.first == "--connection" || arguments.first == "--transport" {
         try runConnectionBenchmark(arguments: arguments)
         return
     }

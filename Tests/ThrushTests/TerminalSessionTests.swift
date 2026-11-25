@@ -44,17 +44,17 @@ import Thrush
 
     func attach(resumed: Bool, userInitiated: Bool = false) async throws {
         peer.resumeNextAttachment = resumed
-        try #require(await session.connection.attach(userInitiated: userInitiated))
-        let event = try await session.connection.nextEvent()
+        try #require(await session.worker.attach(userInitiated: userInitiated))
+        let event = try await session.worker.nextEvent()
         try #require(event == .ready(resumed: resumed))
     }
     func output(_ text: String) async throws {
         try peer.send(text, opcode: .binary)
-        #expect(try await session.connection.nextEvent() == .output)
+        #expect(try await session.worker.nextEvent() == .output)
     }
 
     #expect(session.title.isEmpty && !session.hasEnded)
-    try await session.connection.sendResize(to: .init(columns: 77, rows: 21))
+    try await session.worker.sendResize(to: .init(columns: 77, rows: 21))
     try await attach(resumed: false)
     try await output("ordinary output")
     #expect(titleChanges.count == 0 && endChanges.count == 0)
@@ -63,8 +63,8 @@ import Thrush
 
     titleChanges.observe { _ = session.title }
     try await output("\u{1b}]2;Shell title\u{7}more output")
-    await session.connection.detach()
-    try await session.connection.sendResize(to: .init(columns: 47, rows: 25))
+    await session.worker.detach()
+    try await session.worker.sendResize(to: .init(columns: 47, rows: 25))
     try await attach(resumed: true)
     let queries = attempts.withLock { $0.map(\.query) }
     #expect(queries == ["clientId=\(clientID)&cols=77&rows=21", "clientId=\(clientID)&cols=47&rows=25"])
@@ -73,7 +73,7 @@ import Thrush
     #expect(titleChanges.count == 1)
 
     // An empty replay supersedes the retained title, even without a title sequence.
-    await session.connection.detach()
+    await session.worker.detach()
     try await attach(resumed: true)
     try await output("")
     #expect(session.title.isEmpty && titleChanges.count == 2)
@@ -81,12 +81,12 @@ import Thrush
     titleChanges.observe { _ = session.title }
     try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
     try peer.send("\u{1b}]2;\u{7}restored output", opcode: .binary)
-    #expect(try await session.connection.nextEvent() == .resynchronized)
+    #expect(try await session.worker.nextEvent() == .resynchronized)
     #expect(session.title.isEmpty && titleChanges.count == 3 && endChanges.count == 0)
 
     try await output("\u{1b}]2;Finished\u{7}")
     try peer.send(#"{"type":"exit"}"#, opcode: .text)
-    #expect(try await session.connection.nextEvent() == .exit)
+    #expect(try await session.worker.nextEvent() == .exit)
     #expect(session.title == "Finished" && session.hasEnded && endChanges.count == 1)
     endChanges.observe { _ = session.hasEnded }
     try await attach(resumed: false, userInitiated: true)

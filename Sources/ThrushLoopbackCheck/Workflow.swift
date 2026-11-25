@@ -9,7 +9,7 @@ extension LoopbackCheck {
         let clientID = fixture.events.compactMap(\.lifecycle).first?.clientId ?? "r5-" + name
         var size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         var palette = Terminal.Palette.default
-        var connection = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
+        var connection = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
         guard try await connection.nextEvent() == .ready(resumed: false) else {
             throw CheckFailure("Expected a fresh attachment for \(name)")
         }
@@ -20,7 +20,7 @@ extension LoopbackCheck {
                 case .detach:
                     await connection.detach()
                 case .ready:
-                    connection = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
+                    connection = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
                     guard try await connection.nextEvent() == .ready(resumed: lifecycle.resumed == true) else {
                         throw CheckFailure("Unexpected attachment at \(event.name)")
                     }

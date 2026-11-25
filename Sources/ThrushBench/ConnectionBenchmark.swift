@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import ThrushFixtures
 
 private struct PeerRun: Decodable {
     struct Observation: Decodable {
@@ -41,22 +42,63 @@ private struct ConnectionReport: Encodable {
     let intervals: [ConnectionInterval]
 }
 
-/// All time samples come from the existing peer's monotonic clock. Each invocation must also pass
-/// the Swift host's screen/mode checkpoints and the peer's exact wire assertions.
+private struct StreamReport: Encodable {
+    let schemaVersion = 1
+    let buildConfiguration = "release"
+    let recordedAt = Date()
+    let workload = "Fixtures/first-bytes.json"
+    let workloadSHA256: String
+    let measurement = "Headless macOS host, from first read through EOF, including terminal replies"
+    let measuresPresentation = false
+    let measuresPhysicalIPhone = false
+    let warmupPasses = 1
+    let measuredPasses: Int
+    let chunksPerPass, verifiedBytesPerPass, replyBytesPerPass: Int
+    let samplesNanoseconds: [UInt64]
+    let timing: Timing
+    let environment: Environment
+}
+
+private func writeReport(_ report: some Encodable, to output: URL) throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try (encoder.encode(report) + Data([0x0A])).write(to: output, options: .atomic)
+}
+
+/// Build the matching optimized checker outside the timed intervals.
 func runConnectionBenchmark(arguments: [String]) throws {
     guard arguments.count == 1 || (arguments.count == 3 && arguments[1] == "--output" && !arguments[2].isEmpty) else {
-        throw BenchmarkError("Usage: ThrushBench --connection [--output PATH]")
+        throw BenchmarkError("Usage: ThrushBench \(arguments[0]) [--output PATH]")
     }
-    let output = URL(filePath: arguments.count == 3 ? arguments[2] : ".build/benchmarks/connection.json")
+    let stream = arguments[0] == "--transport"
+    let defaultOutput = stream ? ".build/benchmarks/transport.json" : ".build/benchmarks/connection.json"
+    let output = URL(filePath: arguments.count == 3 ? arguments[2] : defaultOutput)
     let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    let peer = root.appending(path: "scripts/lifecycle-peer.ts")
     let swift = ["swift", "build", "-c", "release", "--package-path", root.path]
-    // swift run builds only ThrushBench. Build the matching optimized checker outside all timed intervals.
     _ = try Environment.command("/usr/bin/env", swift + ["--product", "ThrushLoopbackCheck"])
     let bin = try Environment.command("/usr/bin/env", swift + ["--show-bin-path"], captureDiagnostics: false)
     let client = URL(filePath: bin).appending(path: "ThrushLoopbackCheck")
-    let digest = SHA256.hash(data: try Data(contentsOf: peer)).map { String(format: "%02x", $0) }.joined()
     let environment = try Environment.read()
+    if stream {
+        let fixture = try FirstBytesFixture.load()
+        let json = try Environment.command(client.path, ["--transport"], captureDiagnostics: false)
+        let samples = try JSONDecoder().decode([UInt64].self, from: Data(json.utf8))
+        guard !samples.isEmpty else { throw BenchmarkError("The host stream returned no samples.") }
+        let report = StreamReport(workloadSHA256: fixture.sha256, measuredPasses: samples.count,
+                                  chunksPerPass: fixture.events.count,
+                                  verifiedBytesPerPass: fixture.events.reduce(0) { $0 + $1.bytes.count },
+                                  replyBytesPerPass: fixture.events.reduce(0) { $0 + $1.reply.count },
+                                  samplesNanoseconds: samples, timing: Timing(samples), environment: environment)
+        try writeReport(report, to: output)
+        print("Host byte stream   \(report.chunksPerPass) chunks   \(report.verifiedBytesPerPass) verified bytes per pass")
+        print("p50 \(report.timing.p50Nanoseconds) ns   p95 \(report.timing.p95Nanoseconds) ns")
+        print("Report \(output.path)")
+        return
+    }
+    let peer = root.appending(path: "scripts/lifecycle-peer.ts")
+    let digest = SHA256.hash(data: try Data(contentsOf: peer)).map { String(format: "%02x", $0) }.joined()
 
     func runPeer() throws -> PeerRun {
         let json = try Environment.command("/usr/bin/env", ["bun", peer.path, client.path, "--observe"], captureDiagnostics: false)
@@ -78,11 +120,7 @@ func runConnectionBenchmark(arguments: [String]) throws {
         bunVersion: warmup.bunVersion, attachmentsPerPass: warmup.attachmentCount,
         freshShellsPerPass: warmup.freshShells, takeoversPerPass: warmup.takeovers, intervals: intervals
     )
-    let encoder = JSONEncoder()
-    encoder.dateEncodingStrategy = .iso8601
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try (encoder.encode(report) + Data([0x0A])).write(to: output, options: .atomic)
+    try writeReport(report, to: output)
     print("\nScripted connection lifecycle   macOS loopback   peer-observed   \(runs.count) measured passes")
     printLoad(environment)
     print("Interval                                        p50 ms    p95 ms")

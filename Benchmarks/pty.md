@@ -36,7 +36,7 @@ The three bursts use the same 8 MiB payload. The rate-limited reader caps its pu
 
 ## Reader comparison
 
-Three clients each run the same 8 MiB producer six times, with the order rotated. Bun and a bare URLSession count incoming frame lengths. The third client uses `TerminalConnection` to parse and apply each frame. The producer starts after the reader is ready and exits after a one-second drain interval.
+Three clients each run the same 8 MiB producer six times, with the order rotated. Bun and a bare URLSession count incoming frame lengths. The third client uses the session’s `TerminalWorker` to parse and apply each frame. The producer starts after the reader is ready and exits after a one-second drain interval.
 
 | Client | Paced runs fully received | Unpaced runs fully received | Missing live bytes in each unpaced run |
 | --- | ---: | ---: | ---: |

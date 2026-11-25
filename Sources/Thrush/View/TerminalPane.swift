@@ -6,7 +6,7 @@ import ThrushCore
 /// Keep the session in a model that outlives the pane's SwiftUI updates.
 @MainActor public struct TerminalPane: View {
     private let session: TerminalSession
-    private var connection: TerminalConnection { session.connection }
+    private var connection: TerminalWorker { session.worker }
     /// Whether the host is showing the pane. Set this to false when hiding a retained tab.
     package var isActive: Bool
     /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
@@ -209,7 +209,7 @@ import ThrushCore
             }
         }
 
-        private func perform(_ operation: @escaping @MainActor (TerminalConnection, UInt64) async throws -> Void) {
+        private func perform(_ operation: @escaping @MainActor (TerminalWorker, UInt64) async throws -> Void) {
             guard let connection = pane?.connection else { return }
             let stamp = epoch
             enqueue { [weak self] in
@@ -260,7 +260,7 @@ import ThrushCore
             }
         }
 
-        private func start(_ connection: TerminalConnection, userInitiated: Bool, stamp: UInt64) async throws {
+        private func start(_ connection: TerminalWorker, userInitiated: Bool, stamp: UInt64) async throws {
             guard epoch == stamp, active, reader == nil, let view else { return }
             await connection.setPalette(view.resolvedTheme.palette)
             guard epoch == stamp else { return }
@@ -284,7 +284,7 @@ import ThrushCore
             }
         }
 
-        private func consume(_ connection: TerminalConnection, stamp: UInt64) async {
+        private func consume(_ connection: TerminalWorker, stamp: UInt64) async {
             defer { if epoch == stamp { reader = nil } }
             do {
                 while !Task.isCancelled, epoch == stamp {
@@ -342,7 +342,7 @@ import ThrushCore
             }
         }
 
-        private func handleError(from connection: TerminalConnection, stamp: UInt64) async {
+        private func handleError(from connection: TerminalWorker, stamp: UInt64) async {
             let state = await connection.state
             guard epoch == stamp, active else { return }
             switch state {
@@ -356,7 +356,7 @@ import ThrushCore
             }
         }
 
-        private func finishExit(_ connection: TerminalConnection, stamp: UInt64) async {
+        private func finishExit(_ connection: TerminalWorker, stamp: UInt64) async {
             guard epoch == stamp, !deliveredExit, finishingExitStamp != stamp else { return }
             finishingExitStamp = stamp
             defer { if finishingExitStamp == stamp { finishingExitStamp = nil } }

@@ -100,7 +100,7 @@ final class MacWindowLifecycleCheck {
 
     private func run() async throws -> Report {
         guard let terminalSession = session.terminalSession else { throw RenderBenchmark.Failure("Missing terminal session.") }
-        let connection = terminalSession.connection
+        let connection = terminalSession.worker
         try await wait("The uncovered terminal must have a usable shell", timeout: 25) { readyEvents == 1 && visible }
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
@@ -121,7 +121,7 @@ final class MacWindowLifecycleCheck {
         return Report(socketAttempts: attempts, readyEvents: readyEvents, intervals: intervals)
     }
 
-    private func measure(_ step: Phase, connection: TerminalConnection) async throws -> Interval {
+    private func measure(_ step: Phase, connection: TerminalWorker) async throws -> Interval {
         phase = step
         hiddenSubmissions = 0
         switch step {

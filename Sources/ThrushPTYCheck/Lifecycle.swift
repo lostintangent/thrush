@@ -61,11 +61,11 @@ struct PTYLifecycle {
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")
     }
 
-    private func connect() throws -> TerminalConnection {
-        try TerminalConnection(baseURL: endpoint, clientID: clientID, size: initialSize)
+    private func connect() throws -> TerminalWorker {
+        try TerminalWorker(baseURL: endpoint, clientID: clientID, size: initialSize)
     }
 
-    private func freshShell(_ connection: TerminalConnection) async throws -> Int32 {
+    private func freshShell(_ connection: TerminalWorker) async throws -> Int32 {
         guard try await connection.nextEvent() == .ready(resumed: false),
               await connection.snapshot().rows.allSatisfy({ $0.text.isEmpty }) else {
             throw PTYCheckFailure("Expected a fresh clean grid")
@@ -81,7 +81,7 @@ struct PTYLifecycle {
         }
     }
 
-    private func row(_ text: String, in connection: TerminalConnection) async throws {
+    private func row(_ text: String, in connection: TerminalWorker) async throws {
         while !(await connection.snapshot().rows.contains { $0.text == text }) {
             guard try await connection.nextEvent() == .output else { throw PTYCheckFailure("Missing row \(text)") }
         }

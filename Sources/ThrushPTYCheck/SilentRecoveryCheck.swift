@@ -15,7 +15,7 @@ enum SilentRecoveryCheck {
         let liveEchoReceived: Bool
     }
 
-    static func run(_ connection: TerminalConnection, id: String, directory: URL, setupBytes: Int) async throws {
+    static func run(_ connection: TerminalWorker, id: String, directory: URL, setupBytes: Int) async throws {
         // The harness stops the entire process before allowing the producer to write its burst.
         let gate = directory.appending(path: "send-gap-input")
         let deadline = ContinuousClock.now.advanced(by: .seconds(30))

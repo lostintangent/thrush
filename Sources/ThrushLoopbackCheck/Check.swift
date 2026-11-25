@@ -12,6 +12,10 @@ struct LoopbackCheck {
 
     static func main() async throws {
         let arguments = CommandLine.arguments
+        if arguments.dropFirst().elementsEqual(["--transport"]) {
+            try await measureStreamTransport()
+            return
+        }
         if arguments.count == 4, arguments[1] == "--workflow", let endpoint = URL(string: arguments[3]) {
             try await runWorkflow(named: arguments[2], at: endpoint)
             return
@@ -23,14 +27,14 @@ struct LoopbackCheck {
             return
         }
         guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {
-            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL")
+            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, or ThrushLoopbackCheck --transport")
         }
 
         let fixture = try FirstBytesFixture.load()
         let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         // A plus and a space round-trip distinctly through the real server's URLSearchParams.
         let clientID = "thrush + check"
-        let connection = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size)
+        let connection = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size)
         guard try await connection.nextEvent() == .ready(resumed: false) else {
             throw CheckFailure("Expected fresh ready before output")
         }
@@ -53,7 +57,7 @@ struct LoopbackCheck {
         let minimum = Terminal.Size(columns: 1, rows: 2)
         let defaults = Terminal.Palette.default
         let light = Terminal.Palette(foreground: defaults.background, background: defaults.foreground, ansi: defaults.ansi)
-        let next = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: minimum, palette: light)
+        let next = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: minimum, palette: light)
         guard try await next.nextEvent() == .ready(resumed: false), await next.text(inRow: 0).isEmpty,
               try await next.nextEvent() == .output, await next.text(inRow: 0) == "AB",
               await next.text(inRow: 1).isEmpty

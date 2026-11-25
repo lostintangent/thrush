@@ -39,7 +39,7 @@ private final class WireCapture: Sendable {
     }
 
     /// The adapter reports whether this exact binary frame was a serialization or live output.
-    func next(_ connection: TerminalConnection) async throws -> TerminalConnection.Event {
+    func next(_ connection: TerminalWorker) async throws -> TerminalWorker.Event {
         let event = try await connection.nextEvent()
         state.withLock { state in
             guard let chunk = state.pending else { return }
@@ -102,7 +102,7 @@ struct PTYCheck {
         ["http", "https"].contains(url.scheme ?? "") && ["127.0.0.1", "localhost", "[::1]", "::1"].contains(url.host ?? "")
     }
 
-    static func enterFixture(_ connection: TerminalConnection) async throws {
+    static func enterFixture(_ connection: TerminalWorker) async throws {
         if let command = fixtureCommand { try await connection.send(.text(command)) }
     }
 
@@ -134,7 +134,7 @@ struct PTYCheck {
         let directory = URL(filePath: args[4], directoryHint: .isDirectory)
         let capture = WireCapture(), clientID = UUID().uuidString
         let size = Terminal.Size(columns: 80, rows: 24)
-        let live = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
+        let live = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
         guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
@@ -155,7 +155,7 @@ struct PTYCheck {
 
         // A fresh observer of the same shell restores the server's serialized grid. Its replay
         // and subsequent frames belong to a separate attachment and never enter the live totals.
-        let restored = try TerminalConnection(baseURL: endpoint, clientID: clientID, size: size)
+        let restored = try TerminalWorker(baseURL: endpoint, clientID: clientID, size: size)
         guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .output else {
             throw PTYCheckFailure("Missing replay after the numbered log")
         }
