@@ -107,9 +107,42 @@ def capture(out, label, path, process, title, focus_pid, helper=None):
     return image, region
 
 
+def prepare_hosted_motion(out):
+    # The disposable runner image can ship with Reduce Motion on. Query AppKit in
+    # fresh processes before and after writing the user's normal macOS preference.
+    if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+        raise RuntimeError("Hosted motion preparation requires a disposable GitHub runner.")
+    pref = ["com.apple.universalaccess", "reduceMotion"]
+    probe = ["xcrun", "swift", "-e", "import AppKit; print(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)"]
+    def effective():
+        value = subprocess.check_output(probe, text=True, timeout=30).strip()
+        if value not in ("true", "false"):
+            raise ValueError("Unexpected AppKit motion response: " + value)
+        return value == "true"
+    def preference():
+        result = subprocess.run(["defaults", "read", *pref], text=True, capture_output=True)
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    report = dict(before=effective(), previousPreference=preference())
+    if report["before"]:
+        write = subprocess.run(["defaults", "write", *pref, "-bool", "false"], text=True, capture_output=True)
+        report.update(writeStatus=write.returncode, writeOutput=(write.stdout + write.stderr).strip())
+    for _ in range(5):
+        report["after"] = effective()
+        if not report["after"]:
+            break
+        time.sleep(.5)
+    report["currentPreference"] = preference()
+    save(out / "motion-settings.json", report)
+    if report["after"]:
+        raise RuntimeError("AppKit still reports Reduce Motion after setting the disposable host preference: " + str(report))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--prepare-hosted-motion", action="store_true",
+                        help="Select and verify normal motion on the disposable macOS runner.")
     opts = parser.parse_args()
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = opts.output.resolve()
@@ -122,6 +155,8 @@ def main():
     save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                  toolchain=info["ThrushToolchain"],
                                  os=subprocess.check_output(["sw_vers", "-productVersion"], text=True).strip()))
+    if opts.prepare_hosted_motion:
+        prepare_hosted_motion(out)
     samples, errors = {}, {}
     peer = runpy.run_path(str(SCRIPTS / "capture-simulator.py"))["peer"]
     measure = runpy.run_path(str(SCRIPTS / "check-spinner-contrast.py"))["measure"]
