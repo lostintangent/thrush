@@ -28,19 +28,21 @@ import XCTest
     func testSystemTextEdit() async throws {
         let wanted = "Orchard"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("VoiceOver reference " + UUID().uuidString + ".txt")
-        try wanted.write(to: url, atomically: true, encoding: .utf8)
+        let nativeLines = ["Orchard", "Juniper", "Cedar"]
+        try nativeLines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: url) }
         let application = URL(fileURLWithPath: "/System/Applications/TextEdit.app")
         _ = try await NSWorkspace.shared.open([url], withApplicationAt: application, configuration: .init())
         let app = XCUIApplication(url: application)
         app.activate()
-        let area = app.textViews.matching(NSPredicate(format: "value == %@", wanted)).firstMatch
+        let area = app.textViews.matching(NSPredicate(format: "value CONTAINS %@", wanted)).firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 20), app.debugDescription)
         try await enable()
         app.activate()
         area.click()
-        let heard = try await read(wanted, in: app)
-        XCTAssertTrue(heard)
+        // Check line commands independently in an ordinary editable AppKit text area.
+        let heard = try await navigate(to: "Juniper", in: app, area: area, original: nativeLines)
+        XCTAssertTrue(heard, "TextEdit did not speak the interior reference row.")
     }
 
     func testTerminalTranscriptRow() async throws {
@@ -69,23 +71,41 @@ import XCTest
         let end = top.withOffset(CGVector(dx: 12 + (CGFloat(wanted.count) - 0.3) * advance, dy: y))
         start.click(forDuration: 0.2, thenDragTo: end)
         if try await read(wanted, in: app) {
+            XCTAssertEqual((area.value as? String)?.components(separatedBy: "\n"), lines)
             print("MAC-VO confirmed selected output row \(row + 1)")
             return
         }
 
-        // This text area also presents the top visible line on focus. Advance the actual
-        // shell with Return until the completed build becomes the first visible output.
-        for _ in 0..<(lines.count + 2) {
-            let visible = try XCTUnwrap(area.value as? String).components(separatedBy: "\n")
-            if visible.first == wanted { break }
-            XCTAssertTrue(visible.contains(wanted), "The output scrolled past the window.")
-            app.typeKey(.return, modifierFlags: [])
+        let navigated = try await navigate(to: wanted, in: app, area: area, original: lines)
+        XCTAssertTrue(navigated, "VoiceOver did not read the completed output inside the unchanged transcript.")
+    }
+
+    private func navigate(to wanted: String, in app: XCUIApplication, area: XCUIElement,
+                          original lines: [String]) async throws -> Bool {
+        let row = try XCTUnwrap(lines.firstIndex(of: wanted))
+        // Follow the standard VoiceOver text commands through the original, unchanged
+        // transcript, keeping the element in focus. XCTest's moveForward is element navigation.
+        let vo: XCUIElement.KeyModifierFlags = [.control, .option]
+        app.typeKey(.downArrow, modifierFlags: [.control, .option, .shift])
+        app.typeKey(.home, modifierFlags: vo)
+        for step in 0...row + 1 {
+            if step > 0 { app.typeKey(.downArrow, modifierFlags: vo) }
+            try await Task.sleep(for: .milliseconds(400))
+            let utterance: String
+            do { utterance = try voice.currentSpeech().utterance }
+            catch {
+                print("MAC-VO text line step=\(step) reported \(error as NSError)")
+                continue
+            }
+            print("MAC-VO text line step=\(step) utterance=\(utterance.debugDescription)")
+            if utterance.localizedCaseInsensitiveContains(wanted),
+               !utterance.localizedCaseInsensitiveContains(lines[0]) {
+                XCTAssertEqual((area.value as? String)?.components(separatedBy: "\n"), lines)
+                print("MAC-VO confirmed interior row in unchanged text: \(wanted)")
+                return true
+            }
         }
-        XCTAssertEqual((area.value as? String)?.components(separatedBy: "\n").first, wanted)
-        start.withOffset(CGVector(dx: 0, dy: -CGFloat(row) * 18)).click()
-        let heard = try await read(wanted, in: app)
-        XCTAssertTrue(heard, "VoiceOver did not speak the visible output row.")
-        print("MAC-VO confirmed output after the shell scrolled")
+        return false
     }
 
     private func read(_ wanted: String, in app: XCUIApplication) async throws -> Bool {

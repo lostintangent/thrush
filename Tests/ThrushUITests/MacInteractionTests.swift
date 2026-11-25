@@ -147,6 +147,78 @@ private struct MacInputFixture {
 }
 
 @MainActor
+@Test func appKitKeepsACollapsedAccessibilityCaretIndependentOfTheShell() throws {
+    let host = try MacInputFixture()
+    var shell = Terminal(size: .init(columns: 30, rows: 4))
+    _ = shell.receive("top\r\nRead 🐦 here\r\nPrompt % ".utf8)
+    host.view.display(shell)
+    var writes: [Terminal.Input] = []
+    host.view.onInput = { writes.append($0) }
+
+    host.input.setAccessibilitySelectedTextRange(.init(location: 10, length: 0))
+    #expect(host.input.accessibilitySelectedTextRange() == NSRange(location: 9, length: 0))
+    let caret = NSRange(location: 11, length: 0) // Just after the two-unit bird.
+    host.input.setAccessibilitySelectedTextRange(caret)
+    #expect(host.input.accessibilitySelectedTextRange() == caret)
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 1)
+    #expect(host.input.accessibilitySelectedText() == "")
+    #expect(host.view.selection == nil)
+    let board = NSPasteboard.withUniqueName()
+    defer { board.releaseGlobally() }
+    board.setString("keep", forType: .string)
+    host.input.copySelection(to: board)
+    #expect(board.string(forType: .string) == "keep")
+
+    _ = shell.receive("\u{1B}[1;1Hlonger title\u{1B}[3;10Hnew output".utf8)
+    host.view.display(shell)
+    let updated = NSRange(location: caret.location + 9, length: 0)
+    #expect(host.input.accessibilitySelectedTextRange() == updated)
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 1)
+
+    let end = NSRange(location: host.input.accessibilityNumberOfCharacters(), length: 0)
+    host.input.setAccessibilitySelectedTextRange(end)
+    #expect(host.input.accessibilitySelectedTextRange() == end)
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 3)
+
+    host.input.setAccessibilitySelectedTextRange(updated)
+    host.view.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil)
+    #expect(host.input.accessibilitySelectedTextRange() == updated)
+
+    let word = NSRange(location: updated.location + 1, length: 4)
+    host.input.setAccessibilitySelectedTextRange(word)
+    #expect(host.input.accessibilitySelectedTextRange() == word)
+    #expect(host.input.accessibilitySelectedText() == "here")
+    host.input.copySelection(to: board)
+    #expect(board.string(forType: .string) == "here")
+
+    host.input.setAccessibilitySelectedTextRange(updated)
+    _ = shell.receive("\u{1B}[2;1H\u{1B}[2Kremoved\u{1B}[3;1H".utf8)
+    host.view.display(shell)
+    #expect(host.input.accessibilitySelectedTextRange().location == host.input.accessibilityRange(forLine: 2).location)
+    host.input.setAccessibilitySelectedTextRange(.init(location: 1, length: 0))
+    host.view.reset()
+    host.view.display(shell)
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 2)
+    #expect(writes.isEmpty)
+}
+
+@MainActor
+@Test func appKitReadingCaretFollowsItsRowWhileItRemainsVisible() throws {
+    let host = try MacInputFixture()
+    var shell = Terminal(size: .init(columns: 20, rows: 3))
+    _ = shell.receive("First\r\nReading\r\nLast".utf8)
+    host.view.display(shell)
+    host.input.setAccessibilitySelectedTextRange(.init(location: 8, length: 0))
+    _ = shell.receive("\r\nNew".utf8)
+    host.view.display(shell)
+    #expect(host.input.accessibilitySelectedTextRange() == NSRange(location: 2, length: 0))
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 0)
+    _ = shell.receive("\r\nNewest".utf8)
+    host.view.display(shell)
+    #expect(host.input.accessibilityInsertionPointLineNumber() == 2)
+}
+
+@MainActor
 @Test func appKitSelectsWrappedWordsAndHandsReportedDragsToTheShell() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 8, rows: 4))
