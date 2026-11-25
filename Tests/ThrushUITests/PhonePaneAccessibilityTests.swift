@@ -60,9 +60,14 @@ import UIKit
             #expect(button.accessibilityTraits.contains(.button))
             #expect(button.bounds.width >= 44 && button.bounds.height >= 44)
             #expect(knownLine() === original)
-            let expectedColor = UIColor(terminalColor: terminal.resolvedTheme.hostBacking)
-            let backing = try #require(find(UIView.self, in: pane) {
-                $0 !== pane && $0.backgroundColor?.isEqual(expectedColor) == true && !$0.isHidden
+            let expected = terminal.resolvedTheme.hostBacking
+            let backing = try #require(find(UIView.self, in: pane) { view in
+                guard view !== pane, !view.isHidden, let color = view.backgroundColor else { return false }
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return false }
+                return Int((r * 255).rounded()) == Int(expected.red)
+                    && Int((g * 255).rounded()) == Int(expected.green)
+                    && Int((b * 255).rounded()) == Int(expected.blue)
             })
             #expect(backing.backgroundColor?.cgColor.alpha == 1)
 
