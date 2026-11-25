@@ -15,9 +15,11 @@ struct ControlParameters: Sendable {
     enum Destination { case main, subparameter, discardSubparameters, discardRemainder }
     private(set) var destination: Destination = .main
 
+    @inline(__always)
     subscript(_ index: Int) -> Int { self[index, default: 0] }
 
     /// Both omitted and zero main parameters select the control function's default.
+    @inline(__always)
     subscript(_ index: Int, default fallback: Int) -> Int {
         guard (0..<count).contains(index), main[index] != 0 else { return fallback }
         return Int(main[index])

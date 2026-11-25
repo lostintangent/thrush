@@ -78,10 +78,10 @@ const counted = {
   SD: ['T', ['pending wrap', 'inside a scroll region', 'below a scroll region']],
   CHT: ['I', ['last column', 'pending wrap', 'wide left half']],
   CBT: ['Z', ['line start', 'pending wrap', 'wide right half']],
-  SL: [' @', ['inside a scroll region']],
-  SR: [' A', ['inside a scroll region']],
-  DECIC: ["'}", ['inside a scroll region', 'wide right half']],
-  DECDC: ["'~", ['inside a scroll region', 'wide right half']],
+  SL: [' @', ['pending wrap', 'inside a scroll region', 'below a scroll region']],
+  SR: [' A', ['pending wrap', 'inside a scroll region', 'below a scroll region']],
+  DECIC: ["'}", ['pending wrap', 'inside a scroll region', 'below a scroll region', 'wide left half', 'wide right half']],
+  DECDC: ["'~", ['pending wrap', 'inside a scroll region', 'below a scroll region', 'wide left half', 'wide right half']],
 };
 for (const [subject, [final, places]] of Object.entries(counted)) {
   for (const parameter of ['', '0', '1', '3', '99']) {
@@ -99,6 +99,16 @@ probe('IL', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}2L
 probe('DL', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}2M`);
 probe('SU', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}2S`);
 probe('SD', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}2T`);
+for (const [subject, final] of [['SL', ' @'], ['SR', ' A'], ['DECIC', "'}"], ['DECDC', "'~"]]) {
+  probe(subject, 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}2${final}`);
+  probe(subject, 'across soft-wrapped rows', `${CSI}6;1H${'x'.repeat(45)}${CSI}7;3H`, `${CSI}2${final}`);
+  probe(subject, 'on the alternate screen', `${CSI}?1049h${CSI}2;1Habcdef${CSI}2;3H`, `${CSI}2${final}`);
+}
+// A narrowed alternate row keeps its hidden columns, so a pending wrap edits from the first of them.
+for (const [subject, final] of [['DECIC', "'}"], ['DECDC', "'~"]]) {
+  add(subject, 'at a pending wrap on a narrowed alternate screen', `${canvas}${CSI}?1049h${CSI}2;1Habcdefghijklmnopqrst`,
+    { resize: [12, 8] }, `${CSI}2;12Hx${CSI}2${final}`, { resize: [20, 8] }, { checkpoint: 'subject' }, '*');
+}
 
 // Absolute positioning.
 for (const [subject, final] of [['CUP', 'H'], ['HVP', 'f']]) {

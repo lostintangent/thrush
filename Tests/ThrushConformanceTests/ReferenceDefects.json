@@ -434,25 +434,13 @@
       },
       {
         "checkpoint": "middle",
-        "path": "active.visible[6].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "middle",
         "path": "active.visible[6][0]",
         "reference": "blank",
         "thrush": "\"x\""
       },
       {
         "checkpoint": "middle",
-        "path": "active.visible[7].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "middle",
-        "path": "active.visible[7][0]",
+        "path": "active.visible[7][1]",
         "reference": "blank",
         "thrush": "\"o\""
       },
@@ -464,13 +452,7 @@
       },
       {
         "checkpoint": "end",
-        "path": "active.visible[7].wrapped",
-        "reference": "false",
-        "thrush": "true"
-      },
-      {
-        "checkpoint": "end",
-        "path": "active.visible[7][0]",
+        "path": "active.visible[7][1]",
         "reference": "blank",
         "thrush": "\"o\""
       }

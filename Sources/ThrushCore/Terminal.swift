@@ -332,6 +332,12 @@ public struct Terminal: Sendable {
         case .control(.scrollUp): screen.scrollUp(parser.parameters[0, default: 1], style: style)
         case .control(.scrollDown): screen.scrollDown(parser.parameters[0, default: 1])
         case .control(.eraseCharacters): screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
+        case .control(.insertColumns):
+            screen.editColumns(.insert, at: screen.column, count: parser.parameters[0, default: 1], style: style)
+        case .control(.deleteColumns):
+            screen.editColumns(.delete, at: screen.column, count: parser.parameters[0, default: 1], style: style)
+        case .control(.scrollLeft): screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
+        case .control(.scrollRight): screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
         case .control(.primaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return

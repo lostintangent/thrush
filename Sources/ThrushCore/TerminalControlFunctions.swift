@@ -64,8 +64,12 @@ enum TerminalControlFunction {
     enum CSI: UInt32 {
         /// ICH, CSI Ps @.
         case insertCharacters = 0x40
+        /// SL, CSI Ps SP @.
+        case scrollLeft = 0x20_40
         /// CUU, CSI Ps A.
         case cursorUp = 0x41
+        /// SR, CSI Ps SP A.
+        case scrollRight = 0x20_41
         /// CUD, CSI Ps B.
         case cursorDown = 0x42
         /// CUF, CSI Ps C.
@@ -148,6 +152,10 @@ enum TerminalControlFunction {
         case saveCursor = 0x73
         /// SCORC, CSI u.
         case restoreCursor = 0x75
+        /// DECIC, CSI Ps ' }.
+        case insertColumns = 0x27_7d
+        /// DECDC, CSI Ps ' ~.
+        case deleteColumns = 0x27_7e
     }
 
     enum OSC: Int {

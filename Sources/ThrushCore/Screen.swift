@@ -586,6 +586,20 @@ extension Terminal {
             active.rows[index].generation = revision
         }
 
+        /// DECIC, DECDC, SL and SR edit the same columns of every row in the scroll region, and only
+        /// while the cursor is inside it. As in the reference, a start past a row's last column wraps to its first.
+        mutating func editColumns(_ edit: CharacterEdit, at start: Int, count: Int, style: Style) {
+            guard (scrollTop...scrollBottom).contains(row) else { return }
+            revision &+= 1
+            for line in scrollTop...scrollBottom {
+                let index = active.index(of: line)
+                let columns = active.rows[index].storageColumns
+                active.rows[index].editCharacters(edit, at: start % columns, count: count, style: style.eraseStyle)
+                active.rows[index].isWrapped = false
+                active.rows[index].generation = revision
+            }
+        }
+
         /// ECH blanks cells from the cursor without moving it or the cells after them.
         mutating func eraseCharacters(_ count: Int, style: Style) {
             active.column = min(column, size.columns - 1)
