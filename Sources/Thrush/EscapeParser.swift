@@ -1,18 +1,22 @@
-/// Recognize just the operations used by the first shell transcript. Unsupported CSI,
-/// intermediate escapes and control strings consume no space proportional to their length.
+/// An incremental parser for the control repertoire in the recorded shell and Vim sessions.
+/// Unknown control strings stream directly to their terminator without allocating payload storage.
 struct EscapeParser: Sendable {
     enum Action {
-        case `print`, carriageReturn, lineFeed, backspace, cursorReport
-        case applicationCursorKeys(Bool)
+        case printable, carriageReturn, lineFeed, backspace
+        case keypad(Bool)
+        case csi(final: UInt8, prefix: UInt8?, intermediate: UInt8?, parameters: [Int])
     }
 
-    private enum State {
-        case ground, escape, escapeIntermediate, csi, ignoreCSI
-        case controlString(osc: Bool)
+    private enum State: Equatable {
+        case ground, escape, escapeIntermediate, csi, ignoreCSI, controlString(osc: Bool)
     }
 
     private var state: State = .ground
-    private var parameters = Parameters()
+    private var parameters: [Int] = []
+    private var prefix: UInt8?
+    private var intermediate: UInt8?
+    private var hasParameter = false
+    var isGround: Bool { state == .ground }
 
     mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
         switch scalar.value {
@@ -52,23 +56,39 @@ struct EscapeParser: Sendable {
 
         switch state {
         case .ground:
-            return .print
+            return .printable
         case .escape:
             switch scalar.value {
-            case 0x5b: beginCSI()                              // ESC [
-            case 0x5d: state = .controlString(osc: true)        // ESC ]
+            case 0x5b: beginCSI()
+            case 0x5d: state = .controlString(osc: true)
             case 0x50, 0x58, 0x5e, 0x5f: state = .controlString(osc: false)
             case 0x20...0x2f: state = .escapeIntermediate
+            case 0x3d, 0x3e:
+                state = .ground
+                return .keypad(scalar.value == 0x3d)
             default: state = .ground
             }
         case .escapeIntermediate:
             if !(0x20...0x2f).contains(scalar.value) { state = .ground }
         case .csi:
-            if (0x40...0x7e).contains(scalar.value) {
+            switch scalar.value {
+            case 0x40...0x7e:
                 state = .ground
-                return parameters.action(final: scalar)
+                return .csi(final: UInt8(scalar.value), prefix: prefix, intermediate: intermediate, parameters: parameters)
+            case 0x3c...0x3f where prefix == nil && intermediate == nil && !hasParameter:
+                prefix = UInt8(scalar.value)
+            case 0x20...0x2f where intermediate == nil:
+                intermediate = UInt8(scalar.value)
+            case 0x30...0x39 where intermediate == nil:
+                hasParameter = true
+                let index = parameters.count - 1
+                parameters[index] = min(Int(Int32.max), parameters[index] * 10 + Int(scalar.value - 0x30))
+            case 0x3b where intermediate == nil && parameters.count < 32:
+                hasParameter = true
+                parameters.append(0)
+            default:
+                state = .ignoreCSI
             }
-            if !parameters.consume(scalar) { state = .ignoreCSI }
         case .ignoreCSI:
             if (0x40...0x7e).contains(scalar.value) { state = .ground }
         case .controlString:
@@ -78,46 +98,11 @@ struct EscapeParser: Sendable {
     }
 
     private mutating func beginCSI() {
-        parameters = Parameters()
+        parameters.removeAll(keepingCapacity: true)
+        parameters.append(0)
+        prefix = nil
+        intermediate = nil
+        hasParameter = false
         state = .csi
-    }
-
-    /// DSR uses the first parameter. DECSET/DECRST can list several private modes.
-    /// Digits above 6 cease to affect any operation implemented at this milestone.
-    private struct Parameters: Sendable {
-        var isPrivate = false
-        var current: Int?
-        var first: Int?
-        var sawModeOne = false
-
-        mutating func consume(_ scalar: Unicode.Scalar) -> Bool {
-            switch scalar.value {
-            case 0x3f where !isPrivate && current == nil && first == nil:
-                isPrivate = true
-            case 0x30...0x39:
-                current = min(7, (current ?? 0) * 10 + Int(scalar.value - 0x30))
-            case 0x3b:
-                first = first ?? current ?? 0
-                sawModeOne = sawModeOne || current == 1
-                current = nil
-            default:
-                return false
-            }
-            return true
-        }
-
-        func action(final: Unicode.Scalar) -> Action? {
-            if isPrivate && (sawModeOne || current == 1) {
-                switch final {
-                case "h": return .applicationCursorKeys(true)
-                case "l": return .applicationCursorKeys(false)
-                default: return nil
-                }
-            }
-            if !isPrivate && final == "n" && (first ?? current) == 6 {
-                return .cursorReport
-            }
-            return nil
-        }
     }
 }

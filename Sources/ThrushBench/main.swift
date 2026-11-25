@@ -36,12 +36,7 @@ func printTable(_ report: Report) {
     let revision = report.environment.commit.prefix(12)
     let state = report.environment.worktreeDirty ? " (dirty)" : ""
     print("ThrushBench   \(report.columns) × \(report.rows)   \(report.environment.processor)   \(revision)\(state)")
-    let environment = report.environment
-    let load = environment.loadAverage
-    let loadValues = String(format: "%.2f / %.2f / %.2f", load.oneMinute, load.fiveMinutes, load.fifteenMinutes)
-    let contention = environment.contended ? "contended" : "within core count"
-    print("Load (1/5/15 min) \(loadValues)   \(environment.coreCount) active cores"
-          + "   \(contention)   thermal \(environment.thermalState)")
+    printLoad(report.environment)
     print("\(replay.measuredReplays) measured replays after \(replay.warmupReplays) warmups\n")
     row("Operation", "Bytes", "p50 ns", "p95 ns")
     for operation in replay.operations {
@@ -54,6 +49,14 @@ func printTable(_ report: Report) {
     print("Burst \(replay.maximumBurstQueuedBytes) bytes   drain p95 \(replay.burstDrain.p95Nanoseconds) ns"
           + "   \(replay.queuedBytesAfterDrain) bytes pending")
     print("Recorded one-second peak \(replay.fixturePeakBytesInOneSecond) bytes")
+}
+
+func printLoad(_ environment: Environment) {
+    let load = environment.loadAverage
+    let loadValues = String(format: "%.2f / %.2f / %.2f", load.oneMinute, load.fiveMinutes, load.fifteenMinutes)
+    let contention = environment.contended ? "contended" : "within core count"
+    print("Load (1/5/15 min) \(loadValues)   \(environment.coreCount) active cores"
+          + "   \(contention)   thermal \(environment.thermalState)")
 }
 
 extension String {
@@ -80,6 +83,14 @@ func run() throws {
     try json.write(to: output, options: .atomic)
     printTable(report)
     print("Report \(output.path)")
+
+    let headless = try HeadlessReport(environment: Environment.read())
+    let stem = output.deletingPathExtension().lastPathComponent
+    let name = stem == "first-bytes" ? "headless.json" : "\(stem)-headless.json"
+    let headlessOutput = output.deletingLastPathComponent().appendingPathComponent(name)
+    try (encoder.encode(headless) + Data([0x0A])).write(to: headlessOutput, options: .atomic)
+    headless.printTable()
+    print("Report \(headlessOutput.path)")
     #endif
 }
 

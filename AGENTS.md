@@ -33,8 +33,9 @@ scripts/check-core.sh
 scripts/check-consumer.sh
 scripts/check-loopback.sh
 swift run -c release ThrushBench
+python3 scripts/check-benchmark-report.py
 ```
 
-The separate consumer prints its row and reply, then checks binary linkage with `otool`. The Release benchmark writes `.build/benchmarks/first-bytes.json`. See [the measurement procedure](Benchmarks/README.md) and [the fixture reference](Fixtures/reference/README.md).
+The separate consumer prints its row and reply, then checks binary linkage with `otool`. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/README.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
 
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.

@@ -31,4 +31,6 @@ jobs:
       - name: Verify the loopback exchange
         run: scripts/check-loopback.sh
       - name: Verify the Release replay
-        run: swift run -c release ThrushBench
+        run: |
+          swift run -c release ThrushBench
+          python3 scripts/check-benchmark-report.py

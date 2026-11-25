@@ -1,11 +1,13 @@
-/// A streaming UTF-8 decoder. Apply the Unicode maximal-subpart replacement rule,
-/// including when a malformed prefix and the next valid byte arrive in separate chunks.
+/// Stream UTF-8 across calls. Like the server, discard malformed subsequences
+/// and reconsider the next lead byte after an interrupted multibyte scalar.
 struct ScalarDecoder: Sendable {
     private var value: UInt32 = 0
     private var remaining = 0
     private var nextRange: ClosedRange<UInt8> = 0x80...0xbf
 
-    func needsReplacement(before byte: UInt8) -> Bool {
+    var isComplete: Bool { remaining == 0 }
+
+    func needsRestart(before byte: UInt8) -> Bool {
         remaining > 0 && !nextRange.contains(byte)
     }
 
@@ -34,7 +36,7 @@ struct ScalarDecoder: Sendable {
             if byte == 0xf0 { nextRange = 0x90...0xbf }
             if byte == 0xf4 { nextRange = 0x80...0x8f }
         default:
-            return "\u{fffd}"
+            return nil
         }
         return nil
     }

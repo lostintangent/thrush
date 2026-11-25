@@ -12,3 +12,9 @@ shasum -a 256 Fixtures/first-bytes.json
 ```
 
 `NODE_PATH` resolves the browser keyboard evaluator’s internal TypeScript imports. Swift builds and tests read the checked-in JSON directly.
+
+## Unicode widths and PTY recordings
+
+Run `bun Fixtures/reference/generate-widths.mjs ../toy-box` to regenerate the core's Unicode 11 cell-width data. The generator queries the pinned provider for each code point and groups the observed zero- and double-width intervals. Thrush looks up these observations with its own Swift code.
+
+The numbered compiler log and the interactive Vim session retain their actual PTY bytes and resize events. Their reference generator replays them through the same pinned server emulator. [Shell and Vim recordings](m2/README.md)

@@ -132,22 +132,23 @@ struct Replay: Encodable {
             warmupReplays: warmup, measuredReplays: measured,
             receivedBytes: received, appliedBytes: applied, replyBytes: replies, keyBytes: keys,
             receiveMiBPerSecond: Double(applied) * 1e9 / Double(receiveTime) / 1_048_576,
-            fixturePeakBytesInOneSecond: peakBytes(events),
+            fixturePeakBytesInOneSecond: peakBytesInOneSecond(events.map { ($0.offsetMicroseconds, $0.bytes.count) }),
             maximumBurstQueuedBytes: bytesPerReplay, queuedBytesAfterDrain: pendingBytes,
             burstDrain: Timing(drainSamples), operations: operations
         )
     }
 
-    private static func peakBytes(_ events: [FirstBytesFixture.Event]) -> Int {
-        var earliest = 0, bytes = 0, peak = 0
-        for event in events {
-            bytes += event.bytes.count
-            while event.offsetMicroseconds - events[earliest].offsetMicroseconds >= 1_000_000 {
-                bytes -= events[earliest].bytes.count
-                earliest += 1
-            }
-            peak = max(peak, bytes)
+}
+
+func peakBytesInOneSecond(_ samples: [(time: Int, bytes: Int)]) -> Int {
+    var earliest = 0, bytes = 0, peak = 0
+    for sample in samples {
+        bytes += sample.bytes
+        while sample.time - samples[earliest].time >= 1_000_000 {
+            bytes -= samples[earliest].bytes
+            earliest += 1
         }
-        return peak
+        peak = max(peak, bytes)
     }
+    return peak
 }
