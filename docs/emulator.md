@@ -20,7 +20,7 @@ bytes ─▶ Scanner ─── text runs ─────────────
 
 | Layer | Knows | Doesn't know |
 | --- | --- | --- |
-| `Scanner` | Where text ends. It finds runs of printable ASCII and well-formed UTF-8, carries a split scalar across chunk boundaries and replaces malformed input with U+FFFD. | What any control does. |
+| `Scanner` | Where text ends. It finds runs of printable ASCII and well-formed UTF-8, carries a split scalar across chunk boundaries and discards malformed bytes, so an interrupted prefix such as `E2 82` before `Z` leaves only `Z`. | What any control does. |
 | `Parser` | The VT500 state machine: where a sequence starts and ends, its prefix, intermediates, parameters and bounded string payloads. It emits print, execute, escape, control and command events. | What any sequence does. Adding a function never changes it. |
 | `Terminal.perform` | Which named function a sequence is, its parameter defaults and which screen operation or mode it drives. | How the grid stores cells. |
 | `Screen` | Cursor, margins, cells, wraps, history and both buffers, through intention-revealing operations such as `insertBlanks(_:)` and `deleteCharacters(_:)`. | Escape sequences. |
