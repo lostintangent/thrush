@@ -1,0 +1,28 @@
+name: Comparison profile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Allow sampling
+        run: sudo DevToolsSecurity -enable
+      - name: Sample ThrushCore on every comparison workload
+        run: python3 scripts/comparison/profile.py --output "$RUNNER_TEMP/comparison-profile.json"
+      - name: Save the profile
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: comparison-profile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/comparison-profile.json
+          if-no-files-found: error
