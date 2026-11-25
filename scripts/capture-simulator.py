@@ -547,7 +547,7 @@ def main():
             if args.scene == "render-benchmark":
                 phone.benchmark()
             elif args.scene == "toolbar-proof":
-                runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["capture"](phone, args)
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["capture"](phone, args, sim)
             elif args.scene == "notice-reconnect-motion":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
             elif args.scene == "notices":
