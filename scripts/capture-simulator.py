@@ -29,7 +29,7 @@ NOTICE_SCENES = {
     "notice-displaced": ("Open in another window", None, "Use Here", "Use shell in this window"),
     "notice-ended": ("Ended", None, "New Shell", "New Shell"),
 }
-TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles"}
+TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
 
 
 def run(*command, timeout=90, check=True):
@@ -506,7 +506,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
-    parser.add_argument("--scene", default="", help="A demo scene, 'notices' for all five mounted pane states, 'text-blink' for blinking and concealed text, or 'render-benchmark'. Leave empty for the full rendering proof.")
+    parser.add_argument("--scene", default="", help="A demo scene, 'notices' for all five mounted pane states, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, or 'render-benchmark'. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -517,7 +517,7 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
-    if args.scene in {"render-benchmark", "notice-reconnect-motion", "toolbar-proof", "text-blink"} and (args.layout_only or args.oracle):
+    if args.scene in {"render-benchmark", "notice-reconnect-motion", "toolbar-proof", "text-blink", "program-colors"} and (args.layout_only or args.oracle):
         parser.error("The named workload produces its own evidence.")
     oracle = None
     if args.oracle:
@@ -549,12 +549,14 @@ def main():
             phone = Phone(device, endpoint, app, out, Path(work))
             opens_keyboard = (not args.scene or args.keyboard == "visible" or
                               (args.scene in {"notices", "notice-reconnecting", "notice-reconnect-motion"} and args.keyboard == "any"))
-            if not args.layout_only and args.scene not in {"render-benchmark", "notices", "toolbar-proof"} and opens_keyboard:
+            if not args.layout_only and args.scene not in {"render-benchmark", "notices", "toolbar-proof", "program-colors"} and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")
             if args.scene == "render-benchmark":
                 phone.benchmark()
             elif args.scene == "text-blink":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/text-blink.py"))["capture"](phone, sim, wait_for, save_json)
+            elif args.scene == "program-colors":
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, sim)
             elif args.scene == "toolbar-proof":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["capture"](phone, args, sim)
             elif args.scene == "notice-reconnect-motion":

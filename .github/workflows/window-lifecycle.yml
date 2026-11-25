@@ -14,6 +14,10 @@ on:
         description: Measure and capture blinking and concealed text, with and without Reduce Motion
         type: boolean
         default: false
+      program_colors:
+        description: Capture colors a program sets under the title bar and a window toolbar in both Slate appearances
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -30,7 +34,7 @@ jobs:
         with:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
-        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink }}
+        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors }}
         run: python3 scripts/pty/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
@@ -41,8 +45,11 @@ jobs:
       - name: Measure and capture blinking text in both Slate appearances
         if: inputs.text_blink
         run: python3 scripts/capture-mac-text-blink.py --output "$RUNNER_TEMP/mac-text-blink"
+      - name: Capture program colors under the title bar and a window toolbar
+        if: inputs.program_colors
+        run: python3 scripts/capture-mac-program-colors.py --output "$RUNNER_TEMP/mac-program-colors"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink))
+        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors))
         with:
           name: ${{ inputs.voiceover && 'thrush-mac-voiceover' || 'thrush-window-lifecycle' }}
           path: ${{ runner.temp }}/window-lifecycle/
@@ -56,3 +63,8 @@ jobs:
         with:
           name: thrush-mac-text-blink
           path: ${{ runner.temp }}/mac-text-blink/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && inputs.program_colors
+        with:
+          name: thrush-mac-program-colors
+          path: ${{ runner.temp }}/mac-program-colors/

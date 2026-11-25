@@ -7,15 +7,15 @@ struct DemoSurface: View {
 
     @ViewBuilder var body: some View {
         if let terminalSession = session.terminalSession {
-            #if os(iOS)
             if session.options.checksToolbar {
+                #if os(iOS)
                 PhoneToolbarProof(session: terminalSession)
+                #else
+                MacToolbarProof(session: terminalSession)
+                #endif
             } else {
                 session.pane(terminalSession)
             }
-            #else
-            session.pane(terminalSession)
-            #endif
         } else if session.options.benchmarkURL != nil {
             RendererSurface(view: session.view)
         } else {

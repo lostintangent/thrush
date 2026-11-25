@@ -3,7 +3,7 @@ import Thrush
 
 struct DemoOptions {
     enum Scene: String, CaseIterable {
-        case shell, editor, log, vim, prompt, glyphs, styles
+        case shell, editor, log, vim, prompt, glyphs, styles, colors
         case noticeConnecting = "notice-connecting"
         case noticeReconnecting = "notice-reconnecting"
         case noticeReplacement = "notice-replacement"
@@ -72,6 +72,7 @@ final class DemoSession: ObservableObject {
     private(set) var endpointError: String?
 
     var onThemeChange: ((TerminalTheme) -> Void)?
+    var onCanvasChange: ((ColorScheme) -> Void)?
     var onBenchmarkFinished: ((Bool) -> Void)?
     var onFirstOutput: (() -> Void)?
     var onFirstUsable: (() -> Void)?
@@ -131,6 +132,7 @@ final class DemoSession: ObservableObject {
         pane.preparedView = view
         pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
+        pane.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
         pane.onReady = { [weak self] resumed in
             guard let self else { return }
             if options.scene == .glyphs {
