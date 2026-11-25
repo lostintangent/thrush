@@ -1,0 +1,37 @@
+name: M4 iPhone interaction proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [capture/m4]
+
+permissions:
+  contents: read
+
+jobs:
+  interactions:
+    runs-on: xcode-27
+    timeout-minutes: 35
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Verify and capture the iPhone interactions
+        run: python3 scripts/interaction-capture/run.py --output "$RUNNER_TEMP/thrush-iphone-interactions"
+      - name: Upload interaction captures and checks
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thrush-iphone-interactions-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/thrush-iphone-interactions/*.png
+            ${{ runner.temp }}/thrush-iphone-interactions/*.mp4
+            ${{ runner.temp }}/thrush-iphone-interactions/*.json
+            ${{ runner.temp }}/thrush-iphone-interactions/*.log
+          compression-level: 0
+          retention-days: 7

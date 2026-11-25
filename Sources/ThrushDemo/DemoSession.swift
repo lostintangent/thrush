@@ -1,3 +1,4 @@
+import QuartzCore
 import Foundation
 import Thrush
 import ThrushConnection
@@ -15,6 +16,7 @@ struct DemoOptions {
     let customTheme: Bool
     let keyboard: Bool
     let benchmarkURL: URL?
+    let interactionURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -33,6 +35,12 @@ struct DemoOptions {
                 ?? URL.documentsDirectory.appending(path: "render.json")
         } else {
             benchmarkURL = nil
+        }
+        if arguments.contains("--interaction-check") {
+            interactionURL = value(after: "--interaction-check").map { URL(fileURLWithPath: $0) }
+                ?? URL.documentsDirectory.appending(path: "interactions.json")
+        } else {
+            interactionURL = nil
         }
         keyboard = arguments.contains("--keyboard") || (!arguments.contains("--hide-keyboard") && benchmarkURL == nil)
     }
@@ -57,9 +65,11 @@ final class DemoSession {
     private var ready = false
     private var sessionID = UUID()
     private var benchmarkStarted = false
+    private var interaction: InteractionBenchmark?
 
     init(options: DemoOptions) {
         self.options = options
+        view.onInput = { [weak self] in self?.send($0) }
         view.onGridSizeChange = { [weak self] in self?.resize(to: $0) }
         view.onThemeChange = { [weak self] theme in
             guard let self else { return }
@@ -101,9 +111,18 @@ final class DemoSession {
 
     func send(_ input: Terminal.Input) {
         guard let connection, ready else { return }
+        let tracing = interaction
         Task {
-            do { try await connection.send(input) }
-            catch { if self.connection === connection { onError?(String(describing: error)) } }
+            do {
+                if let tracing {
+                    try await connection.send(input) {
+                        let time = CACurrentMediaTime()
+                        Task { @MainActor in tracing.writeStarted(at: time) }
+                    }
+                } else {
+                    try await connection.send(input)
+                }
+            } catch { if self.connection === connection { onError?(String(describing: error)) } }
         }
     }
 
@@ -169,6 +188,7 @@ final class DemoSession {
                     await display(current, receivedAt: await current.lastReceiptTime, reset: event == .resynchronized)
                     onFirstOutput?()
                     onFirstOutput = nil
+                    startInteractionCheckIfRequested()
                 case .reconnecting:
                     ready = false
                 case .displaced, .exit:
@@ -187,7 +207,28 @@ final class DemoSession {
         let snapshot = await current.snapshot()
         guard connection === current else { return }
         if reset { view.reset() }
+        if let receivedAt { interaction?.received(generation: snapshot.generation, at: receivedAt) }
         view.display(snapshot, receivedAt: receivedAt)
+    }
+
+    private func startInteractionCheckIfRequested() {
+        guard !benchmarkStarted, let url = options.interactionURL else { return }
+        benchmarkStarted = true
+        let check = InteractionBenchmark(view: view)
+        interaction = check
+        Task {
+            defer { interaction = nil }
+            do {
+                try await check.run(reportURL: url)
+                onBenchmarkFinished?(true)
+            } catch {
+                let message = "Interaction benchmark failed: \(error)\n"
+                FileHandle.standardError.write(Data(message.utf8))
+                try? message.write(to: url.deletingLastPathComponent().appending(path: "interaction-error.txt"),
+                                   atomically: true, encoding: .utf8)
+                onBenchmarkFinished?(false)
+            }
+        }
     }
 
     private func synchronizeSize() {
@@ -215,19 +256,5 @@ final class DemoSession {
         if let old = connection { Task { await old.detach() } }
         connection = nil
         ready = false
-    }
-}
-
-// Window and keyboard materials belong to the host. The public terminal theme owns grid colors.
-extension TerminalTheme {
-    var hostBacking: Terminal.RGB {
-        if self == .slateDark { return .init(red: 0x1D, green: 0x29, blue: 0x34) }
-        if self == .slateLight { return .init(red: 0xE8, green: 0xEE, blue: 0xF1) }
-        return .init(red: 0x2A, green: 0x27, blue: 0x24)
-    }
-    var separator: Terminal.RGB {
-        if self == .slateDark { return .init(red: 0x35, green: 0x42, blue: 0x4E) }
-        if self == .slateLight { return .init(red: 0xB7, green: 0xC3, blue: 0xCA) }
-        return .init(red: 0x48, green: 0x41, blue: 0x3B)
     }
 }

@@ -69,3 +69,17 @@ enum Paint {
         return colors
     }
 }
+
+// Opaque backing for native chrome when Reduce Transparency is enabled.
+package extension TerminalTheme {
+    var hostBacking: Terminal.RGB {
+        if self == .slateDark { return .init(red: 0x1D, green: 0x29, blue: 0x34) }
+        if self == .slateLight { return .init(red: 0xE8, green: 0xEE, blue: 0xF1) }
+        return .init(red: 0x2A, green: 0x27, blue: 0x24)
+    }
+    var separator: Terminal.RGB {
+        if self == .slateDark { return .init(red: 0x35, green: 0x42, blue: 0x4E) }
+        if self == .slateLight { return .init(red: 0xB7, green: 0xC3, blue: 0xCA) }
+        return .init(red: 0x48, green: 0x41, blue: 0x3B)
+    }
+}

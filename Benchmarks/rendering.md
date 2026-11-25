@@ -45,3 +45,19 @@ All three theme switches reused every visible row and glyph. The foreground-idle
 Three partial generations inside synchronized output produced 0 submissions. Closing the block submitted one coherent screen. When the end marker was omitted, the watchdog submitted the latest generation 1000.665 ms after the block opened, followed by 1.027 s with zero further submissions.
 
 The Mac session was locked. Its drawable callbacks returned zero presentation timestamps on all 41 drawing workload frames and both synchronized-output releases. CPU preparation, GPU duration and submission timestamps are available. A foreground run on an unlocked display is still required for receipt-to-presentation latency.
+
+## Native input and echo latency
+
+Build the Release app, then run the same input sequence through its native text responder and a fresh loopback socket.
+
+```sh
+scripts/build-demo.sh mac
+swift run -c release ThrushBench --interactions .build/demo/mac/Thrush.app
+
+scripts/build-demo.sh simulator
+bun scripts/interaction-peer.ts --simulator "$udid" .build/demo/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
+```
+
+The peer expects 22 binary input frames. It checks one committed Japanese glyph after two marked-text updates, one bracketed paste and 20 printable keys. Each echo has a distinct terminal generation. The app also selects and copies a wide glyph across a soft wrap, reads a history row, and activates Latest.
+
+The Mac report is written to `.build/benchmarks/interactions.json`. Each key includes monotonic timestamps for the responder action, the WebSocket write and receipt of the corresponding echo. A matching Metal frame adds submission time. A drawable presentation callback adds visible-echo time on supported displays. The report publishes presentation percentiles only for runs in which all 20 keys have presentation timestamps. Compare visible echo against two display intervals using the interval measured on the same run. Environment fields record contention, thermal state, source revision and working-tree status.

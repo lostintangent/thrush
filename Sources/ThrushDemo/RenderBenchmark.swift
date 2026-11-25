@@ -292,7 +292,7 @@ private extension SHA256.Digest {
 }
 
 @MainActor
-private final class DisplayInterval: NSObject {
+final class DisplayInterval: NSObject {
     private var periods: [Double] = []
 
     @objc private func tick(_ link: CADisplayLink) {
@@ -321,7 +321,7 @@ private final class DisplayInterval: NSObject {
     }
 }
 
-private struct RenderEnvironment: Encodable {
+struct RenderEnvironment: Encodable {
     let commit: String
     let worktreeDirty: Bool
     let toolchain: String

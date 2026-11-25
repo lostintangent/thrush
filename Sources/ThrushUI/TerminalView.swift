@@ -80,8 +80,16 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
 
     public var selection: Selection? {
-        didSet { if oldValue != selection { invalidateFrame() } }
+        get { transcript.selection }
+        set {
+            guard newValue != transcript.selection else { return }
+            transcript.selection = newValue
+            refreshInteraction()
+            invalidateFrame()
+        }
     }
+    /// Delivers user input in order. Its owner encodes it on the same terminal that receives output.
+    public var onInput: ((Terminal.Input) -> Void)?
     public var onGridSizeChange: ((Terminal.Size) -> Void)?
     public var onThemeChange: ((TerminalTheme) -> Void)?
     public private(set) var gridSize: Terminal.Size?
@@ -123,8 +131,6 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     private var firstContentStart = CACurrentMediaTime()
     private var firstCompilation: Double?
     private var hasSubmittedContent = false
-    private var metrics: GridMetrics?
-    private var snapshot: Terminal.Snapshot?
     private lazy var synchronizedOutput: SynchronizedOutputGate = {
         let gate = SynchronizedOutputGate { [weak self] snapshot, receivedAt in
             self?.accept(snapshot, receivedAt: receivedAt)
@@ -132,6 +138,21 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         gate.setActive(active && window != nil)
         return gate
     }()
+    private(set) var metrics: GridMetrics?
+    var transcript = TerminalTranscript()
+    package private(set) var snapshot: Terminal.Snapshot?
+    private var lastPointer: Terminal.Input.Pointer?
+    private var capturedButtons: Set<Terminal.Input.Pointer.Button> = []
+    #if os(macOS)
+    private lazy var macInput = MacTerminalInput(terminal: self)
+    #else
+    /// Choose the standard terminal keys, hide the accessory, or supply native controls.
+    public var keyboardAccessory: TerminalKeyboardAccessory = .standard {
+        didSet { if oldValue != keyboardAccessory { phoneInput.setAccessory(keyboardAccessory) } }
+    }
+    lazy var phoneInput = PhoneTerminalInput(terminalView: self)
+    private lazy var phoneTranscript = PhoneTranscriptView(terminal: self)
+    #endif
     private var received: Double?
     private var active = true
     private var dirty = true
@@ -172,6 +193,16 @@ public final class TerminalView: MTKView, MTKViewDelegate {
                                                name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
         #endif
         (layer as? CAMetalLayer)?.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        #if os(macOS)
+        macInput.frame = bounds
+        macInput.autoresizingMask = [.width, .height]
+        addSubview(macInput)
+        #else
+        phoneTranscript.frame = bounds
+        phoneTranscript.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(phoneTranscript)
+        addSubview(phoneInput)
+        #endif
         delegate = self
         prepareRenderer()
         resolveTheme()
@@ -233,6 +264,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         resolvedTheme = next
         applyClearColor()
         onThemeChange?(next)
+        refreshInteraction()
         invalidateFrame()
     }
 
@@ -284,7 +316,10 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             gridSize = next
             onGridSizeChange?(next)
         }
-        if needsGeometry { invalidateFrame() }
+        if needsGeometry {
+            refreshInteraction()
+            invalidateFrame()
+        }
     }
 
     public func display(_ terminal: Terminal, receivedAt: CFTimeInterval? = nil) {
@@ -297,7 +332,14 @@ public final class TerminalView: MTKView, MTKViewDelegate {
 
     private func accept(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
         if let last = snapshot, last.generation == next.generation { return }
-        snapshot = next
+        let oldTracking = snapshot?.mouseTracking
+        transcript.display(next)
+        snapshot = next.viewport(rowsFromBottom: transcript.offset)
+        if oldTracking != next.mouseTracking {
+            lastPointer = nil
+            capturedButtons.removeAll()
+        }
+        refreshInteraction()
         received = receivedAt
         invalidateFrame()
     }
@@ -306,7 +348,9 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     public func reset() {
         synchronizedOutput.reset()
         snapshot = nil
-        selection = nil
+        transcript = TerminalTranscript()
+        cancelPendingInput()
+        refreshInteraction()
         received = nil
         renderer?.discardGeometry()
         invalidateFrame()
@@ -316,7 +360,73 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         guard active != newValue else { return }
         active = newValue
         synchronizedOutput.setActive(active && window != nil)
-        if active { invalidateFrame() } else { releaseDrawables() }
+        if active { invalidateFrame() } else {
+            cancelPendingInput()
+            releaseDrawables()
+        }
+    }
+
+    /// Give native text input and hardware keys to this viewport.
+    @discardableResult public func focusInput() -> Bool {
+        #if os(macOS)
+        return window?.makeFirstResponder(macInput) ?? false
+        #else
+        return phoneInput.becomeFirstResponder()
+        #endif
+    }
+
+    /// Discard local composition and latched modifiers when the host detaches from the PTY.
+    public func cancelPendingInput() {
+        lastPointer = nil
+        capturedButtons.removeAll()
+        #if os(macOS)
+        macInput.resetInteraction()
+        #else
+        phoneInput.cancelPendingInput()
+        #endif
+    }
+
+    func refreshInteraction() {
+        #if os(macOS)
+        macInput.refresh()
+        #else
+        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme)
+        phoneTranscript.synchronize()
+        #endif
+    }
+
+    package func setHistoryOffset(_ rows: Int) {
+        let old = transcript.offset
+        transcript.scroll(rows)
+        guard old != transcript.offset else { return }
+        snapshot = transcript.source?.viewport(rowsFromBottom: transcript.offset)
+        refreshInteraction()
+        invalidateFrame()
+    }
+
+    func reportPointer(_ action: Terminal.Input.Pointer.Action, button: Terminal.Input.Pointer.Button,
+                       row: Int, column: Int, modifiers: Terminal.Input.Modifiers = []) -> Bool {
+        guard isPointerReporting, !modifiers.contains(.shift) || capturedButtons.contains(button) else { return false }
+        switch action {
+        case .press where button == .left || button == .middle || button == .right: capturedButtons.insert(button)
+        case .release: capturedButtons.remove(button)
+        default: break
+        }
+        let pointer = Terminal.Input.Pointer(action, button: button, row: row, column: column, modifiers: modifiers)
+        if action != .move || pointer != lastPointer {
+            onInput?(.pointer(pointer))
+            lastPointer = pointer
+        }
+        return true
+    }
+
+    func updateSelection(_ update: (inout TerminalTranscript) -> Void) {
+        let previous = selection
+        update(&transcript)
+        if selection != previous {
+            refreshInteraction()
+            invalidateFrame()
+        }
     }
 
     private func invalidateFrame() {
