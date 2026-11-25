@@ -16,8 +16,9 @@ enum ThrushMac {
 }
 
 @MainActor
-private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
+private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation, NSToolbarDelegate {
     let session = DemoSession(options: DemoOptions())
+    private let newShellItem = NSToolbarItem.Identifier("demo.newShell")
     private var window: NSWindow!
     private var activeAppearance: DemoOptions.Appearance = .system
 
@@ -35,13 +36,20 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         window.tabbingMode = .disallowed
         window.titlebarSeparatorStyle = .none
         window.titlebarAppearsTransparent = true
+        let toolbar = NSToolbar(identifier: "Thrush")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        window.toolbarStyle = .unifiedCompact
+        window.toolbar = toolbar
         let host = NSHostingView(rootView: DemoSurface(session: session))
         host.sizingOptions = []
         if session.options.checksToolbar { host.sceneBridgingOptions = [.title, .toolbars] }
         window.contentView = host
-        window.setFrame(NSRect(x: 0, y: 0, width: 720, height: 486), display: false)
+        window.setContentSize(NSSize(width: 720, height: 454))
         window.center()
 
+        session.onShellEndedChange = { [weak self] in self?.updateToolbar() }
+        updateToolbar()
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
         session.onBenchmarkFinished = { success in
             if !success { exit(EXIT_FAILURE) }
@@ -50,7 +58,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         applyChrome(session.view.resolvedTheme)
         makeMenus()
         if cycle { session.onFirstOutput = { [weak self] in self?.cycleAppearance() } }
-        session.onFirstUsable = { [weak self] in self?.session.view.focusInput() }
+        focusNextShell()
         window.makeKeyAndOrderFront(nil)
         host.layoutSubtreeIfNeeded()
         if session.options.benchmarkURL != nil { session.view.focusInput() }
@@ -72,6 +80,43 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func windowWillClose(_ notification: Notification) { session.setActive(false) }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, newShellItem]
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard identifier == newShellItem else { return nil }
+        let button = NSButton(title: "New Shell", target: self, action: #selector(startNewShell))
+        button.bezelStyle = .toolbar
+        button.setAccessibilityIdentifier(identifier.rawValue)
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = button.title
+        item.view = button
+        return item
+    }
+
+    private func updateToolbar() {
+        guard let toolbar = window.toolbar else { return }
+        let index = toolbar.items.firstIndex { $0.itemIdentifier == newShellItem }
+        if session.terminalSession?.hasEnded == true {
+            if index == nil { toolbar.insertItem(withItemIdentifier: newShellItem, at: toolbar.items.count) }
+        } else if let index { toolbar.removeItem(at: index) }
+    }
+
+    private func focusNextShell() {
+        session.onFirstUsable = { [weak session] in session?.view.focusInput() }
+    }
+
+    @objc private func startNewShell() {
+        focusNextShell()
+        session.newShell()
+    }
 
     private func applyChrome(_ theme: TerminalTheme) {
         let rgb = theme.hostBacking

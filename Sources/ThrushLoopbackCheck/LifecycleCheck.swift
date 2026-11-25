@@ -47,6 +47,7 @@ struct LifecycleCheck {
 
         let beforeReclaim = await first.snapshot()
         guard await first.show(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
+        try await first.send(.text("r")) // Delivered only after the same shell replays.
         try await first.sendResize(to: .init(columns: 20, rows: 3))
         try await expectReady(first, resumed: true, retaining: beforeReclaim)
         let editorSize = Terminal.Size(columns: 17, rows: 3)
@@ -56,7 +57,6 @@ struct LifecycleCheck {
         try await expectEditorReplay(first, row: "alt!A!B")
         guard await first.snapshot().size == editorSize else { throw Failure("Lost the resize during replay") }
         try await expectDisplacement(second)
-        try await first.send(.text("r"))
         try await expectOutput(first, rows: ["alt!A!BR", "", ""])
         try await expectOutput(first, rows: ["one", "two", "shell$"])
         let restored = await first.snapshot()
@@ -69,16 +69,22 @@ struct LifecycleCheck {
         try await first.sendResize(to: size)
         try await checkpoint("expire")
         guard await first.show() else { throw Failure("Could not attach after orphan expiry") }
-        // The peer withholds ready until the rejected keystroke has had a chance to queue.
-        try await rejectInput(first)
+        // The peer withholds ready. The old session may hold this input only for its original shell.
+        try await first.send(.text("stale"))
         try await checkpoint("ready")
-        try await expectReady(first, resumed: false)
-        try await expectOutput(first, rows: ["new$ ", "", ""])
-        try await first.send(.key(.up))
-        try await expectOutput(first, rows: ["new$ N", "", ""])
-        try await closeWithPendingRead(first)
+        guard try await first.nextEvent() == .exit else { throw Failure("The missing shell did not end its session") }
+        try expectRetained(restored, in: await first.snapshot())
+        try await expectEnded(first)
+        let replacement = try open()
+        try await expectReady(replacement, resumed: true)
+        guard try await replacement.nextEvent() == .replay, await replacement.text(inRow: 0) == "new$ " else {
+            throw Failure("The app’s new session did not receive the replacement shell")
+        }
+        try await replacement.send(.key(.up))
+        try await expectOutput(replacement, rows: ["new$ N", "", ""])
+        try await closeWithPendingRead(replacement)
         try await checkpoint("closed")
-        try await expectEnded(first, closed: true)
+        try await expectEnded(replacement)
 
         // The previous socket's displacement must leave the host-owned session usable.
         let observed = Mutex(Data())
@@ -92,7 +98,7 @@ struct LifecycleCheck {
               await final.appliedBytes == expected.count else {
             throw Failure("Exit must follow the final output and preserve it on screen")
         }
-        try await expectEnded(final, closed: false)
+        try await expectEnded(final)
     }
 
     private func open() throws -> SessionActor {
@@ -133,7 +139,6 @@ struct LifecycleCheck {
             guard await session.state == .awaitingReplay, await session.awaitingReplay else {
                 throw Failure("A resumed socket must await its replay")
             }
-            try await rejectInput(session)
         }
     }
 
@@ -175,11 +180,11 @@ struct LifecycleCheck {
         try await rejectInput(session)
     }
 
-    private func expectEnded(_ session: SessionActor, closed: Bool) async throws {
+    private func expectEnded(_ session: SessionActor) async throws {
         guard await session.state == .ended, await !session.show() else {
             throw Failure("A closed or exited shell must stay ended")
         }
-        if closed, await session.show(userInitiated: true) { throw Failure("Explicitly closed shell restarted") }
+        if await session.show(userInitiated: true) { throw Failure("Showing an ended session restarted its shell") }
         try await rejectInput(session)
     }
 

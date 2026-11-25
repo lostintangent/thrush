@@ -1,4 +1,4 @@
-// Independent check that the simulator framebuffer contains the visible copy of its native notice.
+// Independent check that an original framebuffer contains the expected text inside its native control.
 import CoreML
 import Foundation
 import ImageIO

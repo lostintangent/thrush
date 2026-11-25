@@ -59,7 +59,7 @@ Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` 
 | Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
 | Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
 
-The backing and separator colors serve the accessory and status surfaces and guide a host's own title bar. The pane uses the same 22-color contract in any host.
+The backing and separator colors serve the key row and can guide an app’s title bar. The pane uses the same 22-color contract in every app.
 
 ### Colors a program sets
 

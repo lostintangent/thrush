@@ -53,7 +53,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
-    private var noticeObservation: Task<Void, Never>?
+    private var stateObservation: Task<Void, Never>?
 
     init() {
         let session = DemoSession(options: DemoOptions())
@@ -85,8 +85,8 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
-        if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesNotice {
-            noticeObservation = Task { [weak self] in
+        if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesSessionState {
+            stateObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {
                     self?.observeLayout()
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }

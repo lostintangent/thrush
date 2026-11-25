@@ -18,6 +18,9 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     private var pointerAnchor: (row: Int, column: Int)?
     private var pointerButton = Terminal.Input.Pointer.Button.left
     private var remotePress = false
+    private var displacedPointerClick = false
+    private lazy var reclaimClick = UITapGestureRecognizer(target: self, action: #selector(tappedDisplacedPointer))
+    private let doubleClick = UITapGestureRecognizer()
     private var lastPointerCell: (row: Int, column: Int)?
     private weak var wheelGesture: UIPanGestureRecognizer?
     private var wheelRemainder: CGFloat = 0
@@ -55,6 +58,17 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         let mouse = TerminalPointerGesture(target: self, action: #selector(pointer(_:)))
         mouse.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
         scroll.addGestureRecognizer(mouse)
+        // UIKit distinguishes a single trackpad click from multi-click word or line selection.
+        doubleClick.numberOfTapsRequired = 2
+        for click in [reclaimClick, doubleClick] {
+            click.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
+            click.buttonMaskRequired = .primary
+            click.cancelsTouchesInView = false
+            click.delegate = self
+            click.isEnabled = false
+            scroll.addGestureRecognizer(click)
+        }
+        reclaimClick.require(toFail: doubleClick)
         let hover = UIHoverGestureRecognizer(target: self, action: #selector(hovered(_:)))
         scroll.addGestureRecognizer(hover)
         let wheel = UIPanGestureRecognizer(target: self, action: #selector(wheeled(_:)))
@@ -94,10 +108,11 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     @objc private func accessibilitySettingsChanged() { synchronize() }
 
     func synchronize() {
-        let inset = terminal.noticeBottomInset
-        if latestBottom.constant != -8 - inset {
-            latestBottom.constant = -8 - inset
-            scroll.verticalScrollIndicatorInsets.bottom = inset
+        let displaced = terminal.onDisplacedTap != nil
+        if reclaimClick.isEnabled != displaced {
+            reclaimClick.isEnabled = displaced
+            doubleClick.isEnabled = displaced
+            displacedPointerClick = false
         }
         guard !syncing else { return }
         syncing = true
@@ -185,13 +200,16 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
-        guard let cell = terminal.cell(at: gesture.location(in: self)) else { return }
-        if !terminal.isPointerReporting, let range = terminal.selection, let width = terminal.snapshot?.size.columns,
+        let cell = terminal.cell(at: gesture.location(in: self))
+        if let cell, !terminal.isPointerReporting, let range = terminal.selection, let width = terminal.snapshot?.size.columns,
            range.columns(in: cell.row, width: width)?.contains(cell.column) == true {
             selectionControls.beginSelection()
             selectionControls.showMenu()
             return
         }
+        if gesture.modifierFlags.intersection([.shift, .alternate, .command, .control]).isEmpty,
+           terminal.tapDisplacedGrid() { return }
+        guard let cell else { return }
         selectionControls.dismissMenu()
         terminal.selection = nil
         _ = terminal.focusInput()
@@ -230,6 +248,12 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     }
 
     @objc private func pointer(_ gesture: TerminalPointerGesture) {
+        if gesture.state == .began {
+            displacedPointerClick = terminal.onDisplacedTap != nil && gesture.clicks == 1 && gesture.pressedButton == .left
+                && gesture.flags.intersection([.shift, .alternate, .command, .control]).isEmpty
+        } else if gesture.state == .changed || gesture.state == .cancelled {
+            displacedPointerClick = false
+        }
         let point = gesture.location(in: self)
         let cell = terminal.cell(at: point) ?? lastPointerCell
         guard let cell else { return }
@@ -258,7 +282,7 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
                     let prior = terminal.selection
                     pointerAnchor = flags.contains(.shift) ? prior.map { ($0.anchorRow, $0.anchorColumn) } ?? cell : cell
                     terminal.selection = nil
-                    _ = terminal.focusInput()
+                    if !displacedPointerClick { _ = terminal.focusInput() }
                     if flags.contains(.shift) { extendPointer(to: cell) }
                 }
             }
@@ -279,6 +303,17 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             lastPointerCell = nil
         default: break
         }
+    }
+
+    @objc private func tappedDisplacedPointer(_ tap: UITapGestureRecognizer) {
+        if displacedPointerClick, tap.modifierFlags.intersection([.shift, .alternate, .command, .control]).isEmpty {
+            terminal.tapDisplacedGrid()
+        }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        other is TerminalPointerGesture && (gestureRecognizer === reclaimClick || gestureRecognizer === doubleClick)
     }
 
     private func extendPointer(to cell: (row: Int, column: Int)) {

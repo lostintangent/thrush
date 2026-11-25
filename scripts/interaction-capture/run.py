@@ -207,38 +207,17 @@ def check_voiceover(phone, device, endpoint, plan, out, work):
     options[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
     plan.write_bytes(plistlib.dumps(options))
     result = work / "voiceover.xcresult"
-    candidate = work / "large-type.png"
-    captured = False
-
-    def observe():
-        nonlocal captured
-        state = phone.state()
-        if (captured or state.get("scene") != "notice-displaced" or not state.get("gpuCompleted")
-                or not state.get("generation") or (state.get("notice") or {}).get("title") != "Open in another window"):
-            return
-        try:
-            subprocess.run(["xcrun", "simctl", "io", device, "screenshot", "--mask=black", candidate],
-                           capture_output=True, timeout=20, check=True)
-        except (OSError, subprocess.SubprocessError) as error:
-            captured = True
-            (out / "large-type-framebuffer-error.log").write_text(str(error) + "\n")
-            return
-        if phone.state() == state:
-            captured = True
-            shutil.copyfile(candidate, out / "large-type-takeover.png")
-            (out / "large-type-takeover-layout.json").write_text(json.dumps(state, indent=2) + "\n")
-
     try:
         run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
                     f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                    "-resultBundlePath", result], out / "voiceover.log", 600, observe)
+                    "-resultBundlePath", result], out / "voiceover.log", 600)
     finally:
-        for report in phone.state_path.parent.glob("accessibility-notice-*.json"):
-            shutil.copyfile(report, out / report.name)
-    for scene in ("ended", "displaced", "reconnecting"):
-        report = json.loads((out / f"accessibility-notice-{scene}.json").read_text())
-        if not any(event["voiceOverRunning"] for event in report["events"]):
-            raise ValueError(f"UIKit did not observe VoiceOver running during {scene}.")
+        observed = phone.state_path.parent / "accessibility-spinner-reconnecting.json"
+        if observed.exists():
+            shutil.copyfile(observed, out / observed.name)
+    report = json.loads((out / observed.name).read_text())
+    if not any(event["voiceOverRunning"] for event in report["events"]):
+        raise ValueError("UIKit did not observe VoiceOver running during the interrupted shell.")
 
 
 def main():
@@ -269,7 +248,7 @@ def main():
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
-        with simulator.peer(out, notices=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
+        with simulator.peer(out, cursor=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}
             def attempt(name, action, *args):

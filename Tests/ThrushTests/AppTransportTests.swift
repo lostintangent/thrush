@@ -112,15 +112,13 @@ private actor DelayedOpen {
     #expect(await actor.show(userInitiated: true) == false)
 }
 
-@MainActor @Test func interruptedTransportPreservesItsScreenUntilExplicitRestart() async throws {
+@MainActor @Test func interruptedTransportEndsItsSessionAndPreservesItsScreen() async throws {
     let first = ControlledTransport()
     let second = ControlledTransport()
     let sizes = Mutex<[Terminal.Size]>([])
     let session = TerminalSession(openTransport: { size in
-        sizes.withLock { attempts in
-            attempts.append(size)
-            return attempts.count == 1 ? first : second
-        }
+        sizes.withLock { $0.append(size) }
+        return first
     })
     let actor = session.actor
     let size = Terminal.Size(columns: 20, rows: 4)
@@ -144,15 +142,17 @@ private actor DelayedOpen {
     #expect(await actor.show() == false)
     #expect(sizes.withLock { $0 } == [size])
 
-    try #require(await actor.show(userInitiated: true))
-    try #require(try await actor.nextEvent() == .ready(resumed: false))
-    #expect(!session.hasEnded)
-    #expect(await actor.currentTerminal.cursorColor == cursor)
-    #expect(await actor.text(inRow: 0) == "")
-    #expect(await second.writes.isEmpty)
-    #expect(sizes.withLock { $0 } == [size, size])
-    try await session.close()
     #expect(await actor.show(userInitiated: true) == false)
+    #expect(sizes.withLock { $0 } == [size])
+    let successor = TerminalSession(openTransport: { _ in second })
+    try await successor.actor.sendResize(to: size)
+    try #require(await successor.actor.show())
+    try #require(try await successor.actor.nextEvent() == .ready(resumed: false))
+    #expect(session.hasEnded && !successor.hasEnded)
+    #expect(await actor.currentTerminal.cursorColor == cursor)
+    #expect(await successor.actor.text(inRow: 0) == "")
+    #expect(await second.writes.isEmpty)
+    try await successor.close()
     #expect(await second.closes == 1)
 }
 
@@ -177,13 +177,10 @@ private actor DelayedOpen {
 @MainActor @Test(arguments: FailingTransportOperation.allCases)
 func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: FailingTransportOperation) async throws {
     let first = ControlledTransport()
-    let replacement = ControlledTransport()
     let opens = Mutex(0)
     let session = TerminalSession(openTransport: { _ in
-        opens.withLock { count in
-            count += 1
-            return count == 1 ? first : replacement
-        }
+        opens.withLock { $0 += 1 }
+        return first
     })
     let actor = session.actor
     try await actor.sendResize(to: .init(columns: 20, rows: 4))
@@ -209,9 +206,6 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
     #expect(await actor.show() == false)
     #expect(opens.withLock { $0 } == 1)
 
-    try #require(await actor.show(userInitiated: true))
-    try #require(try await actor.nextEvent() == .ready(resumed: false))
-    try await actor.send(.text("new"))
-    #expect(await replacement.writes == [Data("new".utf8)])
-    try await session.close()
+    #expect(await actor.show(userInitiated: true) == false)
+    #expect(opens.withLock { $0 } == 1)
 }

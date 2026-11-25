@@ -2,7 +2,7 @@
 import Thrush
 import UIKit
 
-/// In-process observations for the explicit simulator VoiceOver proof on the notice peer.
+/// In-process observations for the explicit simulator VoiceOver proof on the scripted session peer.
 @MainActor final class PhoneAccessibilityCapture: NSObject {
     private struct Event: Encodable {
         let time: Double, kind: String
@@ -25,7 +25,7 @@ import UIKit
     private var visibleRows = [String]()
 
     init?(scene: DemoOptions.Scene, view: TerminalView) {
-        guard CommandLine.arguments.contains("--capture-accessibility"), scene.capturesNotice else { return nil }
+        guard CommandLine.arguments.contains("--capture-accessibility"), scene.capturesSessionState else { return nil }
         self.view = view
         destination = URL.documentsDirectory.appending(path: "accessibility-" + scene.rawValue + ".json")
         super.init()
@@ -39,7 +39,7 @@ import UIKit
     func observe(_ state: PhoneCapture.State) {
         // Keep transition data until a matching completed drawable is available, even if the app is relaunched.
         if mounted.contains(where: {
-            $0.notice?.title == state.notice?.title && $0.gpuCompleted == state.gpuCompleted
+            $0.cursorSpinner == state.cursorSpinner && $0.gpuCompleted == state.gpuCompleted
                 && $0.generation == state.generation && $0.columns == state.columns && $0.rows == state.rows
         }) { return }
         mounted.append(state)

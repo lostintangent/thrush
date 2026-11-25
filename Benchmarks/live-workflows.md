@@ -18,12 +18,12 @@ The launcher builds the sample, starts a private server and removes its shell wo
 
 The default runs shell, Vim, Codex and lifecycle. Use `--workflow recovery` for a separate 8 MiB backpressure run, or select an individual flow by name. Use `--app /path/to/Thrush.app` for an existing build and `--appearance light` for the light palette. The hosted workflow verifies the Codex executable against its release checksum. [Hosted workflow](../.github/workflows/live-pty.yml)
 
-| Workflow | Checked outcome |
+| Workflow | What to check |
 | --- | --- |
 | Shell | Correct a mistyped build command, paste its arguments, run units 126 through 130, and copy the exact soft-wrapped path for unit 128 with the native pasteboard. The compiler writes a Mach-O object. |
 | Vim | Edit a scratch file, resize or rotate, detach, resume with the same client ID, save the exact Unicode text on disk and quit to the original prompt. |
 | Codex | Run the installed CLI, enter the songbird question, follow the streamed answer, navigate both transcript pages and return to Bash with `/quit`. The disposable Codex profile uses a local Responses provider serving the recorded answer without credentials. |
-| Lifecycle | Check the shell PID and environment after reactivating the pane, displace it with a second owner, reclaim with Use Here, and leave the pane inactive through the server’s real 30-second orphan expiry. Check the replacement PID, final output at exit, the New Shell button and process termination after explicit close. On iPhone, Use Here leaves the keyboard down. The driver activates the live grid before typing again. |
+| Lifecycle | Check the PID and environment after a brief detach. Reclaim a displaced shell by tapping or typing. After the 30-second orphan timeout, the old session must end with its last screen intact and discard held input. Start a new session, verify its shell PID, copy the final output on exit and verify process termination after explicit close. |
 | Recovery | Suspend the upstream reader through an 8 MiB burst. The same socket repairs the silent tail, and typing a confirmation in the same pane reaches the original producer. |
 
 The Codex check records the pane’s OSC 11 reply, the CLI’s truecolor background SGRs, and the cell attributes across the editable and submitted user rows. Codex 0.166.0 uses different blends for the composer and transcript in each appearance. The expected RGB values come from the CLI’s pinned style definitions. [Composer](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L261) · [Submitted message](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L68)
@@ -34,7 +34,7 @@ For a frame-level comparison of the finite lifecycle script, pass `--trace-lifec
 
 ## Standalone validation
 
-Both packaged apps passed 37 checkpoints on real shells. For each platform, the first four workflows ran in one hosted job and the 8 MiB recovery check ran separately. The native app received and applied every byte forwarded by its observer. Each checkpoint verified a GPU-completed frame. Neither runner reported a compositor presentation timestamp.
+Both packaged apps passed 37 checkpoints on real shells. The four-workflow runs used revision `6b1fa7f` and captured its lifecycle controls. The cursor spinner and tap or key reclaim require separate captures. For each platform, the first four workflows ran in one hosted job and the 8 MiB recovery check ran separately. The native app received and applied every byte forwarded by its observer. Each checkpoint verified a GPU-completed frame. Neither runner reported a compositor presentation timestamp.
 
 | Platform | Shell, Vim, Codex and lifecycle | Silent recovery | Framebuffers | Vim grid before and after replay |
 | --- | --- | --- | ---: | ---: |

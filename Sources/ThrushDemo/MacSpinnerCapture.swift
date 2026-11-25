@@ -13,14 +13,17 @@ import Thrush
         let helperError: String?
         let windowFrame, screenVisibleFrame: CGRect
         let scale: CGFloat
-        let notice: VisiblePaneNotice?
-        let spinnerFrame: CGRect?
+        let spinnerFrame, cursorCellFrame, firstCellFrame, lastCellFrame: CGRect?
+        let shellEnded: Bool
+        let newShellButtonFrame: CGRect?
+        let gridFrame: CGRect
+        let columns, rows: Int
     }
 
     static func startIfRequested(session: DemoSession, window: NSWindow) {
         let args = CommandLine.arguments
         guard let index = args.firstIndex(of: "--spinner-capture-state"), index + 2 < args.count,
-              session.options.scene.capturesNotice else { return }
+              session.options.scene.capturesSessionState else { return }
         let path = URL(fileURLWithPath: args[index + 1])
         let helperURL = URL(fileURLWithPath: args[index + 2])
         guard Bundle(url: helperURL)?.bundleIdentifier == "app.thrush.lifecycle-cover" else { return }
@@ -44,11 +47,23 @@ import Thrush
                         helperError = error.localizedDescription
                     }
                 }
-                if let screen = window.screen, let root = window.contentView {
-                    let indicator = spinner(in: root)
-                    let frame = indicator.map {
-                        let rect = $0.convert($0.bounds, to: nil)
-                        return CGRect(x: rect.minX, y: window.frame.height - rect.maxY, width: rect.width, height: rect.height)
+                if let screen = window.screen, let grid = session.view.gridSize {
+                    let rect = session.view.convert(session.view.bounds, to: nil)
+                    let gridFrame = CGRect(x: rect.minX, y: window.frame.height - rect.maxY, width: rect.width, height: rect.height)
+                    let button = window.toolbar?.visibleItems?.first { $0.itemIdentifier.rawValue == "demo.newShell" }?.view as? NSButton
+                    var buttonFrame: CGRect?
+                    if let button, button.window === window, button.isEnabled, !button.isHiddenOrHasHiddenAncestor,
+                       !button.isDescendant(of: session.view), button.title == "New Shell" {
+                        let rect = button.convert(button.bounds, to: nil)
+                        buttonFrame = CGRect(x: rect.minX, y: window.frame.height - rect.maxY, width: rect.width, height: rect.height)
+                    }
+                    let press = path.appendingPathExtension("new-shell")
+                    if session.options.scene == .ended, buttonFrame != nil, FileManager.default.fileExists(atPath: press.path) {
+                        do {
+                            try FileManager.default.removeItem(at: press)
+                            button?.performClick(nil)
+                            continue
+                        } catch { return }
                     }
                     let state = State(pid: ProcessInfo.processInfo.processIdentifier, windowID: window.windowNumber,
                                       scene: session.options.scene.rawValue,
@@ -60,7 +75,12 @@ import Thrush
                                       frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier,
                                       helperPID: helper?.processIdentifier, helperError: helperError,
                                       windowFrame: window.frame, screenVisibleFrame: screen.visibleFrame,
-                                      scale: window.backingScaleFactor, notice: session.view.visiblePaneNotice, spinnerFrame: frame)
+                                      scale: window.backingScaleFactor, spinnerFrame: session.view.cursorSpinnerFrameInWindow,
+                                      cursorCellFrame: session.view.cursorCellFrameInWindow, firstCellFrame: session.view.cellFrameInWindow(row: 0, column: 0),
+                                      lastCellFrame: session.view.cellFrameInWindow(row: grid.rows - 1, column: grid.columns - 1),
+                                      shellEnded: session.terminalSession?.hasEnded == true, newShellButtonFrame: buttonFrame,
+                                      gridFrame: gridFrame,
+                                      columns: grid.columns, rows: grid.rows)
                     if written != state {
                         do {
                             try JSONEncoder().encode(state).write(to: path, options: .atomic)
@@ -76,13 +96,5 @@ import Thrush
         }
     }
 
-    private static func spinner(in view: NSView) -> NSView? {
-        guard !view.isHidden, view.alphaValue > 0 else { return nil }
-        if let progress = view as? NSProgressIndicator, progress.style == .spinning { return progress }
-        for child in view.subviews {
-            if let progress = spinner(in: child) { return progress }
-        }
-        return nil
-    }
 }
 #endif

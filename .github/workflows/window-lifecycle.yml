@@ -21,7 +21,7 @@ on:
         type: boolean
         default: false
       spinner_matrix:
-        description: Capture focused and unfocused Mac notices in both Slate appearances
+        description: Check the cursor spinner and unchanged grid in both Slate appearances
         type: boolean
         default: false
       text_blink:
@@ -57,7 +57,7 @@ jobs:
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
         run: python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output "$RUNNER_TEMP/window-lifecycle"
-      - name: Capture active and inactive Mac connection notices
+      - name: Check active and inactive Mac cursor spinners against the live grid
         if: inputs.spinner_matrix
         run: python3 scripts/capture-mac-spinners.py --prepare-hosted-motion --output "$RUNNER_TEMP/mac-spinners"
       - name: Measure and capture blinking text in both Slate appearances

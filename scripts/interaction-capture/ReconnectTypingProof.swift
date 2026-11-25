@@ -10,7 +10,7 @@ import XCTest
         continueAfterFailure = false
         let appearance = ProcessInfo.processInfo.environment["THRUSH_CAPTURE_APPEARANCE"] ?? "dark"
         XCUIDevice.shared.orientation = .portrait
-        app.launchArguments = ["--endpoint", base.absoluteString, "--scene", "notice-motion",
+        app.launchArguments = ["--endpoint", base.absoluteString, "--scene", "reconnect-typing",
                                "--appearance", appearance, "--keyboard", "--capture-state"]
         app.launch()
         XCTAssertTrue(app.staticTexts["Test run passed."].waitForExistence(timeout: 30), app.debugDescription)
@@ -24,16 +24,18 @@ import XCTest
         let live = app.staticTexts["~/thrush % git"]
         XCTAssertTrue(live.waitForExistence(timeout: 8), app.debugDescription)
         try await post("interrupt")
-        let status = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Reconnecting")).firstMatch
-        XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
+        let spinner = app.descendants(matching: .any)["terminal.cursorSpinner"]
+        XCTAssertTrue(spinner.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(keyboard.frame, initial)
         try tap(" status")
         XCTAssertTrue(live.exists, "The old transcript must stay still while the shell is unavailable.")
         let echoed = app.staticTexts["~/thrush % git status"]
         XCTAssertFalse(echoed.exists)
+        // Let the recorder sample the spinner with the completed input held at the peer gate.
+        try await Task.sleep(for: .seconds(2))
         try await post("resume")
         XCTAssertTrue(echoed.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(status.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(spinner.waitForNonExistence(timeout: 5))
         XCTAssertEqual(keyboard.frame, initial)
         try await Task.sleep(for: .milliseconds(700))
         try await post("complete")

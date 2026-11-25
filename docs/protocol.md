@@ -8,7 +8,7 @@ Open a WebSocket at `/socket?service=terminal&clientId=ID&cols=C&rows=R`. Percen
 
 | Sender | Message | Receiver action |
 | --- | --- | --- |
-| Server | `{"type":"ready","resumed":false}` | Start with a blank terminal at the requested size. Apply all following binary output in order. |
+| Server | `{"type":"ready","resumed":false}` | The server started a fresh shell. On a first attachment, start with a blank terminal at the requested size. If this was an attempt to resume a previous shell, discard held input and detach. |
 | Server | `{"type":"ready","resumed":true}` | The **next binary message** is the replay. Apply it to a fresh terminal at the negotiated size, then apply subsequent output. An empty screen still gets a replay message. |
 | Server | Binary | Feed bytes to the terminal. A UTF-8 character or VT sequence can span messages. |
 | Client | Binary | Write to the PTY in order. This includes typed input, paste and replies to terminal queries. |
@@ -16,9 +16,11 @@ Open a WebSocket at `/socket?service=terminal&clientId=ID&cols=C&rows=R`. Percen
 | Client | `{"type":"close"}` | End the shell and its PTY. A later attachment with this ID gets a fresh shell. |
 | Server | `{"type":"exit"}` | Keep the final screen, mark the shell ended, then accept the normal WebSocket close (1000). Send all final binary bytes before exit. |
 
-If the WebSocket closes without a terminal `close` message, its attachment to the shell ends. The server retains the live shell for 30 seconds. Reattaching with the same ID inside that window cancels expiry and returns a resumed ready and replay. If the shell has exited or the deadline has passed, the server starts a new one and returns fresh ready. A concurrent attachment with the same ID takes ownership and closes the previous socket with code 4000. The displaced pane waits for an explicit **Use Here** action. Only the owning socket can write, resize or close the shell.
+If the WebSocket closes without a terminal `close` message, its attachment to the shell ends. The server retains the live shell for 30 seconds. Reattaching with the same ID inside that window cancels expiry and returns a resumed ready and replay. If the shell has exited or the deadline has passed, the server starts a new one and returns fresh ready. A concurrent attachment with the same ID takes ownership and closes the previous socket with code 4000. The displaced client stops retrying. A deliberate tap or keystroke in its terminal requests another attachment. Merely showing or focusing the pane leaves the other client in control. Only the owning socket can write, resize or close the shell.
 
-On a resumed attachment, the session waits for the replay after the ready control. It delays a resize requested during the handshake until the replay is complete. It sends held keystrokes only after a resumed ready and its replay restore the shell’s input modes. A fresh ready discards held input from the previous shell.
+On a resumed attachment, wait for the binary replay before sending a resize held during the handshake. Send held keystrokes once, using the input modes restored by the replay. This includes the first keystroke used to reclaim a displaced shell. A tap to reclaim sends no terminal input.
+
+If a session trying to resume receives fresh ready, the previous shell has ended. The session preserves its screen and history, discards held keys, detaches from the newly created shell and sets `hasEnded`. The app can create a new `TerminalSession` to use another shell. A new session that attaches with the same client ID before the orphan deadline can resume the shell the server just created.
 
 ## Replay
 
