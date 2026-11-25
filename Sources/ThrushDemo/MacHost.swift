@@ -23,7 +23,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     private var activeAppearance: DemoOptions.Appearance = .system
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let cycle = CommandLine.arguments.contains("--cycle-appearance")
+        let cycle = session.options.cyclesAppearance
         setAppearance(cycle || session.options.customTheme ? .dark : session.options.appearance)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 454),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],

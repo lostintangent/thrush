@@ -4,7 +4,7 @@ import Thrush
 import ThrushConnection
 
 /// One shell tab. Keep its connection for the tab's lifetime and pass it to this view.
-@MainActor public struct TerminalPane {
+@MainActor public struct TerminalPane: View {
     public let connection: TerminalConnection
     public var isActive: Bool
     public var theme: TerminalTheme?
@@ -42,15 +42,28 @@ import ThrushConnection
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
     package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
-    public func makeCoordinator() -> Coordinator { Coordinator() }
+    public var body: some View { Presentation(pane: self) }
 
-    private func makeContainer(_ coordinator: Coordinator) -> TerminalPaneContainer {
+    // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
+    // Combine its appearance callbacks with actual window/scene visibility.
+    @MainActor private struct Presentation: View {
+        let pane: TerminalPane
+        @StateObject private var coordinator = Coordinator()
+
+        var body: some View {
+            NativePane(pane: pane, owner: coordinator)
+                .onAppear { coordinator.setPresented(true) }
+                .onDisappear { coordinator.setPresented(false) }
+        }
+    }
+
+    fileprivate func makeContainer(_ coordinator: Coordinator) -> TerminalPaneContainer {
         let container = TerminalPaneContainer(terminal: preparedView ?? TerminalView(frame: .zero))
         coordinator.bind(container)
         return container
     }
 
-    @MainActor public final class Coordinator {
+    @MainActor fileprivate final class Coordinator: ObservableObject {
         private enum Phase: Equatable {
             case initial, connecting, reconnecting, live, displaced, exited
         }
@@ -58,6 +71,8 @@ import ThrushConnection
         private var view: TerminalView? { container?.terminal }
         private var pane: TerminalPane?
         private var active = false
+        private var isPresented = false
+        private var nativeVisible = false
         private var epoch: UInt64 = 0
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
@@ -79,7 +94,11 @@ import ThrushConnection
 
         fileprivate func bind(_ container: TerminalPaneContainer) {
             self.container = container
-            container.onVisibility = { [weak self] _ in self?.updateActivity() }
+            nativeVisible = container.visibleAndActive
+            container.onVisibility = { [weak self] visible in
+                self?.nativeVisible = visible
+                self?.updateActivity()
+            }
             container.onAction = { [weak self] in self?.activateButton() }
             container.onNoticeReadChange = { [weak self] reading in
                 self?.readingNotice = reading
@@ -116,9 +135,14 @@ import ThrushConnection
             updateActivity()
         }
 
+        fileprivate func setPresented(_ value: Bool) {
+            isPresented = value
+            updateActivity()
+        }
+
         private func updateActivity() {
-            guard let pane, let container else { return }
-            let next = pane.isActive && (container.visibleAndActive || pane.assumesVisibleForBenchmark)
+            guard let pane, container != nil else { return }
+            let next = isPresented && pane.isActive && (nativeVisible || pane.assumesVisibleForBenchmark)
             guard active != next else { return }
             if next {
                 active = true
@@ -129,7 +153,8 @@ import ThrushConnection
             }
         }
 
-        fileprivate func dismantle() {
+        fileprivate func dismantle(_ surface: AnyObject) {
+            guard container === surface else { return }
             stop()
             view?.onInput = nil
             view?.onThemeChange = nil
@@ -408,16 +433,22 @@ import ThrushConnection
     }
 }
 
+@MainActor private struct NativePane {
+    let pane: TerminalPane
+    let owner: TerminalPane.Coordinator
+    func makeCoordinator() -> TerminalPane.Coordinator { owner }
+}
+
 #if os(macOS)
-extension TerminalPane: NSViewRepresentable {
-    public func makeNSView(context: Context) -> NSView { makeContainer(context.coordinator) }
-    public func updateNSView(_ view: NSView, context: Context) { context.coordinator.apply(self) }
-    public static func dismantleNSView(_ view: NSView, coordinator: Coordinator) { coordinator.dismantle() }
+extension NativePane: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { pane.makeContainer(owner) }
+    func updateNSView(_ view: NSView, context: Context) { owner.apply(pane) }
+    static func dismantleNSView(_ view: NSView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
 }
 #else
-extension TerminalPane: UIViewRepresentable {
-    public func makeUIView(context: Context) -> UIView { makeContainer(context.coordinator) }
-    public func updateUIView(_ view: UIView, context: Context) { context.coordinator.apply(self) }
-    public static func dismantleUIView(_ view: UIView, coordinator: Coordinator) { coordinator.dismantle() }
+extension NativePane: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView { pane.makeContainer(owner) }
+    func updateUIView(_ view: UIView, context: Context) { owner.apply(pane) }
+    static func dismantleUIView(_ view: UIView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
 }
 #endif

@@ -20,6 +20,7 @@ struct DemoOptions {
     var scene: Scene
     let appearance: Appearance
     let customTheme: Bool
+    let cyclesAppearance: Bool
     let keyboard: Bool
     let benchmarkURL: URL?
     let interactionURL: URL?
@@ -38,6 +39,7 @@ struct DemoOptions {
         scene = value(after: "--scene").flatMap(Scene.init(rawValue:)) ?? .shell
         appearance = value(after: "--appearance").flatMap(Appearance.init(rawValue:)) ?? .system
         customTheme = value(after: "--theme") == "custom"
+        cyclesAppearance = arguments.contains("--cycle-appearance")
         if arguments.contains("--benchmark") {
             benchmarkURL = value(after: "--benchmark").map { URL(fileURLWithPath: $0) }
                 ?? URL.documentsDirectory.appending(path: "render.json")
@@ -122,7 +124,7 @@ final class DemoSession: ObservableObject {
     func pane(_ connection: TerminalConnection) -> TerminalPane {
         var pane = TerminalPane(connection, isActive: isActive, theme: theme, onExit: { [weak self] in self?.onExit?() })
         pane.preparedView = view
-        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver
+        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
         pane.onReady = { [weak self] resumed in
             guard let self else { return }
