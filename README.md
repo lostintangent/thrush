@@ -9,8 +9,6 @@ Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no de
   <img src="docs/images/thrush-light.png" alt="Thrush running Codex in a Mac window and Vim on an iPhone with the software keyboard and its Esc, Ctrl, Tab and arrow key row">
 </picture>
 
-The terminal pixels are unretouched captures from the sample apps. The Mac window is streaming Codex from a real PTY, and the iPhone is replaying a recorded Vim session over the mock connection. The image follows your appearance setting, just as Thrush does.
-
 ## Add a terminal to an app
 
 Add the package and link the `Thrush` product to your app target.
