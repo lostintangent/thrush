@@ -17,7 +17,7 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--build-only", action="store_true")
     mode.add_argument("--run-on-this-mac", action="store_true",
-                        help="Temporarily enable VoiceOver and drive TextEdit and the sample terminal on this Mac.")
+                        help="Temporarily enable VoiceOver and drive the sample terminal on this Mac.")
     args = parser.parse_args()
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = args.output.resolve()

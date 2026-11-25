@@ -61,7 +61,7 @@ Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow
 
 Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native host at a different grid or palette, append `--view` to the peer command. That mode accepts the host’s actual cursor position and color query replies. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
 
-On macOS 27 with Xcode 27, this check opens TextEdit and the packaged Mac terminal. VoiceOver reads an interior line in TextEdit, then reads `Build complete.` inside the unchanged terminal transcript. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
+On macOS 27 with Xcode 27, this check opens the packaged Mac terminal. VoiceOver navigates the build transcript line by line and reads `Build complete.` while the displayed text stays unchanged. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
 
 ```sh
 python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output /tmp/thrush-mac-voiceover
