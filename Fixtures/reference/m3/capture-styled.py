@@ -1,4 +1,4 @@
-"""Capture the same Swift editor session twice with the two design-approved host palettes."""
+"""Capture the same Swift editor session twice with the Slate Dark and Slate Light palettes."""
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -14,7 +14,7 @@ sys.path.insert(0, str(M2))
 sys.dont_write_bytecode = True
 from capture import PROMPT, Session, VIM
 
-DESIGN = ROOT.parents[2] / "docs/design/dark-demo.md"
+DESIGN = ROOT.parents[2] / "docs/design/README.md"
 
 def slate_palette(appearance):
     design = DESIGN.read_text()

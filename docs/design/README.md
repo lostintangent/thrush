@@ -1,6 +1,6 @@
 # Thrush on Mac and iPhone
 
-**Slate is the approved design for the Mac and iPhone hosts.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. A host can supply a custom theme.
+**Thrush draws in Slate on Mac and iPhone.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. A host can supply a custom theme.
 
 ## Slate Dark
 
@@ -20,13 +20,13 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Selected background / text | `#466B85` / `#F8FBFE` |
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
 | Host backing / separator | `#1D2934` / `#35424E` |
-| iPhone 17 study grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
+| iPhone 17 grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
 
 ## Slate Light
 
 ![Slate Light on Mac and iPhone, with the same shell transcript, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
 
-Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. The portrait and landscape studies keep the same 47 × 25 and 90 × 9 grids as Slate Dark.
+Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same 47 × 25 and 90 × 9 grids as Slate Dark.
 
 | Token | sRGB value | Contrast |
 | --- | --- | --- |
@@ -59,30 +59,19 @@ Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` 
 | Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
 | Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
 
-The host supplies its title-bar and accessory materials. The backing and separator swatches guide those surfaces. TerminalView uses the same 22-color contract when embedded in a different host.
+The backing and separator colors serve the accessory and status surfaces and guide a host's own title bar. The pane uses the same 22-color contract in any host.
 
 On a system appearance change or a user theme edit, apply one resolved palette to the terminal’s query state and to the view. Present the new colors together on the next frame. Keep the viewport, selection, cursor, composition, layout and glyph atlas in place. Previously received rows resolve their default and indexed colors under the new palette. Explicit RGB values retain the program’s chosen colors, and color emoji retain their own pixels. A settled, nonblinking prompt needs one presentation for the change, zero parser work, zero new glyph uploads and zero subsequent idle frames.
 
-## Ember design study
+## Ember, a custom theme
 
-![Ember on Mac and iPhone, with larger Menlo type, shell and Vim frames, a connection strip and a software keyboard study](ember.png)
+A host can replace the palette and keep Slate's type and grid. The sample apps show this with `--theme custom`, which uses Ember, a warm palette. Default text reaches 13.80:1 and selected text 5.22:1. Its ANSI colors are in the next table.
 
-The warmer canvas, Menlo’s larger letterforms and extra leading leave more room around each glyph. A thin host strip names the connected peer and shows the grid dimensions. It sits below Vim’s own status and command lines, so it remains distinct when an editor takes the alternate screen. The accessory uses individually tinted native keycaps and system press feedback.
-
-| Setting | Value |
+| Token | sRGB value |
 | --- | --- |
-| Mac type | Menlo Regular, 15 pt on 21 pt rows |
-| iPhone type | Menlo Regular, 14 pt on 20 pt rows |
-| First baseline below row top | 16 pt on Mac, 15 pt on iPhone at the specified sizes |
-| Mac grid inset | 18 pt horizontally, 14 pt vertically |
-| iPhone grid inset | 14 pt horizontally, 10 pt vertically |
 | Default foreground / background | `#EEE4D6` / `#1C1A18` |
 | Cursor / glyph under block | `#F0D9B4` / `#1C1A18` |
 | Selected background / text | `#78634E` / `#FFF4E1` |
-| Contrast, default / selected text | 13.80 / 5.22 to 1 |
-| Host backing / separator | `#2A2724` / `#48413B` |
-| Host status strip | 22 pt at the foot of the viewport, above the keyboard accessory on iPhone. Show the active peer and whole-cell dimensions. |
-| iPhone 17 grid, keyboard open | 44 × 21 portrait, 85 × 6 landscape |
 
 ## Slate Dark and Ember ANSI colors
 
@@ -97,30 +86,30 @@ The warmer canvas, Menlo’s larger letterforms and extra leading leave more roo
 | Cyan | 36 / 96 | `#78C4CE` | `#9CE0E4` | `#88B9B0` | `#A6D4CB` |
 | White | 37 / 97 | `#C1CDD4` | `#F4F7F9` | `#CFC2AD` | `#F8EEDD` |
 
-Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With the approved foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
+Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
 
 Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Slate Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Slate Dark (`#ACB5BB` on `#2F3840`).
 
 ## Native surfaces and motion
 
-The Mac studies use active AppKit title bars captured on macOS 27.2.1. The iPhone studies show the English software keyboard with predictions off. In the packaged iPhone 17 simulator app, the keyboard and its 44 pt accessory together cover 345 pt of the 402 × 874 pt portrait window. The accessory runs from y = 529 to 573 pt, leaving room for 47 × 25 cells. In landscape the same controls cover 224 pt of the 874 × 402 pt window, leaving room for 90 × 9 cells. Size the grid from the actual keyboard guide on each device. [Portrait captures](https://github.com/lostintangent/thrush/actions/runs/45563860045) · [Landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563)
+The Mac images show active AppKit title bars on macOS 27.2.1. The iPhone images show the English software keyboard with predictions off. In the packaged iPhone 17 simulator app, the keyboard and its 44 pt accessory together cover 345 pt of the 402 × 874 pt portrait window. The accessory runs from y = 529 to 573 pt, leaving room for 47 × 25 cells. In landscape the same controls cover 224 pt of the 874 × 402 pt window, leaving room for 90 × 9 cells. Size the grid from the actual keyboard guide on each device. [Portrait captures](https://github.com/lostintangent/thrush/actions/runs/45563860045) · [Landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563)
 
-Shell output, Vim content and compositing are design examples. When Toy Box embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, keyboard accessory and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. The glass study shows the proposed accessory and Latest button in both appearances and measures the cost in contrast of a translucent Mac grid. [Glass in Thrush](glass.md)
+Shell output and Vim content in the images are examples. When an app embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, keyboard accessory and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. [Glass in Thrush](glass.md) specifies the accessory and Latest materials and shows why the grid stays opaque.
 
 | Moment | Behavior |
 | --- | --- |
-| Type and move the cursor | Apply the shell’s echoed character and cursor from the same displayed generation. A block occupies the cell and redraws its glyph in the block ink. A bar sits on the leading edge. An underline sits at the cell bottom. The latter two are 2 pt thick. Position and shape change on the next requested frame, without interpolation. The studies use a steady cursor. |
+| Type and move the cursor | Apply the shell’s echoed character and cursor from the same displayed generation. A block occupies the cell and redraws its glyph in the block ink. A bar sits on the leading edge. An underline sits at the cell bottom. The latter two are 2 pt thick. Position and shape change on the next requested frame, without interpolation. The images show a steady cursor. |
 | Select and copy | On Mac, drag for a character range or double-click for a word. On iPhone, long-press to select a word. Cell edges define the highlight. Native iOS handles expand or contract the range and the system edit menu anchors to it on release. Use the native selection tint for handles and the specified colors for selected cells. Copy omits soft-wrap breaks and retains hard line breaks. The accessibility selection uses the same logical range. |
 | Read earlier output | Use native scrolling and deceleration in normal-screen history. Preserve the visible logical line when fresh bytes arrive. Show the system scroll indicator and a **Latest** button with a 44 pt minimum hit target while away from the live edge. Return to the bottom on activation. Hide the control at the live edge and while the alternate screen owns input. |
 | Open the keyboard | The native accessory shares the keyboard’s frame transition and system timing curve. Esc, Ctrl, Tab and four arrow buttons each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Show a filled accent capsule with a contrasting “Ctrl” label and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
 | Rotate or dismiss the keyboard | Let the system transition coordinator move the host and controls. Compute whole cells from the new usable bounds, apply each distinct size once and anchor the visible logical row or live prompt. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
 | Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. With blink disabled, a settled or backgrounded terminal requests zero further frames. Keep the first-echo presentation time independent of host transitions. |
 
-## Renderer handoff
+## Rendering
 
-- Use the system monospaced face for Slate and Menlo Regular for Ember. Ask Core Text for the digit advance at the chosen size. Snap boundaries from cumulative advances to backing pixels. Keep incomplete columns and rows in the trailing and bottom inset. The listed sizes are defaults. Recompute advances, baselines and grid size when the user changes text size or moves to a display with a different scale.
+- Use the system monospaced face. Ask Core Text for the digit advance at the chosen size. Snap boundaries from cumulative advances to backing pixels. Keep incomplete columns and rows in the trailing and bottom inset. The listed sizes are defaults. Recompute advances, baselines and grid size when the user changes text size or moves to a display with a different scale.
 - Shape **A翼🐦Z** into six terminal columns. The ideograph spans two cells and the Unicode 11 bird emoji spans two. Core Text supplies the CJK fallback and Apple Color Emoji glyph. Keep the emoji’s intrinsic color and extend a selection through both halves of a wide character.
-- Both Mac studies use the same 720 × 486 pt window and 32 pt system title bar. Slate fits 80 × 24 cells. Ember fits 75 × 19 after its wider insets, larger type and status strip. The portrait study uses 402 × 874 pt with a 62 pt top safe area. With the keyboard open, its top is at y = 583 pt. The landscape study uses 874 × 402 pt with 62 pt left and 62 pt right safe areas. Its keyboard begins at y = 222 pt. The 44 pt accessory ends at that keyboard edge. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and accessory geometry. Deduct the accessory height once. With a hardware keyboard, use the lower safe area and the controls actually on screen.
+- The Mac images use a 720 × 486 pt window with a 32 pt system title bar, which fits 80 × 24 cells. The portrait image uses 402 × 874 pt with a 62 pt top safe area. With the keyboard open, its top is at y = 583 pt. The landscape image uses 874 × 402 pt with 62 pt left and 62 pt right safe areas. Its keyboard begins at y = 222 pt. The 44 pt accessory ends at that keyboard edge. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and accessory geometry. Deduct the accessory height once. With a hardware keyboard, use the lower safe area and the controls actually on screen.
 - Keep marked text local to the input view, anchor it at the cursor, and send only the single committed string. Expose accessible terminal lines, selections, modifier state and the return-to-latest action through the native host.
 
-The first Metal review compares the selected palette, cell boundaries, cursor ink and baseline placement in actual Mac and iPhone captures. Keyboard timing, VoiceOver, physical-device legibility and idle-frame counts need verification in the running hosts.
+Sign-off compares the palette, cell boundaries, cursor ink and baseline placement against captures of the running Mac and iPhone panes. Keyboard timing, VoiceOver, physical-device legibility and idle-frame counts are checked in the running apps.

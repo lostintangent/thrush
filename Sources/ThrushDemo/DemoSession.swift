@@ -209,7 +209,7 @@ final class DemoSession: ObservableObject {
         func rgb(_ hex: UInt32) -> Terminal.RGB {
             .init(red: UInt8(hex >> 16), green: UInt8(truncatingIfNeeded: hex >> 8), blue: UInt8(truncatingIfNeeded: hex))
         }
-        // The host supplies Ember's color study. Metrics and the underlying grid stay Slate's.
+        // The host supplies the Ember palette from the design doc. Metrics and the underlying grid stay Slate's.
         return TerminalTheme(palette: .init(foreground: rgb(0xEEE4D6), background: rgb(0x1C1A18), ansi: [
             0x12110F, 0xDE8676, 0xA6BD89, 0xDDB278, 0x98ABD0, 0xC99DAF, 0x88B9B0, 0xCFC2AD,
             0x978C80, 0xF0A493, 0xBFDAA1, 0xF4CF93, 0xB5C9E8, 0xE3B9C9, 0xA6D4CB, 0xF8EEDD,

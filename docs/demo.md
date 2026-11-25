@@ -73,7 +73,7 @@ Keep one `TerminalShell` for each shell tab and pass it to `TerminalPane(shell)`
 
 Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, set `keyboardAccessory: .none` to hide the standard terminal keys or pass a custom native accessory.
 
-To change individual colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it to the pane. The pane uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Slate palettes and cell metrics](design/dark-demo.md)
+To change individual colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it to the pane. The pane uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Slate palettes and cell metrics](design/README.md)
 
 ## Verify window and scene lifetime
 

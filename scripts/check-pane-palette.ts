@@ -8,7 +8,7 @@ const app = resolve(process.argv[2] ?? ".build/demo/mac/Thrush.app");
 const executable = join(app, "Contents/MacOS/ThrushDemo");
 if (!(await Bun.file(executable).exists())) throw Error("Build the app with scripts/build-demo.sh mac");
 
-// Independent sRGB expectations from the Slate and Ember color studies in docs/design/dark-demo.md.
+// Independent sRGB expectations from the Slate and Ember palettes in docs/design/README.md.
 const palettes = [
     { name: "dark", foreground: "e3eaf0", background: "131d27" },
     { name: "light", foreground: "233442", background: "fbfdfe" },
