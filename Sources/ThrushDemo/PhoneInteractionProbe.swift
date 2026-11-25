@@ -46,6 +46,13 @@ struct NativeInteractionProbe {
             .filter { $0.accessibilityTraits.contains(.staticText) && !$0.accessibilityTraits.contains(.selected) }
     }
 
+    func activateTyping() -> Bool {
+        guard let action = lines.first?.accessibilityCustomActions?.first(where: { $0.name == "Type in terminal" }) else {
+            return false
+        }
+        return action.actionHandler?(action) == true
+    }
+
     var transcript: String { lines.compactMap(\.accessibilityLabel).joined(separator: "\n") }
 
     var selection: String? {

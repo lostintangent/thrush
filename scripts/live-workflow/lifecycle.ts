@@ -18,6 +18,7 @@ const steps = {
     reclaimed: { name: "Use Here restored the other owner's output", checkpoint: true },
     orphan: { name: "Leave the shell beyond orphan expiry" },
     returnAfterExpiry: { name: "Return after orphan expiry" },
+    focusReplacement: { name: "Focus the replacement shell for typing" },
     identifyReplacement: { name: "Identify the replacement shell", text: "echo FRESH:${TAG-unset}:$$" },
     runIdentifyReplacement: { name: "Run the replacement identity command", enter: true },
     fresh: { name: "Expired shell replaced with a clean environment", checkpoint: true },
@@ -25,6 +26,7 @@ const steps = {
     runQuit: { name: "Exit the real shell", enter: true },
     ended: { name: "Final output survives shell exit", checkpoint: true },
     newShell: { name: "Start a new shell from Ended" },
+    focusNewShell: { name: "Focus the new shell for typing" },
     identifyNewShell: { name: "Identify the new shell", text: "echo NEW:${TAG-unset}:$$" },
     runIdentifyNewShell: { name: "Run the new shell identity command", enter: true },
     restarted: { name: "New Shell opened a fresh session", checkpoint: true },
@@ -136,6 +138,12 @@ export async function runLifecycle(run: LiveRun) {
     const screen = (key: keyof typeof steps, pattern: RegExp) =>
         run.checkpoint(index(key), () => Boolean(matchingRow(run, pattern)) && (key === "ended" || hasPrompt()),
                        key === "reclaimed" || key === "ended");
+    const focus = async (key: "focusReplacement" | "focusNewShell") => {
+        await run.until(hasPrompt, "fresh shell prompt before focusing");
+        const before = run.grid;
+        await run.layout(index(key), "focus");
+        return { step: key, before, after: run.grid };
+    };
     const command = async (text: keyof typeof steps, enter: keyof typeof steps) => {
         await run.input(index(text));
         await run.input(index(enter));
@@ -186,6 +194,7 @@ export async function runLifecycle(run: LiveRun) {
     assert(orphanMs >= 29_000, "The real PTY expired before its 30-second orphan window");
     run.phase("resume", index("returnAfterExpiry"));
     await waitReady(4, false);
+    const replacementFocus = await focus("focusReplacement");
     await command("identifyReplacement", "runIdentifyReplacement");
     const fresh = /^FRESH:unset:([0-9]+)$/;
     await screen("fresh", fresh);
@@ -202,6 +211,7 @@ export async function runLifecycle(run: LiveRun) {
     await waitReady(5, false);
     const restartBytes = run.inputBytes - beforeNew;
     assert.equal(restartBytes, 0, "New Shell sent terminal input");
+    const newShellFocus = await focus("focusNewShell");
     await command("identifyNewShell", "runIdentifyNewShell");
     const newShell = /^NEW:unset:([0-9]+)$/;
     await screen("restarted", newShell);
@@ -214,6 +224,7 @@ export async function runLifecycle(run: LiveRun) {
         assert.equal(run.explicitCloses, 1, "The final shell needs one explicit close");
         run.evidence.lifecycle = { originalPID: original, replacementPID: replacement, restartedPID: restarted,
             observedOrphanLifetimeMs: Math.round(orphanMs), useHereInputBytes: reclaimBytes, newShellInputBytes: restartBytes,
+            focusGrids: [replacementFocus, newShellFocus],
             displacedCloseCode: 4000, finalRowBeforeNewShell: "FINAL:" + replacement, explicitlyClosedPIDDead: true };
     };
 }

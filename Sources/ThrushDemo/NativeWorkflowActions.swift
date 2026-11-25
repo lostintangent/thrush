@@ -14,6 +14,9 @@ enum NativeWorkflowActions {
     private typealias Failure = RenderBenchmark.Failure
 
     static func input(_ input: Terminal.Input, view: TerminalView) throws {
+        #if os(iOS)
+        _ = try phoneInput(view)
+        #endif
         let probe = try NativeInteractionProbe(view: view)
         switch input {
         case .text(let text):
@@ -30,6 +33,38 @@ enum NativeWorkflowActions {
         default:
             throw Failure("The recorded workflow requested an unsupported native input.")
         }
+    }
+
+    static func verifyKeyboardDown(_ view: TerminalView) async throws {
+        #if os(iOS)
+        guard let root = view.window?.rootViewController?.viewIfLoaded,
+              let input = view.subviews.compactMap({ $0 as? UITextView }).first else {
+            throw Failure("Missing the terminal's native iPhone keyboard.")
+        }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(4))
+        while !input.isFirstResponder {
+            if input.inputAccessoryView?.window == nil,
+               root.keyboardLayoutGuide.layoutFrame.height <= root.safeAreaInsets.bottom + 1 { return }
+            guard ContinuousClock.now < deadline else { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        throw Failure("The terminal must leave the keyboard down until the user focuses it.")
+        #endif
+    }
+
+    static func focusForTyping(_ view: TerminalView) async throws {
+        #if os(iOS)
+        try await verifyKeyboardDown(view)
+        let probe = try NativeInteractionProbe(view: view)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(8))
+        while !probe.activateTyping() {
+            guard ContinuousClock.now < deadline else { throw Failure("The transcript has no enabled Type in terminal action.") }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try await settleKeyboard(view: view, landscape: nil)
+        #else
+        guard view.focusInput() else { throw Failure("The Mac terminal could not take input focus.") }
+        #endif
     }
 
     static func copy(_ copy: ReplayFixture.Copy, view: TerminalView) throws -> String {
@@ -152,17 +187,22 @@ enum NativeWorkflowActions {
     }
 
     static func resize(_ requested: Terminal.Size, view: TerminalView, landscape: Bool = false) async throws {
+        try await settleKeyboard(view: view, landscape: landscape)
+    }
+
+    private static func settleKeyboard(view: TerminalView, landscape: Bool?) async throws {
         guard let window = view.window, let scene = window.windowScene, let host = window.rootViewController else {
             throw Failure("The terminal is missing its native iPhone window scene.")
         }
         // The driver knows which operation is a rotation even when a different source grid
         // records the same workflow. UIKit supplies the actual safe areas and keyboard size.
         func requestedOrientation() -> Bool {
+            guard let landscape else { return true }
             let orientation = scene.effectiveGeometry.interfaceOrientation
             return landscape ? orientation.isLandscape : orientation.isPortrait
         }
         var rejected: Error?
-        if !requestedOrientation() {
+        if let landscape, !requestedOrientation() {
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscapeLeft : .portrait)) { rejected = $0 }
         }
         let clock = ContinuousClock()

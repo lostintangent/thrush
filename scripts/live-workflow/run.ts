@@ -10,7 +10,7 @@ export type WorkflowEvent = {
 };
 export type Recording = Grid & { name: string; events: WorkflowEvent[]; [key: string]: unknown };
 export type Phase = "attaching" | "layout" | "playing" | "input" | "resize" | "detach" | "resume" | "checkpoint"
-    | "close" | "completed" | "failed" | "useHere" | "newShell";
+    | "close" | "completed" | "failed" | "useHere" | "newShell" | "focus";
 type Downstream = ServerWebSocket<{url: string; grid: Grid}>;
 type Link = { app: Downstream; server: WebSocket; number: number; open: boolean; grid: Grid };
 type Frame = { link: Link; data: string | Uint8Array };
@@ -219,12 +219,12 @@ export class LiveRun {
         this.phase("input", index);
         await this.until(() => !this.expectedInput, "recorded stdin");
     }
-    async layout(index: number) {
-        this.phase(index === -1 ? "layout" : "resize", index);
+    async layout(index: number, phase: "layout" | "resize" | "focus" = index === -1 ? "layout" : "resize") {
+        this.phase(phase, index);
         await this.until(() => this.accepted, "native and wire grid agreement", 40_000, false);
     }
     settle(index: number, grid: Grid) {
-        if (!["layout", "resize"].includes(this.state.phase) || index !== this.state.eventIndex || !same(grid, this.grid)) return false;
+        if (!["layout", "resize", "focus"].includes(this.state.phase) || index !== this.state.eventIndex || !same(grid, this.grid)) return false;
         this.accepted = true; this.wake?.(); return true;
     }
     async checkpoint(index: number, predicate: () => boolean, capture?: boolean) {

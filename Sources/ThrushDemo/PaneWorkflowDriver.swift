@@ -17,7 +17,7 @@ final class PaneWorkflowDriver {
         init(_ description: String) { self.description = description }
     }
     private enum Phase: String, Decodable {
-        case attaching, layout, playing, input, resize, detach, resume, useHere, newShell, checkpoint, close, completed, failed
+        case attaching, layout, playing, focus, input, resize, detach, resume, useHere, newShell, checkpoint, close, completed, failed
     }
     private struct State: Decodable {
         let phase: Phase
@@ -159,6 +159,7 @@ final class PaneWorkflowDriver {
 
         var fixture = try ReplayFixture.decode(await get("fixture"))
         var resizeCount = 0
+        var checkKeyboardAfterShellAction = false
         var previous: (Phase, Int)?
         var deadline = ContinuousClock.now.advanced(by: .seconds(45))
         while true {
@@ -192,6 +193,7 @@ final class PaneWorkflowDriver {
                     guard ContinuousClock.now < until else { throw Failure("No enabled pane button named " + title) }
                     try await Task.sleep(for: .milliseconds(25))
                 }
+                checkKeyboardAfterShellAction = true
             case .failed:
                 throw Failure(state.error ?? "The peer rejected the workflow.")
             case .close:
@@ -202,11 +204,15 @@ final class PaneWorkflowDriver {
                 let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
                 try save(report, as: "workflow-report.json")
                 return
-            case .input, .resize, .detach, .resume, .checkpoint:
+            case .focus, .input, .resize, .detach, .resume, .checkpoint:
                 guard fixture.events.indices.contains(state.eventIndex) else { throw Failure("Invalid fixture event index.") }
                 let event = fixture.events[state.eventIndex]
                 guard event.name == state.name else { throw Failure("The pane and socket peer use different recordings.") }
                 switch state.phase {
+                case .focus:
+                    try await NativeWorkflowActions.focusForTyping(view)
+                    checkKeyboardAfterShellAction = false
+                    try await confirmLayout(eventIndex: state.eventIndex)
                 case .input:
                     guard let action = event.semanticInput else { throw Failure("Missing native action for \(event.name).") }
                     try NativeWorkflowActions.input(action, view: view)
@@ -229,6 +235,10 @@ final class PaneWorkflowDriver {
                         throw Failure("The native xterm reference omitted \(event.name).")
                     }
                     let entry = try await inspect(expected, state: state)
+                    if checkKeyboardAfterShellAction {
+                        try await NativeWorkflowActions.verifyKeyboardDown(view)
+                        checkKeyboardAfterShellAction = false
+                    }
                     entries.append(entry)
                     lastCheckpoint = expected
                     if state.capture ?? shouldCapture(event.name) { try await capture(entry) }
