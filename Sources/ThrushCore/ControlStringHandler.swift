@@ -4,11 +4,11 @@ struct ControlStringHandler: Sendable {
     // The limit is measured in UTF-16 code units. An overlong command has no effect.
     private static let payloadLimit = 10_000_000
     private var remainingCodeUnits = 0
-    private(set) var command: TerminalControlFunction.OSC?
+    private(set) var command: TerminalControlFunction.ControlString?
     /// The payload so far, or nil when the command is unsupported, overlong or finished.
     private(set) var payload: String?
 
-    mutating func start(_ command: TerminalControlFunction.OSC?) {
+    mutating func start(_ command: TerminalControlFunction.ControlString?) {
         self.command = command
         payload = command == nil ? nil : ""
         remainingCodeUnits = Self.payloadLimit
@@ -37,7 +37,7 @@ struct ControlStringHandler: Sendable {
     }
 
     /// The completed command and its payload, or nil when it was unsupported, overlong or cancelled.
-    mutating func finish(success: Bool) -> (command: TerminalControlFunction.OSC, payload: String)? {
+    mutating func finish(success: Bool) -> (command: TerminalControlFunction.ControlString, payload: String)? {
         defer { start(nil) }
         guard success, let command, let payload else { return nil }
         return (command, payload)

@@ -264,7 +264,11 @@ private extension EscapeParser {
             return esc + "]" + String(oscIdentifier) + ";" + payload
         case .invalidOSC: return esc + "]!"
         case .discardedOSC: return esc + "]999;"
-        case .dcsPayload, .discardedDCS: return esc + "Pq"
+        case .dcsPayload:
+            // DECRQSS is the only device control string the terminal collects.
+            guard let payload = string.payload else { return esc + "Pq" }
+            return esc + "P$q" + payload
+        case .discardedDCS: return esc + "Pq"
         case .ignoredString: return esc + "_"
         default: return ""
         }

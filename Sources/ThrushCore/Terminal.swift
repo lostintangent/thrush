@@ -377,12 +377,15 @@ public struct Terminal: Sendable {
         case .stringEnd(let success):
             guard let string = stringHandler.finish(success: success) else { return }
             switch string.command {
-            case .setIconAndWindowTitle, .setWindowTitle: title = string.payload
-            default:
-                if programColors.apply(string.command, payload: string.payload, palette: palette,
+            case .osc(.setIconAndWindowTitle), .osc(.setWindowTitle): title = string.payload
+            case .osc(let command):
+                if programColors.apply(command, payload: string.payload, palette: palette,
                                        cursor: cursorColor, replies: &replies) {
                     generation &+= 1
                 }
+            case .dcs(.requestStatusString):
+                replies += Reply.statusString(string.payload, scrollTop: screen.scrollTop,
+                                              scrollBottom: screen.scrollBottom, cursorBlink: modes.cursorBlink).utf8
             }
             return
         }

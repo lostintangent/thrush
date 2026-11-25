@@ -173,12 +173,23 @@ enum TerminalControlFunction {
         case restoreCursorColor = 112
     }
 
+    /// Device control strings, named by their intermediates and final byte. Parameters are ignored.
+    enum DCS: UInt32 {
+        /// DECRQSS, DCS $ q, asks for the setting of the control function its payload names.
+        case requestStatusString = 0x2471
+    }
+
+    /// A control string the terminal acts on once its payload is complete.
+    enum ControlString: Equatable, Sendable {
+        case osc(OSC), dcs(DCS)
+    }
+
     case execute(C0)
     case escape(Escape)
     /// SCS, ESC I F. The intermediate names the slot and the final names the set.
     case designate(Terminal.CharacterSet, slot: Int)
     case control(CSI)
-    case command(OSC)
+    case command(ControlString)
     case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
 
     init?(_ action: EscapeParser.Action) {
@@ -203,9 +214,9 @@ enum TerminalControlFunction {
             guard let function = CSI(rawValue: id.rawValue) else { return nil }
             self = .control(function)
         case .oscStart(let id):
-            self = OSC(rawValue: id).map(Self.command) ?? .ignoredString
-        case .dcsStart:
-            self = .ignoredString
+            self = OSC(rawValue: id).map { .command(.osc($0)) } ?? .ignoredString
+        case .dcsStart(let id):
+            self = DCS(rawValue: id.rawValue).map { .command(.dcs($0)) } ?? .ignoredString
         case .stringPut(let scalar):
             self = .stringPut(scalar)
         case .stringEnd(let success):
@@ -253,6 +264,24 @@ extension Terminal {
         /// DECRPM answers DECRQM with the mode number and its state.
         static func modeReport(_ mode: Int, _ state: ModeState, isPrivate: Bool) -> String {
             "\u{1b}[\(isPrivate ? "?" : "")\(mode);\(state.rawValue)$y"
+        }
+
+        /// DECRPSS answers DECRQSS with the control function that restores the setting the payload names,
+        /// or with 0 when it names none the terminal reports.
+        static func statusString(_ payload: String, scrollTop: Int, scrollBottom: Int, cursorBlink: Bool) -> String {
+            let setting: String? = switch payload {
+            // No cell is protected from selective erase.
+            case "\"q": "0\"q"
+            // A VT100-level terminal that sends 7-bit controls, matching DA1.
+            case "\"p": "61;1\"p"
+            case "r": "\(scrollTop + 1);\(scrollBottom + 1)r"
+            // The reference reports the default rendition and the host's block cursor, whatever the
+            // program has set. Only DECSET 12 changes the blink it reports.
+            case "m": "0m"
+            case " q": cursorBlink ? "1 q" : "2 q"
+            default: nil
+            }
+            return setting.map { "\u{1b}P1$r\($0)\u{1b}\\" } ?? "\u{1b}P0$r\u{1b}\\"
         }
     }
 
