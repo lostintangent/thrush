@@ -20,6 +20,7 @@ METRICS = {
     "receiptToAcceptance": ("receivedAt", "acceptedAt"),
     "keyToSubmission": ("keyAt", "submittedAt"),
     "keyToPresentation": ("keyAt", "presentedAt"),
+    "keyToFirstObservedGlyph": ("keyAt", "firstPixelAt"),
     "acceptanceToSubmission": ("acceptedAt", "submittedAt"),
 }
 

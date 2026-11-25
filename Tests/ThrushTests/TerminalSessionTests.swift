@@ -122,13 +122,15 @@ import Testing
     var session: TerminalSession? = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
     weak let released = session
     let actor = try #require(session?.actor)
+    let read = try #require(session?.readUpdate)
     try #require(await actor.show())
 
-    try await actor.readUpdates(into: OutputMailbox(), notify: {}) { update in
-        if case .fresh = update { return false }
-        Issue.record("Expected a fresh shell")
-        return false
+    var ready = false
+    let handshake = Task {
+        if case .fresh = try await read() { ready = true }
     }
+    defer { handshake.cancel() }
+    try await waitFor("The session must receive ready.") { ready }
 
     // The second read proves the first one reached the quiet socket before the app releases it.
     var pendingRead = false
@@ -136,12 +138,8 @@ import Testing
     let readers = (0..<2).map { _ in
         Task {
             do {
-                try await actor.readUpdates(into: OutputMailbox(), notify: {
-                    Issue.record("The quiet socket delivered output.")
-                }) { _ in
-                    Issue.record("The quiet socket delivered an unexpected update.")
-                    return false
-                }
+                _ = try await read()
+                Issue.record("The quiet socket delivered an unexpected update.")
             } catch SessionActor.TransportError.concurrentRead {
                 pendingRead = true
             } catch is CancellationError {
