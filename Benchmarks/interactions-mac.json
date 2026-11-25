@@ -1,0 +1,224 @@
+{
+  "anchoredReplay" : {
+    "columns" : 80,
+    "historyRows" : 1000,
+    "milliseconds" : [
+      6.47899997420609,
+      6.160791730508208,
+      5.9103332459926605,
+      6.197500042617321,
+      5.940416711382568,
+      6.039125029928982,
+      5.853249924257398,
+      5.885999999009073,
+      6.0622915625572205,
+      6.282291724346578,
+      5.83899999037385,
+      5.558458273299038,
+      5.487458314746618,
+      5.729541648179293,
+      5.538708297535777,
+      5.831458372995257,
+      5.485583329573274,
+      5.687291617505252,
+      5.5903749307617545,
+      5.611791624687612
+    ],
+    "p95Milliseconds" : 6.282291724346578,
+    "readingLine" : "Build step 512",
+    "rows" : 24,
+    "selectedLine" : "Build step 513"
+  },
+  "columns" : 80,
+  "committedEcho" : "翼",
+  "copiedText" : "翼 a soft wrap a soft wrap a soft wrap a soft wrap a soft wrap a soft wrap a soft wrap a soft wrap ends here.",
+  "environment" : {
+    "commit" : "2a3327e7f2b0551b22aacecb7213f5cd03035f9e",
+    "contended" : true,
+    "coreCount" : 10,
+    "destination" : "macOS",
+    "hardwareModel" : "MacBookPro18,4",
+    "loadAverage" : [
+      551.1748046875,
+      539.96826171875,
+      498.40185546875
+    ],
+    "lowPowerMode" : false,
+    "operatingSystem" : "Version 27.2.1 (Build 26B131)",
+    "powerSource" : "AC Power",
+    "thermalState" : "fair",
+    "toolchain" : "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
+    "worktreeDirty" : false
+  },
+  "historyReadingLine" : "Line 53\n",
+  "historyScrollMilliseconds" : 0.21349999587982893,
+  "keyToReceiptP95Milliseconds" : 0.43958332389593124,
+  "keyToSendP95Milliseconds" : 0.0660833902657032,
+  "recordedAt" : "2026-11-25T06:54:00Z",
+  "returnToLatestMilliseconds" : 0.14308339450508356,
+  "rows" : 24,
+  "samples" : [
+    {
+      "generation" : 244,
+      "keyAt" : 711096.6628922918,
+      "marker" : "a",
+      "receivedAt" : 711096.6633110001,
+      "sentAt" : 711096.6629583752,
+      "submittedAt" : 711096.6686645001
+    },
+    {
+      "generation" : 245,
+      "keyAt" : 711096.6717671668,
+      "marker" : "b",
+      "receivedAt" : 711096.6720753751,
+      "sentAt" : 711096.6717945834,
+      "submittedAt" : 711096.6842608335
+    },
+    {
+      "generation" : 246,
+      "keyAt" : 711096.6870618335,
+      "marker" : "c",
+      "receivedAt" : 711096.6874598751,
+      "sentAt" : 711096.6870936669,
+      "submittedAt" : 711096.7009648752
+    },
+    {
+      "generation" : 247,
+      "keyAt" : 711096.7024557919,
+      "marker" : "d",
+      "receivedAt" : 711096.7028881668,
+      "sentAt" : 711096.7024902084,
+      "submittedAt" : 711096.7173997918
+    },
+    {
+      "generation" : 248,
+      "keyAt" : 711096.7209402085,
+      "marker" : "e",
+      "receivedAt" : 711096.7213333335,
+      "sentAt" : 711096.7209889168,
+      "submittedAt" : 711096.7341655835
+    },
+    {
+      "generation" : 249,
+      "keyAt" : 711096.7362448334,
+      "marker" : "f",
+      "receivedAt" : 711096.7367253752,
+      "sentAt" : 711096.7363086669,
+      "submittedAt" : 711096.7508259168
+    },
+    {
+      "generation" : 250,
+      "keyAt" : 711096.7527215835,
+      "marker" : "g",
+      "receivedAt" : 711096.7531488752,
+      "sentAt" : 711096.7527604168,
+      "submittedAt" : 711096.7678197501
+    },
+    {
+      "generation" : 251,
+      "keyAt" : 711096.7713071668,
+      "marker" : "h",
+      "receivedAt" : 711096.7716993334,
+      "sentAt" : 711096.7713528752,
+      "submittedAt" : 711096.7841311669
+    },
+    {
+      "generation" : 252,
+      "keyAt" : 711096.7868209168,
+      "marker" : "i",
+      "receivedAt" : 711096.7872247085,
+      "sentAt" : 711096.7868915418,
+      "submittedAt" : 711096.8007953335
+    },
+    {
+      "generation" : 253,
+      "keyAt" : 711096.8022278751,
+      "marker" : "j",
+      "receivedAt" : 711096.8025607918,
+      "sentAt" : 711096.8022629168,
+      "submittedAt" : 711096.8175878335
+    },
+    {
+      "generation" : 254,
+      "keyAt" : 711096.8194933335,
+      "marker" : "k",
+      "receivedAt" : 711096.8198622501,
+      "sentAt" : 711096.8195298752,
+      "submittedAt" : 711096.8343746668
+    },
+    {
+      "generation" : 255,
+      "keyAt" : 711096.8377030835,
+      "marker" : "l",
+      "receivedAt" : 711096.8381305418,
+      "sentAt" : 711096.8377559584,
+      "submittedAt" : 711096.8510435001
+    },
+    {
+      "generation" : 256,
+      "keyAt" : 711096.8525153751,
+      "marker" : "m",
+      "receivedAt" : 711096.8529549584,
+      "sentAt" : 711096.8525707502,
+      "submittedAt" : 711096.8677101252
+    },
+    {
+      "generation" : 257,
+      "keyAt" : 711096.8711186252,
+      "marker" : "n",
+      "receivedAt" : 711096.8715435418,
+      "sentAt" : 711096.8711642502,
+      "submittedAt" : 711096.8841192918
+    },
+    {
+      "generation" : 258,
+      "keyAt" : 711096.8865454585,
+      "marker" : "o",
+      "receivedAt" : 711096.8869275418,
+      "sentAt" : 711096.8865892502,
+      "submittedAt" : 711096.9007301668
+    },
+    {
+      "generation" : 259,
+      "keyAt" : 711096.9023302501,
+      "marker" : "p",
+      "receivedAt" : 711096.9026437919,
+      "sentAt" : 711096.9023665418,
+      "submittedAt" : 711096.9174412085
+    },
+    {
+      "generation" : 260,
+      "keyAt" : 711096.9208406252,
+      "marker" : "q",
+      "receivedAt" : 711096.9211918334,
+      "sentAt" : 711096.9208793335,
+      "submittedAt" : 711096.9342150418
+    },
+    {
+      "generation" : 261,
+      "keyAt" : 711096.9362785835,
+      "marker" : "r",
+      "receivedAt" : 711096.9365670835,
+      "sentAt" : 711096.9363075835,
+      "submittedAt" : 711096.9507596669
+    },
+    {
+      "generation" : 262,
+      "keyAt" : 711096.9516487501,
+      "marker" : "s",
+      "receivedAt" : 711096.9520277085,
+      "sentAt" : 711096.9516827501,
+      "submittedAt" : 711096.9673928334
+    },
+    {
+      "generation" : 263,
+      "keyAt" : 711096.9692002918,
+      "marker" : "t",
+      "receivedAt" : 711096.9695605835,
+      "sentAt" : 711096.9692348335,
+      "submittedAt" : 711096.9840356668
+    }
+  ],
+  "schemaVersion" : 1,
+  "selectionAndCopyMilliseconds" : 0.9040416916832328
+}
