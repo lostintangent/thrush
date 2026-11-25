@@ -16,7 +16,7 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 ```
 bytes ─┬─ printable ASCII in ground state ─▶ TextScanner ─▶ Screen.writeASCII
        ├─ ASCII controls ──────────────────▶ EscapeParser ─▶ Terminal.apply
-       └─ UTF-8 ─▶ TextScanner ─┬─ printable scalar ──────▶ Screen.write
+       └─ UTF-8 ─▶ TextScanner ─┬─ printable text ────────▶ Screen.writeRun / Screen.write
                                 └─ control or payload ────▶ EscapeParser
 ```
 
@@ -55,8 +55,9 @@ Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key
 
 Most output is text, so text never enters the state machine.
 
-- **Text runs skip the parser.** In the ground state, the scanner searches blocks of 16 bytes for the first byte outside printable ASCII. `Screen.writeASCII` receives the run. `Screen.write` receives other printable Unicode scalars individually. Control bytes and complete C1 scalars go to the framer.
-- **Printing fills cells in bulk.** `Screen.writeASCII` writes a printable ASCII run row by row with the current style and wraps at the margin. ASCII occupies one column. For other scalars, `ColumnWidth` searches the ordered Unicode 11 ranges for zero-width and double-width characters. Combining marks extend the preceding cell when there is one.
+- **Text runs skip the parser.** In the ground state, the scanner searches 16 bytes at a time for the end of printable ASCII. For non-ASCII text it decodes one UTF-8 scalar at a time. With autowrap enabled, insert mode off and the ASCII character set active, printable scalars go straight to the screen as a run. An encoded C1 control ends the run and goes to the framer. A partial scalar stays in the scanner for the next chunk.
+- **Printing fills cells in bulk.** The screen writes an ASCII run one row at a time. For non-ASCII text it appends consecutive scalars that fit at the stored end of the current row, along with continuation cells for double-width characters. The ordinary scalar writer handles overwrites, combining marks and right-margin wraps. Appending advances the screen and terminal generations once per scalar, just as individual writes do.
+- **Unicode widths take two lookups.** The high bits of a scalar select a 256-scalar page. The low bits select its two-bit width within that page. The generated Unicode 11 table shares identical pages across the code space. Its 4,352 one-byte page indices and 99 distinct 64-byte pages occupy 10,688 bytes.
 - **The state machine is data.** Escape framing is a precomputed table indexed by state and byte that yields the next state and action in one load.
 - **Parameters stay where they're parsed.** The parser collects parameters in fixed storage it owns. Dispatch receives a small command identifier that packs the prefix, intermediates and final byte, then reads parameters in place. Dispatch needs no parameter array allocation or copy. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
 

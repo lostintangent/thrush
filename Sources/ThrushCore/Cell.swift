@@ -191,6 +191,22 @@ extension Terminal {
             if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, style: style) }
         }
 
+        /// Append complete, non-combining scalars that fit at the stored end of this row.
+        mutating func appendRun(_ pending: inout SizedScalar?, limit: Int, style: Style,
+                                next: () -> SizedScalar?) -> UInt64 {
+            var written: UInt64 = 0
+            clearWideLead(before: cells.count, style: style)
+            if cells.isEmpty { reserveWidth() }
+            while let glyph = pending, glyph.width > 0, cells.count + glyph.width <= limit {
+                let flag: UInt32 = glyph.width == 2 ? StoredCell.wide : 0
+                cells.append(StoredCell(glyph: glyph.scalar.value | flag, style: style))
+                if glyph.width == 2 { cells.append(StoredCell(glyph: StoredCell.continuation, style: style)) }
+                written &+= 1
+                pending = next()
+            }
+            return written
+        }
+
         mutating func appendCombining(_ scalar: Unicode.Scalar, before column: Int) {
             let previous = column - 1
             let base = stored(at: previous).glyph == StoredCell.continuation ? max(0, previous - 1) : previous

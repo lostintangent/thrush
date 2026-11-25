@@ -102,6 +102,8 @@ public struct Terminal: Sendable {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 if stringHandler.isReadingTitle { stringHandler.appendTitleASCII(bytes.extracting(start..<index)) }
+            } else if byte >= 0x80, parser.isGround, printsInRuns {
+                writeNonASCII(in: bytes, index: &index, replies: &replies)
             } else {
                 consume(byte, replies: &replies)
                 index += 1
@@ -135,6 +137,31 @@ public struct Terminal: Sendable {
     /// Text prints in runs only when each character lands in the next cell as itself. Insert mode,
     /// disabled autowrap and a character set other than ASCII print one character at a time.
     private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
+
+    private mutating func writeNonASCII(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
+        var decoder = scanner
+        var control: Unicode.Scalar?
+        let written = screen.writeRun(style: style, joinsPrevious: &hasCombiningBase) {
+            while index < bytes.count, bytes[index] >= 0x80 {
+                let byte = bytes[index]
+                index += 1
+                guard let scalar = decoder.decode(byte), scalar != TextScanner.byteOrderMark else { continue }
+                if scalar.value < 0xa0 {
+                    control = scalar
+                    return nil
+                }
+                return (scalar, ColumnWidth.of(scalar))
+            }
+            return nil
+        }
+        scanner = decoder
+        generation &+= written
+        if let control {
+            hasCombiningBase = false
+            let action = parser.consume(control)
+            dispatch(action, replies: &replies)
+        }
+    }
 
     @inline(__always)
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {

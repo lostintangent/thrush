@@ -15,31 +15,44 @@ let provider;
 new Unicode11Addon().activate({ unicode: { register(value) { provider = value; } } });
 assert.equal(provider.version, '11');
 
-function rangesFor(width) {
-  const ranges = [];
-  let start;
-  for (let value = 0; value <= 0x110000; value++) {
-    const matches = value < 0x110000 && provider.wcwidth(value) === width;
-    if (matches && start === undefined) start = value;
-    if (!matches && start !== undefined) {
-      ranges.push('0x' + start.toString(16) + '...0x' + (value - 1).toString(16));
-      start = undefined;
-    }
+// A 256-scalar page is identical across many Unicode blocks. Emit each distinct page once.
+const pageIndices = [];
+const pages = [];
+const indicesByWidth = new Map();
+for (let start = 0; start < 0x110000; start += 256) {
+  const widths = Array.from({ length: 256 }, (_, offset) => provider.wcwidth(start + offset));
+  const key = widths.join('');
+  if (!indicesByWidth.has(key)) {
+    indicesByWidth.set(key, pages.length);
+    pages.push(widths);
   }
-  const lines = [];
-  for (let index = 0; index < ranges.length; index += 4) {
-    lines.push('        ' + ranges.slice(index, index + 4).join(', ') + ',');
+  pageIndices.push(indicesByWidth.get(key));
+}
+assert.ok(pages.length <= 256);
+
+function lines(values, perLine) {
+  const result = [];
+  for (let i = 0; i < values.length; i += perLine) {
+    result.push('        ' + values.slice(i, i + perLine).join(', ') + ',');
   }
-  return lines.join('\n');
+  return result.join('\n');
+}
+// Pack 32 two-bit widths per word. The lowest bits are the first scalar in that word.
+const words = [];
+for (const page of pages) {
+  for (let i = 0; i < page.length; i += 32) {
+    let word = 0n;
+    for (let j = 0; j < 32; j++) word |= BigInt(page[i + j]) << BigInt(2 * j);
+    words.push('0x' + word.toString(16).padStart(16, '0'));
+  }
 }
 
 const source = [
   '// Cell-width observations from the pinned Toy Box Unicode 11 provider.',
-  '// Only zero- and double-width ranges need a table entry. Other printable scalars occupy one cell.',
   '// Regenerate with bun Fixtures/reference/generate-widths.mjs ../toy-box.',
   'extension ColumnWidth {',
-  '    static let zero: [ClosedRange<UInt32>] = [', rangesFor(0), '    ]',
-  '    static let double: [ClosedRange<UInt32>] = [', rangesFor(2), '    ]',
+  '    static let pageIndices: [UInt8] = [', lines(pageIndices, 32), '    ]',
+  '    static let widthWords: [UInt64] = [', lines(words, 4), '    ]',
   '}', ''
 ].join('\n');
 await writeFile(new URL('../../Sources/ThrushCore/Unicode11Widths.swift', import.meta.url), source);

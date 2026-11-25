@@ -220,6 +220,8 @@ extension Terminal {
         }
     }
 
+    typealias SizedScalar = (scalar: Unicode.Scalar, width: Int)
+
     package struct Screen: Sendable {
         private var active: Buffer
         private var normalWhileAlternate: Buffer?
@@ -469,6 +471,30 @@ extension Terminal {
             // A standalone combining mark occupies a cell of width zero. At the pending wrap
             // margin the cursor advances even though no visible cell receives the mark.
             active.column += max(1, width)
+        }
+
+        /// Writes non-ASCII scalars with autowrap on and insert mode off.
+        mutating func writeRun(style: Style, joinsPrevious: inout Bool, next: () -> SizedScalar?) -> UInt64 {
+            var count: UInt64 = 0
+            var pending = next()
+            while let glyph = pending {
+                let index = active.index(of: row)
+                let limit = min(size.columns, active.rows[index].storageColumns)
+                if glyph.width > 0, column + glyph.width <= limit, column == active.rows[index].cells.count {
+                    let n = active.rows[index].appendRun(&pending, limit: limit, style: style, next: next)
+                    active.column = active.rows[index].cells.count
+                    revision &+= n
+                    active.rows[index].generation = revision
+                    count &+= n
+                    joinsPrevious = true
+                } else {
+                    write(glyph.scalar, width: glyph.width, style: style, wraparound: true, insert: false, joinsPrevious: joinsPrevious)
+                    joinsPrevious = glyph.width > 0 || joinsPrevious
+                    count &+= 1
+                    pending = next()
+                }
+            }
+            return count
         }
 
         /// Writes a run of printable ASCII with autowrap on and insert mode off.
