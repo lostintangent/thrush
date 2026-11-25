@@ -94,14 +94,18 @@ private let escape = "\u{1b}["
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
 func livePaletteChangesRecolorCachedRows() async throws {
-    var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    // Text, normal red background, direct RGB background, xterm color-cube background.
-    let transcript = "H" + escape + "41m " + escape + "48;2;22;53;84m " + escape + "48;5;196m "
+    var terminal = Terminal(size: .init(columns: 8, rows: 3))
+    // The first row includes direct RGB and a color-cube index. The next two rows
+    // put each customizable ANSI background through the shader and into the readback.
+    var transcript = "H" + escape + "41m " + escape + "48;2;22;53;84m " + escape + "48;5;196m "
+    for index in 0..<16 {
+        if index.isMultiple(of: 8) { transcript += escape + "\(2 + index / 8);1H" }
+        transcript += escape + "48;5;\(index)m "
+    }
     _ = terminal.receive((transcript + escape + "0m" + escape + "?25l").utf8)
     let screen = terminal.snapshot()
     var custom = TerminalTheme.slateDark
-    var ansi = custom.palette.ansi
-    ansi[1] = .init(red: 4, green: 180, blue: 140)
+    let ansi = (UInt8(0)..<16).map { Terminal.RGB(red: $0, green: 180, blue: 140) }
     custom.palette = .init(foreground: .init(red: 255, green: 224, blue: 36),
                            background: .init(red: 10, green: 12, blue: 14), ansi: ansi)
     let host = try await OffscreenTerminal()
@@ -120,6 +124,11 @@ func livePaletteChangesRecolorCachedRows() async throws {
         #expect(shot[Probe.edges[1] + 1, Probe.top + 1] == pack(theme.palette.ansi[1]))
         #expect(shot[Probe.edges[2] + 1, Probe.top + 1] == 0x163554)
         #expect(shot[Probe.edges[3] + 1, Probe.top + 1] == 0xff0000)
+        for index in 0..<16 {
+            let x = Probe.edges[index % 8] + 1
+            let y = Probe.top + (1 + index / 8) * Probe.height + 1
+            #expect(shot[x, y] == pack(theme.palette.ansi[index]))
+        }
     }
 }
 

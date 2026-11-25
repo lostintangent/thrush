@@ -18,7 +18,8 @@ import uuid
 ROOT = Path(__file__).resolve().parent.parent
 APP_ID = "app.thrush.demo"
 ORACLE = ROOT / "scripts/check-demo-capture.py"
-BUILTIN_SCENES = {"glyphs", "shell", "editor", "prompt"}
+PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
+TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim"}
 
 
 def run(*command, timeout=90, check=True):
@@ -158,7 +159,7 @@ class Phone:
         def matches(state):
             ready = (state.get("pid") == pid and state.get("scene") == scene and
                      state.get("appearance") == appearance and state.get("orientation") == orientation)
-            if not ready or (scene in BUILTIN_SCENES and (not state.get("gpuCompleted") or not state["generation"])):
+            if not ready or (scene in TERMINAL_SCENES and (not state.get("gpuCompleted") or not state["generation"])):
                 return False
             if keyboard == "visible":
                 return state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44
@@ -180,6 +181,10 @@ class Phone:
             upright = self.oriented_image(candidate, orientation)
             if oracle:
                 command = [sys.executable, str(oracle), str(upright), scene, appearance]
+                if scene == "editor" and oracle == ORACLE:
+                    metadata = self.scratch / "submitted-frame.json"
+                    save_json(metadata, state)
+                    command += ["--metadata", str(metadata)]
                 if previous:
                     command += ["--same-grid-as", str(previous)]
                 result = run(*command, check=False, timeout=50)
@@ -191,6 +196,9 @@ class Phone:
                 candidate.replace(self.out / (name + "-framebuffer.png"))
             upright.replace(path)
             save_json(self.out / (name + ".json"), dict(state, framebufferRotationDegrees=90 if upright != candidate else 0))
+            print(f"{name}: {state['columns']} × {state['rows']} cells, "
+                  f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
+                  flush=True)
             return state
 
         candidate.unlink(missing_ok=True)
@@ -234,11 +242,12 @@ class Phone:
     def suite(self):
         for scene, appearance, orientation in [
             ("prompt", "dark", "portrait"), ("shell", "dark", "portrait"), ("editor", "dark", "portrait"),
-            ("editor", "dark", "landscape"), ("shell", "light", "portrait"), ("editor", "light", "portrait"),
+            ("editor", "dark", "landscape"), ("prompt", "light", "portrait"), ("shell", "light", "portrait"),
+            ("editor", "light", "portrait"),
             ("editor", "light", "landscape"),
         ]:
             pid = self.launch(scene, appearance, orientation, "visible")
-            self.frame(scene, appearance, orientation, "visible", pid, ORACLE if scene in BUILTIN_SCENES else None)
+            self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
         pid = self.launch("glyphs", "dark", "portrait", "visible")
         dark = self.frame("glyphs", "dark", "portrait", "visible", pid, ORACLE)
         with self.record_switch():
@@ -281,7 +290,7 @@ def main():
         if (not args.scene or not oracle.is_relative_to(ROOT / "scripts") or
                 oracle.suffix != ".py" or not oracle.is_file()):
             parser.error("A named scene's oracle must be a Python file in scripts/.")
-    elif args.scene in BUILTIN_SCENES:
+    elif args.scene in PIXEL_CHECKED_SCENES:
         oracle = ORACLE
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = args.output.resolve()

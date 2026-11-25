@@ -2,6 +2,7 @@
 """Check the native demo's shell, canonical Vim or six-column glyph frame in sRGB."""
 import argparse
 import collections
+import json
 import struct
 import subprocess
 import tempfile
@@ -143,7 +144,46 @@ def prompt(image):
     raise ValueError("Expected seven inked prompt cells and a trailing space before the column-8 cursor")
 
 
-def check(image, scene):
+def check_status_row(image, state):
+    """The xterm checkpoint ends with the reverse status row, then a blank command row."""
+    (wx, wy), (window_width, window_height) = state["windowPoints"]
+    (view_x, view_y), _ = state["gridFrame"]
+    (cell_x, cell_y), (pixel_width, pixel_height) = state["cellGridPixels"]
+    scale = state["displayScale"]
+    columns, rows = state["columns"], state["rows"]
+    require(state["gpuCompleted"] and rows >= 2 and columns > 18, "Missing the completed terminal grid")
+    require((image.width, image.height) == (round(window_width * scale), round(window_height * scale)),
+            "Image size or orientation differs from the submitted window")
+    left = round((view_x - wx) * scale + cell_x)
+    grid_top = round((view_y - wy) * scale + cell_y)
+    width = round(pixel_width)
+    row_height = round(pixel_height / rows)
+    top = grid_top + (rows - 2) * row_height
+    require(row_height > 0 and abs(row_height * rows - pixel_height) < 1 and
+            0 <= left < left + width <= image.width and 0 <= grid_top < top + 2 * row_height <= image.height,
+            "Submitted grid falls outside the captured framebuffer")
+    paper, ink = image.matches("ink"), image.matches("background", tolerance=12)
+
+    def scan(y):
+        start = y * image.width + left
+        return image.pixels[start:start + width]
+
+    # All columns are reverse-video, including the space after the ruler. The scan
+    # lines outside the glyph ink should cross the complete physical width of the grid.
+    for y in (top + 1, top + row_height - 2):
+        require(sum(v in paper for v in scan(y)) >= width - 2,
+                f"Vim's status fill does not span grid row {rows - 1} of {rows} at y={y}")
+    require(all(v in ink for v in scan(top + row_height + 1)), "Vim's last command row should be blank")
+
+    # Both recorded themes say “ Prompt.swift … 5:18 ”. Check ink in every letter
+    # and ruler column so a clipped, padded or horizontally wrapped replay cannot pass.
+    for col in [*range(1, 13), *range(columns - 5, columns - 1)]:
+        x0, x1 = round(col * width / columns), round((col + 1) * width / columns)
+        require(any(v in ink for y in range(top + 2, top + row_height - 2) for v in scan(y)[x0:x1]),
+                f"Missing Vim status text in column {col + 1} of {columns}")
+
+
+def check(image, scene, metadata=None):
     require(image.count("background") >= image.width * image.height * 0.12,
             "The expected Slate terminal canvas is absent")
     require(image.count("cursor") >= 8, "Missing the terminal cursor")
@@ -157,7 +197,10 @@ def check(image, scene):
     else:
         require(image.count("syntax") >= 12 and image.count("number") >= 8,
                 "Missing canonical Vim syntax or line numbers")
-        # The recorded Vim status line spans the grid with the default text color.
+        if metadata is not None:
+            check_status_row(image, metadata)
+            return None
+        # Original Mac window captures may have no geometry sidecar.
         solid = image.matches("ink")
         found = False
         for y in range(image.height):
@@ -174,11 +217,13 @@ if __name__ == "__main__":
     parser.add_argument("path", type=Path)
     parser.add_argument("scene", choices=["prompt", "shell", "editor", "glyphs"])
     parser.add_argument("theme", choices=COLORS)
+    parser.add_argument("--metadata", type=Path, help="Completed phone frame metadata for a coordinate-checked Vim status row")
     parser.add_argument("--same-grid-as", type=Path, help="Compare a glyph frame from the opposite appearance")
     args = parser.parse_args()
     try:
         image = Capture(args.path, args.theme)
-        proof = check(image, args.scene)
+        state = json.loads(args.metadata.read_text()) if args.metadata else None
+        proof = check(image, args.scene, state)
         if args.same_grid_as:
             require(args.scene == "glyphs", "--same-grid-as needs the glyph scene")
             other_theme = "dark" if args.theme == "light" else "light"
@@ -194,5 +239,5 @@ if __name__ == "__main__":
         if proof:
             print(f", selection {proof[0]}, cursor {proof[1]}, {len(proof[2])} intrinsic bird colors", end="")
         print()
-    except (OSError, ValueError, subprocess.CalledProcessError, struct.error) as error:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError, struct.error) as error:
         parser.exit(1, f"{args.path}: {error}\n")

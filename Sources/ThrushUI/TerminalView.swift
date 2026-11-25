@@ -4,6 +4,7 @@ import Thrush
 /// Timing from the monotonic media clock used by CAMetalDrawable.presentedTime.
 package struct FrameMeasurement: Sendable {
     package let generation: UInt64
+    package let gpuCompleted: Bool
     package let cpuPreparationSeconds: Double
     package let shaderCompileSeconds: Double?
     package let firstFrameSeconds: Double?
@@ -26,6 +27,7 @@ private final class Presentation {
     var gpu: Double?
     var presented: Double?
     var completed = false
+    var gpuCompleted = false
     var presentationKnown = false
     var delivered = false
 
@@ -45,7 +47,7 @@ private final class Presentation {
     func resolve() {
         guard completed, presentationKnown, !delivered else { return }
         delivered = true
-        report(.init(generation: generation, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
+        report(.init(generation: generation, gpuCompleted: gpuCompleted, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
                      firstFrameSeconds: firstFrame, gpuSeconds: gpu,
                      presentedTime: presented, receivedAt: received, submittedAt: submitted,
                      glyphUploads: uploads, rowsPrepared: rows))
@@ -112,6 +114,8 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
     package var onFrame: ((FrameMeasurement) -> Void)?
+    /// Capture the native layout at submission and match the GPU result using submittedAt.
+    package var onFrameSubmitted: ((Double, Terminal.Size?, CGRect) -> Void)?
     package private(set) var submissionCount = 0
     private var renderer: MetalRenderer?
     private var preparingDeviceID: UInt64?
@@ -362,12 +366,13 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             #endif
             frame.buffer.addCompletedHandler { [weak self] command in
                 let gpu = command.gpuEndTime - command.gpuStartTime
-                let failed = command.status == .error
+                let completed = command.status == .completed
                 Task { @MainActor in
                     if let presentation {
                         presentation.gpu = gpu > 0 ? gpu : nil
+                        presentation.gpuCompleted = completed
                         presentation.completed = true
-                        if failed { presentation.presentationKnown = true }
+                        if !completed { presentation.presentationKnown = true }
                         presentation.resolve()
                     }
                     if let self {
@@ -380,6 +385,13 @@ public final class TerminalView: MTKView, MTKViewDelegate {
             received = nil
             inFlight += 1
             submissionCount += 1
+            if let onFrameSubmitted {
+                let size = snapshot?.size
+                let grid = CGRect(x: CGFloat(metrics.x(0)), y: CGFloat(metrics.y(0)),
+                                  width: CGFloat(metrics.x(size?.columns ?? 0) - metrics.x(0)),
+                                  height: CGFloat(metrics.y(size?.rows ?? 0) - metrics.y(0)))
+                onFrameSubmitted(submitted, size, grid)
+            }
             frame.buffer.present(drawable)
             frame.buffer.commit()
         } catch {
