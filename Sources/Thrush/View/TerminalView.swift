@@ -192,6 +192,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             updateGeometry()
         }
     }
+    var beforeOutputDraw: (() -> Void)?
     package var onFrame: ((FrameMeasurement) -> Void)?
     /// Capture the native layout at submission and match the GPU result using submittedAt.
     package var onFrameSubmitted: ((Double, Terminal.Size?, CGRect) -> Void)?
@@ -493,6 +494,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
 
     package func display(_ terminal: Terminal, receivedAt: CFTimeInterval?) {
         display(terminal.snapshot(), receivedAt: receivedAt)
+    }
+
+    /// A draw can pick up another ordinary snapshot after the first wakeup invalidated the view.
+    /// Its latency still starts at the first receipt. A successful submission clears that receipt.
+    func displayOutput(_ frame: OutputMailbox.Frame) -> Double? {
+        let firstReceipt = received ?? frame.receipt
+        display(frame.screen, receivedAt: firstReceipt)
+        return firstReceipt
     }
 
     package func display(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval? = nil) {
@@ -874,6 +883,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         prepareRenderer()
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
+        beforeOutputDraw?()
         let started = CACurrentMediaTime()
         let (drawn, drawnSelection) = drawnContent
         do {

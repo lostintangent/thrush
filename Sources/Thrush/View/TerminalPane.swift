@@ -99,6 +99,7 @@ import ThrushCore
         private var drawingVisible = false
         private var epoch: UInt64 = 0
         private var shellRevision: UInt64 = 0
+        private var output: OutputMailbox?
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
         private var spinnerDelay: Task<Void, Never>?
@@ -134,6 +135,7 @@ import ThrushCore
                 pane?.onResolvedTheme?(theme)
                 perform { session, _ in await session.setTheme(theme) }
             }
+            container.terminal.beforeOutputDraw = { [weak self] in self?.presentOutput() }
             container.terminal.onInput = { [weak self] in self?.input($0) }
             container.terminal.onInputFocusChange = { [weak self] in self?.updateFocus() }
         }
@@ -197,6 +199,7 @@ import ThrushCore
         fileprivate func dismantle(_ surface: AnyObject) {
             guard container === surface else { return }
             stop()
+            view?.beforeOutputDraw = nil
             view?.onInput = nil
             view?.onThemeChange = nil
             view?.onGridSizeChange = nil
@@ -205,6 +208,8 @@ import ThrushCore
         }
 
         private func stop() {
+            presentOutput()
+            output = nil
             epoch &+= 1
             reader?.cancel()
             reader = nil
@@ -252,6 +257,10 @@ import ThrushCore
                 if reader == nil {
                     await start(session, userInitiated: false, stamp: stamp)
                 } else if phase == .live, let screen {
+                    if let frame = output?.take() {
+                        present(frame)
+                        if frame.screen.generation >= screen.generation { return }
+                    }
                     view?.display(screen)
                 }
             }
@@ -305,19 +314,36 @@ import ThrushCore
             phase = hasScreen ? .reconnecting : .connecting
             view.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
 
-            // Only the read operation survives the wait. The app can release the pane and its session.
-            reader = Task { [weak self, read = session.readUpdate] in
+            let mailbox = OutputMailbox()
+            output = mailbox
+            // The producer keeps only the session actor and this attachment's mailbox while waiting.
+            reader = Task { [weak self, actor = session.actor] in
                 defer { if self?.epoch == stamp { self?.reader = nil } }
                 do {
-                    while !Task.isCancelled, self?.epoch == stamp {
-                        let update = try await read()
-                        guard !Task.isCancelled, self?.epoch == stamp else { return }
-                        guard await self?.apply(update, stamp: stamp) == true else { return }
+                    try await actor.readUpdates(into: mailbox) { [weak self] in
+                        guard let self, epoch == stamp, output === mailbox else { return }
+                        presentOutput(notification: true)
+                    } deliver: { [weak self] update in
+                        guard let self, epoch == stamp, output === mailbox else { return false }
+                        presentOutput()
+                        return await apply(update, stamp: stamp)
                     }
                 } catch {
-                    if !Task.isCancelled { await self?.handleError(stamp: stamp) }
+                    guard let self, !Task.isCancelled, epoch == stamp else { return }
+                    presentOutput()
+                    await handleError(stamp: stamp)
                 }
             }
+        }
+
+        private func presentOutput(notification: Bool = false) {
+            if let frame = output?.take(notification: notification) { present(frame) }
+        }
+
+        private func present(_ frame: OutputMailbox.Frame) {
+            let firstReceipt = view?.displayOutput(frame)
+            hasScreen = true
+            if let receipt = firstReceipt { pane?.onOutput?(frame.screen.generation, receipt) }
         }
 
         @discardableResult
