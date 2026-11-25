@@ -32,6 +32,8 @@ For a frame-level comparison of the finite lifecycle script, pass `--trace-lifec
 
 ## Mac sample result
 
+The hosted `7826b55` sample passed all 34 checkpoints on macOS 27.0.1. All 28,910 bytes agreed at the relay and the native terminal. Thirteen window captures matched all 1,616 expected glyph cells and all 84 selection fills. After natural exit, the bounded pixel check read **Ended** and **New Shell** in the notice, while the final shell PID stayed visible. The five lifecycle sockets matched frame by frame. The hosted runner reported GPU completion at each checkpoint. [Hosted evidence](live-workflows-mac-hosted.json) · [Run](https://github.com/lostintangent/thrush/actions/runs/45583895283)
+
 The clean `f8c58c4` sample passed all 34 checkpoints across the four workflows on Slate Dark. All 32,429 original and replay bytes agreed between the server relay and the native received and applied counters. Thirteen window images matched 1,592 reference glyph cells and all 84 cells of the wrapped selection. The locked Mac reported GPU completion. [Run evidence](live-workflows-mac.json)
 
 ## iPhone Simulator result
