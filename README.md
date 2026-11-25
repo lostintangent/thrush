@@ -4,6 +4,13 @@
 
 Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no dependencies turns PTY output into a screen, one Metal renderer draws it on both platforms, and native text input, selection, the pasteboard and VoiceOver handle everything a person does with it. [Toy Box](https://github.com/lostintangent/toy-box) uses Thrush to bring its shells to its Mac and iPhone apps.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/thrush-dark.png">
+  <img src="docs/images/thrush-light.png" alt="Thrush running Codex in a Mac window and Vim on an iPhone with the software keyboard and its Esc, Ctrl, Tab and arrow key row">
+</picture>
+
+The terminal pixels are unretouched captures from the sample apps. The Mac window is streaming Codex from a real PTY, and the iPhone is replaying a recorded Vim session over the mock connection. The image follows your appearance setting, just as Thrush does.
+
 ## Add a terminal to an app
 
 Add the package and depend on its `ThrushUI` and `ThrushConnection` products. Until the first release is tagged, depend on `main`.
