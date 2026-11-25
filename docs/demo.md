@@ -61,6 +61,12 @@ Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow
 
 Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native host at a different grid or palette, append `--view` to the peer command. That mode accepts the host’s actual cursor position and color query replies. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
 
+On macOS 27 with Xcode 27, this check opens TextEdit and the packaged Mac terminal. VoiceOver reads an interior line in TextEdit, then reads `Build complete.` inside the unchanged terminal transcript. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
+
+```sh
+python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output /tmp/thrush-mac-voiceover
+```
+
 ## Embed the pane
 
 Keep one `TerminalConnection` for each shell tab. Pass that connection to `TerminalPane(connection)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the screen palette, routes native input and owns attachment, reconnect, takeover and exit. Its optional `onExit` callback leaves the final transcript readable. Both native sample apps embed this pane.
