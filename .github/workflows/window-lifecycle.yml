@@ -1,5 +1,19 @@
 name: Mac terminal window lifecycle
 on:
+  # The pane keeps its WebSocket in a covered, minimized or hidden Mac window. Every change that
+  # could break that promise runs the default check.
+  push:
+    branches: [main]
+    paths:
+      - Package.swift
+      - Sources/Thrush/**
+      - Sources/ThrushCore/**
+      - Sources/ThrushDemo/**
+      - Sources/ThrushServer/**
+      - Sources/ThrushPTY/**
+      - scripts/build-demo.sh
+      - scripts/pty/**
+      - .github/workflows/window-lifecycle.yml
   workflow_dispatch:
     inputs:
       voiceover:
@@ -20,6 +34,10 @@ on:
         default: false
 permissions:
   contents: read
+# A newer push to main supersedes a running check. Each dispatch runs on its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
   window-lifecycle:
     runs-on: xcode-27
