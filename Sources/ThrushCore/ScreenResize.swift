@@ -83,7 +83,7 @@ extension Terminal.Buffer {
         let historyEnd = lines.count - newSize.rows
         let retained = alternate ? base : historyLimit
         history = Terminal.History(capacity: retained)
-        for line in lines[max(0, historyEnd - retained)..<historyEnd] { history.append(line) }
+        for var line in lines[max(0, historyEnd - retained)..<historyEnd] { history.append(&line) }
         rows = Array(lines[historyEnd...])
         head = 0
         size = newSize

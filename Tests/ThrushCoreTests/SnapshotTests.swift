@@ -90,6 +90,32 @@ import ThrushFixtures
     #expect(terminal.snapshot().generation == changed.generation)
 }
 
+@Test func recycledAndErasedRowsLeaveEarlierSnapshotsIntact() {
+    var terminal = Terminal(size: .init(columns: 4, rows: 2))
+    let limit = Terminal.History.limit
+    // The oldest line ends in a combining mark, so its row carries a cluster in its second column.
+    let lines = ["ae\u{301}"] + (1...(limit + 1)).map(String.init)
+    _ = terminal.receive(lines.joined(separator: "\r\n").utf8)
+    let full = terminal.snapshot()
+
+    // A line feed evicts the oldest history row and reuses it as the new bottom row.
+    _ = terminal.receive("\r\nX".utf8)
+    let recycled = terminal.snapshot()
+    #expect(recycled.history.first?.text == "1")
+    #expect(recycled.rows.map(\.text) == ["\(limit + 1)", "X"])
+    #expect(recycled.rows[1][1] == Terminal.Cell(text: "", width: 1, style: .init()))
+    #expect(recycled.rows[1].generation != full.rows[1].generation)
+
+    _ = terminal.receive("\u{1b}[41m\u{1b}[2J".utf8)
+    let erased = terminal.snapshot()
+    #expect(erased.rows.map(\.text) == ["", ""])
+    #expect(erased.rows.allSatisfy { row in (0..<4).allSatisfy { row[$0].style.background == .indexed(1) } })
+
+    #expect(full.history.map(\.text) == Array(lines.prefix(limit)))
+    #expect(full.rows.map(\.text) == ["\(limit)", "\(limit + 1)"])
+    #expect(recycled.rows[1].text == "X")
+}
+
 @Test func synchronizedOutputKeepsParsingAndAnswersQueriesBeforeRelease() throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let start = "\u{1b}[?2026h", end = "\u{1b}[?2026l"

@@ -27,15 +27,18 @@ extension Terminal {
             head = 0
         }
 
-        mutating func append(_ row: Row) {
+        /// Moves `row` into history and leaves in its place a row the caller can clear and reuse.
+        /// Once history is full, that's the oldest row, which this append evicts.
+        mutating func append(_ row: inout Row) {
             guard capacity > 0 else { return }
             if storage.count == capacity {
                 evictedRows += 1
-                storage[head] = row
+                swap(&row, &storage[head])
                 head += 1
                 if head == capacity { head = 0 }
             } else {
                 storage.append(row)
+                row = Row(columns: row.columns, generation: row.generation)
             }
         }
     }
@@ -183,16 +186,17 @@ extension Terminal {
                 return
             }
 
-            let blank = Row(columns: size.columns, generation: generation, style: eraseStyle, wrapped: wrapped ?? false)
             if scrollTop == 0 {
-                history.append(rows[head])
+                history.append(&rows[head])
                 if scrollBottom == size.rows - 1 {
-                    rows[head] = blank
+                    rows[head].clear(columns: size.columns, generation: generation, style: eraseStyle,
+                                     wrapped: wrapped ?? false)
                     head += 1
                     if head == size.rows { head = 0 }
                     return
                 }
             }
+            let blank = Row(columns: size.columns, generation: generation, style: eraseStyle, wrapped: wrapped ?? false)
             deleteRows(1, at: scrollTop, through: scrollBottom, blank: blank)
         }
 
@@ -541,17 +545,11 @@ extension Terminal {
                 rows = 0..<size.rows
             }
             revision &+= 1
-            let blank = Row(columns: size.columns, generation: revision, style: style.eraseStyle)
-            if range == .entire && !isAlternate {
-                active.rows = Array(repeating: blank, count: size.rows)
-                active.head = 0
-                return
-            }
             for row in rows {
                 let index = active.index(of: row)
-                let width = active.rows[index].storageColumns
-                active.rows[index] = width == size.columns ? blank
-                    : Row(columns: width, generation: revision, style: style.eraseStyle)
+                // A narrowed alternate row keeps its hidden columns, blanked.
+                active.rows[index].clear(columns: active.rows[index].storageColumns, generation: revision,
+                                         style: style.eraseStyle)
                 active.rows[index].columns = size.columns
             }
         }

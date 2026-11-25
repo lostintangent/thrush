@@ -77,6 +77,19 @@ extension Terminal {
             cells = style == Style() ? [] : Array(repeating: StoredCell(style: style), count: columns)
         }
 
+        /// Makes this row equal to `Row(columns:generation:style:wrapped:)` but keeps its cell storage,
+        /// so a recycled row takes its next line without allocating.
+        mutating func clear(columns: Int, generation: UInt64, style: Style = .init(), wrapped: Bool = false) {
+            self.columns = columns
+            storageColumns = columns
+            self.generation = generation
+            isWrapped = wrapped
+            // A snapshot that still shares the cells keeps them, and this row gets new storage.
+            cells.removeAll(keepingCapacity: true)
+            if style != Style() { cells.append(contentsOf: repeatElement(StoredCell(style: style), count: columns)) }
+            if !clusters.isEmpty { clusters.removeAll() }
+        }
+
         func stored(at column: Int) -> StoredCell {
             column < cells.count ? cells[column] : StoredCell()
         }
