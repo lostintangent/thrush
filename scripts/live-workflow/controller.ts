@@ -8,6 +8,7 @@ import { LiveRun, type Recording } from "./run";
 import { exercise, liveFixture, names, type Workflow } from "./workflows";
 
 const { values } = parseArgs({ args: Bun.argv.slice(2), options: {
+    "trace-lifecycle-frames": { type: "boolean" },
     workflow: { type: "string" }, upstream: { type: "string" }, work: { type: "string" }, report: { type: "string" },
 }, strict: true });
 const workflow = values.workflow as Workflow | "lifecycle" | "recovery";
@@ -25,7 +26,8 @@ const recovery = workflow === "recovery" ? await import("./recovery.ts") : undef
 const name = names[workflow === "lifecycle" || workflow === "recovery" ? "shell" : workflow];
 const recorded: Recording = JSON.parse(await readFile(new URL("../../Fixtures/replays/" + name + ".json", import.meta.url), "utf8"));
 const fixture = life ? life.lifecycleFixture(recorded) : recovery ? recovery.recoveryFixture(recorded) : liveFixture(recorded);
-const run = new LiveRun(fixture, upstream, work);
+assert(!values["trace-lifecycle-frames"] || workflow === "lifecycle", "Frame tracing requires the scripted lifecycle");
+const run = new LiveRun(fixture, upstream, work, values["trace-lifecycle-frames"]);
 const report = resolve(values.report);
 const local = (request: Request) => {
     const url = new URL(request.url);
@@ -58,12 +60,13 @@ const control = Bun.serve({
     async fetch(request) {
         if (!local(request)) return new Response(null, {status: 403});
         const { pathname, searchParams } = new URL(request.url);
-        if (!["/fixture", "/state", "/ack", "/layout", "/checkpoint"].includes(pathname)) return new Response(null, {status: 404});
+        if (!["/fixture", "/state", "/ack", "/layout", "/checkpoint", "/observations"].includes(pathname)) return new Response(null, {status: 404});
         const method = pathname === "/ack" || pathname === "/layout" ? "POST" : "GET";
         if (request.method !== method) return new Response(null, {status: 405, headers: { Allow: method }});
         const json = (value: unknown) => Response.json(value, { headers: { "Cache-Control": "no-store" } });
         if (pathname === "/fixture") return json(fixture);
         if (searchParams.get("clientId") !== run.clientID) return new Response(null, {status: 400});
+        if (pathname === "/observations") return json({ workflow, ...run.observations });
         if (pathname === "/state") return json(run.driverState);
         if (pathname === "/checkpoint") {
             const index = searchParams.get("eventIndex");
@@ -83,9 +86,8 @@ const control = Bun.serve({
     },
 });
 const persist = async (completed: boolean) => {
-    const result = { workflow, completed, error: run.failure?.message, lastViewport: run.failure ? logicalLines(run.reference, true).map(line => line.text) : undefined, wire: run.wire, inputBytes: run.inputBytes,
-        attachments: run.attachments, ready: run.ready, exits: run.exits, explicitCloses: run.explicitCloses,
-        perAttachment: run.perAttachment, closures: run.closures, checkpoints: run.acknowledgements, evidence: run.evidence };
+    const result = { workflow, completed, ...run.observations,
+        lastViewport: run.failure ? logicalLines(run.reference, true).map(line => line.text) : undefined };
     await writeFile(report + ".tmp", JSON.stringify(result, null, 2) + "\n");
     await rename(report + ".tmp", report);
 };

@@ -12,8 +12,13 @@ export type Recording = Grid & { name: string; events: WorkflowEvent[]; [key: st
 export type Phase = "attaching" | "layout" | "playing" | "input" | "resize" | "detach" | "resume" | "checkpoint"
     | "close" | "completed" | "failed" | "useHere" | "newShell" | "focus";
 type Downstream = ServerWebSocket<{url: string; grid: Grid}>;
-type Link = { app: Downstream; server: WebSocket; number: number; open: boolean; grid: Grid };
-type Frame = { link: Link; data: string | Uint8Array };
+type Link = { app: Downstream; server: WebSocket; number: number; serverFrame: number; clientFrame: number; open: boolean; grid: Grid };
+type Frame = { link: Link; number: number; data: string | Uint8Array };
+type TraceEvent = "receivedFromUpstream" | "sentToNative" | "receivedFromNative";
+type FrameObservation = {
+    sequence: number; monotonicMs: number; attachment: number; frame: number; event: TraceEvent;
+    phase: Phase; eventIndex: number; length: number; hex?: string; text?: string; sendResult?: number;
+};
 type Closure = { side: "upstream" | "client"; code: number; atMs: number; attachment: number };
 const same = (a: Grid, b: Grid) => a.columns === b.columns && a.rows === b.rows;
 const replies = /^(?:\x1b\[(?:[?>]?[\d;$]*[cRy]|[IO])|\x1b\](?:4;\d+|10|11);rgb:[\da-f/]+(?:\x07|\x1b\\))+$/i;
@@ -52,13 +57,38 @@ export class LiveRun {
     private accepted = false;
     private replayNext = false;
 
-    constructor(readonly fixture: Recording, readonly upstream: URL, readonly work: string) {
+    private readonly recentFrames: FrameObservation[] = [];
+    private observationCount = 0;
+    constructor(readonly fixture: Recording, readonly upstream: URL, readonly work: string, private readonly traceLifecycleFrames = false) {
         this.grid = { columns: fixture.columns, rows: fixture.rows };
         this.reference = openReference(this.grid);
     }
     get downstreamOpen() { return this.active?.open === true; }
     get lastCloseCode() { return this.closures.at(-1)?.code; }
     get driverState() { return { ...this.state, outputBytes: this.outputBytes, attachments: this.attachments, grid: this.grid }; }
+    get observations() {
+        return { state: this.driverState, wire: this.wire, inputBytes: this.inputBytes, attachments: this.attachments,
+            ready: this.ready, exits: this.exits, explicitCloses: this.explicitCloses, perAttachment: this.perAttachment,
+            closures: this.closures, checkpoints: this.acknowledgements, evidence: this.evidence, error: this.failure?.message,
+            queuedFrames: this.frames.length, queuedBytes: this.queuedBytes, forwardingAttachment: this.forwarding?.number,
+            lifecycleTrace: this.traceLifecycleFrames ? { timeOriginUnixMs: performance.timeOrigin, observations: this.observationCount,
+                frames: this.recentFrames } : undefined };
+    }
+
+    private observe(link: Link, frame: number, event: TraceEvent, data: string | Uint8Array, sendResult?: number) {
+        if (!this.traceLifecycleFrames) return;
+        // Keep the recent finite shell exchange. Report an oversized frame's length without copying its payload.
+        const length = typeof data === "string" ? Buffer.byteLength(data) : data.byteLength;
+        const observation: FrameObservation = { sequence: ++this.observationCount, monotonicMs: performance.now(),
+            attachment: link.number, frame, event, phase: this.state.phase, eventIndex: this.state.eventIndex, length, sendResult };
+        if (length <= 4096) {
+            if (typeof data === "string") observation.text = data;
+            else observation.hex = Buffer.from(data).toString("hex");
+        }
+        if (this.recentFrames.length === 512) this.recentFrames.shift();
+        this.recentFrames.push(observation);
+    }
+
     phase(phase: Phase, index: number) {
         this.accepted = false;
         this.pendingReference = undefined;
@@ -77,14 +107,16 @@ export class LiveRun {
         url.protocol = this.upstream.protocol === "https:" ? "wss:" : "ws:";
         const server = new WebSocket(url);
         server.binaryType = "arraybuffer";
-        const link = { app, server, number: ++this.attachments, open: true, grid: app.data.grid };
+        const link = { app, server, number: ++this.attachments, serverFrame: 0, clientFrame: 0, open: true, grid: app.data.grid };
         this.active = link;
-        const totals = { number: link.number, upstreamBytes: 0, forwardedBytes: 0, replayBytes: 0, liveBytes: 0 };
+        const totals = { number: link.number, openedAtMs: performance.now(), grid: link.grid, upstreamBytes: 0, forwardedBytes: 0, replayBytes: 0, liveBytes: 0 };
         this.perAttachment.push(totals);
         this.grid = app.data.grid;
         server.onmessage = ({ data }) => {
             this.lastOutputAt = performance.now();
             const raw = typeof data === "string" ? data : new Uint8Array(data);
+            const number = ++link.serverFrame;
+            this.observe(link, number, "receivedFromUpstream", raw);
             if (typeof raw === "string") this.wire.upstreamControls++;
             else { this.wire.upstreamBinaryFrames++; this.wire.upstreamBinaryBytes += raw.byteLength; totals.upstreamBytes += raw.byteLength; }
             if (!link.open) return;
@@ -93,7 +125,7 @@ export class LiveRun {
                 this.fail(Error("Native checkpoint held more than 8 MiB or 4096 upstream frames"));
                 return;
             }
-            this.frames.push({ link, data: raw });
+            this.frames.push({ link, number, data: raw });
             this.wake?.();
         };
         server.onerror = () => this.fail(Error("Could not connect to the disposable terminal at " + this.upstream.origin));
@@ -127,6 +159,7 @@ export class LiveRun {
     clientMessage(app: Downstream, raw: string | Buffer) {
         const link = this.active;
         assert(link?.open && link.app === app && link.server.readyState === WebSocket.OPEN, "Input without an open upstream");
+        this.observe(link, ++link.clientFrame, "receivedFromNative", raw);
         if (typeof raw === "string") {
             const control = JSON.parse(raw);
             if (control.type === "resize") {
@@ -165,11 +198,15 @@ export class LiveRun {
                 this.replayNext = control.resumed;
             } else if (control.type === "exit") this.exits++;
             else throw Error("Unknown upstream control " + control.type);
-            assert(link.app.sendText(data) !== 0, "Native control socket closed");
+            const sent = link.app.sendText(data);
+            this.observe(link, frame.number, "sentToNative", data, sent);
+            assert(sent !== 0, "Native control socket closed");
             this.wire.forwardedControls++;
         } else {
             await new Promise<void>(done => this.reference.write(data, done));
-            assert(link.app.sendBinary(data) !== 0, "Native output socket closed");
+            const sent = link.app.sendBinary(data);
+            this.observe(link, frame.number, "sentToNative", data, sent);
+            assert(sent !== 0, "Native output socket closed");
             const totals = this.perAttachment[link.number - 1];
             totals.forwardedBytes += data.byteLength;
             if (this.replayNext) totals.replayBytes += data.byteLength;
