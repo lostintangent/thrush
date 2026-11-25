@@ -2,6 +2,7 @@
 """Capture a named demo scene, or run the complete iPhone rendering proof on a disposable simulator."""
 import argparse
 import contextlib
+import filecmp
 import json
 import os
 from pathlib import Path
@@ -143,9 +144,35 @@ def peer(out, notices=False):
 class Phone:
     def __init__(self, device, endpoint, app, out, scratch):
         self.device, self.endpoint, self.app, self.out, self.scratch = device, endpoint, app, out, scratch
-        sim("install", device, str(app), timeout=120)
+        for attempt in (1, 2):
+            print(f"Installing on {device} (attempt {attempt})", flush=True)
+            try:
+                sim("install", device, str(app), timeout=180)
+                break
+            except subprocess.TimeoutExpired:
+                # The host client may time out while MobileInstallation finishes its work.
+                if self.has_matching_installation():
+                    print("Verified the installed bundle after the client timed out", flush=True)
+                    break
+                if attempt == 2:
+                    raise
         data = Path(sim("get_app_container", device, APP_ID, "data").stdout.strip())
         self.state_path = data / "Documents/capture-state.json"
+
+    def has_matching_installation(self):
+        try:
+            result = sim("get_app_container", self.device, APP_ID, "app", timeout=30, check=False)
+            if result.returncode:
+                return False
+            installed = Path(result.stdout.strip())
+            expected = plistlib.loads((self.app / "Info.plist").read_bytes())
+            actual = plistlib.loads((installed / "Info.plist").read_bytes())
+            provenance = ("CFBundleIdentifier", "CFBundleExecutable", "ThrushGitCommit", "ThrushWorktreeDirty", "ThrushToolchain")
+            return (all(actual.get(key) == expected[key] for key in provenance)
+                    and filecmp.cmp(installed / actual["CFBundleExecutable"],
+                                    self.app / expected["CFBundleExecutable"], shallow=False))
+        except (OSError, KeyError, ValueError, plistlib.InvalidFileException, subprocess.TimeoutExpired):
+            return False
 
     def launch(self, scene, appearance, orientation, keyboard):
         self.set_appearance(appearance)
@@ -405,7 +432,7 @@ class Phone:
 
     def benchmark(self):
         report = self.out / "render.json"
-        result = run("scripts/benchmark-simulator.sh", self.device, str(self.app), str(report),
+        result = run("scripts/benchmark-simulator.sh", self.device, str(self.app), str(report), "--installed",
                      timeout=270, check=False)
         (self.out / "benchmark.log").write_text(result.stdout + result.stderr)
         if result.returncode:

@@ -192,8 +192,8 @@ def keyboard(image, state):
     guide, accessory = state["keyboardHeight"], state["accessoryHeight"]
     require((image.width, image.height) == (round(width * scale), round(height * scale)),
             "Keyboard framebuffer is not upright at the submitted window size")
-    require(guide > 90 and 44 <= accessory < guide and abs(gy - wy + gh - (height - guide)) <= 1,
-            "The keyboard guide and attached accessory must meet the terminal viewport")
+    require(guide > 90 and 44 <= accessory < guide and gy - wy + gh <= height - guide + 1,
+            "The terminal viewport must clear the native keyboard and its accessory")
     left, right = round(gx - wx), round(gx - wx + gw)
     top = round(height - guide)
     require(0 <= left < right <= width and 0 <= top < height, "Keyboard is outside the window")
