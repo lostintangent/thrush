@@ -13,13 +13,14 @@ let package = Package(
     targets: [
         .target(name: "Thrush"),
         .target(name: "ThrushUI", dependencies: ["Thrush"]),
-        .executableTarget(name: "ThrushDemo", dependencies: ["ThrushUI", "ThrushConnection", "Thrush"]),
+        .executableTarget(name: "ThrushDemo", dependencies: ["ThrushUI", "ThrushConnection", "Thrush", "ThrushReplay"]),
         .testTarget(name: "ThrushUITests", dependencies: ["ThrushUI", "Thrush"]),
         .target(name: "ThrushConnection", dependencies: ["Thrush"]),
         .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush", "ThrushConnection"]),
+        .target(name: "ThrushReplay", dependencies: ["Thrush"]),
         .target(
             name: "ThrushFixtures",
-            dependencies: ["Thrush"],
+            dependencies: ["Thrush", "ThrushReplay"],
             path: "Fixtures",
             exclude: ["reference"],
             resources: [.copy("first-bytes.json"), .copy("replays")]
