@@ -67,7 +67,7 @@ import Thrush
                         } catch { return }
                     }
                     let spinner = session.view.subviews.first {
-                        $0 is NSProgressIndicator && !$0.isHiddenOrHasHiddenAncestor && $0.isAccessibilityElement()
+                        $0.accessibilityRole() == .busyIndicator && !$0.isHiddenOrHasHiddenAncestor && $0.isAccessibilityElement()
                             && $0.accessibilityIdentifier() == "terminal.cursorSpinner"
                     }
                     let state = State(pid: ProcessInfo.processInfo.processIdentifier, windowID: window.windowNumber,
