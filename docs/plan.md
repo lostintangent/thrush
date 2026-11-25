@@ -8,6 +8,8 @@ Build a first-party terminal emulator that lets someone run a shell, edit in Vim
 
 **Quality bar.** Thrush is a 10-star experience that spares no expense on being beautiful on macOS and iOS. Typography, color, motion, input and feel meet the standard of Apple's own best apps, and the Designer signs off every visible surface. The performance budgets below are part of that bar, so beauty never costs latency or idle frames.
 
+**Demo design.** The user chose **Slate** for the Mac and iPhone demo hosts: SF Mono on a cool slate grid, with the brand amber reserved for the cursor. Its palette, metrics, motion and renderer handoff are specified in [Thrush on Mac and iPhone](design/dark-demo.md). Ember remains there as the documented alternative.
+
 **Delivery order.** Build a standalone Swift package against a scripted server. Draw its first visible prompt with Metal. Prove the same demo against a disposable Toy Box PTY. Integrate the proven package into the two Toy Box apps last. The first release commits to the three workflows below. Add terminal features when a named workflow or its recorded replay requires them.
 
 ## Requirements and acceptance
