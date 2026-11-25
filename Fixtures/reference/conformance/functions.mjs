@@ -193,6 +193,18 @@ probe('DECSET 6', 'then DSR 6', `${CSI}3;6r`, `${CSI}?6h${CSI}2;2H${CSI}6n`);
 probe('DECRST 7', 'then a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;20H界`);
 probe('DECRST 7', 'then a combining mark after a dropped wide character', positions.middle, `${CSI}?7l${CSI}2;19Ha界\u0301`);
 probe('DECSET 45', 'then BS across a wrap', '', `${CSI}2;1H${CSI}?7h${CSI}?45h${CSI}1;20Hxy\b\b\b`);
+// Focus reports answer DECSET 1004 at once, then follow the host's focus while the mode is set.
+const [focusIn, focusOut] = [{ focus: true }, { focus: false }];
+add('DECSET 1004', 'while focused', focusIn, canvas + positions.middle, `${CSI}?1004h`, { checkpoint: 'subject' }, '*');
+add('DECSET 1004', 'twice and in one list', canvas + positions.middle, `${CSI}?1004h${CSI}?1004;1004h`, { checkpoint: 'subject' }, '*');
+add('DECSET 1004', 'between other replies', canvas + positions.middle, `${CSI}6n${CSI}?1004h${CSI}5n`, { checkpoint: 'subject' }, '*');
+add('DECSET 1004', 'then focus changes', canvas + positions.middle, `${CSI}?1004h`, focusIn, focusOut,
+  { checkpoint: 'subject' }, focusIn, '*');
+add('DECRST 1004', 'then focus changes', canvas + positions.middle, `${CSI}?1004h`, focusIn, `${CSI}?1004l`, focusOut,
+  { checkpoint: 'subject' }, '*');
+add('DECSET 1004', 'after a full reset while focused', focusIn, canvas + positions.middle, `${CSI}?1004h${ESC}c`, focusOut,
+  focusIn, `${CSI}?1004h`, { checkpoint: 'subject' }, '*');
+add('DECSTR', 'with focus reporting', canvas + positions.middle, `${CSI}?1004h${CSI}!p`, focusIn, { checkpoint: 'subject' }, '*');
 for (const [mode, action] of Object.entries({ 2: '', 4: 'ab', 12: '', 20: '\nx', 34: '' })) {
   probe(`SM ${mode}`, '', positions.middle, `${CSI}${mode}h`, action + '*');
   probe(`RM ${mode}`, '', positions.middle + `${CSI}${mode}h`, `${CSI}${mode}l`, action + '*');
@@ -453,5 +465,13 @@ for (const [variant, [setup, steps]] of Object.entries(resizes)) {
 }
 // Narrowing with the cursor above rows that make room for the added ones.
 addSized([5, 3], 'resize', 'narrower above text', `\r\nabc\r\n12345${CSI}H`, { resize: [2, 3] }, { checkpoint: 'resize 1' }, '*');
+
+// The two recorded clear programs erase history on opposite sides of CUP and ED 2.
+// Split each CSI inside its header and observe each completed function before the prompt.
+for (const [name, functions] of [['system', ['3J', 'H', '2J']], ['Homebrew', ['H', '2J', '3J']]]) {
+  addSized([6, 3], 'ED 2', `${name} clear across reads`, 'old\r\n1234567\r\nmore\r\nlast',
+    { checkpoint: 'populated history' },
+    ...functions.flatMap(final => [ESC, '[', final, { checkpoint: `CSI ${final}` }]), 'new$ ');
+}
 
 export const functionCases = cases;

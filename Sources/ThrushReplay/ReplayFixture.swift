@@ -5,7 +5,7 @@ import ThrushCore
 /// Development-only playback data and independent expected screens for the recorded workflows.
 package struct ReplayFixture: Sendable {
     package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light",
-                                "hardware-keys", "pointer-input", "shell-workflow", "vim-resume", "codex-session"]
+                                "hardware-keys", "pointer-input", "shell-workflow", "vim-resume", "codex-session", "zsh-clear"]
 
     package struct Grid: Decodable, Sendable {
         package let columns: Int

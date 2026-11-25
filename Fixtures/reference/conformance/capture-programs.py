@@ -260,6 +260,35 @@ def run(session, command, name=None, until=PROMPT, **reading):
     return session.type(name or f"Run {command}", command + "\r", until=until, **reading)
 
 
+def zsh_clear(session, home):
+    prompt = b"thrush$ "
+    session.read("Shell prompt", until=prompt)
+    session.checkpoint("Fresh prompt")
+    for name, command, expected in [("System", "clear", b"\x1b[3J\x1b[H\x1b[2J"),
+                                    ("Homebrew", "clear-alt", b"\x1b[H\x1b[2J\x1b[3J")]:
+        history = session.type(f"Seed history before {name.lower()} clear", "seq 1 38\r", until=prompt)
+        assert b"".join(f"{i}\r\n".encode() for i in range(1, 39)) in history
+        session.checkpoint(name + " populated history")
+        session.type("Type " + name.lower() + " clear", command)
+        session.checkpoint(name + " clear edited command")
+        start = len(session.events)
+        output = session.type("Run " + name.lower() + " clear", "\r", until=prompt)
+        if output.count(expected) != 1 or prompt not in output.split(expected)[1]:
+            raise RuntimeError(f"{name} clear did not emit {expected.hex()} followed by the prompt")
+        # Keep PTY reads intact, including when the CSI sequence spans several of them.
+        clear_end = output.index(expected) + len(expected)
+        read_end = 0
+        for event in session.events[start:]:
+            read_end += len(base64.b64decode(event.get("bytes", "")))
+            if read_end == clear_end:
+                event.update(name=name + " cleared screen", checkpoint=True)
+                break
+        else:
+            raise RuntimeError(f"{name} clear and zsh's redraw shared a PTY read; "
+                               "recapture to observe the cleared screen before the prompt")
+        session.checkpoint(name + " cleared prompt")
+
+
 def zsh(session, home):
     shell(session)
     session.checkpoint("Fresh prompt")
@@ -495,6 +524,8 @@ def lazygit(session, home):
 
 SCENARIOS = {
     "zsh": (["/bin/zsh", "-i"], zsh, "zsh --version"),
+    "zsh-clear": (["/bin/zsh", "-f", "-i"], zsh_clear,
+                  "/bin/zsh --version; /usr/bin/infocmp -V; infocmp-alt -V"),
     "bash": (["/opt/homebrew/bin/bash", "--noprofile", "--norc", "-i"], bash, "/opt/homebrew/bin/bash --version"),
     "pager": (["/bin/zsh", "-i"], pager, "less --version"),
     "git": (["/bin/zsh", "-i"], git, "git --version"),
@@ -512,6 +543,17 @@ def capture(name, destination):
         home = Path(work).resolve()
         prepare(home)
         environ = environment(home)
+        if name == "zsh-clear":
+            commands = home / "bin"
+            commands.mkdir(exist_ok=True)
+            (commands / "clear").symlink_to("/usr/bin/clear")
+            ncurses = Path(subprocess.check_output(["brew", "--prefix", "ncurses"], text=True).strip()) / "bin"
+            for tool in ("clear", "infocmp"):
+                binary = ncurses / tool
+                if not binary.is_file():
+                    raise FileNotFoundError(f"Recapturing zsh-clear requires Homebrew ncurses at {binary}")
+                (commands / (tool + "-alt")).symlink_to(binary)
+            environ.update(PS1="thrush$ ", PROMPT="thrush$ ", RPS1="")
         if name == "bash":
             environ.update(PS1=r"\[\e[1;32m\]\W\[\e[0m\] ❯ ", INPUTRC="/dev/null", HISTFILE="/dev/null")
         session = Session(home, argv, environ)
@@ -520,8 +562,9 @@ def capture(name, destination):
             session.read("Exit", timeout=5)
         finally:
             session.close()
-            subprocess.run(["tmux", "-L", "thrush", "kill-server"], env=environ, stderr=subprocess.DEVNULL)
-            subprocess.run(["screen", "-wipe"], env=environ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if name == "multiplexers":
+                subprocess.run(["tmux", "-L", "thrush", "kill-server"], env=environ, stderr=subprocess.DEVNULL)
+                subprocess.run(["screen", "-wipe"], env=environ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         versions = subprocess.run(version, shell=True, env=environ, capture_output=True, text=True).stdout
         header = dict(name=name, command=" ".join(argv), versions=[line for line in versions.splitlines() if line][:3],
                       term="xterm-256color", columns=80, rows=24)

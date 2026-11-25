@@ -88,7 +88,7 @@ final class AppTransport {
                             stamp: UInt64, in session: isolated SessionActor) async throws {
         self.transport = transport
         scheduledSize = size
-        session.terminal = Terminal(size: size, palette: session.terminal.palette, cursorColor: session.terminal.cursorColor)
+        session.resetTerminal(size: size)
         session.lastReceiptTime = nil
         await session.publishMetadata(title: session.terminal.title, hasEnded: false)
         guard session.lifetime == stamp else { throw CancellationError() }

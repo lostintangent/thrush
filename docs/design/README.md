@@ -54,12 +54,20 @@ Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` 
 
 | Values | Use |
 | --- | --- |
-| Default foreground and background | Resolve cells that inherit text or background colors. Use these in OSC 10 and 11 replies. |
+| Default foreground and background | Resolve cells that inherit text or background colors, and answer OSC 10 and 11 queries. |
 | 16 ANSI colors in index order | Slots 0–7 supply normal colors and 8–15 supply bright colors. Use each slot for indexed foreground, indexed background and the corresponding OSC 4 reply. |
 | Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
 | Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
 
 The backing and separator colors serve the accessory and status surfaces and guide a host's own title bar. The pane uses the same 22-color contract in any host.
+
+### Colors a program sets
+
+A program can replace the default foreground, background, cursor and any of the 256 indexed colors with OSC 4, 10, 11 and 12. Its colors replace the theme's in drawing and in query replies until it restores them, and the theme supplies the rest. The program's background fills the pane's whole frame, including the safe areas, the space below the last full row and an IME preview. Text in the IME preview uses the program's foreground. Selection, the status strip, the key row and Latest stay on the theme, so the pane's own controls look the same under any program.
+
+A block cursor redraws its glyph in the theme's block ink. Once a program sets the cursor color, the glyph takes whichever of the effective foreground and background contrasts more with that cursor.
+
+When an inline navigation bar overlaps the pane, the pane sets the bar's color scheme to match the canvas below it, so its title stays readable over either background. A bar over the host's own background keeps the host's scheme. The status bar belongs to the host. Under a navigation bar it follows the bar's scheme when the host leaves its style to SwiftUI. The sample apps draw the pane beneath the status bar and set its style from the canvas. A full-size Mac window toolbar's title follows the window's appearance instead, so while a program's canvas is opposite that appearance, the strip beneath the toolbar keeps the theme's canvas.
 
 On a system appearance change or a user theme edit, apply one resolved palette to the terminal’s query state and to the view. Present the new colors together on the next frame. Keep the viewport, selection, cursor, composition, layout and glyph atlas in place. Previously received rows resolve their default and indexed colors under the new palette. Explicit RGB values retain the program’s chosen colors, and color emoji retain their own pixels. A settled, nonblinking prompt needs one presentation for the change, zero parser work, zero new glyph uploads and zero subsequent idle frames.
 
@@ -106,7 +114,7 @@ Shell output and Vim content in the images are examples. When an app embeds the 
 | Select and copy | On Mac, drag for a character range or double-click for a word. On iPhone, long-press to select a word. Cell edges define the highlight. Native iOS handles expand or contract the range and the system edit menu anchors to it on release. Use the native selection tint for handles and the specified colors for selected cells. Copy omits soft-wrap breaks and retains hard line breaks. The accessibility selection uses the same logical range. |
 | Read earlier output | Use native scrolling and deceleration in normal-screen history. Preserve the visible logical line when fresh bytes arrive. Show the system scroll indicator and a **Latest** button with a 44 pt minimum hit target while away from the live edge. Return to the bottom on activation. Hide the control at the live edge and while the alternate screen owns input. |
 | Open the keyboard | The native accessory shares the keyboard’s frame transition and system timing curve. Esc, Ctrl, Tab and four arrow buttons each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Show a filled accent capsule with a contrasting “Ctrl” label and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
-| Rotate or dismiss the keyboard | Let the system transition coordinator move the host and controls. Compute whole cells from the new usable bounds, apply each distinct size once and anchor the visible logical row or live prompt. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
+| Rotate or dismiss the keyboard | Let the system transition coordinator move the host and controls. Keep the visible logical row or live prompt anchored as the keyboard turns. Send the shell one whole-cell grid when the keyboard and pane reach their destination. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
 | Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. A settled or backgrounded terminal requests zero further frames. Visible blinking text requests frames only during its fades, at up to 60 Hz, and none while it is fully shown or hidden, while the view is hidden or suspended, or with Reduce Motion. Keep the first-echo presentation time independent of host transitions. |
 
 ## Rendering

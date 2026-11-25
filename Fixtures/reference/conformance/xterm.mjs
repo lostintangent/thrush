@@ -1,6 +1,6 @@
 // The conformance view of the pinned reference: cases replay through it, and every checkpoint reads
 // its state the same way. See ../reference.mjs for the reference itself.
-import { terminal } from '../reference.mjs';
+import { setFocus, terminal } from '../reference.mjs';
 import { functionName } from './names.mjs';
 import { emptyLine } from './state.mjs';
 
@@ -33,7 +33,7 @@ export function registered() {
 
 /**
  * Runs a case: { size, palette?, steps: [{ write: Uint8Array } | { resize: [columns, rows] } |
- * { checkpoint: name, scope?: 'visible' }] }. A final checkpoint named "end" is implied.
+ * { focus: boolean } | { checkpoint: name, scope?: 'visible' }] }. A final checkpoint named "end" is implied.
  * With `observe`, each write also returns the names of the functions xterm dispatched, and the run
  * returns every handler identity it reached, for coverage.
  *
@@ -63,6 +63,8 @@ export function run(testCase, { observe = false } = {}) {
       if (observer) functions.push(observer.names.splice(0));
     } else if (step.resize) {
       t.resize(...step.resize);
+    } else if (step.focus !== undefined) {
+      setFocus(t, step.focus);
     } else if (step.checkpoint) {
       checkpoints.push({ ...state(t, step.checkpoint, step.scope, replies), ...(error && { error }) });
       replies = '';

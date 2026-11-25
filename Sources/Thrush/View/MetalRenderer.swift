@@ -3,7 +3,7 @@ import MetalKit
 import ThrushCore
 
 enum RendererFailure: Error {
-    case allocation, missingEncoder
+    case allocation, missingEncoder, missingRenderTarget
 }
 
 @MainActor
@@ -13,10 +13,15 @@ final class MetalRenderer {
     private let pipeline: any MTLRenderPipelineState
     private let solid: any MTLTexture
     private var colorTable: (any MTLBuffer)?
-    private var previousTheme: TerminalTheme?
+    private struct Colors: Equatable {
+        let theme: TerminalTheme
+        let program: Terminal.ProgramColors
+    }
+    private var tableColors: Colors?
     private var atlas: GlyphAtlas?
     private struct RowKey: Hashable {
         let revision: UInt64
+        let columns: Int
         let selection: Range<Int>?
     }
     private var cached: [RowKey: RowGeometry] = [:]
@@ -47,15 +52,19 @@ final class MetalRenderer {
 
     /// Encode one frame. Blinking ink takes `blinkOpacity`, so a blink reuses every cached row.
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
-                pass: MTLRenderPassDescriptor, viewport: CGSize, selection: TerminalView.Selection? = nil,
+                pass: MTLRenderPassDescriptor, selection: TerminalView.Selection? = nil,
                 showsCursor: Bool = true, blinkOpacity: Float = 1) throws -> Prepared {
-        if previousTheme != theme {
-            let table = Paint.table(theme)
+        guard let target = pass.colorAttachments[0].texture else { throw RendererFailure.missingRenderTarget }
+        let viewport = CGSize(width: target.width, height: target.height)
+        // Rows keep color tokens, so a theme or program color change rebuilds only this table.
+        let colors = Colors(theme: theme, program: snapshot?.programColors ?? .init())
+        if tableColors != colors {
+            let table = Paint.table(theme, colors.program)
             colorTable = table.withUnsafeBytes { bytes in
                 device.makeBuffer(bytes: bytes.baseAddress!, length: bytes.count, options: .storageModeShared)
             }
             guard colorTable != nil else { throw RendererFailure.allocation }
-            previousTheme = theme
+            tableColors = colors
         }
         if atlas == nil { atlas = try GlyphAtlas(device: device, metrics: metrics) }
         guard let atlas, let buffer = queue.makeCommandBuffer() else { throw RendererFailure.allocation }
@@ -74,7 +83,7 @@ final class MetalRenderer {
             let count = min(columns, area.columns)
             for (y, row) in snapshot.rows.prefix(area.rows).enumerated() {
                 let range = selection?.columns(in: y, width: count)
-                let key = RowKey(revision: row.generation, selection: range)
+                let key = RowKey(revision: row.generation, columns: count, selection: range)
                 let geo: RowGeometry
                 if let existing = cached[key] ?? next[key] {
                     geo = existing

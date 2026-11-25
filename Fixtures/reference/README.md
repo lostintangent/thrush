@@ -1,6 +1,6 @@
 # Pinned reference
 
-Thrush's fixtures, conformance cases and emulator comparisons come from one reference emulator: the exact `@xterm/headless`, `@xterm/addon-unicode11` and `@xterm/xterm` packages in [package.json](package.json), locked by [bun.lock](bun.lock). [headless.mjs](headless.mjs) starts every reference terminal with the same options, 1,000 history rows, proposed APIs and Unicode 11 cell widths, and loads under Node or Bun. [reference.mjs](reference.mjs) adds what the browser package contributes under Bun: color reports, the keyboard evaluator and the selection service. Each generated fixture records the packages and options it came from.
+Thrush's fixtures, conformance cases and emulator comparisons come from one reference emulator: the exact `@xterm/headless`, `@xterm/addon-unicode11` and `@xterm/xterm` packages in [package.json](package.json), locked by [bun.lock](bun.lock). [headless.mjs](headless.mjs) starts every reference terminal with the same options, 1,000 history rows, proposed APIs and Unicode 11 cell widths, and loads under Node or Bun. [reference.mjs](reference.mjs) adds what the browser package contributes under Bun: color and focus reports, the keyboard evaluator and the selection service. Each generated fixture records the packages and options it came from.
 
 Install the reference before regenerating anything. Swift builds and tests read the checked-in JSON directly and don't need it.
 

@@ -44,7 +44,26 @@ function buildStyles() {
     return lines.join("\r\n") + "\r\n" + prompt;
 }
 
-type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles";
+// A program that sets its own colors with OSC 4, 10, 11 and 12. It picks the canvas the host
+// didn't, so the scene always shows program colors against the host's chrome.
+const palettes = {
+    paper: { background: "f4efe4", foreground: "2e2a24", cursor: "c4532d",
+             indexed: { 2: "3f7d3a", 5: "9b3f8c", 6: "1f7a80", 8: "8c8475", 12: "2f5fa8" } },
+    night: { background: "17151f", foreground: "e4dfd3", cursor: "e8915a",
+             indexed: { 2: "9ccb77", 5: "d29be0", 6: "6cc6c2", 8: "6e6a7c", 12: "86a8f2" } },
+} as const;
+
+function buildColors(host: Appearance) {
+    const name = host === "dark" ? "paper" : "night";
+    const { background, foreground, cursor, indexed } = palettes[name];
+    const rgb = (hex: string) => `rgb:${hex.slice(0, 2)}/${hex.slice(2, 4)}/${hex.slice(4)}`;
+    const osc = (body: string) => "\x1b]" + body + "\x1b\\";
+    const colors = osc("11;" + rgb(background)) + osc("10;" + rgb(foreground)) + osc("12;" + rgb(cursor)) +
+        osc("4;" + Object.entries(indexed).map(([index, hex]) => index + ";" + rgb(hex)).join(";"));
+    return prompt + "palette " + name + "\r\n" + colors + buildTranscript();
+}
+
+type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors";
 type Appearance = "light" | "dark";
 type Session = { scene: Scene; cols: number; rows: number; input: string; appearance?: Appearance };
 type Socket = ServerWebSocket<Session>;
@@ -71,6 +90,9 @@ async function draw(socket: Socket) {
         case "log": for (const part of log) socket.sendBinary(part); return;
         case "vim": for (const part of vim) socket.sendBinary(part); return;
         case "styles": socket.sendBinary(encode(buildStyles())); return;
+        case "colors":
+            socket.sendBinary(encode(socket.data.appearance ? buildColors(socket.data.appearance) : "\x1b]11;?\x1b\\"));
+            return;
         case "glyphs":
             socket.sendBinary(encode(prompt + "printf 'A翼🐦Z\\n'\r\nA翼🐦Z" + esc + "2;6H" + esc + "2 q"));
             return;
@@ -126,7 +148,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
         >= 32768 ? "light" : "dark";
 }
 
-const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles"]);
+const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors"]);
 const args = process.argv.slice(2);
 if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
         || (args[2] && args[2] !== "--view") || (args[3] && args[3] !== "--driver")))
@@ -169,7 +191,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
             }
             // Recordings supply their own editor output. A fresh prompt accepts a small set
             // of demo commands; other text only receives a remote echo.
-            if (state.scene === "editor" && !state.appearance) {
+            if ((state.scene === "editor" || state.scene === "colors") && !state.appearance) {
                 state.appearance = reportedAppearance(message);
                 if (state.appearance) await draw(socket);
                 return;

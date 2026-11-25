@@ -53,6 +53,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
+    private var layoutTrace: PhoneLayoutTrace?
     private var noticeObservation: Task<Void, Never>?
 
     init() {
@@ -65,17 +66,28 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
+    // The pane draws beneath the status bar, so the status bar follows the pane's background.
+    private var canvas: ColorScheme?
+
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        if session.theme != nil { return .lightContent }
-        return traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
+        // Under a navigation stack, SwiftUI matches the status bar to the bar's scheme, which the pane sets.
+        if session.options.checksToolbar { return super.preferredStatusBarStyle }
+        let scheme = canvas ?? (traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+        return scheme == .light ? .darkContent : .lightContent
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
+        session.onCanvasChange = { [weak self] in
+            self?.canvas = $0
+            self?.setNeedsStatusBarAppearanceUpdate()
+        }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
+        // The trace forwards frame submissions to the capture hook it wraps.
+        layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
         if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesNotice {
             noticeObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {
@@ -88,6 +100,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        layoutTrace?.recordLayout("host.layout")
         focusIfRequested()
         observeLayout()
     }

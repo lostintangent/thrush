@@ -31,8 +31,9 @@ private func checkSerialization(_ fixture: ReplayFixture) throws {
         // This checkpoint sees all subsequent output on the previous reconstruction.
         do { try event.verify(resumed.snapshot(), serialized: event.resize == nil) } catch { throw ReplayFailure("\(fixture.name) #\(index) continued: \(error)") }
         resumed = Terminal(size: original.size, palette: original.palette)
+        // A restored focus mode answers with the new host's focus, which starts out.
         let replies = resumed.receive(original.replayBytes())
-        #expect(replies.isEmpty)
+        #expect(replies == (original.modes.sendFocus ? Array("\u{1b}[O".utf8) : []))
         do { try event.verify(resumed.snapshot(), serialized: true) } catch { throw ReplayFailure("\(fixture.name) #\(index) fresh: \(error)") }
         #expect(resumed.title == original.title)
     }

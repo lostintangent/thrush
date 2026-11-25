@@ -107,6 +107,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     package var onGridSizeChange: ((Terminal.Size) -> Void)?
     /// Reports a change to the effective theme. Apply its palette to the terminal for OSC color replies.
     package var onThemeChange: ((TerminalTheme) -> Void)?
+    /// Reports that the input gained or lost first responder. Read ``hasInputFocus`` for the result.
+    var onInputFocusChange: (() -> Void)?
+    /// Reports a change to the background the view draws, from the theme or the program.
+    var onBackgroundChange: (() -> Void)?
     /// The measured size in cells, or `nil` until the view lays out nonempty bounds.
     package private(set) var gridSize: Terminal.Size?
     /// The theme the view currently draws, including any explicit override.
@@ -132,6 +136,37 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         applyClearColor()
         invalidateFrame()
     }
+    #else
+    var beforeViewportResize: ((CGSize) -> Void)?
+
+    // The pane coordinates the size change with UIKit's keyboard and orientation transitions.
+    var holdsGridGeometry = false {
+        didSet {
+            guard oldValue != holdsGridGeometry else { return }
+            heldGrid = nil
+            if !holdsGridGeometry {
+                // The new bounds and the first frame drawn for them commit together.
+                presentsWithLayout = true
+                updateGeometry()
+            }
+        }
+    }
+    /// Called when the terminal delivers its first frame at the grid published while holding.
+    var onHeldGridReady: (() -> Void)?
+    private var heldGrid: Terminal.Size?
+
+    /// Publishes the grid for the pane's destination viewport while the held frame stays on
+    /// screen. Returns false when no resized frame is coming, so the pane can release now.
+    func publishHeldGrid(for viewport: CGSize) -> Bool {
+        guard holdsGridGeometry, let metrics, snapshot != nil, viewport.width > 0, viewport.height > 0 else { return false }
+        let next = metrics.size(in: viewport)
+        guard next != gridSize else { return false }
+        gridSize = next
+        heldGrid = next
+        onGridSizeChange?(next)
+        return true
+    }
+    private var presentsWithLayout = false
     #endif
 
     /// The terminal font size in points, from 6 through 96. A nil value uses 14 on Mac or 13 on iPhone.
@@ -172,7 +207,17 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     }()
     private(set) var metrics: GridMetrics?
     var transcript = TerminalTranscript()
-    package private(set) var snapshot: Terminal.Snapshot?
+    package private(set) var snapshot: Terminal.Snapshot? {
+        didSet {
+            let colors = snapshot?.programColors ?? .init()
+            guard colors != programColors else { return }
+            let background = color(.background)
+            programColors = colors
+            if color(.background) != background { backgroundChanged() }
+        }
+    }
+    /// The colors the displayed program set over the theme.
+    private(set) var programColors = Terminal.ProgramColors()
     enum InputAvailability {
         case live, holdingKeys, blocked
     }
@@ -231,6 +276,9 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         layer?.isOpaque = isOpaque
         #else
         isOpaque = true
+        // Keep the last drawable at its native scale while UIKit animates the new bounds.
+        contentMode = .topLeft
+        autoResizeDrawable = false
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: TerminalView, _: UITraitCollection) in
             view.resolveTheme()
         }
@@ -309,7 +357,13 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     /// Updates the terminal grid to fit the view's bounds.
     package override func layoutSubviews() { super.layoutSubviews(); updateGeometry() }
     /// Updates rendering and grid geometry when the view moves into or out of a window.
-    package override func didMoveToWindow() { super.didMoveToWindow(); updateAttachment() }
+    package override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // A program can ask for the background as soon as the pane shows, so adopt the window's appearance
+        // now rather than at the next layout.
+        if window != nil { updateTraitsIfNeeded() }
+        updateAttachment()
+    }
     #endif
 
     private func updateAttachment() {
@@ -330,15 +384,26 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #endif
         let next = theme ?? (isDark ? .slateDark : .slateLight)
         guard next != resolvedTheme else { return }
+        let background = color(.background)
         resolvedTheme = next
-        applyClearColor()
         onThemeChange?(next)
+        if color(.background) != background { backgroundChanged() }
         refreshInteraction()
         invalidateFrame()
     }
 
+    /// The color the view draws for a slot: the program's when it set one, otherwise the theme's.
+    func color(_ slot: Terminal.ColorSlot) -> Terminal.RGB {
+        programColors.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
+    }
+
+    private func backgroundChanged() {
+        applyClearColor()
+        onBackgroundChange?()
+    }
+
     private func applyClearColor() {
-        let c = resolvedTheme.palette.background.vector
+        let c = color(.background).vector
         let background = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
         #if os(macOS)
         let alpha = effectiveOpacity
@@ -357,9 +422,16 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #if os(macOS)
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
         #else
+        guard !holdsGridGeometry else { return }
         let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : contentScaleFactor
         #endif
         let pixelSize = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
+        #if os(iOS)
+        if lastViewport != pixelSize, let metrics {
+            beforeViewportResize?(CGSize(width: lastViewport.width / metrics.scale, height: lastViewport.height / metrics.scale))
+            guard !holdsGridGeometry else { return }
+        }
+        #endif
         let nextSize: CGFloat = fontSize ?? {
             #if os(macOS)
             14
@@ -415,6 +487,12 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
         refreshInteraction()
         received = receivedAt
+        #if os(iOS)
+        if let heldGrid, next.size == heldGrid {
+            self.heldGrid = nil
+            onHeldGridReady?()
+        }
+        #endif
         invalidateFrame()
     }
 
@@ -520,6 +598,20 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #endif
     }
 
+    /// Whether the terminal's input is first responder, so keystrokes reach it while its window has focus.
+    var hasInputFocus: Bool {
+        #if os(macOS)
+        window?.firstResponder === macInput
+        #else
+        phoneInput.isFirstResponder
+        #endif
+    }
+
+    // The responder chain finishes updating after become and resign return.
+    func inputFocusDidChange() {
+        Task { @MainActor [weak self] in self?.onInputFocusChange?() }
+    }
+
     /// Discard local composition and latched modifiers when the host detaches from the PTY.
     package func cancelPendingInput() {
         lastPointer = nil
@@ -535,7 +627,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #if os(macOS)
         macInput.refresh()
         #else
-        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme)
+        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme,
+                               ink: color(.foreground), paper: color(.background))
         phoneTranscript.synchronize()
         #endif
         onViewportInteractionChange?()
@@ -592,13 +685,17 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     package func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
         updateGeometry()
+        #if os(iOS)
+        if presentsWithTransaction != presentsWithLayout { presentsWithTransaction = presentsWithLayout }
+        presentsWithLayout = false
+        #endif
         prepareRenderer()
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: acceptsTerminalInput,
+                                            pass: pass, selection: selection, showsCursor: acceptsTerminalInput,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent
@@ -662,6 +759,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
                                   height: CGFloat(metrics.y(size?.rows ?? 0) - metrics.y(0)))
                 onFrameSubmitted(submitted, size, grid)
             }
+            #if os(iOS)
+            if presentsWithTransaction {
+                frame.buffer.commit()
+                frame.buffer.waitUntilScheduled()
+                drawable.present()
+                return
+            }
+            #endif
             frame.buffer.present(drawable)
             frame.buffer.commit()
             showsBlinkingText = frame.blinks

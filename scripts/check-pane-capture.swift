@@ -9,6 +9,18 @@ func fail(_ reason: String) -> Never {
     exit(2)
 }
 
+// Hosted Mac windows render at 1x, where fast recognition misreads small title text. Read short crops at 4x.
+func enlarged(_ region: CGImage) -> CGImage {
+    let factor = region.height < 96 ? 4 : 1
+    guard factor > 1,
+          let context = CGContext(data: nil, width: region.width * factor, height: region.height * factor,
+                                  bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return region }
+    context.interpolationQuality = .high
+    context.draw(region, in: CGRect(x: 0, y: 0, width: context.width, height: context.height))
+    return context.makeImage() ?? region
+}
+
 let usage = "Usage: check-pane-capture IMAGE [--crop X Y WIDTH HEIGHT] EXPECTED_VISIBLE_STRINGS…"
 var arguments = CommandLine.arguments.dropFirst()
 guard let path = arguments.popFirst() else { fail(usage) }
@@ -26,7 +38,7 @@ if arguments.first == "--crop" {
     guard x >= 0, y >= 0, width > 0, height > 0, x <= image.width - width, y <= image.height - height,
           let region = image.cropping(to: CGRect(x: x, y: y, width: width, height: height)),
           region.width == width, region.height == height else { fail("Crop lies outside the framebuffer") }
-    handler = VNImageRequestHandler(cgImage: region)
+    handler = VNImageRequestHandler(cgImage: enlarged(region))
 } else {
     handler = VNImageRequestHandler(url: url)
 }

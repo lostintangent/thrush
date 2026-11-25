@@ -49,6 +49,7 @@ import ThrushCore
     package var onOutput: ((UInt64, CFTimeInterval) -> Void)?
     package var onReady: ((Bool) -> Void)?
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
+    package var onCanvasChange: ((ColorScheme) -> Void)?
     package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
     /// The terminal surface and its session status notices.
@@ -64,6 +65,9 @@ import ThrushCore
             NativePane(pane: pane, owner: coordinator)
                 .onAppear { coordinator.setPresented(true) }
                 .onDisappear { coordinator.setPresented(false) }
+                #if os(iOS)
+                .toolbarColorScheme(coordinator.barScheme, for: .navigationBar)
+                #endif
         }
     }
 
@@ -79,8 +83,13 @@ import ThrushCore
         }
         private weak var container: TerminalPaneContainer?
         private var view: TerminalView? { container?.terminal }
+        #if os(iOS)
+        /// A navigation bar over the pane takes the scheme of the background it draws, so its title stays readable.
+        @Published private(set) var barScheme: ColorScheme?
+        #endif
         private var pane: TerminalPane?
         private var active = false
+        private var reportedFocus = false
         private var isPresented = false
         private var drawingVisible = false
         private var epoch: UInt64 = 0
@@ -105,6 +114,16 @@ import ThrushCore
             self.container = container
             container.onVisibility = { [weak self] in self?.updateActivity() }
             container.onAction = { [weak self] in self?.activateButton() }
+            container.onCanvasChange = { [weak self] in
+                // Layout reports the schemes, and SwiftUI can't observe a change during its own update.
+                Task { @MainActor in
+                    guard let self, let container = self.container else { return }
+                    #if os(iOS)
+                    self.barScheme = container.barScheme
+                    #endif
+                    if let canvas = container.canvasScheme { self.pane?.onCanvasChange?(canvas) }
+                }
+            }
             container.onNoticeReadChange = { [weak self] reading in
                 self?.readingNotice = reading
                 self?.dismissReplacementIfReady()
@@ -117,6 +136,7 @@ import ThrushCore
                 perform { session, _ in await session.setTheme(theme) }
             }
             container.terminal.onInput = { [weak self] in self?.input($0) }
+            container.terminal.onInputFocusChange = { [weak self] in self?.updateFocus() }
         }
 
         fileprivate func apply(_ next: TerminalPane) {
@@ -161,10 +181,20 @@ import ThrushCore
                 view?.setDrawingVisible(visible)
                 if visible { resumeReplacementTimer() } else { pauseReplacementTimer() }
             }
-            if !active {
-                active = true
-                if let measured = view?.gridSize { resize(measured) }
-            }
+            let starting = !active
+            active = true
+            // The session records focus before it opens, so its first DECSET 1004 reply is current.
+            updateFocus()
+            if starting, let measured = view?.gridSize { resize(measured) }
+        }
+
+        /// Programs that set mode 1004 hear whether keystrokes reach this pane.
+        private func updateFocus() {
+            let focused = active && container?.hasKeyboardFocus == true
+            guard focused != reportedFocus, let session = pane?.session else { return }
+            reportedFocus = focused
+            // A detached or reconnecting shell hears the current focus from its replay instead.
+            enqueue { try? await session.setFocused(focused) }
         }
 
         fileprivate func dismantle(_ surface: AnyObject) {
@@ -188,6 +218,7 @@ import ThrushCore
             pauseReplacementTimer()
             let previouslyActive = active
             active = false
+            updateFocus()
             drawingVisible = false
             view?.setInputAvailability(.blocked, dismissKeyboard: false)
             view?.setRenderingActive(false)
@@ -444,9 +475,14 @@ extension NativePane: NSViewRepresentable {
     static func dismantleNSView(_ view: NSView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
 }
 #else
-extension NativePane: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView { pane.makeContainer(owner) }
-    func updateUIView(_ view: UIView, context: Context) { owner.apply(pane) }
-    static func dismantleUIView(_ view: UIView, coordinator: TerminalPane.Coordinator) { coordinator.dismantle(view) }
+extension NativePane: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> PhonePaneController {
+        PhonePaneController(pane.makeContainer(owner))
+    }
+    func updateUIViewController(_ controller: PhonePaneController, context: Context) { owner.apply(pane) }
+    static func dismantleUIViewController(_ controller: PhonePaneController, coordinator: TerminalPane.Coordinator) {
+        coordinator.dismantle(controller.view)
+        controller.releaseRotation()
+    }
 }
 #endif

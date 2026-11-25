@@ -2,32 +2,32 @@
   "buildConfiguration" : "release",
   "columns" : 80,
   "environment" : {
-    "commit" : "75860e3c02a62c2e8f44fb0d65171c1f4f7b6cf3",
+    "commit" : "c528777f5f666abeb100d2227c0f294179b4747f",
     "contended" : true,
     "coreCount" : 10,
     "displayInterval" : "headless",
     "hardwareModel" : "MacBookPro18,4",
     "loadAverage" : {
-      "fifteenMinutes" : 343.630859375,
-      "fiveMinutes" : 326.2412109375,
-      "oneMinute" : 208.40673828125
+      "fifteenMinutes" : 35.3837890625,
+      "fiveMinutes" : 30.02880859375,
+      "oneMinute" : 15.24560546875
     },
     "lowPowerMode" : false,
     "operatingSystem" : "Version 27.2.1 (Build 26B131)",
     "powerSource" : "AC Power",
     "processor" : "Apple M1 Max",
     "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
-    "thermalState" : "nominal",
+    "thermalState" : "fair",
     "worktreeDirty" : false
   },
   "fixture" : "first-bytes.json",
   "fixtureSHA256" : "fcfa73400ae75e4e4f5115959b8d65b7f833347ebf7c890b70fc73f9d3d47dd3",
-  "recordedAt" : "2026-11-25T17:58:38Z",
+  "recordedAt" : "2026-11-25T21:29:38Z",
   "replay" : {
     "appliedBytes" : 150000,
     "burstDrain" : {
-      "p50Nanoseconds" : 1584,
-      "p95Nanoseconds" : 1708
+      "p50Nanoseconds" : 1708,
+      "p95Nanoseconds" : 1792
     },
     "fixturePeakBytesInOneSecond" : 75,
     "keyBytes" : 18000,
@@ -39,7 +39,7 @@
         "name" : "Shell prompt",
         "timing" : {
           "p50Nanoseconds" : 125,
-          "p95Nanoseconds" : 167
+          "p95Nanoseconds" : 125
         }
       },
       {
@@ -110,8 +110,8 @@
         "bytesPerCall" : 10,
         "name" : "Colored output",
         "timing" : {
-          "p50Nanoseconds" : 125,
-          "p95Nanoseconds" : 167
+          "p50Nanoseconds" : 167,
+          "p95Nanoseconds" : 209
         }
       },
       {
@@ -134,7 +134,7 @@
         "bytesPerCall" : 3,
         "name" : "Backspace and overwrite",
         "timing" : {
-          "p50Nanoseconds" : 83,
+          "p50Nanoseconds" : 84,
           "p95Nanoseconds" : 125
         }
       },
@@ -159,7 +159,7 @@
         "name" : "Finish string and query",
         "timing" : {
           "p50Nanoseconds" : 208,
-          "p95Nanoseconds" : 209
+          "p95Nanoseconds" : 250
         }
       },
       {
@@ -182,20 +182,22 @@
         "name" : "Read visible row",
         "timing" : {
           "p50Nanoseconds" : 125,
-          "p95Nanoseconds" : 166
+          "p95Nanoseconds" : 167
         }
       },
       {
         "bytesPerCall" : 4,
         "name" : "Complete cursor query",
         "timing" : {
-          "p50Nanoseconds" : 166,
+          "p50Nanoseconds" : 167,
           "p95Nanoseconds" : 167
         }
       }
     ],
     "queuedBytesAfterDrain" : 0,
-    "receiveMiBPerSecond" : 44.09557101562876,
+    "receiveMiBPerSecond" : 54.669481575026836,
+    "receiveReplaysPerSample" : 110,
+    "receiveSamples" : 25,
     "receivedBytes" : 150000,
     "replyBytes" : 36000,
     "warmupReplays" : 100

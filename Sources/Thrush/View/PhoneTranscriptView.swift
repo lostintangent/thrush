@@ -117,6 +117,8 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
             reducedTransparency = UIAccessibility.isReduceTransparencyEnabled
             styleLatest()
         }
+        let indicator: UIScrollView.IndicatorStyle = terminal.color(.background).isDark ? .white : .black
+        if scroll.indicatorStyle != indicator { scroll.indicatorStyle = indicator }
         selectionControls.update()
         layoutLatest()
         reading.invalidate()
@@ -141,7 +143,6 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         }
         latest.overrideUserInterfaceStyle = theme == .slateDark ? .dark : theme == .slateLight ? .light : .unspecified
         latest.configuration = config
-        scroll.indicatorStyle = theme.palette.background.red < 128 ? .white : .black
     }
 
     func layoutLatest() {
@@ -152,14 +153,36 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         let right = left.offsetBy(dx: bounds.width - 24 - width, dy: 0)
         let trailing = effectiveUserInterfaceLayoutDirection == .leftToRight ? right : left
         let leading = trailing == right ? left : right
-        let overlapsTrailing = protected.contains { $0.intersects(trailing) }
-        let overlapsLeading = protected.contains { $0.intersects(leading) }
-        let destination = overlapsTrailing && !overlapsLeading ? leading : trailing
-        latest.transform = CGAffineTransform(translationX: destination.minX - trailing.minX, y: 0)
+        guard protected.contains(where: { $0.intersects(trailing) }) else {
+            latest.transform = .identity
+            return
+        }
+        var candidates = [leading]
+        // A wrapped selection can put one handle in each bottom corner. First try
+        // the two edges just above them and then the gaps beside them in a short viewport.
+        for target in protected.sorted(by: { $0.minY > $1.minY }) {
+            let rise = target.minY - 4 - trailing.maxY
+            if rise < 0 {
+                candidates.append(trailing.offsetBy(dx: 0, dy: rise))
+                candidates.append(leading.offsetBy(dx: 0, dy: rise))
+            }
+        }
+        for target in protected {
+            candidates.append(trailing.offsetBy(dx: target.minX - 4 - trailing.maxX, dy: 0))
+            candidates.append(trailing.offsetBy(dx: target.maxX + 4 - trailing.minX, dy: 0))
+        }
+        let destination = candidates.first { frame in
+            frame.minX >= left.minX && frame.maxX <= right.maxX && frame.minY >= bounds.minY &&
+                !protected.contains { $0.intersects(frame) }
+        } ?? trailing
+        latest.transform = CGAffineTransform(translationX: destination.minX - trailing.minX,
+                                             y: destination.minY - trailing.minY)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard !syncing else { return }
+        // UIKit also adjusts contentOffset when the viewport or keyboard changes size.
+        // Only a person's pan or its deceleration changes the terminal's reading position.
+        guard !syncing, scrollView.isDragging || scrollView.isDecelerating else { return }
         let first = Int((scrollView.contentOffset.y / rowHeight).rounded())
         let offset = min(terminal.historyCount, max(0, terminal.historyCount - first))
         if terminal.historyOffset != offset {

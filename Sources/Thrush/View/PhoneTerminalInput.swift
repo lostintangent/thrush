@@ -10,6 +10,8 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private var cursorRect = CGRect.zero
     private var viewportWidth: CGFloat = 0
     private var theme: TerminalTheme?
+    private var ink: Terminal.RGB?
+    private var paper: Terminal.RGB?
     private lazy var accessory = TerminalKeyAccessory { [weak self] key in self?.sendKey(key) }
 
     init(terminalView: TerminalView) {
@@ -58,32 +60,36 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         }
     }
 
-    func synchronize(cursorRect: CGRect, pointSize: CGFloat, theme: TerminalTheme) {
+    /// Composition draws in the terminal's ink on its paper. The key row stays on the theme.
+    func synchronize(cursorRect: CGRect, pointSize: CGFloat, theme: TerminalTheme, ink: Terminal.RGB, paper: Terminal.RGB) {
         if accessory.isUserInteractionEnabled != acceptsInput {
             accessory.isUserInteractionEnabled = acceptsInput
             accessory.accessibilityElementsHidden = !acceptsInput
         }
         let width = terminalView?.bounds.width ?? 0
         let themeChanged = self.theme != theme
+        let inkChanged = self.ink != ink || self.paper != paper
         let fontChanged = font?.pointSize != pointSize
-        guard themeChanged || fontChanged || self.cursorRect != cursorRect || viewportWidth != width else { return }
+        guard themeChanged || inkChanged || fontChanged || self.cursorRect != cursorRect || viewportWidth != width else { return }
         self.cursorRect = cursorRect
         viewportWidth = width
         self.theme = theme
+        self.ink = ink
+        self.paper = paper
         if fontChanged { font = .monospacedSystemFont(ofSize: pointSize, weight: .regular) }
-        if themeChanged {
-            textColor = UIColor(terminalColor: theme.palette.foreground)
+        if inkChanged {
+            textColor = UIColor(terminalColor: ink)
             markedTextStyle = [
-                .foregroundColor: UIColor(terminalColor: theme.palette.foreground),
+                .foregroundColor: UIColor(terminalColor: ink),
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
             ]
-            accessory.apply(theme)
         }
+        if themeChanged { accessory.apply(theme) }
         layoutComposition()
     }
 
     private func layoutComposition() {
-        guard let font, let terminalView, let theme else { return }
+        guard let font, let terminalView, let ink, let paper else { return }
         let marked = markedTextRange != nil
         let measuredWidth = ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
         let width = min(terminalView.bounds.width, max(cursorRect.width, measuredWidth))
@@ -91,8 +97,8 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         let rect = CGRect(x: x, y: cursorRect.minY, width: width,
                           height: max(cursorRect.height, ceil(font.lineHeight)))
         if frame != rect { frame = rect }
-        backgroundColor = marked ? UIColor(terminalColor: theme.palette.background) : .clear
-        tintColor = marked ? UIColor(terminalColor: theme.palette.foreground) : .clear
+        backgroundColor = marked ? UIColor(terminalColor: paper) : .clear
+        tintColor = marked ? UIColor(terminalColor: ink) : .clear
     }
 
     /// UITextInput implementations can call one another. Observe the complete edit after returning
@@ -165,9 +171,17 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         accessory.clearModifier()
     }
 
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        terminalView?.inputFocusDidChange()
+        return true
+    }
+
     override func resignFirstResponder() -> Bool {
         cancelPendingInput()
-        return super.resignFirstResponder()
+        guard super.resignFirstResponder() else { return false }
+        terminalView?.inputFocusDidChange()
+        return true
     }
 
     override func paste(_ sender: Any?) {

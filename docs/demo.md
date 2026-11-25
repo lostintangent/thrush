@@ -33,9 +33,9 @@ The same `--endpoint` accepts the base URL of another server implementing the [t
 
 ## Scenes and appearance
 
-For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build log from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection and every text style, including blinking and concealed text. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the app’s custom palette.
+For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build log from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, and a program that sets its own colors. That program asks for the terminal’s background, then sets the opposite canvas. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the app’s custom palette.
 
-For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs|styles`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
+For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
 
 ```sh
 open -n .build/demo/mac/Thrush.app --args --scene editor --appearance light
@@ -60,6 +60,8 @@ Pass `-f scene=text-blink` to check blinking and concealed text in the styles sc
 
 Pass `-f scene=toolbar-proof -f appearance=dark` to capture Connecting and takeover in a real iPhone navigation stack with a title and Close button. Each frame has the measured window, navigation bar, pane, first cell and notice geometry.
 
+Pass `-f scene=program-colors` to capture the colors scene in both appearances, full screen and under the same navigation stack. Each frame must show the program's canvas around the first row and beyond the grid, and none of the theme's. Vision reads the first command and, under the navigation stack, the title and Close. The status bar clock and the title must each reach 4.5:1 against the canvas. On a disposable Mac runner, `gh workflow run window-lifecycle.yml --ref main -f program_colors=true` makes the same checks under the demo's title bar and a full-size window toolbar. The window title must reach 4.5:1, and the theme's canvas must stay beneath the toolbar.
+
 Pass `-f scene=notice-reconnect-motion` to record typing on the English software keyboard through an interrupted socket and a resumed replay. The UI test taps `git` on the live shell, taps ` status` during the outage, and waits for the complete remote echo. The movie and `reconnect-view.json` show the live, reconnecting and resumed keyboard geometry. The peer records the exact bytes received before and after replay in `reconnect-wire.json`.
 
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and accessory measurements for the PTY recorder.
@@ -68,7 +70,7 @@ When preparing a recorded workflow for the phone, add `-f layout_only=true` to t
 
 Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow vim` or `--workflow codex`. The peer waits for the recorded user input before sending the following PTY bytes. Vim also waits for the recorded resizes, detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it.
 
-Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native app at a different grid or palette, append `--view` to the peer command. That mode accepts the app’s actual cursor position and color query replies. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
+Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native app at a different grid or palette, append `--view` to the peer command. That mode accepts the app’s actual cursor position and color query replies, and ignores its focus reports. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
 
 On macOS 27 with Xcode 27, this check opens the packaged Mac terminal. VoiceOver navigates the build log line by line and reads `Build complete.` while the displayed text stays unchanged. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
 
@@ -102,12 +104,14 @@ Run the UIKit, Metal and recorded workflow tests on a designated iOS 27 simulato
 scripts/check-ios-ui.sh "$udid"
 ```
 
-The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`.
+The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone 17 simulator for every push and pull request.
 
 The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, four short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on an available Xcode host, pass a new or empty output directory.
 
 ```sh
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions
 ```
+
+For a keyboard-open rotation check in both appearances, add `--rotation-only` or dispatch the workflow with `-f rotation_only=true`. The check compares the complete shell resize sequence with the two settled grids and keeps the native recordings, screenshots and peer trace. Add `--trace-rotation-layout` (`-f trace_rotation_layout=true`) to record UIKit's layouts, keyboard frames and the row a reader follows in every displayed frame. The run then fails if that row changes, leaves the viewport or jumps against it in any frame of the turn. A jump moves the row further than either viewport edge carried it and more than half a row against both. Frames before the window's turn begins in its layer's time are skipped, since UIKit can hold the turn until the keyboard lays out. One frame per turn whose row doesn't span its viewport is skipped too, since every commit lays out the whole tree and it was read between layout passes. A second such frame fails the turn, and so does a skipped frame where the turn settles. Both turns must be sampled while they turn, since a stalled main thread can miss one entirely. The row is held above the accessory once the system's accessory animations finish.
 
 Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The test asks VoiceOver to read a control in Settings, then a known terminal line and the pane actions. It saves the spoken responses in `voiceover.log` and the app’s focus and announcement events in JSON. On the hosted iOS 27.2 simulator, Settings and Thrush both returned `No speech available`. Use the physical iPhone TestFlight pass to hear the line, confirm the reading position survives a reconnect and count the reconnect announcements. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45577502508)

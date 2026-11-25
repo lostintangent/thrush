@@ -173,7 +173,7 @@
 {"name":"key backspace","offsetMicroseconds":27000,"action":{"kind":"key","value":"backspace"},"input":"fw=="},
 {"name":"key enter","offsetMicroseconds":28000,"action":{"kind":"key","value":"enter"},"input":"DQ=="},
 {"name":"paste a\nb","offsetMicroseconds":29000,"action":{"kind":"paste","value":"a\nb"},"input":"YQ1i"},
-{"name":"Editor input modes","offsetMicroseconds":30000,"bytes":"G1s/MWgbWz8yMDA0aBtbPzEwMDRoG1s/MjVsG1s/MTJo","checkpoint":{"columns":12,"rows":4,"cursorRow":3,"cursorColumn":7,"cursorShape":"block","cursorBlink":true,"isAlternate":false,"modes":{"applicationCursorKeys":true,"bracketedPaste":true,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":false,"cursorBlink":true,"sendFocus":true},"history":[0,11,3],"visible":[4,5,6,16]}},
+{"name":"Editor input modes","offsetMicroseconds":30000,"bytes":"G1s/MWgbWz8yMDA0aBtbPzEwMDRoG1s/MjVsG1s/MTJo","checkpoint":{"columns":12,"rows":4,"cursorRow":3,"cursorColumn":7,"cursorShape":"block","cursorBlink":true,"isAlternate":false,"modes":{"applicationCursorKeys":true,"bracketedPaste":true,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":false,"cursorBlink":true,"sendFocus":true},"history":[0,11,3],"visible":[4,5,6,16]},"reply":"G1tP"},
 {"name":"key up","offsetMicroseconds":31000,"action":{"kind":"key","value":"up"},"input":"G09B"},
 {"name":"key left","offsetMicroseconds":32000,"action":{"kind":"key","value":"left"},"input":"G09E"},
 {"name":"key right","offsetMicroseconds":33000,"action":{"kind":"key","value":"right"},"input":"G09D"},

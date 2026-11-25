@@ -257,6 +257,17 @@ private typealias NoticeHost = UIView & UIContentView
     #endif
     var onAction: (() -> Void)?
     var onNoticeReadChange: ((Bool) -> Void)?
+    /// The scheme of the background the pane draws.
+    private(set) var canvasScheme: ColorScheme?
+    #if os(iOS)
+    /// The scheme that keeps a navigation bar over the pane readable, or nil when none overlaps it.
+    private(set) var barScheme: ColorScheme?
+    #else
+    /// A Mac toolbar's title follows the window's appearance, so an opposite canvas stops beneath it.
+    private let toolbarCover = PaneNativeView()
+    var toolbarCoverColor: CGColor? { toolbarCover.isHidden ? nil : toolbarCover.layer?.backgroundColor }
+    #endif
+    var onCanvasChange: (() -> Void)?
 
     private let viewport = PaneNativeView()
     private let rowCover = PaneNativeView()
@@ -268,6 +279,12 @@ private typealias NoticeHost = UIView & UIContentView
     var mountedNoticeBacking: PaneNativeView? { backing.isHidden ? nil : backing }
     private var lastTheme: TerminalTheme?
     private var gridTop: NSLayoutConstraint!
+    private var gridHeight: NSLayoutConstraint!
+    #if os(iOS)
+    private var rotationConstraints: [NSLayoutConstraint] = []
+    private var heldCursor: (top: NSLayoutConstraint, origin: CGFloat, row: Int, rows: Int, history: Int)?
+    var viewportSize: CGSize { viewport.bounds.size }
+    #endif
     private var coveredHeight: NSLayoutConstraint!
     private var hiddenBackingTop: NSLayoutConstraint!
     private var dividerHeight: NSLayoutConstraint!
@@ -287,6 +304,8 @@ private typealias NoticeHost = UIView & UIContentView
         viewport.wantsLayer = true
         viewport.layer?.masksToBounds = true
         rowCover.wantsLayer = true
+        toolbarCover.wantsLayer = true
+        toolbarCover.isHidden = true
         backing.wantsLayer = true
         divider.wantsLayer = true
         let guide = safeAreaLayoutGuide
@@ -312,7 +331,18 @@ private typealias NoticeHost = UIView & UIContentView
         viewport.addSubview(terminal)
         for view in [viewport, rowCover, backing, divider, terminal] { view.translatesAutoresizingMaskIntoConstraints = false }
         backing.isHidden = true
+        #if os(macOS)
+        addSubview(toolbarCover)
+        toolbarCover.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            toolbarCover.topAnchor.constraint(equalTo: topAnchor),
+            toolbarCover.leadingAnchor.constraint(equalTo: leadingAnchor),
+            toolbarCover.trailingAnchor.constraint(equalTo: trailingAnchor),
+            toolbarCover.bottomAnchor.constraint(equalTo: guide.topAnchor),
+        ])
+        #endif
         gridTop = terminal.topAnchor.constraint(equalTo: guide.topAnchor)
+        gridHeight = terminal.heightAnchor.constraint(equalTo: guide.heightAnchor)
         coveredHeight = rowCover.heightAnchor.constraint(equalToConstant: 0)
         dividerHeight = divider.heightAnchor.constraint(equalToConstant: 1)
         hiddenBackingTop = backing.topAnchor.constraint(equalTo: lowerEdge)
@@ -327,7 +357,7 @@ private typealias NoticeHost = UIView & UIContentView
             coveredHeight,
             terminal.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
             terminal.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
-            terminal.heightAnchor.constraint(equalTo: guide.heightAnchor),
+            gridHeight,
             gridTop,
             backing.leadingAnchor.constraint(equalTo: leadingAnchor),
             backing.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -339,6 +369,7 @@ private typealias NoticeHost = UIView & UIContentView
             dividerHeight,
         ])
         terminal.onViewportInteractionChange = { [weak self] in self?.keepReadingPositionVisible() }
+        terminal.onBackgroundChange = { [weak self] in self?.updateBacking() }
 
         let center = NotificationCenter.default
         #if os(macOS)
@@ -346,7 +377,7 @@ private typealias NoticeHost = UIView & UIContentView
                              NSApplication.didHideNotification, NSApplication.didUnhideNotification,
                              NSWindow.didChangeOcclusionStateNotification, NSWindow.didMiniaturizeNotification,
                              NSWindow.didDeminiaturizeNotification, NSWindow.willCloseNotification,
-                             NSWindow.didBecomeKeyNotification]
+                             NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification]
         #else
         let notifications = [UIScene.didActivateNotification, UIScene.willDeactivateNotification,
                              UIScene.willEnterForegroundNotification, UIScene.didEnterBackgroundNotification,
@@ -359,7 +390,7 @@ private typealias NoticeHost = UIView & UIContentView
         for name in notifications {
             center.addObserver(self, selector: #selector(lifecycleChanged(_:)), name: name, object: nil)
         }
-        updateBacking(terminal.resolvedTheme)
+        updateBacking()
     }
 
     required init?(coder: NSCoder) { nil }
@@ -391,6 +422,17 @@ private typealias NoticeHost = UIView & UIContentView
         #endif
     }
 
+    /// Whether keystrokes reach the terminal: its input is first responder in the key window of the
+    /// active app on Mac, or in the active foreground scene on iPhone.
+    var hasKeyboardFocus: Bool {
+        guard isShellPresented, terminal.hasInputFocus, let window else { return false }
+        #if os(macOS)
+        return NSApp.isActive && window.isKeyWindow
+        #else
+        return (sceneState ?? window.windowScene?.activationState) == .foregroundActive
+        #endif
+    }
+
     #if os(macOS)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -399,7 +441,8 @@ private typealias NoticeHost = UIView & UIContentView
     }
     override func viewDidHide() { super.viewDidHide(); onVisibility?() }
     override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?() }
-    override func layout() { super.layout(); keepReadingPositionVisible() }
+    override func layout() { super.layout(); keepReadingPositionVisible(); updateSchemes() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateSchemes() }
     #else
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -430,7 +473,87 @@ private typealias NoticeHost = UIView & UIContentView
         onVisibility?()
     }
 
-    override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible() }
+    // Keep the source drawable at its native height while the keyboard clips its viewport.
+    // A reader in history keeps the top row. At the live edge the cursor waits on the row the
+    // resized grid will give it, so the first resized frame draws the prompt where it already is.
+    func beginRotation(sourceHeight: CGFloat? = nil) {
+        guard rotationConstraints.isEmpty else { return }
+        terminal.holdsGridGeometry = true
+        let top = terminal.topAnchor.constraint(equalTo: viewport.topAnchor, constant: gridTop.constant)
+        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), top]
+        if terminal.historyOffset == 0, let snapshot = terminal.snapshot {
+            heldCursor = (top, gridTop.constant, snapshot.cursorRow, snapshot.size.rows, terminal.historyCount)
+        }
+        NSLayoutConstraint.deactivate([gridTop, gridHeight])
+        NSLayoutConstraint.activate(rotationConstraints)
+    }
+
+    func endRotation() {
+        guard !rotationConstraints.isEmpty else { return }
+        NSLayoutConstraint.deactivate(rotationConstraints)
+        rotationConstraints.removeAll()
+        heldCursor = nil
+        NSLayoutConstraint.activate([gridTop, gridHeight])
+        layoutIfNeeded()
+        terminal.holdsGridGeometry = false
+    }
+
+    override func layoutSubviews() {
+        let turning = turnMovesViewport ? (frame: viewport.frame, presented: viewport.layer.presentation()) : nil
+        super.layoutSubviews()
+        if let turning, let presented = turning.presented, viewport.frame != turning.frame,
+           UIView.inheritedAnimationDuration == 0 {
+            easeViewportIntoTurn(from: turning.frame, presented: presented)
+        }
+        alignHeldCursor()
+        keepReadingPositionVisible()
+        updateSchemes()
+    }
+
+    private var turnMovesViewport: Bool {
+        !rotationConstraints.isEmpty || viewport.layer.animation(forKey: "turn bounds.size.height") != nil
+    }
+
+    // UIKit turns the pane with additive animations, so a keyboard guide that moves the viewport
+    // mid-turn without one shifts it by the whole change at once. A shorter viewport can then
+    // present shorter than any frame it had and clip the terminal away. Instead, the change eases
+    // in on the turn's own curve: an offset that starts at the full change and shrinks with the
+    // part of the turn still ahead, so the viewport reaches its new frame as the turn ends.
+    // The keyboard can animate the viewport's height alongside the turn, but only the turn
+    // changes its width.
+    private func easeViewportIntoTurn(from previous: CGRect, presented: CALayer) {
+        let layer = viewport.layer
+        func turned(_ animation: CABasicAnimation) -> CGFloat {
+            guard animation.keyPath == "bounds.size", animation.isAdditive else { return 0 }
+            return (animation.fromValue as? NSValue)?.cgSizeValue.width ?? 0
+        }
+        guard let turn = (layer.animationKeys() ?? []).compactMap({ layer.animation(forKey: $0) as? CABasicAnimation })
+                .last(where: { turned($0) != 0 }) else { return }
+        let ahead = (presented.bounds.width - layer.bounds.width) / turned(turn)
+        guard ahead > 0.05 else { return }
+        for (key, shift) in [("bounds.size.height", previous.height - layer.bounds.height),
+                             ("position.y", previous.midY - layer.position.y)] {
+            let easing = layer.animation(forKey: "turn " + key) as? CABasicAnimation
+            let ease = turn.copy() as! CABasicAnimation
+            ease.delegate = nil
+            ease.keyPath = key
+            ease.fromValue = (easing?.fromValue as? CGFloat ?? 0) + shift / ahead
+            ease.toValue = 0
+            layer.add(ease, forKey: "turn " + key)
+        }
+    }
+
+    // Follows the emulator's resize: a shorter grid scrolls the cursor into view, and a taller
+    // one pulls history back above a cursor on the bottom row.
+    private func alignHeldCursor() {
+        guard let held = heldCursor, let metrics = terminal.metrics else { return }
+        let rows = metrics.size(in: viewport.bounds.size).rows
+        let row = if rows < held.rows { min(held.row, rows - 1) }
+            else if held.row == held.rows - 1 { held.row + min(held.history, rows - held.rows) }
+            else { held.row }
+        let constant = held.origin + CGFloat((row - held.row) * metrics.rowHeightPixels) / metrics.scale
+        if held.top.constant != constant { held.top.constant = constant }
+    }
 
     // During willDeactivate / willEnterForeground the scene can still report the old state.
     func sceneLifecycleChanged(_ name: Notification.Name) {
@@ -459,18 +582,40 @@ private typealias NoticeHost = UIView & UIContentView
         #endif
     }
 
-    private func updateBacking(_ theme: TerminalTheme) {
+    /// The pane's frame follows the background the terminal draws. The status strip stays on the theme.
+    private func updateBacking() {
+        let theme = terminal.resolvedTheme
+        let background = terminal.color(.background).paneCGColor
         #if os(macOS)
-        rowCover.layer?.backgroundColor = theme.palette.background.paneCGColor
-        layer?.backgroundColor = theme.palette.background.paneCGColor
+        toolbarCover.layer?.backgroundColor = theme.palette.background.paneCGColor
+        rowCover.layer?.backgroundColor = background
+        layer?.backgroundColor = background
         backing.layer?.backgroundColor = theme.hostBacking.paneCGColor
         divider.layer?.backgroundColor = theme.separator.paneCGColor
         #else
-        rowCover.backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
-        backgroundColor = UIColor(cgColor: theme.palette.background.paneCGColor)
+        rowCover.backgroundColor = UIColor(cgColor: background)
+        backgroundColor = UIColor(cgColor: background)
         backing.backgroundColor = UIColor(cgColor: theme.hostBacking.paneCGColor)
         divider.backgroundColor = UIColor(cgColor: theme.separator.paneCGColor)
         #endif
+        updateSchemes()
+    }
+
+    private func updateSchemes() {
+        let background = terminal.color(.background)
+        let canvas: ColorScheme = background.isDark ? .dark : .light
+        #if os(macOS)
+        let window = (self.window?.effectiveAppearance ?? effectiveAppearance).bestMatch(from: [.aqua, .darkAqua])
+        toolbarCover.isHidden = safeAreaInsets.top == 0 || background.isDark == (window == .darkAqua)
+            || background == terminal.resolvedTheme.palette.background
+        guard canvas != canvasScheme else { return }
+        canvasScheme = canvas
+        #else
+        let bar = safeAreaInsets.top > 0 ? canvas : nil
+        guard canvas != canvasScheme || bar != barScheme else { return }
+        (canvasScheme, barScheme) = (canvas, bar)
+        #endif
+        onCanvasChange?()
     }
 
     func show(_ next: PaneNotice?) {
@@ -484,7 +629,7 @@ private typealias NoticeHost = UIView & UIContentView
             accessibilityFocus = false
             speaking = nil
         }
-        updateBacking(theme)
+        updateBacking()
         refreshMessage()
         if changed, let next { announce(next) }
         updateReading()

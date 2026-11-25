@@ -1,4 +1,5 @@
 import MetalKit
+import SwiftUI
 import Testing
 import ThrushCore
 @testable import Thrush
@@ -19,6 +20,7 @@ private enum Probe {
 }
 
 private struct Pixels {
+    let width: Int
     let bytes: [UInt8]
     let rowsPrepared: Int
     let uploads: Int
@@ -26,7 +28,7 @@ private struct Pixels {
 
     subscript(x: Int, y: Int) -> UInt32 {
         // The drawable's .bgra8Unorm layout.
-        let i = (y * Probe.canvasWidth + x) * 4
+        let i = (y * width + x) * 4
         return UInt32(bytes[i + 2]) << 16 | UInt32(bytes[i + 1]) << 8 | UInt32(bytes[i])
     }
 
@@ -51,10 +53,9 @@ private struct OffscreenTerminal {
         view = TerminalView(frame: .zero, device: device)
     }
 
-    func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme,
+    func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme, width: Int = Probe.canvasWidth,
               selection: TerminalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
         view.theme = theme
-        let width = Probe.canvasWidth
         let height = Probe.canvasHeight
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width,
                                                                  height: height, mipmapped: false)
@@ -68,8 +69,7 @@ private struct OffscreenTerminal {
         attachment.storeAction = .store
         attachment.clearColor = view.clearColor
         let frame = try renderer.encode(snapshot: snapshot, metrics: .init(scale: 2), theme: view.resolvedTheme,
-                                        pass: pass, viewport: CGSize(width: width, height: height), selection: selection,
-                                        blinkOpacity: blinkOpacity)
+                                        pass: pass, selection: selection, blinkOpacity: blinkOpacity)
 
         let size = width * height * 4
         let memory = try #require(device.makeBuffer(length: size, options: .storageModeShared))
@@ -82,7 +82,7 @@ private struct OffscreenTerminal {
         frame.buffer.commit()
         frame.buffer.waitUntilCompleted()
         try #require(frame.buffer.status == .completed)
-        return Pixels(bytes: Array(UnsafeBufferPointer(start: memory.contents().assumingMemoryBound(to: UInt8.self),
+        return Pixels(width: width, bytes: Array(UnsafeBufferPointer(start: memory.contents().assumingMemoryBound(to: UInt8.self),
                                                       count: size)), rowsPrepared: frame.rowsPrepared, uploads: frame.glyphUploads,
                       blinks: frame.blinks)
     }
@@ -93,6 +93,20 @@ private func pack(_ color: Terminal.RGB) -> UInt32 {
 }
 
 private let escape = "\u{1b}["
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func wideningADrawableRevealsTheRestOfACachedRow() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    _ = terminal.receive((escape + "?25lABCDEFGZ").utf8)
+    let snapshot = terminal.snapshot()
+    let narrow = try host.draw(snapshot, theme: .slateDark, width: 128)
+    #expect(narrow.colors(in: 0..<1).contains(0xe3eaf0))
+    let wide = try host.draw(snapshot, theme: .slateDark)
+    #expect(wide.colors(in: 7..<8).contains(0xe3eaf0))
+    #expect(try host.draw(snapshot, theme: .slateDark).rowsPrepared == 0)
+}
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
@@ -174,6 +188,99 @@ func livePaletteChangesRecolorCachedRows() async throws {
             #expect(shot[x, y] == pack(theme.palette.ansi[index]))
         }
     }
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async throws {
+    let host = try await OffscreenTerminal()
+    let pane = TerminalPaneContainer(terminal: host.view)
+    // A mounted view displays each snapshot as it arrives. On the Mac, a dark title bar overlaps the pane.
+    #if os(macOS)
+    _ = NSApplication.shared
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 402, height: 550), styleMask: [.titled, .fullSizeContentView],
+                          backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.contentView = pane
+    pane.layoutSubtreeIfNeeded()
+    #else
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
+    window.addSubview(pane)
+    #endif
+    defer { withExtendedLifetime(window) {} }
+    func paneBackground() -> CGColor? {
+        #if os(macOS)
+        pane.layer?.backgroundColor
+        #else
+        pane.backgroundColor?.cgColor
+        #endif
+    }
+    func color(_ hex: UInt32) -> CGColor {
+        CGColor(srgbRed: CGFloat(hex >> 16) / 255, green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
+    }
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    _ = terminal.receive((escape + "?25lH" + escape + "41m " + escape + "48;5;196m " + escape + "0m").utf8)
+    let theme = TerminalTheme.slateDark
+    _ = try host.draw(terminal.snapshot(), theme: theme)
+    #if os(macOS)
+    #expect(pane.toolbarCoverColor == nil)
+    #endif
+
+    let osc = "\u{1b}]"
+    _ = terminal.receive((osc + "11;#faf0e6\u{7}" + osc + "10;rgb:20/20/20\u{7}" + osc + "4;1;#336699\u{7}").utf8)
+    let program = terminal.snapshot()
+    host.view.display(program)
+    let shot = try host.draw(program, theme: theme)
+    // Rows keep color tokens, so the program's colors reach every cell without rebuilding one.
+    #expect(shot.rowsPrepared == 0 && shot.uploads == 0)
+    #expect(shot[0, 0] == 0xfaf0e6)
+    #expect(shot.colors(in: 0..<1).contains(0x202020))
+    #expect(shot[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
+    #expect(shot[Probe.edges[2] + 1, Probe.top + 1] == 0xff0000)
+    #expect(paneBackground() == color(0xfaf0e6))
+    #expect(pane.canvasScheme == .light)
+    #if os(macOS)
+    // The title bar's dark title needs the theme's canvas beneath it.
+    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
+    #endif
+
+    let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 0)
+    let selected = try host.draw(program, theme: theme, selection: selection)
+    #expect(selected[Probe.edges[0], Probe.top + 1] == pack(theme.selection))
+    #expect(selected.colors(in: 0..<1).contains(pack(theme.selectionInk)))
+
+    _ = terminal.receive((osc + "111\u{7}").utf8)
+    let restored = terminal.snapshot()
+    host.view.display(restored)
+    let reset = try host.draw(restored, theme: theme)
+    #expect(reset[0, 0] == pack(theme.palette.background))
+    #expect(reset[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
+    #expect(paneBackground() == color(pack(theme.palette.background)))
+    #expect(pane.canvasScheme == .dark)
+    #if os(macOS)
+    #expect(pane.toolbarCoverColor == nil)
+    // A title bar that doesn't overlap the pane needs no cover.
+    _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
+    host.view.display(terminal.snapshot())
+    #expect(pane.toolbarCoverColor != nil)
+    window.styleMask.remove(.fullSizeContentView)
+    pane.layoutSubtreeIfNeeded()
+    #expect(pane.toolbarCoverColor == nil)
+    #endif
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func aBlockKeepsItsGlyphReadableUnderAProgramCursor() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 2))
+    // Slate Light's white glyph ink suits its ochre cursor, not a pale one a program sets.
+    _ = terminal.receive(("H" + escape + "1;1H" + "\u{1b}]12;#f0f0f0\u{7}").utf8)
+    let theme = TerminalTheme.slateLight
+    let block = try host.draw(terminal.snapshot(), theme: theme)
+    #expect(block[Probe.edges[0], Probe.top] == 0xf0f0f0)
+    #expect(block.colors(in: 0..<1).contains(pack(theme.palette.foreground)))
+    #expect(!block.colors(in: 0..<1).contains(pack(theme.cursorInk)))
 }
 
 @MainActor

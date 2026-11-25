@@ -101,7 +101,7 @@ test("immediate same-ID reconnect at the detach boundary ignores the displaced s
     }
 }, 10_000);
 
-test("view mode rejects a fragmented out-of-grid CPR", async () => {
+test("view mode drops the pane's focus reports and rejects a fragmented out-of-grid CPR", async () => {
     const fixture = await Bun.file(new URL("../Fixtures/replays/vim-resume.json", import.meta.url)).json();
     const { server, completed } = await serveWorkflow("vim", { port: 0, view: true });
     const { socket, next } = client(server.url, 81, 25);
@@ -110,7 +110,11 @@ test("view mode rejects a fragmented out-of-grid CPR", async () => {
         for (const event of fixture.events) {
             if (event.input) socket.send(Buffer.from(event.input, "base64"));
             if (event.bytes) await next();
-            if (event.reply) {
+            if (event.reply === Buffer.from("\x1b[O").toString("base64")) {
+                // A focused pane answers Vim's request, then loses focus before the next key.
+                socket.send(Buffer.from("\x1b[I"));
+                socket.send(Buffer.from("\x1b[O"));
+            } else if (event.reply) {
                 socket.send(Buffer.from("\x1b["));
                 socket.send(Buffer.from("26;1R"));
                 break;

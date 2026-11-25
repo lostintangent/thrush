@@ -1,5 +1,6 @@
 """Record a focused shell clearing a full transcript in the packaged Mac or iPhone app."""
 import argparse
+import base64
 import contextlib
 import json
 import os
@@ -44,6 +45,29 @@ def record_mac(out, pid, window_id, binary):
             stop.touch()
             if recording.wait(25) != 0 or not movie.is_file():
                 raise RuntimeError("The Mac window movie could not be finalized")
+
+
+def inspect_return(frames, wire, fixture):
+    # The command moves to the penultimate row on CRLF. Starting any later would
+    # hide a frame which presented just the editor's first Return message.
+    typed = next((i for i, f in enumerate(frames) if f["history"] > 20 and
+                  f["text"][-2:] == ["128", "~ # clear"]), None)
+    if typed is None:
+        raise RuntimeError("The complete typed clear was never submitted on the bottom row")
+    before = frames[typed]
+    returned = [m for m in wire if m["section"] == "returned"][:3]
+    reads = fixture["returned"][:3]
+    if len(returned) != 3 or [bytes.fromhex(m["hex"]) for m in returned] != [base64.b64decode(r["base64"]) for r in reads]:
+        raise RuntimeError("Missing distinct Return messages for the bare prompt, command text and CRLF")
+    prefixes = [{"frame": n, "generation": f["generation"], "bottom": f["text"][-1]}
+                for n, f in enumerate(frames[typed + 1:], typed + 1)
+                if f["history"] == before["history"] and f["generation"] > before["generation"]
+                and f["text"][:-1] == before["text"][:-1]]
+    return typed, {
+        "sourceOffsetsUs": [round(1000 * (r["elapsedMs"] - reads[0]["elapsedMs"])) for r in reads],
+        "peerSendOffsetsUs": [round(1000 * (m["timeMs"] - returned[0]["timeMs"])) for m in returned],
+        "partialSubmissions": prefixes,
+    }
 
 
 def one(platform, mode, out, device, docs, bundle, binary):
@@ -105,9 +129,10 @@ def one(platform, mode, out, device, docs, bundle, binary):
             shutil.copytree(driver, out, dirs_exist_ok=True)
             shutil.rmtree(driver)
     frames = json.loads((out / "frames.json").read_text())
-    live = [f for f in frames if f["history"] > 20 and any("clear" in line for line in f["text"])]
+    typed, burst = inspect_return(frames, json.loads((out / "wire.json").read_text()),
+                                  json.loads((here / "clear-oshen.json").read_text()))
     final = frames[-1]
-    if not live or final["history"] != 0 or final["offset"] or final["text"][0].strip() != "~ #" or any(s.strip() for s in final["text"][1:]):
+    if final["history"] != 0 or final["offset"] or final["text"][0].strip() != "~ #" or any(s.strip() for s in final["text"][1:]):
         raise RuntimeError("Did not observe the typed clear and the final row-zero prompt")
     if device and not (final["keyboardHeight"] > 90 and "scrollHeight" in final):
         raise RuntimeError("Keyboard or transcript geometry missing")
@@ -117,9 +142,9 @@ def one(platform, mode, out, device, docs, bundle, binary):
         scale = round(captured["width"] / width)
         if scale < 1 or abs(captured["width"] - scale * width) > 2 or abs(captured["height"] - scale * height) > 2:
             raise RuntimeError(f"Captured {captured['width']}×{captured['height']} pixels for a {width}×{height} point window")
-    before = live[-1]
-    stable = frames[frames.index(before):]
-    summary = {"frames": len(frames), "historyBefore": before["history"], "historyAfter": final["history"],
+    before = frames[typed]
+    stable = frames[typed:]
+    summary = {"frames": len(frames), "returnBurst": burst, "historyBefore": before["history"], "historyAfter": final["history"],
                "gridBefore": before["grid"], "gridAfter": final["grid"],
                "keyboardBefore": before.get("keyboardHeight"), "keyboardAfter": final.get("keyboardHeight"),
                "scrollBefore": before.get("scrollHeight"), "scrollAfter": final.get("scrollHeight"),
@@ -128,6 +153,8 @@ def one(platform, mode, out, device, docs, bundle, binary):
                "grids": len(set(tuple(f["grid"]) for f in stable))}
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(platform, mode, summary, flush=True)
+    if burst["partialSubmissions"]:
+        raise RuntimeError("A frame presented a partial Return burst before the command and CRLF were complete")
     if summary["offsets"] != [0] or summary["grids"] != 1:
         raise RuntimeError("The visible grid moved while the shell cleared its history")
     if device:

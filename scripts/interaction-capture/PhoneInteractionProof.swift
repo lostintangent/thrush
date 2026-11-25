@@ -20,19 +20,15 @@ final class PhoneInteractionProof: XCTestCase {
             XCUIDevice.shared.appearance = previousAppearance
         }
         try launch(scene: "shell")
-        let controls = app.buttons["Control"]
         let built = app.staticTexts["Build complete."]
         XCTAssertTrue(built.waitForExistence(timeout: 12), app.debugDescription)
         try assertKeyboard()
         try screenshot("shell-\(appearance)-portrait")
 
-        let start = Date.now.timeIntervalSince1970
-        controls.tap()
-        XCTAssertTrue(controls.isSelected || controls.value as? String == "Armed")
-        try screenshot("control-\(appearance)-armed")
-        controls.tap()
-        XCTAssertFalse(controls.isSelected)
-        try finishClip("control-\(appearance)", since: start)
+        let rotationOnly = ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ROTATION_ONLY"] == "1"
+        if !rotationOnly {
+            try captureControl(appearance: appearance)
+        }
 
         let rotate = Date.now.timeIntervalSince1970
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -44,7 +40,27 @@ final class PhoneInteractionProof: XCTestCase {
         try waitForOrientation(landscape: false)
         try assertKeyboard()
         try finishClip("rotate-\(appearance)", since: rotate)
+        // Keep the settled portrait on screen through the movie's post-gesture padding.
+        Thread.sleep(forTimeInterval: 0.75)
 
+        if !rotationOnly {
+            try captureTranscript(appearance: appearance)
+        }
+        XCTAssertTrue(retainedBuild, "Rotation should keep the build completion line visible above the prompt.")
+    }
+
+    private func captureControl(appearance: String) throws {
+        let controls = app.buttons["Control"]
+        let start = Date.now.timeIntervalSince1970
+        controls.tap()
+        XCTAssertTrue(controls.isSelected || controls.value as? String == "Armed")
+        try screenshot("control-\(appearance)-armed")
+        controls.tap()
+        XCTAssertFalse(controls.isSelected)
+        try finishClip("control-\(appearance)", since: start)
+    }
+
+    private func captureTranscript(appearance: String) throws {
         try launch(scene: "log")
         let wrappedText = "1024  compile units/café/界/e\u{301}/long-dependency/with/nested-source-folders/unit-1024.h"
         let wrapped = app.staticTexts[wrappedText]
@@ -88,12 +104,14 @@ final class PhoneInteractionProof: XCTestCase {
         let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '1030  compile'")).firstMatch
         XCTAssertTrue(live.exists)
         try finishClip("history-\(appearance)", since: history)
-        XCTAssertTrue(retainedBuild, "Rotation should keep the build completion line visible above the prompt.")
     }
 
     private func launch(scene: String) throws {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
         app.launchArguments = ["--endpoint", address, "--scene", scene, "--keyboard", "--capture-state"]
+        if scene == "shell", ProcessInfo.processInfo.environment["THRUSH_TRACE_ROTATION_LAYOUT"] == "1" {
+            app.launchArguments.append("--trace-rotation-layout")
+        }
         app.launch()
     }
 

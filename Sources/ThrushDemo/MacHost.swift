@@ -24,9 +24,10 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let cycle = session.options.cyclesAppearance
         setAppearance(cycle || session.options.customTheme ? .dark : session.options.appearance)
+        var style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        if session.options.checksToolbar { style.insert(.fullSizeContentView) }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 454),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                          backing: .buffered, defer: false)
+                          styleMask: style, backing: .buffered, defer: false)
         window.title = "Thrush"
         window.delegate = self
         window.isReleasedWhenClosed = false
@@ -36,6 +37,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         window.titlebarAppearsTransparent = true
         let host = NSHostingView(rootView: DemoSurface(session: session))
         host.sizingOptions = []
+        if session.options.checksToolbar { host.sceneBridgingOptions = [.title, .toolbars] }
         window.contentView = host
         window.setFrame(NSRect(x: 0, y: 0, width: 720, height: 486), display: false)
         window.center()
@@ -100,7 +102,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         let titles: [(DemoOptions.Scene, String)] = [
             (.shell, "Build"), (.editor, "Swift in Vim"), (.log, "Recorded Compiler Log"),
             (.vim, "Recorded Vim Edit"), (.prompt, "Shell Prompt"), (.glyphs, "Wide Glyphs"),
-            (.styles, "Text Styles"),
+            (.styles, "Text Styles"), (.colors, "Program Colors"),
         ]
         for (index, pair) in titles.enumerated() {
             let item = replay.addItem(withTitle: pair.1, action: #selector(selectScene(_:)), keyEquivalent: String(index + 1))

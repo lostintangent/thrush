@@ -13,14 +13,16 @@ import UIKit
     let input = view.phoneInput
     var sent: [[UInt8]] = []
     view.onInput = { sent.append(terminal.encode($0)) }
-    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateDark)
+    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateDark,
+                      ink: TerminalTheme.slateDark.palette.foreground, paper: TerminalTheme.slateDark.palette.background)
 
     input.setMarkedText("つ", selectedRange: NSRange(location: 1, length: 0))
     input.setMarkedText("つばさ", selectedRange: NSRange(location: 3, length: 0))
     #expect(input.markedTextRange != nil)
     #expect(input.frame.minX == 92 && input.frame.minY == 44)
     #expect(sent.isEmpty)
-    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateLight)
+    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateLight,
+                      ink: TerminalTheme.slateLight.palette.foreground, paper: TerminalTheme.slateLight.palette.background)
     #expect(input.markedTextRange != nil && input.text == "つばさ")
     input.insertText("翼")
     input.unmarkText()
@@ -104,6 +106,41 @@ import UIKit
     let deadline = ContinuousClock.now + .seconds(3)
     while sent.isEmpty && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
     #expect(sent == [Array("\u{1B}[200~a\rb\u{1B}[201~".utf8)])
+}
+
+@MainActor
+@Test func phoneAccessoryUsesOnlyTheKeyboardHostResizeAnimation() throws {
+    let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
+    let host = UIView(frame: window.bounds)
+    let accessory = TerminalKeyAccessory { _ in }
+    window.addSubview(host)
+    host.addSubview(accessory)
+    window.isHidden = false
+    defer { window.isHidden = true }
+
+    accessory.frame = .init(x: 0, y: 0, width: 750, height: 44)
+    accessory.layoutIfNeeded()
+    let stack = try #require(accessory.subviews.compactMap { $0 as? UIStackView }.first)
+    let buttons = stack.arrangedSubviews
+    #expect(buttons.count == 7)
+    CATransaction.flush()
+
+    // UIKit gives the accessory its destination bounds and animates the keyboard host.
+    // Auto Layout still runs with the host's inherited animation context.
+    UIView.animate(withDuration: 5, delay: 0, options: .curveLinear) {
+        host.transform = .init(scaleX: 0.6, y: 1)
+        UIView.performWithoutAnimation { accessory.bounds.size.width = 402 }
+        accessory.layoutIfNeeded()
+    }
+    CATransaction.flush()
+
+    #expect(!(host.layer.animationKeys() ?? []).isEmpty)
+    for view in [stack] + buttons {
+        let presented = try #require(view.layer.presentation())
+        #expect(abs(presented.bounds.width - view.bounds.width) <= 1)
+        #expect(abs(presented.position.x - view.layer.position.x) <= 1)
+    }
+    #expect(buttons.allSatisfy { $0.bounds.width >= 44 && $0.bounds.height >= 44 })
 }
 
 @MainActor
