@@ -282,6 +282,7 @@ private typealias NoticeHost = UIView & UIContentView
     private var gridHeight: NSLayoutConstraint!
     #if os(iOS)
     private var rotationConstraints: [NSLayoutConstraint] = []
+    private var heldCursor: (top: NSLayoutConstraint, origin: CGFloat, row: Int, rows: Int, history: Int)?
     var viewportSize: CGSize { viewport.bounds.size }
     #endif
     private var coveredHeight: NSLayoutConstraint!
@@ -473,18 +474,15 @@ private typealias NoticeHost = UIView & UIContentView
     }
 
     // Keep the source drawable at its native height while the keyboard clips its viewport.
-    // A reader in history keeps the top row. At the live edge the cursor can lift into view.
+    // A reader in history keeps the top row. At the live edge the cursor waits on the row the
+    // resized grid will give it, so the first resized frame draws the prompt where it already is.
     func beginRotation(sourceHeight: CGFloat? = nil) {
         guard rotationConstraints.isEmpty else { return }
         terminal.holdsGridGeometry = true
-        let preferredTop = terminal.topAnchor.constraint(equalTo: viewport.topAnchor, constant: gridTop.constant)
-        preferredTop.priority = .defaultHigh
-        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), preferredTop]
-        let cursor = terminal.cursorRect
-        if terminal.historyOffset == 0, terminal.snapshot?.cursorVisible == true, !cursor.isEmpty {
-            let inset = max(0, terminal.cellRect(row: 0, column: 0).minY)
-            rotationConstraints.append(terminal.topAnchor.constraint(lessThanOrEqualTo: rowCover.topAnchor,
-                                                                      constant: -cursor.maxY - inset))
+        let top = terminal.topAnchor.constraint(equalTo: viewport.topAnchor, constant: gridTop.constant)
+        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), top]
+        if terminal.historyOffset == 0, let snapshot = terminal.snapshot {
+            heldCursor = (top, gridTop.constant, snapshot.cursorRow, snapshot.size.rows, terminal.historyCount)
         }
         NSLayoutConstraint.deactivate([gridTop, gridHeight])
         NSLayoutConstraint.activate(rotationConstraints)
@@ -494,12 +492,30 @@ private typealias NoticeHost = UIView & UIContentView
         guard !rotationConstraints.isEmpty else { return }
         NSLayoutConstraint.deactivate(rotationConstraints)
         rotationConstraints.removeAll()
+        heldCursor = nil
         NSLayoutConstraint.activate([gridTop, gridHeight])
         layoutIfNeeded()
         terminal.holdsGridGeometry = false
     }
 
-    override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible(); updateSchemes() }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        alignHeldCursor()
+        keepReadingPositionVisible()
+        updateSchemes()
+    }
+
+    // Follows the emulator's resize: a shorter grid scrolls the cursor into view, and a taller
+    // one pulls history back above a cursor on the bottom row.
+    private func alignHeldCursor() {
+        guard let held = heldCursor, let metrics = terminal.metrics else { return }
+        let rows = metrics.size(in: viewport.bounds.size).rows
+        let row = if rows < held.rows { min(held.row, rows - 1) }
+            else if held.row == held.rows - 1 { held.row + min(held.history, rows - held.rows) }
+            else { held.row }
+        let constant = held.origin + CGFloat((row - held.row) * metrics.rowHeightPixels) / metrics.scale
+        if held.top.constant != constant { held.top.constant = constant }
+    }
 
     // During willDeactivate / willEnterForeground the scene can still report the old state.
     func sceneLifecycleChanged(_ name: Notification.Name) {

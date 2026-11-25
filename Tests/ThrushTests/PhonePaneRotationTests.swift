@@ -75,6 +75,35 @@ import UIKit
     #expect(terminal.gridSize == portraitGrid)
 }
 
+/// A taller grid pulls history back above a cursor on the bottom row, so the held source
+/// frame waits where the resized frame will draw the prompt.
+@MainActor @Test func growingTurnHoldsThePromptWhereTheTallerGridPullsIt() throws {
+    // A little history all comes back, and plenty of it fills the taller grid.
+    for lines in [19, 60] {
+        let host = RotationPane()
+        let terminal = host.terminal
+        host.resize(to: host.landscape)
+        let landscapeGrid = try #require(terminal.gridSize)
+        var shell = Terminal(size: landscapeGrid)
+        _ = shell.receive(((1..<lines).map { "Line \($0)" } + ["~/thrush % "]).joined(separator: "\r\n").utf8)
+        terminal.display(shell)
+        #expect(terminal.snapshot?.cursorRow == landscapeGrid.rows - 1)
+
+        host.pane.beginRotation()
+        host.resize(to: host.portrait)
+        let held = terminal.convert(terminal.cursorRect, to: host.window)
+        #expect(host.usableRect.contains(held))
+
+        host.pane.endRotation()
+        host.pane.layoutIfNeeded()
+        shell.resize(to: try #require(terminal.gridSize))
+        terminal.display(shell)
+        let settled = terminal.convert(terminal.cursorRect, to: host.window)
+        #expect(terminal.snapshot?.rows[terminal.snapshot!.cursorRow].text.hasPrefix("~/thrush %") == true)
+        #expect(settled == held, "\(lines) lines held the prompt at \(held.minY), settled at \(settled.minY)")
+    }
+}
+
 @MainActor @Test func rotatingScrolledPaneKeepsTheFirstVisibleHistoryRowsInPlace() throws {
     let host = RotationPane()
     let terminal = host.terminal
