@@ -114,6 +114,10 @@ private extension Terminal.RGB {
                     .font(.system(size: titleSize))
             } else {
                 ProgressView().controlSize(.small)
+                    #if os(macOS)
+                    // Reinforce the native animated spokes without changing their footprint.
+                    .shadow(color: theme == .slateLight ? .black : theme.palette.foreground.paneColor, radius: 0)
+                    #endif
             }
         }
         .foregroundStyle(detailColor)
