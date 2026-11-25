@@ -1,0 +1,549 @@
+"""Records real programs in disposable PTYs for the conformance harness.
+
+Each scenario drives one program the way a person would, in a fresh home directory with the terminal
+environment Toy Box gives its shells. The pinned reference reads every byte as it arrives and answers
+the program's queries, so a recording follows the replies Toy Box would send. Recordings land in
+programs/<name>.capture.json, and harness.mjs replays them through the reference and ThrushCore.
+
+    python3 Fixtures/reference/conformance/capture-programs.py <toy-box checkout> [--only NAME ...]
+
+Process monitors only list the recorder's own processes, and git uses a fixed identity and clock,
+so nothing about the recording machine beyond its load and memory ends up in a capture.
+"""
+import argparse
+import base64
+import errno
+import fcntl
+import json
+import os
+from pathlib import Path
+import pty
+import select
+import shutil
+import signal
+import struct
+import subprocess
+import tempfile
+import termios
+import time
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+PROMPT = "❯".encode()
+ZSHRC = r"""
+PROMPT='%F{blue}%1~%f %F{green}❯%f '
+RPROMPT='%F{8}main%f'
+HISTFILE=~/.zsh_history HISTSIZE=100 SAVEHIST=100
+autoload -Uz compinit && compinit -u -d ~/.zcompdump
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors ''
+# Window and tab titles, the way popular zsh frameworks set them.
+precmd() { print -Pn '\e]2;%~\a\e]1;%1~\a' }
+preexec() { print -Pn '\e]2;'; print -rn -- "$1"; print -n '\a' }
+"""
+VIMRC = """set nocompatible nomodeline noswapfile nobackup noundofile viminfo=
+set encoding=utf-8 belloff=all mouse= ttimeout ttimeoutlen=10 shortmess+=I
+syntax on
+set number cursorline laststatus=2 ruler showcmd
+"""
+TMUX = """set -g status-right "thrush"
+set -g default-command "/bin/zsh"
+set -g escape-time 10
+set -g history-limit 200
+"""
+SCREENRC = """startup_message off
+shell /bin/zsh
+"""
+LAZYGIT = """update:
+  method: never
+disableStartupPopups: true
+gui:
+  showRandomTip: false
+"""
+
+
+def encoded(data):
+    return base64.b64encode(data).decode("ascii")
+
+
+def window(fd, columns, rows):
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
+
+
+class Session:
+    """One program in a PTY, with every read, key and window change recorded in order."""
+
+    def __init__(self, checkout, home, argv, env, columns=80, rows=24):
+        self.events = []
+        self.start = time.monotonic_ns()
+        self.application_cursor_keys = False
+        self.replies = subprocess.Popen(
+            ["bun", HERE / "replies.mjs", checkout], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            env={**os.environ, "NODE_PATH": str(checkout / "node_modules/@xterm/xterm/src")})
+        self.exchange({"start": [columns, rows]})
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:
+            window(0, columns, rows)
+            os.chdir(home)
+            os.execvpe(argv[0], argv, env)
+
+    def exchange(self, event):
+        self.replies.stdin.write(json.dumps(event) + "\n")
+        self.replies.stdin.flush()
+        response = self.replies.stdout.readline()
+        if not response:
+            raise RuntimeError("The reference exited during the capture")
+        response = json.loads(response)
+        self.application_cursor_keys = response["applicationCursorKeys"]
+        return base64.b64decode(response["reply"], validate=True)
+
+    def record(self, name, **fields):
+        self.events.append(dict(name=name, offsetMicroseconds=(time.monotonic_ns() - self.start) // 1000, **fields))
+
+    def send(self, data):
+        remaining = memoryview(data)
+        while remaining:
+            remaining = remaining[os.write(self.fd, remaining):]
+
+    def read(self, name, until=None, seconds=None, quiet=0.4, timeout=30):
+        """Records output until `until` appears and output pauses, for `seconds`, or until output pauses."""
+        output = b""
+        begun = last = time.monotonic()
+        while True:
+            now = time.monotonic()
+            if seconds is not None:
+                if now - begun >= seconds: break
+            elif (until is None or until in output) and now - last >= quiet:
+                break
+            if now - begun > timeout:
+                if until is not None and until not in output:
+                    raise TimeoutError(f"{name}: never saw {until!r} in {output[-400:]!r}")
+                break
+            if not select.select([self.fd], [], [], 0.05)[0]: continue
+            try:
+                data = os.read(self.fd, 65536)
+            except OSError as error:
+                if error.errno == errno.EIO: break
+                raise
+            if not data: break
+            last = time.monotonic()
+            self.record(name, bytes=encoded(data))
+            reply = self.exchange({"bytes": encoded(data)})
+            if reply:
+                self.events[-1]["reply"] = encoded(reply)
+                self.send(reply)
+            output += data
+        return output
+
+    def type(self, name, data, **reading):
+        """Sends keys and records what the program draws in response."""
+        data = data.encode() if isinstance(data, str) else data
+        self.record(name, input=encoded(data))
+        self.send(data)
+        return self.read(name, **reading)
+
+    def key(self, name, key, count=1, **reading):
+        """Sends a named key, using the cursor key mode the program has selected."""
+        prefix = b"\x1bO" if self.application_cursor_keys else b"\x1b["
+        arrows = dict(up=b"A", down=b"B", right=b"C", left=b"D", home=b"H", end=b"F")
+        keys = dict(f1=b"\x1bOP", f2=b"\x1bOQ", f3=b"\x1bOR", f4=b"\x1bOS", f5=b"\x1b[15~", f6=b"\x1b[17~",
+                    f10=b"\x1b[21~", pageup=b"\x1b[5~", pagedown=b"\x1b[6~", escape=b"\x1b", tab=b"\t",
+                    enter=b"\r", backspace=b"\x7f", delete=b"\x1b[3~")
+        data = prefix + arrows[key] if key in arrows else keys[key]
+        return self.type(name, data * count, **reading)
+
+    def resize(self, columns, rows, **reading):
+        name = f"Resize to {columns}×{rows}"
+        self.record(name, resize=dict(columns=columns, rows=rows))
+        assert not self.exchange({"resize": [columns, rows]})
+        window(self.fd, columns, rows)
+        return self.read(name, **reading)
+
+    def checkpoint(self, name):
+        self.record(name, checkpoint=True)
+
+    def close(self):
+        os.close(self.fd)
+        for sig in (signal.SIGHUP, signal.SIGKILL):
+            # A group whose leader already exited refuses signals on macOS, which is as good as done.
+            try:
+                os.killpg(self.pid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+            for _ in range(50):
+                if os.waitpid(self.pid, os.WNOHANG)[0]: break
+                time.sleep(0.1)
+            else:
+                continue
+            break
+        self.replies.stdin.close()
+        self.replies.wait()
+
+
+def environment(home):
+    return {
+        "HOME": str(home), "PATH": f"{home}/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8",
+        "USER": "thrush", "LOGNAME": "thrush", "SHELL": "/bin/zsh", "ZDOTDIR": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"), "TMUX_TMPDIR": str(home), "SCREENDIR": str(home / ".screen"),
+        "SCREENRC": str(home / ".screenrc"), "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
+        "GIT_CONFIG_NOSYSTEM": "1", "HOMEBREW_NO_AUTO_UPDATE": "1", "PYTHON_HISTORY": str(home / ".python_history"),
+    }
+
+
+def prepare(home):
+    """A small, fixed home: shell and program settings, a few files and a git repository with history."""
+    (home / ".zshrc").write_text(ZSHRC)
+    (home / ".vimrc").write_text(VIMRC)
+    (home / ".tmux.conf").write_text(TMUX)
+    (home / ".screenrc").write_text(SCREENRC)
+    (home / ".screen").mkdir(mode=0o700)
+    (home / ".config/lazygit").mkdir(parents=True)
+    (home / ".config/lazygit/config.yml").write_text(LAZYGIT)
+    (home / ".gitconfig").write_text("[user]\n\tname = Thrush\n\temail = thrush@example.com\n"
+                                     "[init]\n\tdefaultBranch = main\n[color]\n\tui = auto\n")
+    (home / "projects").mkdir()
+    (home / "projects/Package.swift").write_text("// swift-tools-version: 6.2\n")
+    (home / "notes.md").write_text("# Notes\n\nA terminal for macOS and iOS.\n")
+    (home / "build.sh").write_text("#!/bin/sh\necho building\n")
+    (home / "build.sh").chmod(0o755)
+    (home / "notes link").symlink_to("notes.md")
+    lines = []
+    for number in range(1, 241):
+        line = f"{number:3}  The quick brown fox jumps over the lazy dog."
+        if number % 7 == 0: line += " " + "This line runs well past the width of the window. " * 3
+        if number % 11 == 0: line = f"\x1b[1;34m{line}\x1b[0m"
+        if number % 13 == 0: line += "\t界面 e\u0301 ✓"
+        if number % 17 == 0: line += " needle"
+        lines.append(line)
+    (home / "story.txt").write_text("\n".join(lines) + "\n")
+    shutil.copyfile(ROOT / "Sources/ThrushCore/Screen.swift", home / "Screen.swift")
+    repository(home / "repo")
+
+
+def repository(path):
+    path.mkdir()
+    clock = 1_790_000_000
+    def git(*arguments):
+        nonlocal clock
+        clock += 3600
+        stamp = f"@{clock} +0000"
+        subprocess.run(["git", *arguments], cwd=path, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       env={**os.environ, "GIT_AUTHOR_NAME": "Thrush", "GIT_AUTHOR_EMAIL": "thrush@example.com",
+                            "GIT_COMMITTER_NAME": "Thrush", "GIT_COMMITTER_EMAIL": "thrush@example.com",
+                            "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp, "GIT_CONFIG_NOSYSTEM": "1",
+                            "GIT_CONFIG_GLOBAL": "/dev/null"})
+    git("init", "-q", "-b", "main")
+    source = path / "Terminal.swift"
+    body = ["struct Terminal {", "    var columns = 80", "    var rows = 24", "}"]
+    for step in range(8):
+        if step == 3:
+            git("checkout", "-q", "-b", "wide-text")
+        if step == 5:
+            git("checkout", "-q", "main")
+        if step in (3, 4):
+            (path / "Wide.swift").write_text(f"let wide = \"界面\"  // Revision {step}\n")
+        else:
+            body.insert(-1, f"    var setting{step} = {step}  // Added in step {step}")
+            source.write_text("\n".join(body) + "\n")
+            (path / "README.md").write_text(f"# Terminal\n\nRevision {step}.\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", f"Add setting {step}\n\nExplains why setting {step} exists.")
+    git("merge", "-q", "--no-ff", "-m", "Merge wide text", "wide-text")
+    source.write_text(source.read_text().replace("var rows = 24", "var rows = 40") + "// Uncommitted\n")
+
+
+def shell(session, name="Shell prompt"):
+    session.read(name, until=PROMPT)
+
+
+def run(session, command, name=None, until=PROMPT, **reading):
+    return session.type(name or f"Run {command}", command + "\r", until=until, **reading)
+
+
+def zsh(session, home):
+    shell(session)
+    session.checkpoint("Fresh prompt")
+    session.type("Type a command", "echo hello wrld")
+    session.key("Move left", "left", 3)
+    session.type("Insert a letter", "o")
+    session.type("Line start", "\x01")
+    session.type("Line end", "\x05")
+    session.key("Delete backward", "backspace")
+    session.type("Retype", "d")
+    run(session, "", "Run echo")
+    run(session, "ls -G")
+    run(session, "ls -lnG")
+    session.checkpoint("Colored listings")
+    session.type("Complete a directory", "cd pro\t")
+    session.type("Clear the line", "\x15")
+    session.type("List completions", "ls \t")
+    session.type("Enter menu selection", "\t")
+    session.type("Next match", "\t")
+    session.checkpoint("Menu selection")
+    session.type("Leave the menu", "\x03")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.type("Long line", "echo " + "a command line long enough to wrap across the window edge " * 2)
+    session.type("Line start across the wrap", "\x01")
+    session.type("Line end", "\x05")
+    session.checkpoint("Wrapped command line")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.key("Previous command", "up")
+    session.key("Older command", "up")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.type("Search history", "\x12hel")
+    session.checkpoint("History search")
+    session.type("Cancel search", "\x07")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.resize(60, 20)
+    session.resize(80, 24)
+    session.type("Clear the screen", "\x0c", until=PROMPT)
+    session.checkpoint("Cleared")
+    session.type("Exit", "exit\r")
+
+
+def bash(session, home):
+    shell(session)
+    session.type("Type a command", "echo hello wrld")
+    session.key("Move left", "left", 3)
+    session.type("Insert a letter", "o")
+    session.type("Line start", "\x01")
+    session.key("Delete forward", "delete", 5)
+    session.type("Reinsert", "echo ")
+    session.type("Line end", "\x05")
+    run(session, "", "Run echo")
+    session.type("Complete a path", "ls /usr/\t\t")
+    session.checkpoint("Completion list")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.type("Long line", "echo " + "a long command line that wraps past the edge of the window " * 2)
+    session.type("Line start across the wrap", "\x01")
+    session.type("Forward a word", "\x1bf\x1bf")
+    session.type("Delete forward", "\x04\x04\x04")
+    session.type("Kill to the end", "\x0b")
+    session.checkpoint("Edited wrapped line")
+    run(session, "", "Run the edit")
+    session.key("Previous command", "up")
+    session.type("Cancel", "\x03", until=PROMPT)
+    run(session, "printf '\\e[1mbold\\e[0m \\e[3mitalic\\e[0m \\e[4munderline\\e[0m \\e[31mred\\e[0m\\n'")
+    session.type("Clear the screen", "\x0c", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def pager(session, home):
+    shell(session)
+    session.type("Open less", "less -R story.txt\r", until=b"story.txt")
+    session.checkpoint("First page")
+    session.type("Next page", " ")
+    session.type("Previous page", "b")
+    session.type("Down three lines", "jjj")
+    session.type("Up three lines", "kkk")
+    session.checkpoint("Scrolled by line")
+    session.type("Search", "/needle\r")
+    session.type("Next match", "n")
+    session.checkpoint("Search highlights")
+    session.type("Chop long lines", "-S", until=b"Chop")
+    session.type("Scroll right", "\x1b)")
+    session.type("End", "G")
+    session.resize(60, 18)
+    session.type("Start", "g")
+    session.resize(80, 24)
+    session.type("Quit", "q", until=PROMPT)
+    session.type("Open the manual", "man ls\r", until=b"NAME")
+    session.checkpoint("Manual page")
+    session.type("Next page", " ")
+    session.type("Search", "/-l\r")
+    session.type("Quit", "q", until=PROMPT)
+    session.checkpoint("Back at the prompt")
+    session.type("Exit", "exit\r")
+
+
+def git(session, home):
+    shell(session)
+    run(session, "cd repo")
+    run(session, "git status")
+    session.type("Log graph", "git log --graph --decorate --stat\r")
+    session.checkpoint("Log in the pager")
+    session.type("Next page", " ")
+    session.type("Quit", "q", until=PROMPT)
+    session.type("Diff", "git diff\r", until=PROMPT)
+    session.checkpoint("Colored diff")
+    run(session, "git log --oneline --graph --all")
+    run(session, "git clone --progress --no-local . ../copy")
+    session.checkpoint("Clone progress")
+    session.type("Exit", "exit\r")
+
+
+def editor(session, home):
+    shell(session)
+    session.type("Open Vim", "vim Screen.swift\r", until=b"Screen.swift")
+    session.checkpoint("Syntax colors")
+    session.type("Page down", "\x06")
+    session.type("Page up", "\x02")
+    session.type("Half page down", "\x04")
+    session.type("Scroll a line", "\x05\x05\x19")
+    session.checkpoint("Scrolled")
+    session.type("Vertical split", ":vsplit\r")
+    session.type("Horizontal split", ":split\r")
+    session.type("Next window", "\x17w")
+    session.checkpoint("Split windows")
+    session.type("Search", "/struct\r")
+    session.type("Open a line", "oThe terminal 界 e\u0301\x1b")
+    session.type("Undo", "u")
+    session.resize(100, 30)
+    session.checkpoint("Resized splits")
+    session.type("Quit", ":qa!\r", until=PROMPT)
+    session.type("Open pico", "nano notes.md\r", until=b"notes.md")
+    session.type("Type", "\x0eA line typed in pico.")
+    session.type("Cut a line", "\x0b")
+    session.type("Paste it", "\x15")
+    session.type("Search", "\x17terminal\r")
+    session.checkpoint("Pico")
+    session.type("Exit", "\x18")
+    session.type("Discard", "n", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def monitors(session, home):
+    shell(session)
+    session.type("Open top", "top -s 1 -pid $$\r", until=b"PID")
+    session.read("Top refreshes", seconds=2.5)
+    session.checkpoint("top")
+    session.resize(100, 30, seconds=1.5)
+    session.type("Quit top", "q", until=PROMPT)
+    session.type("Open htop", "htop -p $$\r", until=b"PID")
+    session.read("htop refreshes", seconds=2.5)
+    session.checkpoint("htop")
+    session.key("Setup", "f2")
+    session.checkpoint("htop setup")
+    session.key("Back", "escape")
+    session.type("Tree view", "t")
+    session.key("Help", "f1")
+    session.checkpoint("htop help")
+    session.type("Back", "q")
+    session.resize(80, 24, seconds=1.5)
+    session.type("Quit htop", "q", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def multiplexers(session, home):
+    shell(session)
+    session.type("Open tmux", "tmux -L thrush -f ~/.tmux.conf new-session -s thrush\r", until=PROMPT)
+    session.checkpoint("tmux")
+    run(session, "ls -G")
+    run(session, "seq 60")
+    session.checkpoint("tmux scrolled")
+    session.type("Split side by side", "\x02%", until=PROMPT)
+    run(session, "seq 40")
+    session.type("Split top and bottom", '\x02"', until=PROMPT)
+    run(session, "echo 界面 e\u0301 ✓")
+    session.checkpoint("tmux panes")
+    session.type("Zoom", "\x02z")
+    session.type("Unzoom", "\x02z")
+    session.resize(100, 30)
+    session.type("New window", "\x02c", until=PROMPT)
+    session.type("Previous window", "\x02p")
+    session.checkpoint("tmux after resize")
+    session.type("Command prompt", "\x02:")
+    session.type("Kill the server", "kill-server\r", until=PROMPT)
+    session.resize(80, 24)
+    session.type("Open screen", "screen -S thrush\r", until=PROMPT)
+    run(session, "seq 40")
+    session.type("Split", "\x01S")
+    session.type("Focus the new region", "\x01\t")
+    session.type("New window", "\x01c", until=PROMPT)
+    run(session, "ls -G")
+    session.checkpoint("screen regions")
+    session.type("Command line", "\x01:")
+    session.type("Quit screen", "quit\r", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def python(session, home):
+    session.read("Python prompt", until=b">>> ")
+    session.type("Define", "def greet(name):\r")
+    session.type("Body", 'return f"hello {name}"\r')
+    session.type("End the block", "\r", until=b">>> ")
+    session.type("Call", 'greet("thrush")\r', until=b">>> ")
+    session.type("Long result", "[n * n for n in range(40)]\r", until=b">>> ")
+    session.type("Complete", "import o\t\t")
+    session.checkpoint("Completions")
+    session.type("Cancel", "\x03", until=b">>> ")
+    session.key("Previous", "up")
+    session.key("Older", "up")
+    session.type("Cancel", "\x03", until=b">>> ")
+    session.type("Error", "1 / 0\r", until=b">>> ")
+    session.checkpoint("Traceback")
+    session.type("Exit", "exit()\r")
+
+
+def lazygit(session, home):
+    session.read("Start", until=b"Commits", timeout=60)
+    session.read("Settle", seconds=1)
+    session.checkpoint("Status")
+    session.type("Files", "2")
+    session.type("Branches", "3")
+    session.type("Commits", "4")
+    session.key("Down", "down", 2)
+    session.key("Open commit", "enter")
+    session.checkpoint("Commit files")
+    session.key("Back", "escape")
+    session.type("Keybindings", "?")
+    session.checkpoint("Keybindings")
+    session.key("Close", "escape")
+    session.resize(100, 30, seconds=1)
+    session.type("Quit", "q")
+
+
+SCENARIOS = {
+    "zsh": (["/bin/zsh", "-i"], zsh, "zsh --version"),
+    "bash": (["/opt/homebrew/bin/bash", "--noprofile", "--norc", "-i"], bash, "/opt/homebrew/bin/bash --version"),
+    "pager": (["/bin/zsh", "-i"], pager, "less --version"),
+    "git": (["/bin/zsh", "-i"], git, "git --version"),
+    "editors": (["/bin/zsh", "-i"], editor, "vim --version"),
+    "monitors": (["/bin/zsh", "-i"], monitors, "htop --version"),
+    "multiplexers": (["/bin/zsh", "-i"], multiplexers, "tmux -V; screen --version"),
+    "python": (["python3.14", "-q"], python, "python3.14 --version"),
+    "lazygit": (["lazygit", "-p", "repo"], lazygit, "lazygit --version"),
+}
+
+
+def capture(name, checkout, destination):
+    argv, scenario, version = SCENARIOS[name]
+    with tempfile.TemporaryDirectory(prefix="thrush-programs-", ignore_cleanup_errors=True) as work:
+        home = Path(work).resolve()
+        prepare(home)
+        environ = environment(home)
+        if name == "bash":
+            environ.update(PS1=r"\[\e[1;32m\]\W\[\e[0m\] ❯ ", INPUTRC="/dev/null", HISTFILE="/dev/null")
+        session = Session(checkout, home, argv, environ)
+        try:
+            scenario(session, home)
+            session.read("Exit", timeout=5)
+        finally:
+            session.close()
+            subprocess.run(["tmux", "-L", "thrush", "kill-server"], env=environ, stderr=subprocess.DEVNULL)
+            subprocess.run(["screen", "-wipe"], env=environ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        versions = subprocess.run(version, shell=True, env=environ, capture_output=True, text=True).stdout
+        header = dict(name=name, command=" ".join(argv), versions=[line for line in versions.splitlines() if line][:3],
+                      term="xterm-256color", columns=80, rows=24)
+        compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        content = compact(header)[:-1] + ',\n"events":[\n' + ",\n".join(map(compact, session.events)) + "\n]}\n"
+        (destination / f"{name}.capture.json").write_text(content)
+        print(f"Recorded {name}: {len(session.events)} events", flush=True)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("checkout", type=Path)
+    parser.add_argument("--only", action="append", choices=list(SCENARIOS))
+    options = parser.parse_args()
+    destination = HERE / "programs"
+    destination.mkdir(exist_ok=True)
+    failed = []
+    for name in options.only or SCENARIOS:
+        try:
+            capture(name, options.checkout.resolve(), destination)
+        except Exception as error:
+            print(f"Could not record {name}: {error}", flush=True)
+            failed.append(name)
+    raise SystemExit(f"Failed: {', '.join(failed)}" if failed else 0)

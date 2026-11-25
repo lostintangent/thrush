@@ -1,0 +1,446 @@
+{
+  "ED 1 · at the bottom right corner": {
+    "reason": "The reference throws the same TypeError as from a pending wrap, before it erases the rows above, and swallows the * that follows. Thrush completes the erase and then prints the * normally.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "error",
+        "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1][0]",
+        "reference": "\"D\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.column",
+        "reference": "2",
+        "thrush": "3"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"D\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][2]",
+        "reference": "blank",
+        "thrush": "\"*\""
+      }
+    ]
+  },
+  "ED 1 · at the right margin below history": {
+    "reason": "The reference clears the wrap flag of the buffer row at the cursor's screen index without adding the history offset, so it unwraps a history row and leaves the next visible row wrapped. Thrush keeps history and its wrap flags intact, and clears the wrap flag of the row after the cursor.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "active.history[1].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.history[1].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      }
+    ]
+  },
+  "ED 1 · from a pending wrap on the bottom row": {
+    "reason": "The reference clears the bottom row, then throws a TypeError clearing the wrap flag of a row below the screen, before it erases the rows above. The throw also leaves its parser inside the sequence, so the * that follows is swallowed. Thrush completes the erase, leaving every row through the cursor blank with its wrap flag clear, and then prints the * normally.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "error",
+        "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1][0]",
+        "reference": "\"D\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.column",
+        "reference": "3",
+        "thrush": "1"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.history.count",
+        "reference": "0",
+        "thrush": "1"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"D\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][0]",
+        "reference": "blank",
+        "thrush": "\"*\""
+      }
+    ]
+  },
+  "stream 216": {
+    "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "cursor.column",
+        "reference": "13",
+        "thrush": "2"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "ESC[?1;8R",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[0][0]",
+        "reference": "blank",
+        "thrush": "\"S\""
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[1].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[1][0]",
+        "reference": "\"→\"",
+        "thrush": "\"w\""
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[2][15]",
+        "reference": "\"x\"",
+        "thrush": "\"日\" width 2"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[3][0]",
+        "reference": "\"x\"",
+        "thrush": "\"語\" width 2"
+      },
+      {
+        "checkpoint": "end",
+        "path": "error",
+        "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.column",
+        "reference": "19",
+        "thrush": "6"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.history.count",
+        "reference": "0",
+        "thrush": "2"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "blank",
+        "thrush": "\"x\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"→\"",
+        "thrush": "\"語\" width 2"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][2]",
+        "reference": "\"x\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][0]",
+        "reference": "\"x\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4].wrapped",
+        "reference": "true",
+        "thrush": "false"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][0]",
+        "reference": "\"x\"",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][19]",
+        "reference": "blank",
+        "thrush": "\"t\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][0]",
+        "reference": "blank",
+        "thrush": "\"h\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7][0]",
+        "reference": "blank",
+        "thrush": "\"r\""
+      }
+    ]
+  },
+  "stream 236": {
+    "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "error",
+        "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "cursor.row",
+        "reference": "7",
+        "thrush": "6"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "none",
+        "thrush": "ESC[6;9R"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[5][0]",
+        "reference": "blank",
+        "thrush": "\"w\""
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[6].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[6][0]",
+        "reference": "blank",
+        "thrush": "\"x\""
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[7].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[7][0]",
+        "reference": "blank",
+        "thrush": "\"o\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESC[?2026;2$y",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.history.count",
+        "reference": "0",
+        "thrush": "1"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][0]",
+        "reference": "\"x\"",
+        "thrush": "\"w\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][14]",
+        "reference": "blank",
+        "thrush": "\"x\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7].wrapped",
+        "reference": "false",
+        "thrush": "true"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7][0]",
+        "reference": "blank",
+        "thrush": "\"o\""
+      }
+    ]
+  },
+  "stream 251": {
+    "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "error",
+        "reference": "TypeError: undefined is not an object (evaluating 'this._activeBuffer.lines.get(s + 1).isWrapped = !1')",
+        "thrush": "none"
+      },
+      {
+        "checkpoint": "end",
+        "path": "buffer",
+        "reference": "normal",
+        "thrush": "alternate"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "6",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.column",
+        "reference": "23",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "end",
+        "path": "title",
+        "reference": "\"±\"",
+        "thrush": "\"\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][6]",
+        "reference": "\"\\u{200D}\" width 0",
+        "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "blank",
+        "thrush": "\"R\" {bg=12 inverse}"
+      }
+    ]
+  }
+}

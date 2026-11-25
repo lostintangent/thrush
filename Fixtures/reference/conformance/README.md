@@ -1,0 +1,38 @@
+# Conformance harness
+
+The harness feeds the same bytes to the pinned reference emulator, `@xterm/headless` 6.0.0 configured as the Toy Box server configures it, and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching.
+
+```sh
+scripts/check-conformance.sh ../toy-box                     # fail if any generated file would change
+scripts/check-conformance.sh ../toy-box --write             # regenerate the cases and lists
+scripts/check-conformance.sh ../toy-box --report gaps.md    # also write the ranked gap report
+```
+
+The Toy Box checkout must be at the pinned revision with `bun install --frozen-lockfile`. [Reference setup](../README.md)
+
+## Corpora
+
+- **Functions** ([functions.mjs](functions.mjs)) have one case per control function, parameter form and edge. Each case draws a canvas of text, wide characters and colors, runs a setup, applies the subject, takes a checkpoint and prints a marker, so the next write shows where the subject left the cursor and rendition. The harness asserts that function cases reach every handler the reference registers.
+- **Programs** ([programs.mjs](programs.mjs)) are real PTY recordings: the shell, Vim, Codex and Clang fixtures under `m2`–`m4`, and nine scenarios in [programs/](programs/) covering zsh, Bash, a pager, git, editors, process monitors, tmux and screen, Python and lazygit. Each replays read by read with every resize.
+- **Streams** ([streams.mjs](streams.mjs)) are 400 seeded random mixes of text and control functions, written in chunks split inside UTF-8 scalars and escape sequences.
+
+[capture-programs.py](capture-programs.py) records the nine scenarios in disposable PTYs with Toy Box's terminal environment. [replies.mjs](replies.mjs) answers the programs' queries as the reference would, so each recording follows the replies Toy Box sends. Re-record with `python3 Fixtures/reference/conformance/capture-programs.py ../toy-box [--only NAME]`, then regenerate.
+
+## What the harness writes
+
+- `Tests/ThrushConformanceTests/Cases/{functions,programs,streams}.json` holds every case with the reference's checkpoints. Cells and lines are interned, so long histories stay small.
+- `Tests/ThrushConformanceTests/KnownGaps.json` lists the cases Thrush doesn't match yet, by the function they exercise. The tests expect each listed case to fail. A case that starts matching fails as an unrecorded known issue, so the list only shrinks. After a fix, regenerate with `--write` and commit the shorter list.
+- `Tests/ThrushConformanceTests/ReferenceDefects.json` lists the cases where the reference is wrong, such as a crash or corrupted history. Each entry has a reason written by hand and the exact differences, which the harness regenerates. Thrush must differ in exactly those ways, so a change on either side shows up in review. Any case where the reference throws must be listed.
+- `reference.json` records the reference configuration and how often each recorded program emits each function.
+
+## The gap report
+
+The report ranks what to fix next by real use.
+
+1. Each failing function case is shrunk to the fewest bytes that still disagree in the same kind of state. The functions left in the minimal input are its cause, so a failing setup is charged to the function that's actually wrong.
+2. Causes rank by how many recorded programs emit every function in them, then by how often.
+3. Each program is replayed with a checkpoint after every read. For each kind of state that differs, the reads up to the first disagreement are shrunk to a minimal input.
+4. Failing random streams are shrunk and grouped by cause.
+5. A table lists every function the programs emit, with how Thrush does on the cases that exercise it.
+
+[shrink.mjs](shrink.mjs) does the shrinking with delta debugging over whole escape sequences, then individual parameters and scalars. [names.mjs](names.mjs) names every function the same way in the corpus, the program counts and the report.

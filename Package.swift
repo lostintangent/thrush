@@ -23,6 +23,12 @@ let package = Package(
             resources: [.copy("first-bytes.json"), .copy("replays"), .copy("reference/m4/phone/vim-resume.json")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore"]),
+        .testTarget(
+            name: "ThrushConformanceTests",
+            dependencies: ["ThrushConformance"],
+            resources: [.copy("Cases"), .copy("KnownGaps.json"), .copy("ReferenceDefects.json")]
+        ),
         .executableTarget(name: "ThrushLoopbackCheck", dependencies: ["Thrush", "ThrushFixtures"]),
         .testTarget(name: "ThrushCoreTests", dependencies: ["ThrushCore", "ThrushFixtures"]),
     ],

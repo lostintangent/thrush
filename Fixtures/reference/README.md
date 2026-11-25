@@ -22,3 +22,7 @@ The numbered compiler log and the interactive Vim session retain their actual PT
 Two further captures open the same Swift source in Vim against Slate Dark and Slate Light. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](m3/README.md)
 
 The three interactive workflow recordings include a soft-wrapped shell copy, an actual server-serialized Vim screen and a streamed Codex response. [Shell, Vim and Codex workflows](m4/README.md)
+
+## Conformance
+
+The conformance harness replays every control function, these recordings, more real programs and seeded random streams through the reference and ThrushCore, compares their complete state and ranks the differences by how often real programs emit each function. [Conformance harness](conformance/README.md)
