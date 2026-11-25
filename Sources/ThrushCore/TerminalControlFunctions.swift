@@ -107,6 +107,39 @@ enum TerminalControlFunction {
 }
 
 extension Terminal {
+    /// Replies use the protocol identity expected by programs querying the terminal.
+    enum Reply {
+        /// DA1 identifies a VT100 with the Advanced Video Option.
+        static let primaryDeviceAttributes = "\u{1b}[?1;2c"
+        /// DA2 reports terminal type 0 (VT100), firmware version 276 and ROM cartridge 0.
+        static let secondaryDeviceAttributes = "\u{1b}[>0;276;0c"
+
+        /// CPR reports the cursor's row and column using the protocol's one-based coordinates.
+        // Keep interpolation in the caller on query-heavy streams.
+        @inline(__always)
+        static func cursorPosition(row: Int, column: Int) -> String {
+            "\u{1b}[\(row + 1);\(column + 1)R"
+        }
+
+        /// DECRPM reports private mode 12 as set (1) or reset (2).
+        static func cursorBlink(enabled: Bool) -> String {
+            enabled ? "\u{1b}[?12;1$y" : "\u{1b}[?12;2$y"
+        }
+    }
+
+    /// DECSCUSR pairs each cursor shape with a blinking or steady presentation.
+    enum CursorStyleParameter: Int {
+        case defaultStyle = 0, blinkingBlock, steadyBlock, blinkingUnderline, steadyUnderline, blinkingBar, steadyBar
+
+        var shape: CursorShape {
+            switch self {
+            case .defaultStyle, .blinkingBlock, .steadyBlock: .block
+            case .blinkingUnderline, .steadyUnderline: .underline
+            case .blinkingBar, .steadyBar: .bar
+            }
+        }
+    }
+
     enum EraseRange: Int {
         case toEnd = 0
         case toCursor = 1

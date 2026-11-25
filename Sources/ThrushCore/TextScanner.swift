@@ -2,6 +2,19 @@
 /// It also carries incomplete UTF-8 scalars across chunks. ThrushBench exercises this path
 /// with a one-megabyte ASCII stream delivered in 4 KiB chunks.
 struct TextScanner: Sendable {
+    static let byteOrderMark: Unicode.Scalar = "\u{feff}"
+    static let delete: Unicode.Scalar = "\u{7f}"
+
+    /// Space through tilde occupy exactly 95 consecutive ASCII positions.
+    static func isPrintableASCII(_ value: some FixedWidthInteger & UnsignedInteger) -> Bool {
+        value &- 0x20 < 95
+    }
+
+    static func isPrintable(_ scalar: Unicode.Scalar) -> Bool {
+        // Above the C1 controls, even a zero-width scalar belongs to the text stream.
+        scalar.value >= 0xa0 || isPrintableASCII(scalar.value)
+    }
+
     /// The first non-printable or non-ASCII byte, or the end of the input.
     /// A lane is printable ASCII exactly when subtracting space gives a value below 95.
     static func endOfASCII(in bytes: Span<UInt8>, from start: Int) -> Int {
@@ -11,7 +24,7 @@ struct TextScanner: Sendable {
             if (block &- 0x20).max() >= 95 { break }
             index += 16
         }
-        while index < bytes.count && bytes[index] &- 0x20 < 95 { index += 1 }
+        while index < bytes.count && isPrintableASCII(bytes[index]) { index += 1 }
         return index
     }
 

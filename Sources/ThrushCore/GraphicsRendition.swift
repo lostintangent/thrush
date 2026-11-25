@@ -37,36 +37,69 @@ extension Terminal.Style {
     }
 
     private static func extendedColor(_ parameters: ControlParameters, index: inout Int) -> Terminal.Color? {
-        // ISO 8613-6 orders these fields as target, mode, color space, and up to three components.
-        // Semicolon colors and indexed colors omit the color-space slot. A colon group ends the
-        // operand, leaving the following semicolon parameter available for another SGR command.
-        var fields: InlineArray<6, Int> = [0, 0, 0, 0, 0, 0]
-        var slot = 0
-        repeat {
-            fields[slot] = parameters[index]
-            let subparameterCount = parameters.subparameterCount(at: index)
-            if subparameterCount > 0 {
-                for ordinal in 0..<subparameterCount {
-                    slot += 1
-                    if slot == 2 && fields[1] == 5 { slot += 1 }
-                    guard slot < fields.count else { break }
-                    fields[slot] = parameters[parameter: index, subparameter: ordinal] ?? 0
-                }
-                break
-            }
-            if fields[1] == 5 && slot >= 3 || fields[1] == 2 && slot == 5 { break }
-            index += 1
-            slot += 1
-            if slot == 2 && fields[1] != 0 { slot += 1 }
-        } while index < parameters.count && slot < fields.count
+        // A colon group belongs to one parameter. Its contents finish the color, even
+        // when some components are missing. The next semicolon starts another rendition.
+        if parameters.hasSubparameters, parameters.subparameterCount(at: index) > 0 {
+            let mode = parameters[parameter: index, subparameter: 0] ?? 0
+            return colonColor(mode, parameters, at: index, first: 1)
+        }
 
-        switch fields[1] {
-        case 5: return .indexed(UInt8(truncatingIfNeeded: fields[3]))
-        case 2: return .rgb(UInt8(truncatingIfNeeded: fields[3]),
-                            UInt8(truncatingIfNeeded: fields[4]),
-                            UInt8(truncatingIfNeeded: fields[5]))
+        index += 1
+        let mode = parameters[index]
+        if parameters.hasSubparameters, parameters.subparameterCount(at: index) > 0 {
+            // Mixed forms such as 38;2::r:g:b attach the colon group to the mode.
+            return colonColor(mode, parameters, at: index, first: 0)
+        }
+
+        switch mode {
+        case 5:
+            // 38;5;n selects a palette index.
+            index += 1
+            return .indexed(byte(parameters[index]))
+        case 2:
+            // 38;2;r;g;b gives the three components directly. A colon group on red
+            // or green supplies the remaining components in that same parameter.
+            index += 1
+            let red = byte(parameters[index])
+            if parameters.hasSubparameters, parameters.subparameterCount(at: index) > 0 {
+                return .rgb(red, byte(parameters[parameter: index, subparameter: 0]),
+                            byte(parameters[parameter: index, subparameter: 1]))
+            }
+            index += 1
+            let green = byte(parameters[index])
+            if parameters.hasSubparameters, parameters.subparameterCount(at: index) > 0 {
+                return .rgb(red, green, byte(parameters[parameter: index, subparameter: 0]))
+            }
+            index += 1
+            return .rgb(red, green, byte(parameters[index]))
+        default:
+            // An unknown mode still consumes its operand. Zero keeps the extra
+            // color-space field. A colon group or end of input ends either form early.
+            for _ in 0..<(mode == 0 ? 5 : 4) {
+                index += 1
+                if index >= parameters.count || parameters.subparameterCount(at: index) > 0 { break }
+            }
+            return nil
+        }
+    }
+
+    private static func colonColor(_ mode: Int, _ parameters: ControlParameters, at index: Int,
+                                   first: Int) -> Terminal.Color? {
+        switch mode {
+        case 5:
+            // 38:5:n
+            return .indexed(byte(parameters[parameter: index, subparameter: first]))
+        case 2:
+            // 38:2:cs:r:g:b. The color-space field may be empty.
+            return .rgb(byte(parameters[parameter: index, subparameter: first + 1]),
+                        byte(parameters[parameter: index, subparameter: first + 2]),
+                        byte(parameters[parameter: index, subparameter: first + 3]))
         default:
             return nil
         }
+    }
+
+    private static func byte(_ value: Int?) -> UInt8 {
+        UInt8(truncatingIfNeeded: value ?? 0)
     }
 }

@@ -1,7 +1,7 @@
 // Owns the parser, screen and modes for one shell. Each chunk of output advances that
 // state and returns any reply bytes the caller needs to send back to the shell.
 
-/// The grid dimensions and colors used by a terminal pane.
+/// A terminal emulator that applies shell output to a screen and encodes user input for the shell.
 public struct Terminal: Sendable {
     /// The pane’s visible dimensions in character cells, supplied to the socket factory.
     public struct Size: Equatable, Sendable {
@@ -58,6 +58,7 @@ public struct Terminal: Sendable {
     private var style = Style()
     private var savedStyle = Style()
     private var generation: UInt64 = 0
+    // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
     private var hasCombiningBase = false
 
     /// Creates a terminal with a blank normal screen and the given colors for shell queries.
@@ -83,13 +84,13 @@ public struct Terminal: Sendable {
         var index = 0
         while index < bytes.count {
             let byte = bytes[index]
-            if byte >= 0x20, byte < 0x7f, parser.isGround, scanner.isComplete {
+            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
                 hasCombiningBase = true
                 generation &+= 1
-            } else if byte >= 0x20, byte < 0x7f, scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
+            } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 if stringHandler.isReadingTitle { stringHandler.appendTitleASCII(bytes.extracting(start..<index)) }
@@ -124,15 +125,15 @@ public struct Terminal: Sendable {
     }
 
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
-        guard let scalar = scanner.decode(byte), scalar.value != 0xfeff else { return }
-        if parser.isGround, scalar.value >= 0xa0 || (0x20..<0x7f).contains(scalar.value) {
+        guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { return }
+        if parser.isGround, TextScanner.isPrintable(scalar) {
             let width = ColumnWidth.of(scalar)
             screen.write(scalar, width: width, style: style, joinsPrevious: hasCombiningBase)
             hasCombiningBase = width > 0 || hasCombiningBase
             generation &+= 1
             return
         }
-        if scalar.value != 0x7f { hasCombiningBase = false }
+        if scalar != TextScanner.delete { hasCombiningBase = false }
         if let action = parser.consume(scalar), let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
         if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
             apply(function, replies: &replies)
@@ -165,26 +166,29 @@ public struct Terminal: Sendable {
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
         case .control(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
         case .control(.primaryDeviceAttributes):
-            if parser.parameters[0] == 0 { replies.append(contentsOf: "\u{1b}[?1;2c".utf8) }
+            if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
         case .control(.secondaryDeviceAttributes):
-            if parser.parameters[0] == 0 { replies.append(contentsOf: "\u{1b}[>0;276;0c".utf8) }
+            if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
             return
         case .control(.setPrivateMode):
-            setPrivateModes(parser.parameters, enabled: true)
+            setPrivateModes(enabled: true)
             return
         case .control(.resetPrivateMode):
-            setPrivateModes(parser.parameters, enabled: false)
+            setPrivateModes(enabled: false)
             return
         case .control(.graphicRendition):
             style.applySGR(parser.parameters)
             return
         case .control(.deviceStatusReport):
-            if parser.parameters[0] == 6 { replies.append(contentsOf: "\u{1b}[\(screen.row + 1);\(screen.column + 1)R".utf8) }
+            // DSR 6 asks for the current cursor position.
+            if parser.parameters[0] == 6 {
+                replies.append(contentsOf: Reply.cursorPosition(row: screen.row, column: screen.column).utf8)
+            }
             return
         case .control(.requestPrivateMode):
             if PrivateMode(rawValue: parser.parameters[0]) == .cursorBlink {
-                replies.append(contentsOf: (modes.cursorBlink ? "\u{1b}[?12;1$y" : "\u{1b}[?12;2$y").utf8)
+                replies.append(contentsOf: Reply.cursorBlink(enabled: modes.cursorBlink).utf8)
             }
             return
         case .control(.cursorStyle): setCursorStyle(parser.parameters[0])
@@ -224,20 +228,23 @@ public struct Terminal: Sendable {
         generation &+= 1
     }
 
-    private mutating func setPrivateModes(_ parameters: ControlParameters, enabled: Bool) {
-        for index in 0..<parameters.count {
-            if let mode = PrivateMode(rawValue: parameters[index]) { setPrivateMode(mode, enabled: enabled) }
+    @inline(__always)
+    private mutating func setPrivateModes(enabled: Bool) {
+        for index in 0..<parser.parameters.count {
+            if let mode = PrivateMode(rawValue: parser.parameters[index]) { setPrivateMode(mode, enabled: enabled) }
         }
     }
 
     private mutating func setCursorStyle(_ parameter: Int) {
-        switch parameter {
-        case 0...2: modes.cursorShape = .block
-        case 3, 4: modes.cursorShape = .underline
-        case 5, 6: modes.cursorShape = .bar
-        default: break
-        }
-        modes.cursorBlinkOverride = parameter == 0 ? nil : !parameter.isMultiple(of: 2)
+        if let style = CursorStyleParameter(rawValue: parameter) { modes.cursorShape = style.shape }
+        // Even an unknown style uses an odd value for blinking and an even value for steady.
+        modes.cursorBlinkOverride = parameter == CursorStyleParameter.defaultStyle.rawValue ? nil : !parameter.isMultiple(of: 2)
+    }
+
+    private mutating func setMouseTracking(_ tracking: MouseTracking) {
+        guard modes.mouseTracking != tracking else { return }
+        modes.mouseTracking = tracking
+        generation &+= 1
     }
 
     private mutating func setPrivateMode(_ mode: PrivateMode, enabled: Bool) {
@@ -251,11 +258,13 @@ public struct Terminal: Sendable {
             generation &+= 1
         case .applicationKeypad: modes.applicationKeypad = enabled
         case .mousePress, .mouseDrag, .mouseMotion:
-            let next: MouseTracking = enabled ? (mode == .mousePress ? .press : mode == .mouseDrag ? .drag : .all) : .off
-            if modes.mouseTracking != next {
-                modes.mouseTracking = next
-                generation &+= 1
+            let tracking: MouseTracking = switch (enabled, mode) {
+            case (true, .mousePress): .press
+            case (true, .mouseDrag): .drag
+            case (true, .mouseMotion): .all
+            default: .off
             }
+            setMouseTracking(tracking)
         case .mouseSGR: modes.mouseSGR = enabled
         case .sendFocus: modes.sendFocus = enabled
         case .alternateScreen:

@@ -1,6 +1,6 @@
-// Maps each parser state and input byte to a next state and operation in one 16-bit load.
-// In a control-heavy parsing loop on an M1 Max, reading the packed tags directly cut
-// median time from 10.9 to 7.6 nanoseconds per scalar.
+// Maps a parser state and an input byte to a next state and a framing operation.
+// The state diagram by Paul Williams describes DEC parser transitions.
+// https://vt100.net/emu/dec_ansi_parser
 
 extension EscapeParser {
     enum State: UInt8, CaseIterable {
@@ -19,6 +19,18 @@ extension EscapeParser {
         case cancelAndExecute, cancelAndBeginHeader, cancelAndBeginOSC
     }
 
+    // On M1 Max, storing the two enums directly reduced control-heavy framing throughput
+    // by 6–11% compared with these packed tags, with consume inlined for both.
+    struct Tag<Value: RawRepresentable> where Value.RawValue == UInt8 {
+        fileprivate let byte: UInt8
+
+        init(_ value: Value) { byte = value.rawValue }
+        fileprivate init(byte: UInt8) { self.byte = byte }
+        func matches(_ value: Value) -> Bool { byte == value.rawValue }
+
+        static func ~= (value: Value, tag: Self) -> Bool { tag.matches(value) }
+    }
+
     struct Transition {
         private let packed: UInt16
 
@@ -26,9 +38,12 @@ extension EscapeParser {
             packed = UInt16(next.rawValue) | UInt16(operation.rawValue) << 8
         }
 
-        // Both tags come from the initializer above.
-        var nextState: UInt8 { UInt8(truncatingIfNeeded: packed) }
-        var operation: UInt8 { UInt8(packed >> 8) }
+        var nextState: Tag<State> { Tag(byte: UInt8(truncatingIfNeeded: packed)) }
+        var operation: Tag<Operation> { Tag(byte: UInt8(packed >> 8)) }
+    }
+
+    static func transition(from state: Tag<State>, scalar: UInt32) -> Transition {
+        transitions[Int(state.byte) << 8 | Int(min(scalar, 0xA0))]
     }
 
     // Each state occupies one 256-entry row. Slot A0 stands for every Unicode scalar

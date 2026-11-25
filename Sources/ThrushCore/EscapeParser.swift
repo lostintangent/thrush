@@ -29,21 +29,21 @@ struct EscapeParser: Sendable {
 
     private enum Pending { case stringEnd(Bool), execute(UInt8) }
 
-    private var state = State.ground.rawValue
+    private var state = Tag(State.ground)
     private var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
     private(set) var parameters = ControlParameters()
     private var oscIdentifier = -1
     private var pending: Pending?
-    var isGround: Bool { state == State.ground.rawValue }
-    // Printable ASCII is inert in these payloads. Controls still use the transition table.
+    var isGround: Bool { state.matches(.ground) }
+
+    /// Printable ASCII has no effect inside these strings. Controls still need framing.
     var discardsASCII: Bool {
         switch state {
-        case State.discardedOSC.rawValue, State.discardedDCS.rawValue, State.ignoredString.rawValue, State.invalidOSC.rawValue: true
+        case .discardedOSC, .discardedDCS, .ignoredString, .invalidOSC: true
         default: false
         }
     }
-
 
     /// A scalar can finish an empty OSC or interrupt a string and execute a C1
     /// control. Drain the second notification after an OSC start or string end.
@@ -59,60 +59,58 @@ struct EscapeParser: Sendable {
     /// Suppress payload delivery after dispatch declines a string command.
     mutating func discardStringPayload() {
         switch state {
-        case State.oscPayload.rawValue: state = State.discardedOSC.rawValue
-        case State.dcsPayload.rawValue: state = State.discardedDCS.rawValue
+        case .oscPayload: state = Tag(.discardedOSC)
+        case .dcsPayload: state = Tag(.discardedDCS)
         default:
             // An OSC without a payload separator starts and ends on the same scalar.
             if case .stringEnd = pending { pending = nil }
         }
     }
 
-    // Inlining this transition lets the receive loop switch on its action directly.
-    // It also reduced the compiled core by 612 bytes in the Bash replay comparison.
-    @inline(__always) mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
+    @inline(__always)
+    mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
         let code = scalar.value
-        let index = Int(state) << 8 | Int(min(code, 0xA0))
-        let transition = Self.transitions[index]
+        let transition = Self.transition(from: state, scalar: code)
         state = transition.nextState
         // Operations that use a byte are reachable only for single-byte code points.
         let byte = UInt8(truncatingIfNeeded: code)
         switch transition.operation {
-        case Operation.ignore.rawValue: return nil
-        case Operation.print.rawValue: return .printable
-        case Operation.execute.rawValue: return .execute(byte)
-        case Operation.beginEscape.rawValue:
+        case .ignore: return nil
+        case .print: return .printable
+        case .execute: return .execute(byte)
+        case .beginEscape:
             collected = 0
-        case Operation.beginHeader.rawValue, Operation.cancelAndBeginHeader.rawValue:
+        case .beginHeader, .cancelAndBeginHeader:
             collected = 0
             parameters.reset()
-            if transition.operation == Operation.cancelAndBeginHeader.rawValue { return .stringEnd(success: false) }
-        case Operation.collect.rawValue:
+            if transition.operation.matches(.cancelAndBeginHeader) { return .stringEnd(success: false) }
+        case .collect:
             collected = collected << 8 | code
-        case Operation.parameter.rawValue:
+        case .parameter:
             parameters.append(byte)
-        case Operation.escapeFinal.rawValue: return .esc(ControlIdentifier(collected: collected, final: byte))
-        case Operation.controlFinal.rawValue: return .csi(ControlIdentifier(collected: collected, final: byte))
-        case Operation.startDCS.rawValue: return .dcsStart(ControlIdentifier(collected: collected, final: byte))
-        case Operation.beginOSC.rawValue, Operation.cancelAndBeginOSC.rawValue:
+        case .escapeFinal: return .esc(ControlIdentifier(collected: collected, final: byte))
+        case .controlFinal: return .csi(ControlIdentifier(collected: collected, final: byte))
+        case .startDCS: return .dcsStart(ControlIdentifier(collected: collected, final: byte))
+        case .beginOSC, .cancelAndBeginOSC:
             oscIdentifier = -1
-            if transition.operation == Operation.cancelAndBeginOSC.rawValue { return .stringEnd(success: false) }
-        case Operation.oscDigit.rawValue:
+            if transition.operation.matches(.cancelAndBeginOSC) { return .stringEnd(success: false) }
+        case .oscDigit:
             let digit = Int(code - 0x30)
             if oscIdentifier <= (Int.max - digit) / 10 {
                 oscIdentifier = max(0, oscIdentifier) * 10 + digit
             } else {
-                state = State.invalidOSC.rawValue
+                state = Tag(.invalidOSC)
             }
-        case Operation.startOSC.rawValue: return .oscStart(oscIdentifier)
-        case Operation.put.rawValue: return .stringPut(scalar)
-        case Operation.finish.rawValue, Operation.cancel.rawValue:
+        case .startOSC: return .oscStart(oscIdentifier)
+        case .put: return .stringPut(scalar)
+        case .finish, .cancel:
             collected = 0
-            return .stringEnd(success: transition.operation == Operation.finish.rawValue)
-        case Operation.finishEmptyOSC.rawValue, Operation.cancelEmptyOSC.rawValue:
+            return .stringEnd(success: transition.operation.matches(.finish))
+        case .finishEmptyOSC, .cancelEmptyOSC:
             collected = 0
-            pending = .stringEnd(transition.operation == Operation.finishEmptyOSC.rawValue)
+            pending = .stringEnd(transition.operation.matches(.finishEmptyOSC))
             return .oscStart(oscIdentifier)
-        case Operation.cancelAndExecute.rawValue:
+        case .cancelAndExecute:
             pending = .execute(byte)
             return .stringEnd(success: false)
         default: preconditionFailure("Invalid framing table operation")
