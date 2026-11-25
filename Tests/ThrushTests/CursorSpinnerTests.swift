@@ -15,7 +15,7 @@ import UIKit
     let first = try #require(view.cellFrameInWindow(row: 0, column: 0))
     let originalBounds = view.bounds
     view.reducesMotion = true
-    view.setWaiting(true)
+    view.setWaiting("Connecting")
     let spinner = try #require(view.subviews.compactMap { $0 as? CursorSpinner }.first)
     let opening = try #require(view.cursorSpinnerFrameInWindow)
     #expect(first.contains(opening))
@@ -27,6 +27,14 @@ import UIKit
     #else
     #expect(spinner.isAccessibilityElement && spinner.accessibilityLabel == "Connecting")
     #expect(!spinner.isAnimating)
+    #endif
+    view.setWaiting("Reconnecting")
+    view.setWaiting("Reconnecting")
+    #expect(view.subviews.compactMap { $0 as? CursorSpinner }.first === spinner)
+    #if os(macOS)
+    #expect(spinner.accessibilityLabel() == "Reconnecting")
+    #else
+    #expect(spinner.accessibilityLabel == "Reconnecting")
     #endif
     var terminal = Terminal(size: size)
     _ = terminal.receive("keep this selection\u{1b}[\(size.rows);\(size.columns)H".utf8)
@@ -45,7 +53,7 @@ import UIKit
     _ = terminal.receive("\u{1b}[?25l".utf8)
     view.display(terminal)
     #expect(view.cursorSpinnerFrameInWindow == opening)
-    view.setWaiting(false)
+    view.setWaiting(nil)
     #expect(view.cursorSpinnerFrameInWindow == nil && spinner.superview == nil)
     #expect(view.gridSize == size && view.bounds == originalBounds)
     #expect(view.selectedText == "keep")

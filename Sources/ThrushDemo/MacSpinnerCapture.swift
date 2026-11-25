@@ -14,6 +14,7 @@ import Thrush
         let windowFrame, screenVisibleFrame: CGRect
         let scale: CGFloat
         let spinnerFrame, cursorCellFrame, firstCellFrame, lastCellFrame: CGRect?
+        let cursorSpinnerLabel: String?
         let shellEnded: Bool
         let newShellButtonFrame: CGRect?
         let gridFrame: CGRect
@@ -65,6 +66,10 @@ import Thrush
                             continue
                         } catch { return }
                     }
+                    let spinner = session.view.subviews.first {
+                        $0 is NSProgressIndicator && !$0.isHiddenOrHasHiddenAncestor && $0.isAccessibilityElement()
+                            && $0.accessibilityIdentifier() == "terminal.cursorSpinner"
+                    }
                     let state = State(pid: ProcessInfo.processInfo.processIdentifier, windowID: window.windowNumber,
                                       scene: session.options.scene.rawValue,
                                       appearance: session.view.resolvedTheme == .slateDark ? "dark" : "light",
@@ -78,6 +83,7 @@ import Thrush
                                       scale: window.backingScaleFactor, spinnerFrame: session.view.cursorSpinnerFrameInWindow,
                                       cursorCellFrame: session.view.cursorCellFrameInWindow, firstCellFrame: session.view.cellFrameInWindow(row: 0, column: 0),
                                       lastCellFrame: session.view.cellFrameInWindow(row: grid.rows - 1, column: grid.columns - 1),
+                                      cursorSpinnerLabel: spinner?.accessibilityLabel(),
                                       shellEnded: session.terminalSession?.hasEnded == true, newShellButtonFrame: buttonFrame,
                                       gridFrame: gridFrame,
                                       columns: grid.columns, rows: grid.rows)
