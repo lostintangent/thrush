@@ -4,6 +4,8 @@ import Thrush
 
 #if os(iOS)
 import UIKit
+#else
+import AppKit
 #endif
 
 /// Captures frames submitted by the native demo while its responder runs the recorded clear.
@@ -48,8 +50,17 @@ enum ClearCapture {
                 FileManager.default.fileExists(atPath: output.appending(path: name).path)
             }
             do {
+                #if os(macOS)
+                try await wait { view.window?.isVisible == true }
+                let window = view.window!
+                let state: [String: Any] = ["pid": ProcessInfo.processInfo.processIdentifier,
+                    "windowID": window.windowNumber, "key": window.isKeyWindow, "active": NSApp.isActive,
+                    "occluded": !window.occlusionState.contains(.visible)]
+                try write("ready", JSONSerialization.data(withJSONObject: state))
+                #else
                 try await wait { (view.snapshot?.history.count ?? 0) > 20 && !frames.isEmpty }
                 try write("ready")
+                #endif
                 try await wait { marker("type") }
                 try NativeWorkflowActions.input(.text("clear"), view: view)
                 try await wait { marker("return") }

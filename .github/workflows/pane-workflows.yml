@@ -39,7 +39,11 @@ jobs:
           WORKFLOW: ${{ inputs.workflow }}
         run: |
           if [[ "$WORKFLOW" == clear ]]; then
-            python3 scripts/interaction-capture/clear.py "$PLATFORM" "$RUNNER_TEMP/pane-workflows"
+            if [[ "$PLATFORM" == mac ]]; then
+              caffeinate -d -u -s python3 scripts/interaction-capture/clear.py "$PLATFORM" "$RUNNER_TEMP/pane-workflows"
+            else
+              python3 scripts/interaction-capture/clear.py "$PLATFORM" "$RUNNER_TEMP/pane-workflows"
+            fi
             exit
           elif [[ "$WORKFLOW" == clear-reference ]]; then
             python3 scripts/interaction-capture/clear-reference.py "$RUNNER_TEMP/pane-workflows"

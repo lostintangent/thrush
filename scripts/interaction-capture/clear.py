@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import runpy
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -48,8 +49,12 @@ def record_mac(out, pid, binary):
 def one(platform, mode, out, device, docs, bundle, binary):
     out.mkdir()
     driver = Path(tempfile.mkdtemp(prefix="clear-", dir=docs)) if device else out
+    pid = None
+    peer_args = ["bun", here / "clear-peer.ts", here / "clear-oshen.json", out, mode]
+    if not device:
+        peer_args.append("--after-camera")
     try:
-        with panes["running"](["bun", here / "clear-peer.ts", here / "clear-oshen.json", out, mode], out / "peer.log") as peer:
+        with panes["running"](peer_args, out / "peer.log") as peer:
             def endpoint():
                 panes["check_alive"](peer, "peer", out / "peer.log")
                 line = (out / "peer.log").read_text().strip()
@@ -59,7 +64,8 @@ def one(platform, mode, out, device, docs, bundle, binary):
             if device:
                 launch = ["xcrun", "simctl", "launch", "--console", "--terminate-running-process", device, app_id, *args, "--keyboard"]
             else:
-                launch = [bundle / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES", *args]
+                launch = ["open", "-n", "-W", "-F", "-a", bundle, "--stdout", out / "host.stdout.log",
+                          "--stderr", out / "host.stderr.log", "--args", "-NSAppSleepDisabled", "YES", *args]
             with panes["running"](launch, out / "app.log") as app:
                 def received(path):
                     for name in [driver / "error.txt", out / "peer-error.txt"]:
@@ -67,15 +73,19 @@ def one(platform, mode, out, device, docs, bundle, binary):
                             raise RuntimeError(name.read_text())
                     panes["check_alive"](app, "demo", out / "app.log")
                     return path.exists()
-                until("seeded history and a submitted frame", lambda: received(driver / "ready") and received(out / "seeded"))
+                until("native window and socket", lambda: received(driver / "ready") and received(out / "attached"))
                 if device:
                     recorder = capture["record_simulator"](device, out, "clear")
                 else:
-                    recorder = record_mac(out, app.pid, binary)
+                    window = json.loads((driver / "ready").read_text())
+                    pid = window["pid"]
+                    subprocess.run(["open", "-a", bundle], check=True)
+                    recorder = record_mac(out, pid, binary)
                 # The seed includes 128 numbered lines. Let the software keyboard and
                 # its resulting PTY resize settle before recording its unchanged geometry.
                 time.sleep(1)
                 with recorder:
+                    until("numbered terminal history", lambda: received(out / "seeded"))
                     time.sleep(.7)
                     (driver / "type").touch()
                     until("the recording's typed clear", lambda: received(out / "echoed"))
@@ -86,6 +96,11 @@ def one(platform, mode, out, device, docs, bundle, binary):
                     (driver / "finish").touch()
                     until("the submitted frame report", lambda: received(driver / "frames.json"))
     finally:
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         if device and driver.is_dir():
             shutil.copytree(driver, out, dirs_exist_ok=True)
             shutil.rmtree(driver)

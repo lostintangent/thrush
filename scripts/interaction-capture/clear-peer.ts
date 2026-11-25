@@ -1,9 +1,9 @@
 // Replay the recorded PTY output through the production WebSocket, keeping every read boundary.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 
-const [fixturePath, output, mode] = Bun.argv.slice(2);
+const [fixturePath, output, mode, deferred] = Bun.argv.slice(2);
 type Read = { base64: string; elapsedMs: number };
 type Capture = { beforeTyping: Read[]; typed: Read[]; returned: Read[] };
 const capture: Capture = JSON.parse(readFileSync(fixturePath, "utf8"));
@@ -36,6 +36,16 @@ const server = Bun.serve({
     websocket: {
         async open(socket) {
             socket.sendText(JSON.stringify({type: "ready", resumed: false}));
+            writeFileSync(join(output, "attached"), "");
+            if (deferred) {
+                // Let WindowServer register the capture before the original numbered history
+                // fills the native window. The clear and its prompt retain their recorded timing.
+                const deadline = performance.now() + 60000;
+                while (!existsSync(join(output, "recording-start.armed"))) {
+                    if (performance.now() >= deadline) throw Error("No window recorder attached");
+                    await Bun.sleep(15);
+                }
+            }
             await play(socket, capture.beforeTyping, "beforeTyping");
             stage = "typing";
             writeFileSync(join(output, "seeded"), "");

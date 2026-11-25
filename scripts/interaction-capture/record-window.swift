@@ -6,7 +6,14 @@ func failure(_ message: String) -> NSError {
     NSError(domain: "NativeWindowCapture", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
 }
 
+func log(_ text: String) {
+    FileHandle.standardError.write(Data((text + "\n").utf8))
+}
+
 struct Frame: Encodable {
+    let source: String
+    let screenshotRequestedPTS: Int64?
+    let screenshotRequestedTimescale: Int32?
     let pts: Int64
     let timescale: Int32
     let offset: UInt64
@@ -31,6 +38,12 @@ final class WindowFrames: NSObject, SCStreamOutput, SCStreamDelegate {
     let handle: FileHandle
     let ready: URL
     private var frames: [Frame] = []
+    private var sawCallback = false
+    private var streamUpdates = 0
+    private var lastStreamUpdate = ContinuousClock.now
+    private var screenshotPending = false
+    private var loggedScreenshot = false
+    private var finished = false
     private var width = 0
     private var height = 0
 
@@ -44,19 +57,86 @@ final class WindowFrames: NSObject, SCStreamOutput, SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: any Error) { fail(error) }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen, sample.isValid, CMSampleBufferDataIsReady(sample),
-              let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)
-                as? [[SCStreamFrameInfo: Any]],
-              let value = attachments.first?[.status] as? Int, let status = SCFrameStatus(rawValue: value),
-              status == .complete || status == .started, let image = sample.imageBuffer else { return }
-        do { try store(image, time: sample.presentationTimeStamp) } catch { fail(error) }
+        receive(sample, type: type)
     }
 
-    func store(_ image: CVPixelBuffer, time: CMTime) throws {
+    func receive(_ sample: CMSampleBuffer, type: SCStreamOutputType) {
+        let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)
+        let info = (attachments as? [[SCStreamFrameInfo: Any]])?.first
+        let status = (info?[.status] as? NSNumber).flatMap { SCFrameStatus(rawValue: $0.intValue) }
+        let time = sample.presentationTimeStamp
+        if !sawCallback {
+            sawCallback = true
+            log("First callback type=\(type.rawValue) status=\(String(describing: status?.rawValue)) " +
+                "pts=\(time.value)/\(time.timescale) valid=\(sample.isValid) dataReady=\(CMSampleBufferDataIsReady(sample)) " +
+                "image=\(sample.imageBuffer != nil) attachments=\(String(describing: attachments))")
+        }
+        guard !finished, type == .screen, sample.isValid, time.isNumeric, let image = sample.imageBuffer,
+              status != .stopped && status != .suspended && status != .blank else { return }
+        // An idle first buffer can still contain the current WindowServer image.
+        guard frames.isEmpty || status == .complete || status == .started else { return }
+        do {
+            try store(image, time: time, source: "stream")
+            if status == .complete || status == .started {
+                streamUpdates += 1
+                lastStreamUpdate = .now
+            }
+        } catch { fail(error) }
+    }
+
+    /// A static or occluded window can deliver no stream samples. During a quiet period,
+    /// independently observe that same window, one request at a time. A stream update
+    /// received during the request takes priority. Screenshot PTS is observation completion.
+    func captureIfQuiet(filter: SCContentFilter, configuration: SCStreamConfiguration, clock: CMClock) {
+        queue.async {
+            guard !self.finished, !self.screenshotPending, self.lastStreamUpdate.duration(to: .now) >= .milliseconds(250) else { return }
+            self.screenshotPending = true
+            let revision = self.streamUpdates
+            let requested = CMClockGetTime(clock)
+            if !self.loggedScreenshot {
+                log("Requesting independent window screenshots after 250 ms without a new stream image")
+                self.loggedScreenshot = true
+            }
+            SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, error in
+                let received = CMClockGetTime(clock)
+                self.queue.async {
+                    self.screenshotPending = false
+                    guard !self.finished, revision == self.streamUpdates else { return }
+                    guard let image else {
+                        log("Independent window screenshot failed: \(String(describing: error))")
+                        return
+                    }
+                    do {
+                        let pixels = try Self.bgra(image)
+                        try self.store(pixels, time: received, source: "windowScreenshot", requested: requested)
+                    } catch { self.fail(error) }
+                }
+            }
+        }
+    }
+
+    static func bgra(_ image: CGImage) throws -> CVPixelBuffer {
+        var buffer: CVPixelBuffer?
+        guard CVPixelBufferCreate(nil, image.width, image.height, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess,
+              let buffer, CVPixelBufferLockBaseAddress(buffer, []) == kCVReturnSuccess else { throw failure("Cannot allocate screenshot") }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let address = CVPixelBufferGetBaseAddress(buffer),
+              let context = CGContext(data: address, width: image.width, height: image.height, bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue)
+        else { throw failure("Cannot read window screenshot") }
+        context.setBlendMode(.copy)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return buffer
+    }
+
+    func store(_ image: CVPixelBuffer, time: CMTime, source: String, requested: CMTime? = nil) throws {
         guard time.isNumeric, CVPixelBufferGetPixelFormatType(image) == kCVPixelFormatType_32BGRA else {
             throw failure("Invalid frame time or pixel format")
         }
-        if let last = frames.last, time <= last.time { throw failure("Non-increasing ScreenCaptureKit timestamp") }
+        // A delayed stream callback can arrive after a screenshot of the same instant.
+        // Preserve the native callback; the movie is ordered by its source timestamps below.
+        if frames.last?.time == time { return }
         let w = CVPixelBufferGetWidth(image), h = CVPixelBufferGetHeight(image)
         guard frames.isEmpty || (width == w && height == h) else { throw failure("Window recording dimensions changed") }
         width = w
@@ -65,14 +145,26 @@ final class WindowFrames: NSObject, SCStreamOutput, SCStreamDelegate {
         defer { CVPixelBufferUnlockBaseAddress(image, .readOnly) }
         guard let base = CVPixelBufferGetBaseAddress(image) else { throw failure("Missing frame storage") }
         let stride = CVPixelBufferGetBytesPerRow(image)
-        let frame = Frame(pts: time.value, timescale: time.timescale, offset: try handle.offset(), rowBytes: stride)
+        let frame = Frame(source: source, screenshotRequestedPTS: requested?.value, screenshotRequestedTimescale: requested?.timescale,
+                          pts: time.value, timescale: time.timescale, offset: try handle.offset(), rowBytes: stride)
         try handle.write(contentsOf: Data(bytesNoCopy: base, count: stride * h, deallocator: .none))
         frames.append(frame)
-        if frames.count == 1 { try Data().write(to: ready, options: .atomic) }
+        if frames.count == 1 {
+            log("First saved image source=\(source) pts=\(time.value)/\(time.timescale) size=\(w)x\(h)")
+            try Data().write(to: ready, options: .atomic)
+        }
     }
 
     func finish(stop: CMTime) throws -> Recording {
+        finished = true
         try handle.close()
+        frames.sort { $0.time == $1.time ? $0.source == "stream" && $1.source != "stream" : $0.time < $1.time }
+        var seen: CMTime?
+        frames.removeAll { frame in
+            if frame.time == seen { return true }
+            seen = frame.time
+            return false
+        }
         guard let last = frames.last, stop.isNumeric, stop >= last.time else { throw failure("No frames or invalid source stop time") }
         return Recording(width: width, height: height, frames: frames, stopPTS: stop.value, stopTimescale: stop.timescale)
     }
@@ -116,6 +208,7 @@ func makeMovie(_ recording: Recording, raw: URL, output: URL) async throws {
               CVPixelBufferLockBaseAddress(buffer, []) == kCVReturnSuccess else { throw failure("Cannot allocate movie frame") }
         do {
             defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+            try source.seek(toOffset: frame.offset)
             let size = frame.rowBytes * recording.height
             guard let dest = CVPixelBufferGetBaseAddress(buffer), let data = try source.read(upToCount: size),
                   data.count == size else { throw failure("Incomplete raw frame") }
@@ -158,6 +251,7 @@ repeat {
     if target == nil { try await Task.sleep(for: .milliseconds(150)) }
 } while target == nil && ContinuousClock.now < searchUntil
 guard let window = target else { fatalError("No matching native window for PID \(pid)") }
+log("Selected PID \(pid), window \(window.windowID), title=\(window.title ?? "") frame=\(window.frame) onScreen=\(window.isOnScreen)")
 let filter = SCContentFilter(desktopIndependentWindow: window)
 let configuration = SCStreamConfiguration()
 let scale = CGFloat(filter.pointPixelScale)
@@ -179,14 +273,18 @@ let recorder = try WindowFrames(output: output, ready: ready)
 let capture = SCStream(filter: filter, configuration: configuration, delegate: recorder)
 try capture.addStreamOutput(recorder, type: .screen, sampleHandlerQueue: recorder.queue)
 try await completed { capture.startCapture(completionHandler: $0) }
+let clock = capture.synchronizationClock ?? CMClockGetHostTimeClock()
+try Data().write(to: ready.appendingPathExtension("armed"), options: .atomic)
+log("Window capture armed; waiting for its first image")
 let deadline = ContinuousClock.now + .seconds(120)
 while !FileManager.default.fileExists(atPath: stop.path) {
     if ContinuousClock.now > deadline { throw failure("Timed out waiting for recording stop") }
-    try await Task.sleep(for: .milliseconds(35))
+    recorder.captureIfQuiet(filter: filter, configuration: configuration, clock: clock)
+    try await Task.sleep(for: .milliseconds(16))
 }
 try await completed { capture.stopCapture(completionHandler: $0) }
 let recording = try recorder.queue.sync {
-    try recorder.finish(stop: CMClockGetTime(capture.synchronizationClock ?? CMClockGetHostTimeClock()))
+    try recorder.finish(stop: CMClockGetTime(clock))
 }
 let times = output.deletingPathExtension().appendingPathExtension("frames.json")
 try JSONEncoder().encode(recording).write(to: times, options: .atomic)
