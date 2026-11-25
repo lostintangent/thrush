@@ -235,7 +235,13 @@ private typealias NoticeHost = UIView & UIContentView
 /// viewport and lifts it by whole cells only when needed to keep the reading position visible.
 @MainActor final class TerminalPaneContainer: PaneNativeView {
     let terminal: TerminalView
-    var onVisibility: ((Bool) -> Void)?
+    var onVisibility: (() -> Void)?
+    #if os(macOS)
+    private weak var closingWindow: NSWindow?
+    #else
+    private var sceneState: UIScene.ActivationState?
+    private var visibilityObservations: [NSKeyValueObservation] = []
+    #endif
     var onAction: (() -> Void)?
     var onNoticeReadChange: ((Bool) -> Void)?
 
@@ -323,10 +329,12 @@ private typealias NoticeHost = UIView & UIContentView
         let notifications = [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
                              NSApplication.didHideNotification, NSApplication.didUnhideNotification,
                              NSWindow.didChangeOcclusionStateNotification, NSWindow.didMiniaturizeNotification,
-                             NSWindow.didDeminiaturizeNotification]
+                             NSWindow.didDeminiaturizeNotification, NSWindow.willCloseNotification,
+                             NSWindow.didBecomeKeyNotification]
         #else
         let notifications = [UIScene.didActivateNotification, UIScene.willDeactivateNotification,
-                             UIScene.willEnterForegroundNotification, UIScene.didEnterBackgroundNotification]
+                             UIScene.willEnterForegroundNotification, UIScene.didEnterBackgroundNotification,
+                             UIScene.didDisconnectNotification]
         center.addObserver(self, selector: #selector(announcementFinished(_:)),
                            name: UIAccessibility.announcementDidFinishNotification, object: nil)
         center.addObserver(self, selector: #selector(voiceOverChanged),
@@ -340,44 +348,99 @@ private typealias NoticeHost = UIView & UIContentView
 
     required init?(coder: NSCoder) { nil }
 
-    var visibleAndActive: Bool {
+    var isShellPresented: Bool {
         #if os(macOS)
         guard let window else { return false }
-        return NSApp.isActive && window.isVisible && !window.isMiniaturized
-            && window.occlusionState.contains(.visible) && !isHiddenOrHasHiddenAncestor
+        return window !== closingWindow && !isHiddenOrHasHiddenAncestor
         #else
-        guard let window, window.windowScene?.activationState == .foregroundActive else { return false }
+        guard let window else { return false }
+        let state = sceneState ?? window.windowScene?.activationState
+        guard state == .foregroundActive || state == .foregroundInactive else { return false }
         var ancestor: UIView? = self
-        while let item = ancestor {
-            if item.isHidden || item.alpha == 0 { return false }
-            ancestor = item.superview
+        while let view = ancestor {
+            if view.isHidden || view.alpha == 0 { return false }
+            ancestor = view.superview
         }
-        return !window.isHidden
+        return true
+        #endif
+    }
+
+    var isDrawingVisible: Bool {
+        guard isShellPresented, let window else { return false }
+        #if os(macOS)
+        return !NSApp.isHidden && window.isVisible && !window.isMiniaturized
+            && window.occlusionState.contains(.visible)
+        #else
+        return (sceneState ?? window.windowScene?.activationState) == .foregroundActive
         #endif
     }
 
     #if os(macOS)
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); onVisibility?(visibleAndActive) }
-    override func viewDidHide() { super.viewDidHide(); onVisibility?(false) }
-    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?(visibleAndActive) }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        closingWindow = nil
+        onVisibility?()
+    }
+    override func viewDidHide() { super.viewDidHide(); onVisibility?() }
+    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?() }
     override func layout() { super.layout(); keepReadingPositionVisible() }
     #else
-    override func didMoveToWindow() { super.didMoveToWindow(); onVisibility?(visibleAndActive) }
-    override var isHidden: Bool { didSet { onVisibility?(visibleAndActive) } }
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        sceneState = nil
+        observeVisibility()
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        observeVisibility()
+    }
+
+    private func observeVisibility() {
+        visibilityObservations.removeAll()
+        if window != nil {
+            // UIKit sends no didMoveToWindow when a mounted ancestor is hidden.
+            var ancestor: UIView? = self
+            while let view = ancestor {
+                visibilityObservations.append(view.observe(\.isHidden) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.onVisibility?() }
+                })
+                visibilityObservations.append(view.observe(\.alpha) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.onVisibility?() }
+                })
+                ancestor = view.superview
+            }
+        }
+        onVisibility?()
+    }
+
     override func layoutSubviews() { super.layoutSubviews(); keepReadingPositionVisible() }
+
+    // During willDeactivate / willEnterForeground the scene can still report the old state.
+    func sceneLifecycleChanged(_ name: Notification.Name) {
+        switch name {
+        case UIScene.didActivateNotification: sceneState = .foregroundActive
+        case UIScene.willDeactivateNotification, UIScene.willEnterForegroundNotification: sceneState = .foregroundInactive
+        case UIScene.didEnterBackgroundNotification: sceneState = .background
+        case UIScene.didDisconnectNotification: sceneState = .unattached
+        default: return
+        }
+        onVisibility?()
+    }
     #endif
 
     @objc private func lifecycleChanged(_ notification: Notification) {
         #if os(macOS)
-        if let affected = notification.object as? NSWindow, affected !== window { return }
-        #else
-        if let scene = notification.object as? UIScene, scene !== window?.windowScene { return }
-        if notification.name == UIScene.willDeactivateNotification {
-            onVisibility?(false)
-            return
+        if let affected = notification.object as? NSWindow {
+            guard affected === window else { return }
+            if notification.name == NSWindow.willCloseNotification { closingWindow = affected }
+            if notification.name == NSWindow.didBecomeKeyNotification { closingWindow = nil }
         }
+        onVisibility?()
+        #else
+        guard let scene = notification.object as? UIScene, scene === window?.windowScene else { return }
+        sceneLifecycleChanged(notification.name)
         #endif
-        onVisibility?(visibleAndActive)
     }
 
     private func updateBacking(_ theme: TerminalTheme) {
@@ -524,7 +587,7 @@ private typealias NoticeHost = UIView & UIContentView
 
     private func fade(_ view: PaneNativeView, to alpha: CGFloat, completion: (@MainActor () -> Void)? = nil) {
         #if os(macOS)
-        guard window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+        guard isDrawingVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             view.alphaValue = alpha
             backing.alphaValue = alpha
             completion?()
@@ -536,7 +599,7 @@ private typealias NoticeHost = UIView & UIContentView
             backing.animator().alphaValue = alpha
         } completionHandler: { Task { @MainActor in completion?() } }
         #else
-        guard window != nil, !UIAccessibility.isReduceMotionEnabled else {
+        guard isDrawingVisible, !UIAccessibility.isReduceMotionEnabled else {
             view.alpha = alpha
             backing.alpha = alpha
             completion?()

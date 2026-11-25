@@ -31,13 +31,14 @@ final class ThrushPhone: UIResponder, UIApplicationDelegate {
         window.makeKeyAndVisible()
     }
 
+    func sceneWillEnterForeground(_ scene: UIScene) { host.session.setActive(true) }
+
     func sceneDidBecomeActive(_ scene: UIScene) {
         PhoneCapture.orient(scene)
-        host.session.setActive(true)
         host.focusIfRequested()
     }
 
-    func sceneWillResignActive(_ scene: UIScene) {
+    func sceneDidEnterBackground(_ scene: UIScene) {
         host.session.setActive(false)
     }
 }

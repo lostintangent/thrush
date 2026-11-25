@@ -73,6 +73,16 @@ The shader resolves palette colors from one buffer. Each immutable row has its o
 
 See [the render and interaction benchmarks](../Benchmarks/rendering.md) for the native measurement commands and [the Slate design](design/dark-demo.md) for the palettes and cell metrics.
 
+## Verify window and scene lifetime
+
+A covered, minimized or hidden Mac window keeps its socket. Thrush continues parsing while it draws zero frames, then displays the latest generation on reveal. A foreground iPhone scene keeps its socket during Control Center and system alerts. A background scene, a removed destination or a host-hidden tab detaches it.
+
+On an unlocked Mac desktop, the following check covers the demo with a second app, minimizes it, then hides the app. Each interval exceeds the server’s 30-second orphan deadline. The report checks the live shell PID, socket count, incoming output and Metal submissions across each interval. The same proof runs in the **Mac terminal window lifecycle** workflow.
+
+```sh
+python3 scripts/pty/check-window.py --output /tmp/thrush-window-proof
+```
+
 ## Check the iPhone interactions
 
 Run the UIKit, Metal and recorded workflow tests on a designated iOS 27 simulator. Use its identifier from `xcrun simctl list devices available`.

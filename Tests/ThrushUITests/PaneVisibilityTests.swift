@@ -73,3 +73,30 @@ import ThrushConnection
     #expect(attachments() == removed)
 }
 #endif
+
+#if os(iOS)
+import Testing
+import Thrush
+@testable import ThrushUI
+#endif
+
+@MainActor @Test func hiddenDrawingCoalescesOutputAndRetainsTheNativeReader() throws {
+    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 370))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var terminal = Terminal(size: .init(columns: 40, rows: 10))
+    _ = terminal.receive("Build running\r\n".utf8)
+    view.display(terminal)
+    let initial = try #require(view.snapshot?.generation)
+    let submissions = view.submissionCount
+    view.setDrawingVisible(false)
+    for line in 1...60 {
+        _ = terminal.receive("Completed step \(line)\r\n".utf8)
+        view.display(terminal)
+    }
+    #expect(view.snapshot?.generation == initial)
+    #expect(view.submissionCount == submissions)
+    view.setDrawingVisible(true)
+    #expect(view.snapshot?.generation == terminal.snapshot().generation)
+    #expect(view.snapshot?.rows.contains { $0.text == "Completed step 60" } == true)
+}

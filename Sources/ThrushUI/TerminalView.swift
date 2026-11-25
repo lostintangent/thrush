@@ -375,7 +375,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     func presentFinal(_ next: Terminal.Snapshot) async {
         synchronizedOutput.reset()
         accept(next, receivedAt: received)
-        guard active, window != nil, device != nil else { return }
+        guard window != nil, device != nil else { return }
         finishFinalFrame()
         await withCheckedContinuation { continuation in
             finalFrameWaiter = continuation
@@ -423,14 +423,20 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
 
     public func setRenderingActive(_ newValue: Bool) {
-        guard active != newValue else { return }
-        active = newValue
-        if !active { finishFinalFrame() }
-        synchronizedOutput.setActive(active && window != nil)
-        if active { invalidateFrame() } else {
+        if !newValue {
+            finishFinalFrame()
             cancelPendingInput()
-            releaseDrawables()
         }
+        setDrawingVisible(newValue)
+    }
+
+    /// A covered Mac window keeps its shell and composition. Only the latest generation
+    /// reaches Metal when the surface becomes visible again.
+    func setDrawingVisible(_ visible: Bool) {
+        guard active != visible else { return }
+        active = visible
+        synchronizedOutput.setActive(visible && window != nil)
+        if visible { invalidateFrame() } else { releaseDrawables() }
     }
 
     /// Give native text input and hardware keys to this viewport.

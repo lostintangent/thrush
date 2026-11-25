@@ -72,7 +72,7 @@ import ThrushConnection
         private var pane: TerminalPane?
         private var active = false
         private var isPresented = false
-        private var nativeVisible = false
+        private var drawingVisible = false
         private var epoch: UInt64 = 0
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
@@ -94,11 +94,7 @@ import ThrushConnection
 
         fileprivate func bind(_ container: TerminalPaneContainer) {
             self.container = container
-            nativeVisible = container.visibleAndActive
-            container.onVisibility = { [weak self] visible in
-                self?.nativeVisible = visible
-                self?.updateActivity()
-            }
+            container.onVisibility = { [weak self] in self?.updateActivity() }
             container.onAction = { [weak self] in self?.activateButton() }
             container.onNoticeReadChange = { [weak self] reading in
                 self?.readingNotice = reading
@@ -115,7 +111,8 @@ import ThrushConnection
         }
 
         fileprivate func apply(_ next: TerminalPane) {
-            if pane?.connection !== next.connection {
+            let changedConnection = pane?.connection !== next.connection
+            if changedConnection {
                 stop()
                 phase = .initial
                 hasTranscript = false
@@ -127,7 +124,9 @@ import ThrushConnection
             }
             pane = next
             guard let view else { return }
+            let previousTheme = view.resolvedTheme
             if view.theme != next.theme { view.theme = next.theme }
+            if changedConnection && previousTheme == view.resolvedTheme { next.onResolvedTheme?(view.resolvedTheme) }
             if view.fontSize != next.fontSize { view.fontSize = next.fontSize }
             #if os(iOS)
             if view.keyboardAccessory != next.keyboardAccessory { view.keyboardAccessory = next.keyboardAccessory }
@@ -141,15 +140,21 @@ import ThrushConnection
         }
 
         private func updateActivity() {
-            guard let pane, container != nil else { return }
-            let next = isPresented && pane.isActive && (nativeVisible || pane.assumesVisibleForBenchmark)
-            guard active != next else { return }
-            if next {
+            guard let pane, let container else { return }
+            let shouldAttach = isPresented && pane.isActive && (container.isShellPresented || pane.assumesVisibleForBenchmark)
+            guard shouldAttach else {
+                if active { stop() }
+                return
+            }
+            let visible = container.isDrawingVisible || pane.assumesVisibleForBenchmark
+            if drawingVisible != visible {
+                drawingVisible = visible
+                view?.setDrawingVisible(visible)
+                if visible { resumeReplacementTimer() } else { pauseReplacementTimer() }
+            }
+            if !active {
                 active = true
-                view?.setRenderingActive(true)
                 if let measured = view?.gridSize { resize(measured) }
-            } else {
-                stop()
             }
         }
 
@@ -175,6 +180,7 @@ import ThrushConnection
             pauseReplacementTimer()
             let previouslyActive = active
             active = false
+            drawingVisible = false
             view?.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: false)
             view?.setRenderingActive(false)
             if previouslyActive, let connection = pane?.connection {
@@ -412,7 +418,7 @@ import ThrushConnection
         }
 
         private func resumeReplacementTimer() {
-            guard active, let replacement, notice == replacement, replacementRemaining > .zero,
+            guard drawingVisible, let replacement, notice == replacement, replacementRemaining > .zero,
                   replacementVisibleSince == nil else { return }
             replacementVisibleSince = .now
             let remaining = replacementRemaining

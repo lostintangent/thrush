@@ -78,6 +78,8 @@ public actor TerminalConnection {
     package private(set) var isResynchronizing = false
     public private(set) var state = State.detached
     package private(set) var lastReceiptTime: CFTimeInterval?
+    /// Number of transport factory calls, including failed initial opens and retries.
+    package private(set) var socketAttempts = 0
     package private(set) var receivedBytes = 0
     package private(set) var appliedBytes = 0
 
@@ -122,6 +124,7 @@ public actor TerminalConnection {
         attachmentSize = initialSize
         terminal = Terminal(size: initialSize, palette: palette)
         if let size {
+            socketAttempts += 1
             do {
                 let first = try makeSocket(clientID, size)
                 socket = first
@@ -155,6 +158,7 @@ public actor TerminalConnection {
     }
 
     private func openSocket() {
+        socketAttempts += 1
         do {
             let next = try makeSocket(clientID, requestedSize)
             attachmentSize = requestedSize

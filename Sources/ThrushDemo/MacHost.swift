@@ -55,14 +55,11 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if session.options.benchmarkURL != nil { session.view.focusInput() }
         NSApp.activate()
         session.setActive(true)
+        MacWindowLifecycleCheck.startIfRequested(session: session, window: window)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func windowWillClose(_ notification: Notification) { session.setActive(false) }
-    func windowDidMiniaturize(_ notification: Notification) { session.setActive(false) }
-    func windowDidDeminiaturize(_ notification: Notification) { session.setActive(true) }
-    func applicationDidHide(_ notification: Notification) { session.setActive(false) }
-    func applicationDidUnhide(_ notification: Notification) { session.setActive(true) }
 
     private func applyChrome(_ theme: TerminalTheme) {
         let rgb = theme.hostBacking
@@ -79,6 +76,8 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             return menu
         }
         let app = submenu("Thrush")
+        app.addItem(withTitle: "Hide Thrush", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h").target = NSApp
+        app.addItem(.separator())
         app.addItem(withTitle: "Quit Thrush", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let edit = submenu("Edit")
