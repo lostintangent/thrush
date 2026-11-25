@@ -181,6 +181,14 @@ extension PaneActionButton: NSViewRepresentable {
         button.setAccessibilityLabel(label)
         button.setAccessibilityUserInputLabels([caption])
         button.setAccessibilityHelp(hint)
+        // AppKit exposes the button cell to assistive clients. Keep its spoken
+        // title separate from the visible caption that Voice Control also accepts.
+        if let action = NSAccessibility.unignoredDescendant(of: button) as? NSAccessibilityProtocol {
+            action.setAccessibilityTitle(label)
+            action.setAccessibilityLabel(label)
+            action.setAccessibilityUserInputLabels([caption])
+            action.setAccessibilityHelp(hint)
+        }
     }
 }
 #else
