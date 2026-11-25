@@ -480,7 +480,7 @@ class Phone:
     def benchmark(self):
         report = self.out / "render.json"
         result = run("scripts/benchmark-simulator.sh", self.device, str(self.app), str(report), "--installed",
-                     timeout=270, check=False)
+                     str(self.state_path.parent), timeout=270, check=False)
         (self.out / "benchmark.log").write_text(result.stdout + result.stderr)
         if result.returncode:
             raise RuntimeError("Simulator benchmark failed: " + (result.stdout + result.stderr)[-1800:])

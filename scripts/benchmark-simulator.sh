@@ -2,8 +2,8 @@
 # The selected simulator must already be booted. Only its demo process is controlled.
 set -euo pipefail
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-[[ $# == 3 || ( $# == 4 && ${4:-} == --installed ) ]] || {
-    echo 'Usage: benchmark-simulator.sh UDID SIMULATOR_APP OUTPUT.json [--installed]' >&2
+[[ $# == 3 || ( ${4:-} == --installed && $# -le 5 ) ]] || {
+    echo 'Usage: benchmark-simulator.sh UDID SIMULATOR_APP OUTPUT.json [--installed [DOCUMENTS_DIR]]' >&2
     exit 2
 }
 device=$1
@@ -11,9 +11,12 @@ app=$2
 output=$3
 identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
 if [[ ${4:-} != --installed ]]; then xcrun simctl install "$device" "$app"; fi
-data=$(xcrun simctl get_app_container "$device" "$identifier" data)
-report="$data/Documents/render.json"
-failure="$data/Documents/render-error.txt"
+documents=${5:-}
+if [[ -z "$documents" ]]; then
+    documents="$(xcrun simctl get_app_container "$device" "$identifier" data)/Documents"
+fi
+report="$documents/render.json"
+failure="$documents/render-error.txt"
 ready="$report.background-ready"
 entered="$report.background-entered"
 rm -f "$ready" "$entered" "$failure" "$report"
