@@ -81,7 +81,7 @@ extension Terminal {
             return Cell(text: text, width: cell.width, style: cell.style)
         }
 
-        var trimmedLength: Int {
+        package var trimmedLength: Int {
             var length = cells.count
             while length > 0 {
                 let cell = cells[length - 1]

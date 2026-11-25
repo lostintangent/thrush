@@ -55,8 +55,24 @@ Use `scripts/check-workflows.sh` for an automated pass over all three with Apple
 
 Create one `TerminalView(frame:)` from ThrushUI for the lifetime of the viewport. On the main actor, `display(_:receivedAt:)` accepts a terminal value captured by its serial owner. The package-private connection uses the same API with an immutable screen snapshot. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.
 
-A nil `view.theme` follows AppKit or UIKit appearance. To customize the 22 terminal colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and assign it to the view. Supply `view.resolvedTheme.palette` when creating the terminal and update its `palette` from `onThemeChange`. This keeps OSC replies consistent with indexed colors on screen. The host owns the window and accessory materials.
+A nil `view.theme` follows AppKit or UIKit appearance. To customize the 22 terminal colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and assign it to the view. Supply `view.resolvedTheme.palette` when creating the terminal and update its `palette` from `onThemeChange`. This keeps OSC replies consistent with indexed colors on screen. The host owns the window. ThrushUI supplies the iPhone keyboard accessory. Set `keyboardAccessory` to `.none` to hide it or `.custom(...)` to install a native replacement.
 
 The shader resolves palette colors from one buffer. Each immutable row has its own generation, so cursor moves and theme changes reuse its Metal geometry. The atlas stores premultiplied color emoji and coverage for tinted glyphs. A new drawable receives a complete frame, including every reused row.
 
-See [the render benchmark](../Benchmarks/rendering.md) for the native measurement commands and [the Slate design](design/dark-demo.md) for the palettes and cell metrics.
+See [the render and interaction benchmarks](../Benchmarks/rendering.md) for the native measurement commands and [the Slate design](design/dark-demo.md) for the palettes and cell metrics.
+
+## Check the iPhone interactions
+
+Run the UIKit, Metal and recorded workflow tests on a designated iOS 27 simulator. Use its identifier from `xcrun simctl list devices available`.
+
+```sh
+scripts/check-ios-ui.sh "$udid"
+```
+
+The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`.
+
+The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, four short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on an available Xcode host, pass a new or empty output directory.
+
+```sh
+python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions
+```

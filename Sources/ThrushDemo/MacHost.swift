@@ -49,6 +49,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         makeMenus()
         if cycle { session.onFirstOutput = { [weak self] in self?.cycleAppearance() } }
         window.makeKeyAndOrderFront(nil)
+        session.view.focusInput()
         NSApp.activate()
         session.setActive(true)
     }
@@ -76,6 +77,12 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         }
         let app = submenu("Thrush")
         app.addItem(withTitle: "Quit Thrush", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let edit = submenu("Edit")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
 
         let replay = submenu("Replay")
         let titles: [(DemoOptions.Scene, String)] = [

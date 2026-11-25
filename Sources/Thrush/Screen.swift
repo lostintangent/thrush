@@ -3,6 +3,7 @@ extension Terminal {
     package struct History: RandomAccessCollection, Sendable {
         private var storage: [Row] = []
         private var head = 0
+        package private(set) var evictedRows = 0
         static let limit = 1_000
         let capacity: Int
 
@@ -18,6 +19,7 @@ extension Terminal {
         mutating func append(_ row: Row) {
             guard capacity > 0 else { return }
             if storage.count == capacity {
+                evictedRows += 1
                 storage[head] = row
                 head += 1
                 if head == capacity { head = 0 }
@@ -31,12 +33,12 @@ extension Terminal {
         package let size: Size
         package let palette: Palette
         package let modes: Modes
-        package let rows: [Row]
+        package private(set) var rows: [Row]
         package let history: History
         package let normalHistoryCount: Int
-        package let cursorRow: Int
+        package private(set) var cursorRow: Int
         package let cursorColumn: Int
-        package let cursorVisible: Bool
+        package private(set) var cursorVisible: Bool
         package let cursorBlink: Bool
         package let cursorShape: CursorShape
         package let isAlternate: Bool
@@ -47,6 +49,22 @@ extension Terminal {
         /// Zero is the oldest retained row. The first live row follows the active history.
         package func row(atAbsoluteIndex index: Int) -> Row {
             index < history.count ? history[index] : rows[index - history.count]
+        }
+        package var mouseTracking: MouseTracking { modes.mouseTracking }
+
+        /// Show retained rows in the same immutable generation; the live case shares its row array.
+        package func viewport(rowsFromBottom offset: Int) -> Self {
+            guard !isAlternate, offset > 0 else { return self }
+            let count = min(history.count, offset)
+            guard count > 0 else { return self }
+            var result = self
+            let first = history.count - count
+            result.rows = (first..<(first + rows.count)).map { index in
+                row(atAbsoluteIndex: index)
+            }
+            result.cursorRow += count
+            result.cursorVisible = cursorVisible && result.cursorRow < rows.count
+            return result
         }
     }
 

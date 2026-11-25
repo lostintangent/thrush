@@ -70,7 +70,7 @@ func run() throws {
     throw BenchmarkError("Run the benchmark with swift run -c release ThrushBench.")
     #else
     let arguments = Array(CommandLine.arguments.dropFirst())
-    if arguments.first == "--render" {
+    if arguments.first == "--render" || arguments.first == "--interactions" {
         try runPackagedRenderer(arguments: arguments)
         return
     }
