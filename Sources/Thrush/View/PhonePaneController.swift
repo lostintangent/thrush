@@ -9,6 +9,7 @@ import UIKit
     private var releasing = false
     private var keyboardWasVisible = false
     private var keyboardEnd: CGRect?
+    private var sourceWidth: CGFloat?
     private var lastBounds: CGSize?
     private var settleDuration: TimeInterval = 0
     private var settleTask: Task<Void, Never>?
@@ -44,6 +45,7 @@ import UIKit
               !keyboardMatchesGuide() else { return }
         coordinatorFinished = true
         keyboardWasVisible = true
+        sourceWidth = nil
         lastBounds = nil
         settleDuration = max(UIView.inheritedAnimationDuration, CATransaction.animationDuration())
         pane.beginRotation(sourceHeight: source.height)
@@ -60,6 +62,7 @@ import UIKit
             keyboardWasVisible = (pane.terminal.holdsGridGeometry && keyboardWasVisible)
                 || pane.keyboardLayoutGuide.layoutFrame.height > pane.safeAreaInsets.bottom + 1
             keyboardEnd = nil
+            sourceWidth = pane.bounds.width
             lastBounds = nil
             settleDuration = coordinator.transitionDuration
             pane.beginRotation()
@@ -92,8 +95,8 @@ import UIKit
 
     private func checkGeometry() {
         guard pane.terminal.holdsGridGeometry, releaseTask == nil else { return }
-        // The keyboard may publish its destination before UIKit completes the rotation.
-        if keyboardWasVisible && keyboardMatchesGuide() {
+        // The keyboard may reach its destination before UIKit completes the rotation.
+        if keyboardWasVisible && (keyboardMatchesGuide() || guideFollowsTurn()) {
             finishRotation()
             return
         }
@@ -111,8 +114,7 @@ import UIKit
         guard bounds != lastBounds else { return }
         lastBounds = bounds
         settleTask?.cancel()
-        let followsTurn = abs(pane.keyboardLayoutGuide.layoutFrame.width - pane.bounds.width) <= 1
-        let interval = followsTurn ? max(settleDuration, UIView.inheritedAnimationDuration) : Self.staleGuideWait
+        let interval = guideSpansPane ? max(settleDuration, UIView.inheritedAnimationDuration) : Self.staleGuideWait
         settleTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
             self?.finishRotation()
@@ -134,11 +136,22 @@ import UIKit
             && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
     }
 
+    /// After the window turns, UIKit moves the keyboard guide straight from the source
+    /// orientation's keyboard to the destination's. The keyboard can confirm that frame
+    /// only after the rotation ends, and in Dark it first reports a keyboard without keycaps.
+    private func guideFollowsTurn() -> Bool {
+        guard let sourceWidth else { return false }
+        return abs(pane.bounds.width - sourceWidth) > 1 && guideSpansPane
+    }
+
+    private var guideSpansPane: Bool { abs(pane.keyboardLayoutGuide.layoutFrame.width - pane.bounds.width) <= 1 }
+
     func finishRotation() {
         settleTask?.cancel()
         settleTask = nil
         rotation = nil
         coordinatorFinished = false
+        sourceWidth = nil
         // Keep the anchored source frame until the terminal delivers a frame at the
         // destination size, then commit the new layout together with that frame.
         pane.layoutIfNeeded()
@@ -162,6 +175,7 @@ import UIKit
         releaseTask = nil
         rotation = nil
         coordinatorFinished = false
+        sourceWidth = nil
         releasing = true
         pane.endRotation()
         releasing = false
