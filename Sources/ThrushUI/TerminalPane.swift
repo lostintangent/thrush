@@ -3,19 +3,26 @@ import SwiftUI
 import Thrush
 import ThrushConnection
 
-/// One shell tab. Keep its connection for the tab's lifetime and pass it to this view.
+/// A SwiftUI terminal that attaches its connection while the pane is shown.
+/// Keep the connection in a model that outlives the pane's SwiftUI updates.
 @MainActor public struct TerminalPane: View {
+    /// The host-owned connection for this shell.
     public let connection: TerminalConnection
+    /// Whether the host is showing the pane. Set this to false when hiding a retained tab.
     public var isActive: Bool
+    /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
     public var theme: TerminalTheme?
+    /// The font size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
     public var fontSize: CGFloat?
+    /// Called after the pane presents the shell's final output on exit or explicit close.
     public var onExit: (() -> Void)?
     #if os(iOS)
+    /// The controls above the iPhone software keyboard. Defaults to the standard terminal keys.
     public var keyboardAccessory: TerminalKeyboardAccessory = .standard
     #endif
 
-    /// Uses the system appearance, native lifecycle and standard iPhone terminal keys.
-    /// Pass isActive when the host hides this tab without removing it from the hierarchy.
+    /// Creates a pane for a connection, using the system appearance unless a theme is supplied.
+    /// The pane manages attachment and, on iPhone, supplies the standard terminal keys.
     public init(_ connection: TerminalConnection, isActive: Bool = true, theme: TerminalTheme? = nil,
                 fontSize: CGFloat? = nil, onExit: (() -> Void)? = nil) {
         self.connection = connection
@@ -26,7 +33,8 @@ import ThrushConnection
     }
 
     #if os(iOS)
-    /// Supply an alternative native accessory for this pane.
+    /// Creates a pane with the specified iPhone keyboard accessory.
+    /// Pass `.none` to hide the key row or `.custom(_:)` to supply a native view.
     public init(_ connection: TerminalConnection, isActive: Bool = true, theme: TerminalTheme? = nil,
                 fontSize: CGFloat? = nil, keyboardAccessory: TerminalKeyboardAccessory, onExit: (() -> Void)? = nil) {
         self.init(connection, isActive: isActive, theme: theme, fontSize: fontSize, onExit: onExit)
@@ -42,6 +50,7 @@ import ThrushConnection
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
     package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
+    /// The terminal surface and its connection notices.
     public var body: some View { Presentation(pane: self) }
 
     // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
