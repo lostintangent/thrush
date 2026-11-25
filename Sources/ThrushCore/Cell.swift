@@ -229,7 +229,8 @@ extension Terminal {
             fillWithBlanks(range, style: style)
         }
 
-        private mutating func fillWithBlanks(_ range: Range<Int>, style: Style) {
+        /// Blanks cells without repairing a wide glyph that the range splits.
+        mutating func fillWithBlanks(_ range: Range<Int>, style: Style) {
             discardClusters(in: range)
             if style == Style(), range.upperBound >= cells.count {
                 // Unstored tail cells already have the default style.
@@ -239,6 +240,12 @@ extension Terminal {
             ensureLength(range.upperBound)
             let blank = StoredCell(style: style)
             for column in range { cells[column] = blank }
+        }
+
+        /// Gives the wide glyph before `column` its second half, in the default style.
+        mutating func restoreContinuation(at column: Int) {
+            ensureLength(column + 1)
+            cells[column] = StoredCell(glyph: StoredCell.continuation)
         }
 
         mutating func editCharacters(_ edit: CharacterEdit, at start: Int, count requested: Int, style: Style) {

@@ -96,8 +96,9 @@ if (options.thrush) {
       if (result.failing) (gaps[result.testCase.subject] ??= []).push(name);
     }
   }
-  for (const name of Object.keys(defects)) {
+  for (const [name, defect] of Object.entries(defects)) {
     assert(Object.values(corpora).some(cases => cases.some(testCase => testCase.name === name)), `Defect ${name} names no case`);
+    assert(defect.differences.length, `Defect ${name} matches the reference`);
   }
   generated.set(files.gaps, json(sorted(gaps), 1));
   generated.set(files.defects, json(sorted(defects), 2));

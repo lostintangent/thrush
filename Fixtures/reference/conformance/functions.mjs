@@ -403,7 +403,8 @@ for (const [subject, sequence] of Object.entries(strings)) {
   probe(family, rest.join(' ') || '', positions.middle, sequence, 'after');
 }
 
-// Resizing. Each resize records a checkpoint so reflow is compared step by step.
+// Resizing. Each resize records a checkpoint so reflow is compared step by step, and a string
+// between sizes is written there.
 const resizes = {
   'narrower with a soft wrap': [`${CSI}2;1H${'x'.repeat(30)}`, [[12, 8], [20, 8], [7, 8]]],
   'narrower with wide text': [`${CSI}2;1H${'界'.repeat(14)}`, [[11, 8], [20, 8], [5, 8]]],
@@ -411,11 +412,16 @@ const resizes = {
   'shorter with the cursor at the top': [`${CSI}1;3H`, [[20, 4], [20, 8]]],
   'taller with history': [`\r\n1\r\n2\r\n3\r\n4\r\n5\r\n6`, [[20, 12], [20, 4], [20, 10]]],
   'wider and narrower at a pending wrap': [positions['pending wrap'], [[25, 8], [20, 8], [10, 8]]],
+  'narrower after cutting a wide glyph': [`${CSI}7;1H${'x'.repeat(18)}${CSI}41m界${CSI}m`, [[19, 8], '\r\n', [10, 8]]],
+  'narrower after cutting a wide glyph from a wrapped row': [`${CSI}7;1H${'x'.repeat(18)}界y\r${CSI}X`, [[19, 8], '\r\n', [10, 8]]],
+  'narrower with combining marks': [`${CSI}6;1H${'x'.repeat(20)}abn\u0303de\u0301${CSI}8;1H`, [[18, 8]]],
   'on the alternate screen': [`${CSI}?1049h${CSI}2;1Halternate text that wraps around`, [[10, 4], [20, 8], [30, 10]]],
   'with a scroll region': [`${CSI}3;6r${CSI}4;1H`, [[20, 5], [20, 9]]],
 };
-for (const [variant, [setup, sizes]] of Object.entries(resizes)) {
-  add('resize', variant, canvas + setup, ...sizes.flatMap((next, index) => [{ resize: next }, { checkpoint: `resize ${index + 1}` }]), '*');
+for (const [variant, [setup, steps]] of Object.entries(resizes)) {
+  let count = 0;
+  add('resize', variant, canvas + setup, ...steps.flatMap(step =>
+    typeof step === 'string' ? [step] : [{ resize: step }, { checkpoint: `resize ${++count}` }]), '*');
 }
 
 export const functionCases = cases;

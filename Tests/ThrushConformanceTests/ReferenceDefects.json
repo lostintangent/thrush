@@ -175,6 +175,23 @@
       }
     ]
   },
+  "resize · narrower with combining marks": {
+    "reason": "Narrowing shifts the cells of a continued row right within that row. The reference moves combining marks in column order, so a mark that lands on a later mark's column overwrites it before that mark moves, and the é becomes a second ñ. Thrush keeps each mark on its own character.",
+    "differences": [
+      {
+        "checkpoint": "resize 1",
+        "path": "active.visible[6][6]",
+        "reference": "\"ñ\"",
+        "thrush": "\"é\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][6]",
+        "reference": "\"ñ\"",
+        "thrush": "\"é\""
+      }
+    ]
+  },
   "RIS": {
     "reason": "The reference's full reset keeps a cursor that DECTCEM hid, because it stores cursor visibility apart from the modes it resets, though its DECSTR shows the cursor. Thrush shows the cursor after RIS, as a power-on terminal does.",
     "differences": [

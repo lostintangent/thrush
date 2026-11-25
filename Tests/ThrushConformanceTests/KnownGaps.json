@@ -97,11 +97,6 @@
   "REP · after a wide character",
   "REP · after a combining mark"
  ],
- "resize": [
-  "resize · narrower with a soft wrap",
-  "resize · narrower with wide text",
-  "resize · wider and narrower at a pending wrap"
- ],
  "SGR 21": [
   "SGR 21"
  ],
