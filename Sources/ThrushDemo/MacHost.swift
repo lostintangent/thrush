@@ -100,6 +100,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         let titles: [(DemoOptions.Scene, String)] = [
             (.shell, "Build"), (.editor, "Swift in Vim"), (.log, "Recorded Compiler Log"),
             (.vim, "Recorded Vim Edit"), (.prompt, "Shell Prompt"), (.glyphs, "Wide Glyphs"),
+            (.styles, "Text Styles"),
         ]
         for (index, pair) in titles.enumerated() {
             let item = replay.addItem(withTitle: pair.1, action: #selector(selectScene(_:)), keyEquivalent: String(index + 1))

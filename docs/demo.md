@@ -33,9 +33,9 @@ The same `--endpoint` accepts the base URL of another server implementing the [t
 
 ## Scenes and appearance
 
-For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build transcript from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer and a wide-glyph sample with a selection. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the host's custom palette.
+For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build transcript from the design study. The Mac **Replay** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection and every text style, including blinking and concealed text. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the host's custom palette.
 
-For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone host uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
+For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs|styles`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone host uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
 
 ```sh
 open -n .build/demo/mac/Thrush.app --args --scene editor --appearance light

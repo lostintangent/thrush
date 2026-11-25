@@ -26,7 +26,25 @@ function buildTranscript() {
     return lines.join("\r\n");
 }
 
-type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs";
+// Each stored style once, with blinking and concealed text among them.
+const styles = [
+    ["plain", ""], ["bold", "1"], ["dim", "2"], ["italic", "3"], ["underline", "4"], ["strikethrough", "9"],
+    ["inverse", "7"], ["blink", "5"], ["concealed", "8"], ["blink inverse", "5;7"],
+    ["blink underline", "4;5"], ["blink green", "5;32"],
+] as const;
+
+function buildStyles() {
+    const sample = "A thrush sings";
+    const lines = [prompt + "./styles.sh"];
+    for (const [name, sgr] of styles) {
+        // Brackets show that concealed text still occupies its cells.
+        const text = sgr === "8" ? "[" + esc + "8m" + sample + reset + "]" : esc + sgr + "m" + sample + reset;
+        lines.push(esc + "90m" + name.padEnd(sgr === "8" ? 15 : 16) + reset + text);
+    }
+    return lines.join("\r\n") + "\r\n" + prompt;
+}
+
+type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles";
 type Appearance = "light" | "dark";
 type Session = { scene: Scene; cols: number; rows: number; input: string; appearance?: Appearance };
 type Socket = ServerWebSocket<Session>;
@@ -52,6 +70,7 @@ async function draw(socket: Socket) {
         case "prompt": for (const part of shellPrompt) socket.sendBinary(part); return;
         case "log": for (const part of log) socket.sendBinary(part); return;
         case "vim": for (const part of vim) socket.sendBinary(part); return;
+        case "styles": socket.sendBinary(encode(buildStyles())); return;
         case "glyphs":
             socket.sendBinary(encode(prompt + "printf 'A翼🐦Z\\n'\r\nA翼🐦Z" + esc + "2;6H" + esc + "2 q"));
             return;
@@ -107,7 +126,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
         >= 32768 ? "light" : "dark";
 }
 
-const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs"]);
+const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles"]);
 const args = process.argv.slice(2);
 if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
         || (args[2] && args[2] !== "--view") || (args[3] && args[3] !== "--driver")))

@@ -29,7 +29,7 @@ NOTICE_SCENES = {
     "notice-displaced": ("Open in another window", None, "Use Here", "Use shell in this window"),
     "notice-ended": ("Ended", None, "New Shell", "New Shell"),
 }
-TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim"}
+TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles"}
 
 
 def run(*command, timeout=90, check=True):

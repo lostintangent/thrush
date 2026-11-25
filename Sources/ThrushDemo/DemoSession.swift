@@ -3,7 +3,7 @@ import Thrush
 
 struct DemoOptions {
     enum Scene: String, CaseIterable {
-        case shell, editor, log, vim, prompt, glyphs
+        case shell, editor, log, vim, prompt, glyphs, styles
         case noticeConnecting = "notice-connecting"
         case noticeReconnecting = "notice-reconnecting"
         case noticeReplacement = "notice-replacement"
