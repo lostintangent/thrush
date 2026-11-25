@@ -100,9 +100,12 @@ extension Terminal {
         var columns: Int
         // Narrowing an alternate screen leaves the original row slots available on widening.
         var storageColumns: Int
-        // Cells up to the last one written. Columns past the end are blank in the default style.
-        // The first write reserves the full width, so extending a row never reallocates.
+        // The cells written so far, with room for every column so writing never reallocates. Only
+        // the cells before `length` are in use, and the columns from there on are blank in the
+        // default style. Clearing a row just resets `length`. Text written past the stored cells is
+        // appended, so a new row stores only the columns it has shown.
         var cells: [StoredCell]
+        private(set) var length = 0
         // The styles the cells use other than the default. An entry can repeat, and it can stay
         // after its last cell changes until the list is compacted.
         private(set) var styles: [Style] = []
@@ -124,8 +127,9 @@ extension Terminal {
             storageColumns = columns
             self.generation = generation
             isWrapped = wrapped
-            // A snapshot that still shares the cells or styles keeps them, and this row gets new storage.
-            cells.removeAll(keepingCapacity: true)
+            // A snapshot that still shares the cells or styles keeps them. This row copies the cells
+            // when it next writes, and its styles start over in new storage.
+            length = 0
             if !styles.isEmpty { styles.removeAll(keepingCapacity: true) }
             if !clusters.isEmpty { clusters.removeAll() }
             fill(with: style)
@@ -135,11 +139,12 @@ extension Terminal {
         private mutating func fill(with style: Style) {
             guard style != Style() else { return }
             styles.append(style)
-            cells.append(contentsOf: repeatElement(StoredCell(stylePosition: 1), count: columns))
+            prepareToWrite(0..<columns)
+            set(0..<columns, to: StoredCell(stylePosition: 1))
         }
 
         func stored(at column: Int) -> StoredCell {
-            column < cells.count ? cells[column] : StoredCell()
+            column < length ? cells[column] : StoredCell()
         }
 
         func style(of cell: StoredCell) -> Style {
@@ -154,14 +159,14 @@ extension Terminal {
         }
 
         // A printed space or an erased cell with a background belongs to the transcript.
-        var hasContent: Bool { cells.prefix(columns).contains { $0.glyph != 0 || $0.stylePosition != 0 } }
+        var hasContent: Bool { cells.prefix(min(columns, length)).contains { $0.glyph != 0 || $0.stylePosition != 0 } }
 
         package var trimmedLength: Int {
-            var length = cells.count
-            while length > 0 {
-                let cell = cells[length - 1]
-                if cell.scalar != 0 { return min(columns, length - 1 + cell.width) }
-                length -= 1
+            var end = length
+            while end > 0 {
+                let cell = cells[end - 1]
+                if cell.scalar != 0 { return min(columns, end - 1 + cell.width) }
+                end -= 1
             }
             return 0
         }
@@ -183,16 +188,41 @@ extension Terminal {
             return result
         }
 
-        mutating func ensureLength(_ length: Int) {
-            guard cells.count < length else { return }
-            reserveWidth()
-            let count = length - cells.count
-            cells.append(addingCapacity: count) { $0.append(repeating: StoredCell(), count: count) }
+        /// Puts the cells in `range` in use for the caller to write every one of them. Unused cells
+        /// before the range become blanks in the default style.
+        private mutating func prepareToWrite(_ range: Range<Int>) {
+            extend(to: range.lowerBound)
+            store(upTo: range.upperBound)
+            length = max(length, range.upperBound)
         }
 
-        // A row shared with a snapshot keeps this capacity when its first write copies it.
-        private mutating func reserveWidth() {
-            if cells.capacity < storageColumns { cells.reserveCapacity(storageColumns) }
+        /// Puts the cells before `end` in use, as blanks in the default style where they weren't.
+        private mutating func extend(to end: Int) {
+            if end > length { blankUnusedCells(before: end) }
+        }
+
+        /// Stores cells before `end`, as blanks where there were none.
+        private mutating func store(upTo end: Int) {
+            let missing = end - cells.count
+            if missing > 0 { appendCells(upTo: end) { $0.append(repeating: StoredCell(), count: missing) } }
+        }
+
+        /// Appends the cells `body` writes, up to `end`, keeping room for every column.
+        private mutating func appendCells(upTo end: Int, _ body: (inout OutputSpan<StoredCell>) -> Void) {
+            cells.append(addingCapacity: max(storageColumns, end) - cells.count, initializingWith: body)
+        }
+
+        // Out of line, so the checks above inline into every write.
+        @inline(never)
+        private mutating func blankUnusedCells(before end: Int) {
+            store(upTo: end)
+            set(length..<end, to: StoredCell())
+            length = end
+        }
+
+        private mutating func set(_ range: Range<Int>, to cell: StoredCell) {
+            var target = cells.mutableSpan
+            for column in range { target[column] = cell }
         }
 
         /// Returns the position a cell stores for `style`. Text changes style far less often than
@@ -222,7 +252,7 @@ extension Terminal {
         private mutating func compactStyles() {
             withUnsafeTemporaryAllocation(of: UInt32.self, capacity: styles.count + 1) { renumbered in
                 renumbered.initialize(repeating: 0)
-                for cell in cells { renumbered[Int(cell.stylePosition)] = 1 }
+                for cell in cells[..<length] { renumbered[Int(cell.stylePosition)] = 1 }
                 renumbered[0] = 0
                 var kept = 0
                 for position in 1..<renumbered.count where renumbered[position] != 0 {
@@ -231,7 +261,7 @@ extension Terminal {
                     renumbered[position] = UInt32(kept)
                 }
                 styles.removeLast(styles.count - kept)
-                for column in cells.indices { cells[column].stylePosition = renumbered[Int(cells[column].stylePosition)] }
+                for column in 0..<length { cells[column].stylePosition = renumbered[Int(cells[column].stylePosition)] }
             }
         }
 
@@ -252,7 +282,7 @@ extension Terminal {
             guard !range.isEmpty else { return }
             clearWideLead(before: range.lowerBound, style: style)
             let end = range.upperBound
-            if end < cells.count, cells[end].glyph == StoredCell.continuation {
+            if end < length, cells[end].glyph == StoredCell.continuation {
                 cells[end] = StoredCell(stylePosition: style)
             }
         }
@@ -263,23 +293,23 @@ extension Terminal {
             let range = column..<end
             clearWideEdges(range, style: style)
             discardClusters(in: range)
-            if end > cells.count { reserveWidth() }
-            ensureLength(column)
-            // Text past the stored cells is appended rather than filled with blanks and then overwritten.
-            let overwritten = min(end, cells.count) - column
-            if overwritten > 0 {
-                var target = cells.mutableSpan
-                for offset in 0..<overwritten {
-                    target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style)
-                }
-            }
-            if overwritten < bytes.count {
-                cells.append(addingCapacity: bytes.count - overwritten) { appended in
-                    for offset in overwritten..<bytes.count {
+            extend(to: column)
+            if column == cells.count {
+                appendCells(upTo: end) { appended in
+                    for offset in 0..<bytes.count {
                         appended.append(StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style))
                     }
                 }
+            } else {
+                store(upTo: end)
+                var target = cells.mutableSpan
+                // One check up front lets the compiler drop the check on every cell.
+                precondition(end <= target.count)
+                for offset in 0..<bytes.count {
+                    target[column &+ offset] = StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style)
+                }
             }
+            length = max(length, end)
         }
 
         mutating func write(_ scalar: Unicode.Scalar, at column: Int, width: Int, style: Style) {
@@ -287,33 +317,58 @@ extension Terminal {
             let end = column + max(1, width)
             clearWideEdges(column..<end, style: style)
             discardClusters(in: column..<end)
-            ensureLength(end)
+            prepareToWrite(column..<end)
             let flag: UInt32 = width == 2 ? StoredCell.wide : (width == 0 ? StoredCell.zeroWidth : 0)
             cells[column] = StoredCell(glyph: scalar.value | flag, stylePosition: style)
             if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style) }
         }
 
-        /// Append complete, non-combining scalars that fit at the stored end of this row.
-        mutating func appendRun(_ pending: inout SizedScalar?, limit: Int, style: Style,
+        /// Writes complete, non-combining scalars from `column`, at or past the cells in use,
+        /// until one doesn't fit before `limit`. Returns how many it wrote.
+        mutating func appendRun(_ pending: inout SizedScalar?, at column: Int, limit: Int, style: Style,
                                 next: () -> SizedScalar?) -> UInt64 {
             let style = position(of: style)
+            clearWideLead(before: column, style: style)
+            extend(to: column)
             var written: UInt64 = 0
-            clearWideLead(before: cells.count, style: style)
-            if cells.isEmpty { reserveWidth() }
-            while let glyph = pending, glyph.width > 0, cells.count + glyph.width <= limit {
-                let flag: UInt32 = glyph.width == 2 ? StoredCell.wide : 0
-                cells.append(StoredCell(glyph: glyph.scalar.value | flag, stylePosition: style))
-                if glyph.width == 2 { cells.append(StoredCell(glyph: StoredCell.continuation, stylePosition: style)) }
-                written &+= 1
-                pending = next()
+            var end = column
+            if column == cells.count {
+                appendCells(upTo: limit) { appended in
+                    while let glyph = pending, glyph.width > 0, end + glyph.width <= limit {
+                        if glyph.width == 2 {
+                            appended.append(StoredCell(glyph: glyph.scalar.value | StoredCell.wide, stylePosition: style))
+                            appended.append(StoredCell(glyph: StoredCell.continuation, stylePosition: style))
+                        } else {
+                            appended.append(StoredCell(glyph: glyph.scalar.value, stylePosition: style))
+                        }
+                        end += glyph.width
+                        written &+= 1
+                        pending = next()
+                    }
+                }
+            } else {
+                store(upTo: limit)
+                var target = cells.mutableSpan
+                while let glyph = pending, glyph.width > 0, end + glyph.width <= limit {
+                    if glyph.width == 2 {
+                        target[end] = StoredCell(glyph: glyph.scalar.value | StoredCell.wide, stylePosition: style)
+                        target[end + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style)
+                    } else {
+                        target[end] = StoredCell(glyph: glyph.scalar.value, stylePosition: style)
+                    }
+                    end += glyph.width
+                    written &+= 1
+                    pending = next()
+                }
             }
+            length = end
             return written
         }
 
         mutating func appendCombining(_ scalar: Unicode.Scalar, before column: Int) {
             let previous = column - 1
             let base = stored(at: previous).glyph == StoredCell.continuation ? max(0, previous - 1) : previous
-            ensureLength(base + 1)
+            extend(to: base + 1)
             if cells[base].scalar == 0 {
                 cells[base].glyph = scalar.value
             } else {
@@ -337,19 +392,18 @@ extension Terminal {
         /// from `position(of:)`, and zero is the default style.
         mutating func fillWithBlanks(_ range: Range<Int>, style: UInt32 = 0) {
             discardClusters(in: range)
-            if style == 0, range.upperBound >= cells.count {
-                // Unstored tail cells already have the default style.
-                if range.lowerBound < cells.count { cells.removeLast(cells.count - range.lowerBound) }
+            if style == 0, range.upperBound >= length {
+                // Columns past the cells in use are default blanks already.
+                length = min(length, range.lowerBound)
                 return
             }
-            ensureLength(range.upperBound)
-            let blank = StoredCell(stylePosition: style)
-            for column in range { cells[column] = blank }
+            prepareToWrite(range)
+            set(range, to: StoredCell(stylePosition: style))
         }
 
         /// Gives the wide glyph before `column` its second half, in the default style.
         mutating func restoreContinuation(at column: Int) {
-            ensureLength(column + 1)
+            prepareToWrite(column..<(column + 1))
             cells[column] = StoredCell(glyph: StoredCell.continuation)
         }
 
@@ -378,7 +432,7 @@ extension Terminal {
         /// Moves cells and their clusters along this row. The cells keep their style positions.
         private mutating func move(_ range: Range<Int>, to start: Int) {
             guard !range.isEmpty else { return }
-            ensureLength(max(range.upperBound, start + range.count))
+            extend(to: max(range.upperBound, start + range.count))
             cells.withUnsafeMutableBufferPointer { cells in
                 // Like memmove, this copies back to front when the cells move right over themselves.
                 (cells.baseAddress! + start).update(from: cells.baseAddress! + range.lowerBound, count: range.count)
@@ -393,7 +447,7 @@ extension Terminal {
         /// Their styles join this row's list.
         mutating func copy(_ range: Range<Int>, from source: Self, to start: Int) {
             guard !range.isEmpty else { return }
-            ensureLength(start + range.count)
+            prepareToWrite(start..<(start + range.count))
             for offset in 0..<range.count {
                 var cell = source.stored(at: range.lowerBound + offset)
                 cell.stylePosition = position(of: source.style(of: cell))
@@ -408,6 +462,7 @@ extension Terminal {
         mutating func truncate(to width: Int) {
             columns = width
             storageColumns = width
+            length = min(length, width)
             if cells.count > width {
                 cells.removeLast(cells.count - width)
                 if !clusters.isEmpty { clusters = clusters.filter { $0.key < width } }

@@ -38,6 +38,14 @@ func newShellArchivesTheNormalBuffer(inAlternateScreen: Bool) throws {
     #expect(end.last?.isWrapped == true)
 }
 
+// Clearing a row keeps its old cells in storage, and they aren't part of the transcript.
+@Test func newShellArchivesNothingBelowTheLastLineAfterAClear() {
+    var terminal = Terminal(size: .init(columns: 6, rows: 4))
+    _ = terminal.receive("one\r\ntwo\r\nthree\r\nfour\u{1b}[2J\u{1b}[Hhi".utf8)
+    terminal.startNewShell(at: terminal.size)
+    #expect(terminal.snapshot().history.map(\.text) == ["hi"])
+}
+
 @Test(arguments: [false, true])
 func shellBoundaryPreservesHostSettingsAndResetsProgramState(replaying: Bool) {
     let palette = Terminal.Palette(foreground: .init(red: 10, green: 20, blue: 30),

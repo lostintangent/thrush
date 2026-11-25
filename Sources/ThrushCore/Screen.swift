@@ -537,9 +537,9 @@ extension Terminal {
             while let glyph = pending {
                 let index = active.index(of: row)
                 let limit = min(size.columns, active.rows[index].storageColumns)
-                if glyph.width > 0, column + glyph.width <= limit, column == active.rows[index].cells.count {
-                    let n = active.rows[index].appendRun(&pending, limit: limit, style: style, next: next)
-                    active.column = active.rows[index].cells.count
+                if glyph.width > 0, column + glyph.width <= limit, column >= active.rows[index].length {
+                    let n = active.rows[index].appendRun(&pending, at: column, limit: limit, style: style, next: next)
+                    active.column = active.rows[index].length
                     revision &+= n
                     active.rows[index].generation = revision
                     count &+= n
