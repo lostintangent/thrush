@@ -7,7 +7,6 @@ import math
 from pathlib import Path
 import runpy
 import subprocess
-import tempfile
 
 demo = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))
 Capture = demo["Capture"]
@@ -31,12 +30,10 @@ def verify_ended_notice(image, path, notice, sx, sy):
     right, bottom = round((x + w) * sx), round((y + h) * sy)
     require(0 <= left < right <= image.width and 0 <= top < bottom <= image.height, "Ended panel outside the window")
     # Only the measured opaque panel may cover terminal paper. Its labels must be visible inside that rectangle.
-    with tempfile.TemporaryDirectory() as tmp:
-        crop = Path(tmp) / "ended.png"
-        subprocess.run(["/usr/bin/sips", "-c", str(bottom - top), str(right - left), "--cropOffset", str(top), str(left),
-                        str(path), "--out", str(crop)], check=True, stdout=subprocess.DEVNULL)
-        checker = Path(__file__).with_name("check-pane-capture.swift")
-        subprocess.run(["xcrun", "swift", str(checker), str(crop), "Ended", "New Shell"], check=True)
+    checker = Path(__file__).with_name("check-pane-capture.swift")
+    proof = subprocess.run(["xcrun", "swift", str(checker), str(path), "--crop", str(left), str(top),
+                            str(right - left), str(bottom - top), "Ended", "New Shell"], capture_output=True, text=True)
+    require(proof.returncode == 0, f"Ended panel at pixels {(left, top, right, bottom)}: {proof.stderr.strip()}")
     return left, top, right, bottom
 
 

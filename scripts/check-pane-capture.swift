@@ -1,20 +1,42 @@
 // Independent check that the simulator framebuffer contains the visible copy of its native notice.
 import CoreML
 import Foundation
+import ImageIO
 import Vision
 
-let arguments = Array(CommandLine.arguments.dropFirst())
-guard let image = arguments.first, arguments.count >= 2 else {
-    FileHandle.standardError.write(Data("Usage: check-pane-capture IMAGE EXPECTED_VISIBLE_STRINGS…\n".utf8))
+func fail(_ reason: String) -> Never {
+    FileHandle.standardError.write(Data((reason + "\n").utf8))
     exit(2)
 }
+
+let usage = "Usage: check-pane-capture IMAGE [--crop X Y WIDTH HEIGHT] EXPECTED_VISIBLE_STRINGS…"
+var arguments = CommandLine.arguments.dropFirst()
+guard let path = arguments.popFirst() else { fail(usage) }
+let url = URL(fileURLWithPath: path)
+let handler: VNImageRequestHandler
+if arguments.first == "--crop" {
+    arguments = arguments.dropFirst()
+    let coordinates = arguments.prefix(4).compactMap { Int($0) }
+    guard coordinates.count == 4 else { fail(usage) }
+    arguments = arguments.dropFirst(4)
+    let (x, y, width, height) = (coordinates[0], coordinates[1], coordinates[2], coordinates[3])
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("Unreadable framebuffer: " + path) }
+    // CGImage uses the screenshot's top-left pixel origin. Reject clipping or an ignored crop.
+    guard x >= 0, y >= 0, width > 0, height > 0, x <= image.width - width, y <= image.height - height,
+          let region = image.cropping(to: CGRect(x: x, y: y, width: width, height: height)),
+          region.width == width, region.height == height else { fail("Crop lies outside the framebuffer") }
+    handler = VNImageRequestHandler(cgImage: region)
+} else {
+    handler = VNImageRequestHandler(url: url)
+}
+guard !arguments.isEmpty else { fail(usage) }
 
 func words(_ text: String) -> String {
     text.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).joined(separator: " ")
 }
 
-let expected = arguments.dropFirst().map(words)
-let url = URL(fileURLWithPath: image)
+let expected = arguments.map(words)
 var attempts: [String] = []
 for level in [VNRequestTextRecognitionLevel.fast, .accurate] {
     let recognition = VNRecognizeTextRequest()
@@ -31,7 +53,7 @@ for level in [VNRequestTextRecognitionLevel.fast, .accurate] {
                 }
             }
         }
-        try VNImageRequestHandler(url: url).perform([recognition])
+        try handler.perform([recognition])
         let lines = (recognition.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         let text = words(lines.joined(separator: " "))
         if expected.allSatisfy({ text.contains($0) }) { exit(0) }
