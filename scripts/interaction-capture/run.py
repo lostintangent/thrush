@@ -143,11 +143,12 @@ def export_clip(name, video_start, out, work):
     shutil.move(clip, out / clip.name)
 
 
-def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=False):
+def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=False, trace_layout=False):
     configuration = plistlib.loads(plan.read_bytes())
     environment = configuration[RUNNER]["EnvironmentVariables"]
     environment["THRUSH_CAPTURE_ENDPOINT"] = endpoint
     environment["THRUSH_CAPTURE_ROTATION_ONLY"] = "1" if rotation_only else "0"
+    environment["THRUSH_TRACE_ROTATION_LAYOUT"] = "1" if trace_layout else "0"
     plan.write_bytes(plistlib.dumps(configuration))
     result = work / "interactions.xcresult"
     previous = None
@@ -198,6 +199,14 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
         attempt(name + ".mp4", export_clip, name, video_start, out, work)
     if all((out / (name + ".mp4")).is_file() for name in names):
         (out / "appearance-switch.mov").unlink()
+
+
+def collect_layout_traces(phone, out):
+    traces = list(phone.state_path.parent.glob("rotation-layout-*.jsonl"))
+    for trace in traces:
+        shutil.copyfile(trace, out / trace.name)
+    if not traces or any(trace.stat().st_size == 0 for trace in traces):
+        raise ValueError("The shell did not save a populated rotation layout trace for each traced process.")
 
 
 def check_rotation_sizes(out, appearance):
@@ -281,12 +290,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="A new or empty directory for captures and logs.")
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
+    parser.add_argument("--trace-rotation-layout", action="store_true",
+                        help="Record UIKit geometry, animation context and keyboard notifications during the shell gestures.")
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--accessibility-only", action="store_true",
                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
     scope.add_argument("--rotation-only", action="store_true",
                        help="Capture keyboard-open rotation in both appearances and check the shell resize sequence.")
     options = parser.parse_args()
+    if options.accessibility_only and options.trace_rotation_layout:
+        parser.error("--trace-rotation-layout applies to shell gestures.")
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = options.output.resolve()
@@ -331,7 +344,10 @@ def main():
                 attempt("VoiceOver", check_voiceover, phone, device, endpoint, plan, out, work)
             else:
                 attempt("keyboard warm-up", phone.warm_keyboard, "dark")
-                attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt, options.rotation_only)
+                attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
+                        options.rotation_only, options.trace_rotation_layout)
+                if options.trace_rotation_layout:
+                    attempt("rotation layout traces", collect_layout_traces, phone, out)
                 if options.rotation_only:
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} rotation", check_images, out, (appearance,),

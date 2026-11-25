@@ -54,6 +54,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
+    private var layoutTrace: PhoneLayoutTrace?
     private var noticeObservation: Task<Void, Never>?
 
     init() {
@@ -76,6 +77,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
+        layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
         if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesNotice {
             noticeObservation = Task { [weak self] in
@@ -89,6 +91,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        layoutTrace?.recordLayout("host.layout")
         focusIfRequested()
         observeLayout()
     }
