@@ -201,10 +201,32 @@ def check_images(out):
                     "shell", appearance], out / f"shell-{appearance}-pixels.log", 80)
 
 
+def check_voiceover(device, endpoint, plan, out, work):
+    options = plistlib.loads(plan.read_bytes())
+    options[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
+    plan.write_bytes(plistlib.dumps(options))
+    result = work / "voiceover.xcresult"
+    try:
+        run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
+                    f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
+                    "-resultBundlePath", result], out / "voiceover.log", 600)
+    finally:
+        if result.exists():
+            exported = work / "voiceover-attachments"
+            run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
+                        "--output-path", exported], out / "voiceover-attachments.log", 90)
+            for test in json.loads((exported / "manifest.json").read_text()):
+                for item in test["attachments"]:
+                    if "thrush-accessibility-takeover" in item["suggestedHumanReadableName"]:
+                        shutil.copyfile(exported / Path(item["exportedFileName"]).name, out / "large-type-takeover.png")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="A new or empty directory for captures and logs.")
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
+    parser.add_argument("--accessibility-only", action="store_true",
+                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
     options = parser.parse_args()
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
@@ -214,7 +236,8 @@ def main():
         parser.error("Use an empty output directory.")
     with tempfile.TemporaryDirectory(prefix="thrush-iphone-interactions-") as scratch:
         work = Path(scratch)
-        plan = build_test_runner(work, out)
+        source = HERE / ("PaneVoiceOverProof.swift" if options.accessibility_only else RUNNER + ".swift")
+        plan = build_test_runner(work, out, source=source)
         if options.build_runner_only:
             print("Compiled the native iPhone interaction runner.")
             return
@@ -226,7 +249,7 @@ def main():
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
-        with simulator.peer(out) as endpoint, simulator.disposable_phone(out) as device:
+        with simulator.peer(out, notices=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}
             def attempt(name, action, *args):
@@ -237,14 +260,32 @@ def main():
                     failures[name] = str(error)
                     print(f"{name} failed: {error}", file=sys.stderr, flush=True)
 
-            attempt("keyboard warm-up", phone.warm_keyboard, "dark")
-            attempt("native gestures", collect, phone, device, endpoint, plan, out, work)
-            attempt("interaction screenshots", check_images, out)
+            if options.accessibility_only:
+                # simctl may return late after applying a setting. Record command failures,
+                # then let UIKit report the effective values in the test process.
+                try:
+                    simulator.sim("ui", device, "content_size", "accessibility-extra-extra-extra-large")
+                except (RuntimeError, subprocess.TimeoutExpired) as error:
+                    print(f"Dynamic Type setting: {error}", file=sys.stderr, flush=True)
+                for setting in ("ReduceMotionEnabled", "EnhancedBackgroundContrastEnabled"):
+                    simulator.sim("spawn", device, "defaults", "write", "com.apple.Accessibility", setting, "-bool", "true")
+                attempt("VoiceOver", check_voiceover, device, endpoint, plan, out, work)
+            else:
+                attempt("keyboard warm-up", phone.warm_keyboard, "dark")
+                attempt("native gestures", collect, phone, device, endpoint, plan, out, work)
+                attempt("interaction screenshots", check_images, out)
             attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
+            if options.accessibility_only:
+                log = (out / "uikit-tests.log").read_text()
+                if "Reduce Motion=true Reduce Transparency=true System size=UICTContentSizeCategoryAccessibilityXXXL" not in log:
+                    failures["accessibility settings"] = "UIKit did not observe both reduced effects and the largest text size."
             simulator.save_json(out / "checks.json", {"failures": failures})
             if failures:
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
-    print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
+    if options.accessibility_only:
+        print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
+    else:
+        print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
 
 
 if __name__ == "__main__":
