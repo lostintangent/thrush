@@ -38,7 +38,7 @@ export class LiveRun {
     readonly wire = { upstreamBinaryFrames: 0, upstreamBinaryBytes: 0, forwardedBinaryFrames: 0,
         forwardedBinaryBytes: 0, replayFrames: 0, replayBytes: 0, synchronizedIntermediateFrames: 0,
         upstreamControls: 0, forwardedControls: 0, clientBinaryFrames: 0, clientControls: 0 };
-    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean } =
+    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean; endedNotice?: boolean } =
         { phase: "attaching", eventIndex: -1, name: "" };
     failure?: Error;
     private active?: Link;
@@ -227,12 +227,13 @@ export class LiveRun {
         if (!["layout", "resize", "focus"].includes(this.state.phase) || index !== this.state.eventIndex || !same(grid, this.grid)) return false;
         this.accepted = true; this.wake?.(); return true;
     }
-    async checkpoint(index: number, predicate: () => boolean, capture?: boolean) {
+    async checkpoint(index: number, predicate: () => boolean, capture?: boolean, endedNotice = false) {
         const event = this.fixture.events[index];
         this.phase("playing", index);
         await this.until(predicate, event.name);
         this.phase("checkpoint", index);
         if (capture !== undefined) this.state.capture = capture;
+        if (endedNotice) this.state.endedNotice = true;
         this.pendingReference = referenceDocument(this.reference, this.fixture, event);
         // Native framebuffer capture can retry for 160 seconds before the pane acknowledges.
         await this.until(() => this.accepted, "acknowledgement of " + event.name, 190_000, false);

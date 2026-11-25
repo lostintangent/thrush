@@ -27,6 +27,7 @@ final class PaneWorkflowDriver {
         let attachments: Int
         let error: String?
         let capture: Bool?
+        let endedNotice: Bool?
     }
     private struct Entry: Codable {
         let name: String, eventIndex: Int
@@ -44,6 +45,8 @@ final class PaneWorkflowDriver {
     private struct SubmittedFrame {
         let submittedAt: Double
         let generation: UInt64
+        let drawableSize: CGSize
+        let drawableGrid: CGRect
         let layout: WorkflowCapture.Layout
     }
 
@@ -135,7 +138,8 @@ final class PaneWorkflowDriver {
             guard let self, size != nil, let snapshot = view.snapshot,
                   let layout = WorkflowCapture.Layout(view: view, drawableGrid: grid) else { return }
             submittedGeneration = snapshot.generation
-            inFlight[time] = SubmittedFrame(submittedAt: time, generation: snapshot.generation, layout: layout)
+            inFlight[time] = SubmittedFrame(submittedAt: time, generation: snapshot.generation,
+                                            drawableSize: view.drawableSize, drawableGrid: grid, layout: layout)
         }
         let originalCompletionHook = view.onFrameCompleted
         view.onFrameCompleted = { [weak self] time, succeeded in
@@ -241,7 +245,7 @@ final class PaneWorkflowDriver {
                     }
                     entries.append(entry)
                     lastCheckpoint = expected
-                    if state.capture ?? shouldCapture(event.name) { try await capture(entry) }
+                    if state.capture ?? shouldCapture(event.name) { try await capture(entry, endedNotice: state.endedNotice == true) }
                     let (status, body) = try await request("ack", post: JSONEncoder().encode(entry))
                     guard status == 204 else { throw httpFailure("ack", status, body) }
                     try log.write(contentsOf: Data("ack \(state.eventIndex) \(entry.receivedBytes) bytes\n".utf8))
@@ -334,14 +338,49 @@ final class PaneWorkflowDriver {
         }
     }
 
-    private func capture(_ entry: Entry) async throws {
+    private func capture(_ entry: Entry, endedNotice: Bool) async throws {
+        var notice: VisiblePaneNotice?
+        if endedNotice {
+            let until = ContinuousClock.now.advanced(by: .seconds(12))
+            var previous: CGRect?
+            var unchangedSince = ContinuousClock.now
+            while ContinuousClock.now < until {
+                if let panel = view.visiblePaneNotice, panel.title == "Ended", panel.action == "New Shell" {
+                    try await NativeWorkflowActions.verifyKeyboardDown(view)
+                    if let settled = view.visiblePaneNotice, settled.title == panel.title, settled.action == panel.action,
+                       lastFrame?.drawableSize == view.drawableSize {
+                        if settled.frameInWindow != previous {
+                            previous = settled.frameInWindow
+                            unchangedSince = .now
+                        } else if unchangedSince.duration(to: .now) >= .milliseconds(500) {
+                            notice = settled
+                            break
+                        }
+                    }
+                }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            guard notice != nil else { throw Failure("No settled Ended panel and completed drawable for the final shell.") }
+        }
         let base = String(format: "capture-%03d", entry.eventIndex)
         guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration,
               let frame = lastFrame, frame.generation == entry.renderedGeneration else {
             throw Failure("Missing the submitted grid for " + entry.name)
         }
+        // UIKit may finish moving the keyboard after Metal completes the unchanged final drawable.
+        // Map its actual submitted pixels through the settled window geometry before capturing.
+        let layout: WorkflowCapture.Layout
+        if endedNotice {
+            guard frame.drawableSize == view.drawableSize,
+                  let settled = WorkflowCapture.Layout(view: view, drawableGrid: frame.drawableGrid) else {
+                throw Failure("Final framebuffer geometry changed before capture.")
+            }
+            layout = settled
+        } else {
+            layout = frame.layout
+        }
         let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
-                                     snapshot: accepted, layout: frame.layout, copied: entry.copiedText)
+                                     snapshot: accepted, layout: layout, copied: entry.copiedText, endedNotice: notice)
         try save(marker, as: base + ".json")
         let ack = output.appending(path: base + ".done")
         let deadline = ContinuousClock.now.advanced(by: .seconds(180))

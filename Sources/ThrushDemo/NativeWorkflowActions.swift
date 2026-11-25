@@ -42,10 +42,9 @@ enum NativeWorkflowActions {
             throw Failure("Missing the terminal's native iPhone keyboard.")
         }
         let deadline = ContinuousClock.now.advanced(by: .seconds(4))
-        while !input.isFirstResponder {
-            if input.inputAccessoryView?.window == nil,
+        while ContinuousClock.now < deadline {
+            if !input.isFirstResponder, input.inputAccessoryView?.window == nil,
                root.keyboardLayoutGuide.layoutFrame.height <= root.safeAreaInsets.bottom + 1 { return }
-            guard ContinuousClock.now < deadline else { break }
             try await Task.sleep(for: .milliseconds(20))
         }
         throw Failure("The terminal must leave the keyboard down until the user focuses it.")

@@ -137,7 +137,7 @@ export async function runLifecycle(run: LiveRun) {
     };
     const screen = (key: keyof typeof steps, pattern: RegExp) =>
         run.checkpoint(index(key), () => Boolean(matchingRow(run, pattern)) && (key === "ended" || hasPrompt()),
-                       key === "reclaimed" || key === "ended");
+                       key === "reclaimed" || key === "ended", key === "ended");
     const focus = async (key: "focusReplacement" | "focusNewShell") => {
         await run.until(hasPrompt, "fresh shell prompt before focusing");
         const before = run.grid;

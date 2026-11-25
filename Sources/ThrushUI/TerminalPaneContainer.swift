@@ -260,6 +260,7 @@ private typealias NoticeHost = UIView & UIContentView
     private var noticeView: NoticeHost?
     private(set) var current: PaneNotice?
     var mountedNoticeView: PaneNativeView? { noticeView }
+    var mountedNoticeBacking: PaneNativeView? { backing.isHidden ? nil : backing }
     private var lastTheme: TerminalTheme?
     private var gridTop: NSLayoutConstraint!
     private var coveredHeight: NSLayoutConstraint!
