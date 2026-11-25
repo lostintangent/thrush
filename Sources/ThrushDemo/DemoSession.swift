@@ -26,6 +26,7 @@ struct DemoOptions {
     let runsWorkflowDriver: Bool
     let checksToolbar: Bool
     let frameTraceURL: URL?
+    let clearCaptureURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -33,6 +34,7 @@ struct DemoOptions {
                   !arguments[index + 1].hasPrefix("--") else { return nil }
             return arguments[index + 1]
         }
+        clearCaptureURL = value(after: "--clear-capture").map { URL(fileURLWithPath: $0) }
         checksToolbar = arguments.contains("--toolbar-proof")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
@@ -91,6 +93,7 @@ final class DemoSession: ObservableObject {
             view.onGridSizeChange = { [weak self] _ in self?.scheduleRenderBenchmark() }
         } else {
             prepareSession()
+            if let output = options.clearCaptureURL { ClearCapture.start(in: view, output: output) }
         }
     }
 
@@ -129,7 +132,7 @@ final class DemoSession: ObservableObject {
     func pane(_ session: TerminalSession) -> some View {
         var pane = TerminalPane(session, isActive: isActive, theme: theme)
         pane.preparedView = view
-        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
+        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance || options.clearCaptureURL != nil
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
         pane.onReady = { [weak self] resumed in
             guard let self else { return }

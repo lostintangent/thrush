@@ -9,7 +9,7 @@ on:
         default: both
       workflow:
         type: choice
-        options: [all, shell, vim, codex, shell-and-codex]
+        options: [all, shell, vim, codex, shell-and-codex, clear, clear-reference]
         default: all
 
 permissions:
@@ -38,6 +38,13 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           WORKFLOW: ${{ inputs.workflow }}
         run: |
+          if [[ "$WORKFLOW" == clear ]]; then
+            python3 scripts/interaction-capture/clear.py "$PLATFORM" "$RUNNER_TEMP/pane-workflows"
+            exit
+          elif [[ "$WORKFLOW" == clear-reference ]]; then
+            python3 scripts/interaction-capture/clear-reference.py "$RUNNER_TEMP/pane-workflows"
+            exit
+          fi
           case "$WORKFLOW" in
             all) workflows=() ;;
             shell-and-codex) workflows=(shell codex) ;;
