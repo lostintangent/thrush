@@ -1,29 +1,70 @@
 extension Terminal {
-    /// What a person did, before the current modes turn it into bytes with encode(_:).
+    /// A user action to encode with ``Terminal/encode(_:)`` under the current terminal modes.
     public enum Input: Sendable {
+        /// Committed text, including the result of input-method composition, sent as UTF-8.
         case text(String)
+        /// Pasted text. The encoder normalizes line endings to carriage returns and adds delimiters when the shell requests bracketed paste.
         case paste(String)
+        /// A pointer action on the visible grid that the shell's mouse-tracking mode may report.
         case pointer(Pointer)
+        /// A hardware or accessory key and its active terminal modifiers.
         case key(Key, modifiers: Modifiers = [])
 
+        /// A key whose terminal sequence can depend on modifiers and the shell's current modes.
         public enum Key: Sendable {
-            case up, down, right, left, home, end, pageUp, pageDown, delete
-            case enter, escape, backspace, tab
-            /// A layout-resolved hardware key. Use text(_:) for committed text and composition.
+            /// The Up Arrow key.
+            case up
+            /// The Down Arrow key.
+            case down
+            /// The Right Arrow key.
+            case right
+            /// The Left Arrow key.
+            case left
+            /// The Home key.
+            case home
+            /// The End key.
+            case end
+            /// The Page Up key. Shift–Page Up scrolls the host viewport locally.
+            case pageUp
+            /// The Page Down key. Shift–Page Down scrolls the host viewport locally.
+            case pageDown
+            /// The forward Delete key.
+            case delete
+            /// The Return or Enter key.
+            case enter
+            /// The Escape key.
+            case escape
+            /// The Backspace key, labeled Delete on Mac keyboards.
+            case backspace
+            /// The Tab key, including backtab when combined with Shift.
+            case tab
+            /// A character from the active keyboard layout, for chords such as Control-C.
+            ///
+            /// Use ``Terminal/Input/text(_:)`` for a text system's committed string.
             case character(Character)
         }
 
-        /// Command belongs to native application shortcuts. These modifiers reach the terminal.
+        /// Keyboard modifiers used in terminal key and pointer reports.
+        ///
+        /// Handle Command shortcuts in the host before forwarding input.
         public struct Modifiers: OptionSet, Sendable {
+            /// The bit mask containing the active terminal modifiers.
             public let rawValue: UInt8
+            /// Creates a modifier set from its bit mask. Use an array literal to combine named flags.
             public init(rawValue: UInt8) { self.rawValue = rawValue }
+            /// The Shift key.
             public static let shift = Self(rawValue: 1)
+            /// The terminal Alt modifier, corresponding to Option on Apple keyboards.
             public static let alt = Self(rawValue: 2)
+            /// The Control key.
             public static let control = Self(rawValue: 4)
         }
     }
 
-    /// Encode local input under the current terminal modes. The shell supplies its own echo.
+    /// Returns the bytes to send for a user action under the current terminal modes.
+    ///
+    /// Send a nonempty result to the shell. The shell supplies the echo. An action
+    /// handled locally or disabled by the active modes can produce an empty result.
     public func encode(_ input: Input) -> [UInt8] {
         switch input {
         case .text(let text):

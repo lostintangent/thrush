@@ -45,6 +45,13 @@ package struct ReplayFixture: Sendable {
         let value: String
         let modifiers: [String]?
         let pointer: PointerFields?
+        private static let pointerActions: [String: Terminal.Input.Pointer.Action] = [
+            "press": .press, "release": .release, "move": .move,
+        ]
+        private static let pointerButtons: [String: Terminal.Input.Pointer.Button] = [
+            "left": .left, "middle": .middle, "right": .right, "none": .none,
+            "wheelUp": .wheelUp, "wheelDown": .wheelDown,
+        ]
 
         struct PointerFields: Decodable, Sendable {
             let button: String
@@ -68,8 +75,8 @@ package struct ReplayFixture: Sendable {
         func terminalInput() throws -> Terminal.Input {
             switch kind {
             case .pointer:
-                guard let pointer, let action = Terminal.Input.Pointer.Action(rawValue: value),
-                      let button = Terminal.Input.Pointer.Button(rawValue: pointer.button) else {
+                guard let pointer, let action = Self.pointerActions[value],
+                      let button = Self.pointerButtons[pointer.button] else {
                     throw Failure("Invalid pointer event.")
                 }
                 return .pointer(.init(action, button: button, row: pointer.row, column: pointer.column,

@@ -1,14 +1,20 @@
 import Thrush
 
-/// The host can edit a copy of either default and assign it to a live TerminalView.
-/// The palette also supplies the terminal's OSC color-query replies.
+/// The terminal's palette and the colors used to draw its cursor and selection.
+/// To customize Slate, edit a copy of `slateDark` or `slateLight` and assign it to the pane or view.
 public struct TerminalTheme: Equatable, Sendable {
+    /// The default text, background and ANSI colors. The pane uses this palette for OSC color replies.
     public var palette: Terminal.Palette
+    /// The color of the block, underline or bar cursor.
     public var cursor: Terminal.RGB
+    /// The text color inside a block cursor.
     public var cursorInk: Terminal.RGB
+    /// The background color of selected cells.
     public var selection: Terminal.RGB
+    /// The text color of selected cells.
     public var selectionInk: Terminal.RGB
 
+    /// Creates a theme from a terminal palette and the cursor and selection colors.
     public init(palette: Terminal.Palette, cursor: Terminal.RGB, cursorInk: Terminal.RGB,
                 selection: Terminal.RGB, selectionInk: Terminal.RGB) {
         self.palette = palette
@@ -18,6 +24,7 @@ public struct TerminalTheme: Equatable, Sendable {
         self.selectionInk = selectionInk
     }
 
+    /// The default terminal theme for a dark system appearance.
     public static let slateDark = TerminalTheme(
         palette: .init(foreground: rgb(0xe3eaf0), background: rgb(0x131d27), ansi: [
             0x0b1016, 0xe28282, 0x93cba2, 0xdebb7b, 0x88b6e5, 0xbba0d7, 0x78c4ce, 0xc1cdd4,
@@ -26,6 +33,7 @@ public struct TerminalTheme: Equatable, Sendable {
         selectionInk: rgb(0xf8fbfe)
     )
 
+    /// The default terminal theme for a light system appearance.
     public static let slateLight = TerminalTheme(
         palette: .init(foreground: rgb(0x233442), background: rgb(0xfbfdfe), ansi: [
             0x000000, 0xa43d46, 0x30683e, 0x79601c, 0x2b608f, 0x764d80, 0x276a70, 0x6d767c,

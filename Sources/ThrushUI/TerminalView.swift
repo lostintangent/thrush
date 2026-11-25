@@ -54,14 +54,25 @@ private final class Presentation {
     }
 }
 
-/// Native Metal surface. Keep one view for the lifetime of a viewport. Its host serializes
-/// terminal mutations, passes complete generations here, and applies sizes to the transport.
+/// Embed this view in AppKit or UIKit when your host manages its own terminal and transport.
+/// For a SwiftUI host with a `TerminalConnection`, `TerminalPane` manages the view and its connection.
+/// Keep one native view per viewport. After applying output to the terminal, pass it to `display(_:)`.
+/// Use `onInput` and `onGridSizeChange` to forward user input and resize the terminal and its PTY.
 @MainActor
 public final class TerminalView: MTKView, MTKViewDelegate {
-    /// Inclusive endpoints in the displayed viewport. A selected wide glyph is painted as one unit.
+    /// Two inclusive cell positions relative to the displayed viewport, with the origin at its top left.
+    /// A selection may extend in either direction. Selecting either column of a wide glyph highlights the whole glyph.
     public struct Selection: Equatable, Sendable {
-        public let anchorRow: Int, anchorColumn: Int, headRow: Int, headColumn: Int
+        /// The zero-based row where the selection began.
+        public let anchorRow: Int
+        /// The zero-based column where the selection began.
+        public let anchorColumn: Int
+        /// The zero-based row at the moving end of the selection.
+        public let headRow: Int
+        /// The zero-based column at the moving end of the selection.
+        public let headColumn: Int
 
+        /// Creates a selection from its starting cell through its current end cell, inclusive.
         public init(anchorRow: Int, anchorColumn: Int, headRow: Int, headColumn: Int) {
             self.anchorRow = anchorRow
             self.anchorColumn = anchorColumn
@@ -79,6 +90,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
 
+    /// The selected cells in viewport coordinates. Assign `nil` to clear the selection.
     public var selection: Selection? {
         get { transcript.selection }
         set {
@@ -90,14 +102,19 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
     /// Delivers user input in order. Its owner encodes it on the same terminal that receives output.
     public var onInput: ((Terminal.Input) -> Void)?
+    /// Reports a new row and column count after layout. Apply the size to the terminal and its PTY.
     public var onGridSizeChange: ((Terminal.Size) -> Void)?
+    /// Reports a change to the effective theme. Apply its palette to the terminal for OSC color replies.
     public var onThemeChange: ((TerminalTheme) -> Void)?
+    /// The measured size in cells, or `nil` until the view lays out nonempty bounds.
     public private(set) var gridSize: Terminal.Size?
+    /// The theme the view currently draws, including any explicit override.
     public private(set) var resolvedTheme: TerminalTheme = .slateDark
     /// A nil override follows the native appearance.
     public var theme: TerminalTheme? { didSet { resolveTheme() } }
     #if os(macOS)
-    /// Compositing control for hosts that supply a native backdrop. Both Slate defaults are opaque.
+    /// Opacity of the terminal background over a native Mac backdrop, clamped to 0 through 1.
+    /// The default is 1. Reduce Transparency and nonfinite values draw an opaque background.
     public var backgroundOpacity: Double = 1 {
         didSet { updateBackgroundCompositing() }
     }
@@ -106,6 +123,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
               backgroundOpacity.isFinite else { return 1 }
         return min(1, max(0, backgroundOpacity))
     }
+    /// Whether the terminal background is opaque after applying accessibility preferences.
     public override var isOpaque: Bool { effectiveOpacity == 1 }
 
     @objc private func updateBackgroundCompositing() {
@@ -115,6 +133,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
     #endif
 
+    /// The terminal font size in points, from 6 through 96. A nil value uses 14 on Mac or 13 on iPhone.
     public var fontSize: CGFloat? {
         didSet {
             if let fontSize { precondition((6...96).contains(fontSize) && fontSize.isFinite) }
@@ -173,11 +192,14 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     private var inFlight = 0
     private var lastViewport = CGSize.zero
 
+    /// Creates a terminal view using the system's default Metal device.
     public convenience init(frame: CGRect) { self.init(frame: frame, device: MTLCreateSystemDefaultDevice()) }
+    /// Creates a terminal view for the specified Metal device.
     public override init(frame: CGRect, device: (any MTLDevice)?) {
         super.init(frame: frame, device: device)
         configure()
     }
+    /// Restores a terminal view from an archive, using the default Metal device if needed.
     public required init(coder: NSCoder) {
         super.init(coder: coder)
         if device == nil { device = MTLCreateSystemDefaultDevice() }
@@ -252,12 +274,18 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     }
 
     #if os(macOS)
+    /// Updates the terminal grid to fit the view's bounds.
     public override func layout() { super.layout(); updateGeometry() }
+    /// Recalculates cell geometry when the window's backing scale changes.
     public override func viewDidChangeBackingProperties() { super.viewDidChangeBackingProperties(); updateGeometry() }
+    /// Updates rendering and grid geometry when the view moves into or out of a window.
     public override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); updateAttachment() }
+    /// Resolves the terminal theme when AppKit changes the effective appearance.
     public override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); resolveTheme() }
     #else
+    /// Updates the terminal grid to fit the view's bounds.
     public override func layoutSubviews() { super.layoutSubviews(); updateGeometry() }
+    /// Updates rendering and grid geometry when the view moves into or out of a window.
     public override func didMoveToWindow() { super.didMoveToWindow(); updateAttachment() }
     #endif
 
@@ -337,7 +365,12 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
 
-    public func display(_ terminal: Terminal, receivedAt: CFTimeInterval? = nil) {
+    /// Displays the latest state of the terminal, preserving the viewport's selection and scroll position when possible.
+    public func display(_ terminal: Terminal) {
+        display(terminal, receivedAt: nil)
+    }
+
+    package func display(_ terminal: Terminal, receivedAt: CFTimeInterval?) {
         display(terminal.snapshot(), receivedAt: receivedAt)
     }
 
@@ -407,12 +440,12 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         if dismissKeyboard {
             cancelPendingInput()
             #if os(iOS)
-            phoneInput.resignFirstResponder()
+            _ = phoneInput.resignFirstResponder()
             #endif
         }
     }
 
-    /// Call when replacing the underlying terminal. Row revisions belong to a single terminal.
+    /// Clears the displayed screen, selection, scroll position and pending input before displaying a different terminal.
     public func reset() {
         finishFinalFrame()
         synchronizedOutput.reset()
@@ -428,6 +461,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
+    /// Suspends or resumes drawing. Suspending clears the view's uncommitted input.
     public func setRenderingActive(_ newValue: Bool) {
         if !newValue {
             finishFinalFrame()
@@ -445,7 +479,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         if visible { invalidateFrame() } else { releaseDrawables() }
     }
 
-    /// Give native text input and hardware keys to this viewport.
+    /// Requests native keyboard focus for this viewport and returns whether it was granted.
     @discardableResult public func focusInput() -> Bool {
         guard acceptsTerminalInput else { return false }
         #if os(macOS)
@@ -520,8 +554,10 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         #endif
     }
 
+    /// Schedules a new frame when MetalKit changes the drawable size.
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { invalidateFrame() }
 
+    /// Submits the pending terminal frame when MetalKit asks the view to draw.
     public func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
         updateGeometry()

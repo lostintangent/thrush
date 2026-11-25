@@ -5,15 +5,44 @@ extension Terminal {
 extension Terminal.Input {
     /// A native pointer event in zero-based cell coordinates on the live grid.
     public struct Pointer: Equatable, Sendable {
-        public enum Action: String, Sendable { case press, release, move }
-        public enum Button: String, Sendable { case left, middle, right, none, wheelUp, wheelDown }
+        /// The phase of the pointer event.
+        public enum Action: Sendable {
+            /// A button press or a single scroll-wheel step.
+            case press
+            /// A button release.
+            case release
+            /// Pointer movement, including a drag with a held button.
+            case move
+        }
 
+        /// The button or scroll-wheel direction associated with a pointer event.
+        public enum Button: Sendable {
+            /// The left mouse button.
+            case left
+            /// The middle mouse button.
+            case middle
+            /// The right mouse button.
+            case right
+            /// Movement with no button held.
+            case none
+            /// An upward scroll-wheel step, reported as a press.
+            case wheelUp
+            /// A downward scroll-wheel step, reported as a press.
+            case wheelDown
+        }
+
+        /// The phase of this event.
         public let action: Action
+        /// The button involved, or the wheel direction for a scroll.
         public let button: Button
+        /// The cell's row, counting downward from zero at the top of the visible grid.
         public let row: Int
+        /// The cell's column, counting rightward from zero at the left edge of the grid.
         public let column: Int
+        /// The terminal keyboard modifiers held during this event.
         public let modifiers: Modifiers
 
+        /// Creates a pointer event at the given visible cell. Encoding an event outside the grid returns no bytes.
         public init(_ action: Action, button: Button, row: Int, column: Int, modifiers: Modifiers = []) {
             self.action = action
             self.button = button

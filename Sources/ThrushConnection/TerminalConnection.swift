@@ -2,23 +2,54 @@ import Foundation
 import QuartzCore
 import Thrush
 
-/// A host keeps one connection per shell tab, including while its view is backgrounded.
-/// Pull one event at a time. A ready event replaces the grid and invalidates the view's row cache.
+/// A connection that attaches a terminal to one remote shell over a host-supplied WebSocket.
+///
+/// Keep one connection per shell tab, including while the tab is detached. When you
+/// present a `TerminalPane`, the pane owns the connection's single event reader.
+/// For a headless session or a custom native view, the host owns that reader. Call
+/// ``attach(userInitiated:)``, read events in order with ``nextEvent()``, and inspect
+/// ``currentTerminal`` for the updated screen.
 public actor TerminalConnection {
-    /// Each event follows the preceding one on the same WebSocket. Binary output is already applied.
+    /// An attachment or screen update for a host running headlessly or driving its own view.
+    ///
+    /// A `TerminalPane` consumes these events when it presents the shell.
     public enum Event: Equatable, Sendable {
-        case reconnecting, displaced
+        /// The connection lost its transport or failed to open it. Read the next event to retry.
+        case reconnecting
+        /// Another attachment took over this shell. A user can reclaim it with ``TerminalConnection/attach(userInitiated:)``.
+        case displaced
+        /// The server accepted the attachment and the connection reset its terminal.
+        ///
+        /// A fresh shell is ready for input. When `resumed` is true, the next output event
+        /// supplies the restored screen and input modes.
         case ready(resumed: Bool)
+        /// The connection applied a binary frame of shell output or the initial replay.
         case output
-        /// The server replaced a stalled live stream with a serialized screen on the same socket.
-        /// Reset the view's row cache and display the new terminal in the same UI update.
+        /// The server restored a stalled live stream on the same socket. Replace the
+        /// displayed screen and its row cache together from the updated terminal.
         case resynchronized
+        /// The server reported that the shell exited. All preceding output has been applied.
         case exit
     }
 
-    /// A displaced tab remains idle until a person asks to reclaim it. Ended is terminal.
+    /// The current phase of the shell attachment.
     public enum State: Equatable, Sendable {
-        case connecting, reconnecting, replaying, active, detached, displaced, closing, ended
+        /// The connection opened a WebSocket task and is waiting for the server's ready message.
+        case connecting
+        /// The connection will retry a failed attachment when the host reads the next event.
+        case reconnecting
+        /// The server resumed a shell and the connection is restoring its screen and input modes.
+        case replaying
+        /// The connection accepts input and processes live shell output.
+        case active
+        /// The tab has no active attachment and can attach under the same client ID.
+        case detached
+        /// Another attachment took over the shell. Reattaching requires a user action.
+        case displaced
+        /// The connection is sending an explicit request to end the shell.
+        case closing
+        /// The shell exited or the host closed the tab. A user can start a new shell after a natural exit.
+        case ended
     }
 
     private enum ConnectionError: Error {
@@ -72,11 +103,13 @@ public actor TerminalConnection {
     private var isReading = false
     private var lastWrite: Task<Void, Error>?
 
-    /// True at fresh ready when a previously attached shell disappeared. A user's intentional
-    /// restart after natural exit starts a new shell without reporting an unexpected replacement.
+    /// Whether the most recent ready event opened a fresh shell after the previous shell disappeared.
+    ///
+    /// The first attachment and a user-initiated restart after natural exit both report `false`.
     public private(set) var replacedPreviousShell = false
     package private(set) var discardedHeldInputOnLastReady = false
     package private(set) var isResynchronizing = false
+    /// The connection's current attachment state.
     public private(set) var state = State.detached
     package private(set) var lastReceiptTime: CFTimeInterval?
     /// Number of transport factory calls, including failed initial opens and retries.
@@ -104,9 +137,17 @@ public actor TerminalConnection {
         }
     }
 
-    /// Create a detached shell tab. A native view supplies its first measured size with
-    /// sendResize(to:) before attaching. A headless caller can use the default 80 × 24.
-    /// Return a fresh, suspended WebSocket task from the host's session on every attachment.
+    /// Creates a detached connection for a stable shell identifier.
+    ///
+    /// The initial grid has 80 columns and 24 rows. Call ``sendResize(to:)`` before
+    /// attaching to use the dimensions measured by a view.
+    ///
+    /// - Parameters:
+    ///   - clientID: A nonempty identifier for the shell, reused across attachments.
+    ///   - palette: The colors the terminal reports to programs that query its palette.
+    ///   - makeSocket: A factory that receives the client ID and grid size for each
+    ///     attachment attempt. Return a fresh, suspended WebSocket task configured for
+    ///     that shell. The host owns the session and the connection manages the task.
     public init(clientID: String, palette: Terminal.Palette = .default,
                 makeSocket: @escaping @Sendable (String, Terminal.Size) throws -> URLSessionWebSocketTask) {
         self.init(clientID: clientID, size: nil, palette: palette, onOutput: nil, makeSocket: makeSocket)
@@ -148,8 +189,11 @@ public actor TerminalConnection {
         socket?.cancel(with: .goingAway, reason: nil)
     }
 
-    /// Attach on foreground return. Use an explicit user action to reclaim a displaced shell
-    /// or open a new shell after natural exit. An explicitly closed tab stays ended.
+    /// Starts an attachment for a detached tab.
+    ///
+    /// - Parameter userInitiated: Pass `true` when a person asks to reclaim a displaced
+    ///   shell or start a new shell after natural exit. An explicitly closed tab stays ended.
+    /// - Returns: `true` if an attachment attempt began. Read ``nextEvent()`` for its outcome.
     @discardableResult
     public func attach(userInitiated: Bool = false) -> Bool {
         guard state == .detached || (userInitiated && (state == .displaced || exitedNaturally)) else { return false }
@@ -190,8 +234,15 @@ public actor TerminalConnection {
         return url
     }
 
-    /// Keep pulling after reconnecting. One pull waits for the retry delay and requests the
-    /// next message. Displacement and exit park this pump until a user asks to attach again.
+    /// Waits for the next shell event for a headless host or a custom terminal view.
+    ///
+    /// Have one task make successive calls for the connection. A `TerminalPane` owns that
+    /// reader when it presents the shell. Each output event arrives after the connection
+    /// applies its bytes. Continue reading after ``Event/reconnecting`` to drive the retry.
+    /// Stop after ``Event/displaced`` or ``Event/exit`` until another attachment begins.
+    ///
+    /// - Throws: An error if another read is in progress, the attachment is unavailable,
+    ///   the operation is cancelled, or the server sends an invalid message.
     public func nextEvent() async throws -> Event {
         try Task.checkCancellation()
         guard !isReading else { throw ConnectionError.concurrentRead }
@@ -333,15 +384,24 @@ public actor TerminalConnection {
 
     package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }
 
-    /// A value snapshot from the same serial owner that applies output and encodes keystrokes.
-    /// Pass this to TerminalView.display on the main actor. Retain it only as long as the view needs it.
+    /// A value copy of the terminal at the time of the read.
+    ///
+    /// Inspect its rows headlessly or pass it to a native terminal view for display.
+    /// Subsequent output updates the connection's terminal independently of this copy.
     public var currentTerminal: Terminal { terminal }
 
-    /// Set the colors used for queries from the running program, including while the view is hidden.
+    /// Sets the colors reported to programs that query the terminal, including while the view is hidden.
     public func setPalette(_ palette: Terminal.Palette) { terminal.palette = palette }
 
-    /// During automatic recovery, hold up to 256 inputs and 64 KiB of source text. A full
-    /// queue rejects the newest input as a whole. Resumed modes determine its eventual encoding.
+    /// Encodes input using the shell's current modes and sends it over the active attachment.
+    ///
+    /// During automatic recovery, the connection holds text, paste and keys until replay
+    /// restores the same shell's modes. It drops pointer input during recovery and discards
+    /// held input if the server opens a fresh shell. The queue holds up to 256 inputs and
+    /// 64 KiB, counting UTF-8 bytes for text and character keys and one byte for other keys.
+    ///
+    /// - Throws: An error if the new input would exceed either limit, the connection is
+    ///   unavailable, or its write fails.
     public func send(_ input: Terminal.Input) async throws {
         try await send(input, notify: nil)
     }
@@ -377,7 +437,13 @@ public actor TerminalConnection {
         if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current, onWriteStarted: notify) }
     }
 
-    /// A size change during attach is sent after ready and any replay at the URL's original size.
+    /// Requests a grid size for the shell and its local terminal.
+    ///
+    /// Before attachment, this sets the dimensions passed to the socket factory.
+    /// During attachment or replay, the connection applies the latest size after the
+    /// server restores the grid at its negotiated dimensions.
+    ///
+    /// - Throws: A transport error if sending the resize fails.
     public func sendResize(to size: Terminal.Size) async throws {
         requestedSize = size
         guard let current = socket, state == .active, !isResynchronizing else { return }
@@ -410,8 +476,12 @@ public actor TerminalConnection {
                                to: current)
     }
 
-    /// Explicit close stops recovery. With no transport to carry the close control, the tab
-    /// still ends locally and throws. The server's orphan deadline then releases the remote PTY.
+    /// Ends this tab permanently and asks the server to close its shell.
+    ///
+    /// This stops recovery and discards held input. If there is no socket to carry the
+    /// request, the tab ends locally and the server's orphan deadline releases the shell.
+    ///
+    /// - Throws: An error if a close is already in progress or the connection cannot send the request.
     public func closeShell() async throws {
         exitedNaturally = false
         guard state != .closing else { throw ConnectionError.inactiveAttachment }
@@ -425,7 +495,10 @@ public actor TerminalConnection {
         try await writeControl(ClientControl(type: .close), to: current)
     }
 
-    /// Release the attachment and any retry delay when the view leaves the foreground.
+    /// Releases the socket, cancels retries and discards held input while keeping the tab's terminal.
+    ///
+    /// The server keeps the detached shell until its orphan deadline. Call ``attach(userInitiated:)``
+    /// to reattach when the tab becomes visible again.
     public func detach() {
         frameTrace?.record("detach", attachment: socketAttempts)
         guard state != .displaced, state != .ended, state != .closing else { return }

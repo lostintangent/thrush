@@ -4,15 +4,20 @@ import UIKit
 
 /// Implement this on a host-supplied keyboard accessory to send semantic input to the terminal.
 @MainActor public protocol TerminalInputAccessory: AnyObject {
+    /// Invoke this handler when a control commits input. The terminal installs it while the accessory is in use.
     var onInput: ((Terminal.Input) -> Void)? { get set }
 }
 
 /// The controls attached to the system keyboard for this viewport.
 public enum TerminalKeyboardAccessory: Equatable {
+    /// The built-in Escape, Control, Tab and arrow keys.
     case standard
+    /// Hides the terminal key row above the software keyboard.
     case none
+    /// Displays a host-supplied view whose controls send terminal input.
     case custom(UIView & TerminalInputAccessory)
 
+    /// Compares the selected accessory, using view identity for custom accessories.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.standard, .standard), (.none, .none): true

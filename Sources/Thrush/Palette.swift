@@ -1,10 +1,14 @@
 extension Terminal {
     /// An sRGB color with 8-bit channels.
     public struct RGB: Equatable, Sendable {
+        /// The red channel, from 0 through 255.
         public let red: UInt8
+        /// The green channel, from 0 through 255.
         public let green: UInt8
+        /// The blue channel, from 0 through 255.
         public let blue: UInt8
 
+        /// Creates an opaque sRGB color from three 8-bit channel values.
         public init(red: UInt8, green: UInt8, blue: UInt8) {
             self.red = red
             self.green = green
@@ -17,12 +21,16 @@ extension Terminal {
         }
     }
 
-    /// The host's active default colors and 16 ANSI entries. Extended indices use the xterm cube and gray ramp.
+    /// The terminal's default foreground and background colors and its 16 configurable ANSI colors.
     public struct Palette: Equatable, Sendable {
+        /// The default text color, also reported to programs that query the foreground.
         public let foreground: RGB
+        /// The default canvas color, also reported to programs that query the background.
         public let background: RGB
+        /// The eight standard ANSI colors in index order, followed by their eight bright variants.
         public let ansi: [RGB]
 
+        /// Creates a palette with the given default colors and exactly 16 ANSI entries in index order.
         public init(foreground: RGB, background: RGB, ansi: [RGB]) {
             precondition(ansi.count == 16, "A terminal palette has 16 ANSI colors")
             self.foreground = foreground
@@ -30,7 +38,7 @@ extension Terminal {
             self.ansi = ansi
         }
 
-        /// The pinned browser terminal's colors when the host supplies no theme.
+        /// The headless default, with white text, a black background, and xterm's Tango ANSI colors.
         public static let `default` = Self(
             foreground: RGB(0xffffff), background: RGB(0x000000),
             ansi: [
@@ -39,7 +47,9 @@ extension Terminal {
             ].map(RGB.init)
         )
 
-        /// A 256-color index: the 16 ANSI entries, then the 6 × 6 × 6 cube and the 24-step gray ramp.
+        /// The color at an index in the 256-color terminal palette.
+        ///
+        /// Indices 0–15 use ``ansi``, 16–231 use xterm's 6 × 6 × 6 color cube, and 232–255 use its gray ramp.
         public subscript(index index: UInt8) -> RGB {
             if index < 16 { return ansi[Int(index)] }
             if index >= 232 {

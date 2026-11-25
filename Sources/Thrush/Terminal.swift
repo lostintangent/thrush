@@ -1,11 +1,23 @@
-/// A synchronous terminal. Keep one value per shell and serialize output, resize and input on its owner.
+/// A synchronous, headless terminal that interprets output and encodes input for one shell.
+///
+/// Keep one terminal per shell. Apply output and grid changes, encode input, and send
+/// the resulting bytes in order on the same serial owner.
+///
+/// ```swift
+/// var terminal = Terminal(size: .init(columns: 80, rows: 24))
+/// let reply = terminal.receive("thrush$ \u{1B}[6n".utf8)
+/// let prompt = terminal.text(inRow: 0)  // "thrush$ "
+/// // Send reply to the shell before forwarding the next user input.
+/// ```
 public struct Terminal: Sendable {
     /// A grid size in character cells.
     public struct Size: Equatable, Sendable {
+        /// The number of visible character columns, with a minimum of two.
         public let columns: Int
+        /// The number of visible character rows.
         public let rows: Int
 
-        /// Record the effective server dimensions. xterm reserves at least two columns for wide glyphs.
+        /// Creates a grid from positive dimensions, rounding a single column up to two for wide characters.
         public init(columns: Int, rows: Int) {
             precondition(columns > 0 && rows > 0, "Terminal dimensions must be positive")
             self.columns = max(2, columns)
@@ -35,9 +47,11 @@ public struct Terminal: Sendable {
         package let wraparound = true
     }
 
-    /// The visible grid. History sits above it.
+    /// The current dimensions of the visible grid in character cells.
     public var size: Size { screen.size }
-    /// Change this when the host changes theme. Stored cells retain their semantic colors.
+    /// The colors reported to the shell when it queries the current theme.
+    ///
+    /// Set this when the host changes theme. Stored cells retain their original color indices.
     public var palette: Palette {
         didSet { if oldValue != palette { generation &+= 1 } }
     }
@@ -50,14 +64,16 @@ public struct Terminal: Sendable {
     private var generation: UInt64 = 0
     private var hasCombiningBase = false
 
-    /// Start on a blank normal screen. The palette resolves colors and answers OSC color queries.
+    /// Creates a terminal with a blank normal screen and the given colors for shell queries.
     public init(size: Size, palette: Palette = .default) {
         self.palette = palette
         screen = Screen(size: size)
     }
 
-    /// Apply PTY output in order. UTF-8 and control sequences may span arbitrary calls.
-    /// Replies are ready to send to the peer in the order the queries arrived.
+    /// Applies a chunk of shell output and returns any replies to send back to the shell.
+    ///
+    /// UTF-8 characters and escape sequences can span calls. An empty result means
+    /// this chunk produced no reply. Forward nonempty results in arrival order.
     public mutating func receive(_ bytes: some Sequence<UInt8>) -> [UInt8] {
         if let replies = bytes.withContiguousStorageIfAvailable({ receive($0) }) { return replies }
         var replies: [UInt8] = []
@@ -66,7 +82,7 @@ public struct Terminal: Sendable {
     }
 
     /// Apply a borrowed network or replay buffer synchronously without copying it.
-    public mutating func receive(_ bytes: UnsafeBufferPointer<UInt8>) -> [UInt8] {
+    package mutating func receive(_ bytes: UnsafeBufferPointer<UInt8>) -> [UInt8] {
         var replies: [UInt8] = []
         var index = 0
         while index < bytes.count {
@@ -85,14 +101,18 @@ public struct Terminal: Sendable {
         return replies
     }
 
-    /// Apply the PTY's new size. Normal history reflows at soft wraps, and the alternate screen clips.
+    /// Resizes the grid, reflowing normal-screen history at soft wraps and clipping the alternate screen.
+    ///
+    /// Send the same effective size to the PTY so the shell can redraw at the new dimensions.
     public mutating func resize(to size: Size) {
         guard size != screen.size else { return }
         screen.resize(to: size)
         generation &+= 1
     }
 
-    /// Read a zero-based visible row. Printed spaces survive, while unused trailing cells are omitted.
+    /// Returns the text in a zero-based visible row, preserving printed spaces and omitting unused trailing cells.
+    ///
+    /// The top row is zero. The index must be less than `size.rows` and nonnegative.
     public func text(inRow row: Int) -> String {
         precondition((0..<size.rows).contains(row), "Row must be inside the visible grid")
         return screen.text(inRow: row)
