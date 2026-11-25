@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "environment": {"host": "macOS","transport": "Apple URLSessionWebSocketTask","nativeClient": "Headless driver using the production TerminalConnection receive pump","toyBoxRevision": "b9d0eca3c5f4e9036e58327ba633eff52474bb92","bun": "1.4.6","bash": "GNU bash, version 5.3.9(1)-release (aarch64-apple-darwin25.1.0)"},
+  "source": {
+    "earlyNative": {"baseRevision": "9804f49cdf7fe97f2df4be9518b4ce56fe65a506","instrumentation": "Pre-commit working tree. Matching production actor behavior and observer placements were confirmed by the probe author. The original executable digest is unavailable for these two runs."},
+    "committedNative": {"packageTraceRevision": "91eb30d1eef50bcf7c8d4d4106ec4f7448e840b4","headlessDriverSourceSHA256": "229b7388e47d222143ed3c7c31ca3182c80a953d1f955555f24b205245bded8c","headlessExecutableSHA256": "7edf942f2079584521393325370ea83d62b2d6cad57f61df3a5280deba13e579"},
+    "preFixRelay": {"revision": "c6dfdd2e1f376cd5879032c3e33849bda838751d"},
+    "fixedRelay": {
+      "baseRevision": "c6dfdd2e1f376cd5879032c3e33849bda838751d",
+      "equivalentRevision": "d75eb57219fb4deac4b35b846a3ec6d2cd02b9dc",
+      "filesSHA256": {"scripts/live-workflow/lifecycle.ts": "8850359a3fb6edb3ce75527129344bf95f2b6e481ce8c25ce14223de9b23f068","scripts/live-workflow/run.ts": "b7d8c0b3446857324be66f329a93ffbc6ccd1e972ed6e77ef4065aaf4910c4c0","scripts/live-workflow/controller.ts": "598981183e19b6ce6ae4f3360abb5a9e52d3e6303f020e5bd668ee4e7d933bf5"}
+    }
+  },
+  "interpretation": {"attachment": "Single-client relay socket and corresponding URLSession socket in open order, starting at 1. Socket 3 is the resumed takeover before backgrounding. Socket 4 is a fresh shell after orphan expiry.","bytes": "Binary bytes only. Ranges are zero-based and half-open on the specified socket. A nonzero Bun send result admits the message to the WebSocket.","order": "Each selected row retains its original sequence and monotonic time in milliseconds. Compare order and elapsed time only within the same process.","trace": "Counts below use complete frame traces. Ordered row projections include the old socket replay and prompt, detach, socket outcome, fresh ready and matching fresh prompt. Hex is included only for the 13-byte prompt redraw.","repair": "The relay drains pending output and waits for native receipt and application before publishing the detach phase. The fixed probe uses the same native receive behavior."},
+  "hostedObservation": {"runID": 45572121368,"runAttempt": 1,"runURL": "https://github.com/lostintangent/thrush/actions/runs/45572121368/attempts/1","appRevision": "9804f49cdf7fe97f2df4be9518b4ce56fe65a506","appExecutableSHA256": "5c77dc283e25140f2f6e0358adc980df0237c2546137a6a5236be60d5c3e05ae","artifactID": 15002893363,"archiveSHA256": "8bc889ba624f07363c39d4d4a284c04514b280e71ce9c690c70e1d93d8b6d023","checkpoint": 16,"peerSentBytes": 487,"nativeReceivedBytes": 474,"nativeAppliedBytes": 474,"scope": "Hosted iPhone Simulator failed the post-expiry checkpoint. It did not archive per-attachment frames. The historical 13-byte gap has no frame-level attribution. The five experiments below are separate Mac headless runs."},
+  "rowFields": {
+    "byAttachment": ["attachment","readyResumed","upstreamBytes","forwardedBytes","replayBytes","urlSessionObservedBytes","nativeReceivedBytes","nativeAppliedBytes","upstreamBinaryFrames","forwardedBinaryFrames","observedBinaryFrames","appliedBinaryFrames"],
+    "relayRows": ["sequence","monotonicMs","attachment","frame","event","phase","eventIndex","length","sendResult","text","hex"],
+    "nativeRows": ["sequence","monotonicMs","attachment","frame","event","length","stale","closeCode","receivedBytes","appliedBytes","text","hex"]
+  },
+  "experiments": [
+    {
+      "run": "normal-6s_6z3q0",
+      "relay": "preFixRelay",
+      "native": "earlyNative",
+      "reader": "continuous",
+      "result": "URLSession-returned-stale-after-deliberate-detach",
+      "observation": "URLSession returned the retired prompt after detach and cancellation. The replacement socket later applied an identical prompt.",
+      "originalFilesSHA256": {"observations.json": "6fc6d33ec3d57274145038fbdda7d36567ad11c407b3351a0d2eb65bf80207cd","native-wire.jsonl": "4467236f83e9898a821da38a82cb95b134cf496c1466f04860c8279badebc3bd","server.json": "d5d2e83b10ce323423db90a4faeb043bd99c1d393f79562353d77f55ab791c2e"},
+      "checkpointCount": 4,
+      "readyResumed": [false,true,true,false],
+      "exits": 0,
+      "explicitCloses": 0,
+      "relayPhase": "checkpoint",
+      "relayEventIndex": 16,
+      "relayObservationCount": 51,
+      "nativeFooter": {"sequence": 73,"event": "finished","text": "failure","receivedBytes": 461,"appliedBytes": 461},
+      "totals": {"upstreamBytes": 474,"forwardedBytes": 474,"replayBytes": 218,"urlSessionObservedBytes": 474,"nativeReceivedBytes": 461,"nativeAppliedBytes": 461,"upstreamBinaryFrames": 18,"forwardedBinaryFrames": 18,"observedBinaryFrames": 18,"appliedBinaryFrames": 17},
+      "byAttachment": [
+        [1,false,80,80,0,80,80,80,5,5,5,5],
+        [2,true,125,125,63,125,125,125,5,5,5,5],
+        [3,true,168,168,155,168,155,155,2,2,2,1],
+        [4,false,101,101,0,101,101,101,6,6,6,6]
+      ],
+      "upstreamPromptByteRanges": {
+        "3": [
+          {"frame": 3,"start": 155,"end": 168}
+        ],
+        "4": [
+          {"frame": 3,"start": 16,"end": 29}
+        ]
+      },
+      "oldPromptObservedMinusNativeDetachMs": 0.020667,
+      "relayRows": [
+        [30,1510.172208,3,1,"sentToNative","useHere",9,31,31,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [32,1511.496333,3,3,"receivedFromUpstream","playing",10,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [33,1511.623291,3,2,"sentToNative","playing",10,155,155,null,null],
+        [34,2039.925083,3,3,"sentToNative","detach",11,13,13,null,"0d1b5b4b0d7468727573682420"],
+        [36,32101.710083,4,1,"sentToNative","resume",12,32,32,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [40,32142.744041,4,3,"receivedFromUpstream","focus",13,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [42,32508.98025,4,3,"sentToNative","input",14,13,13,null,"0d1b5b4b0d7468727573682420"]
+      ],
+      "nativeRows": [
+        [44,716578073.1514585,3,1,"ready",31,null,null,null,null,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [47,716578075.0642918,3,2,"applied",155,null,null,360,360,null,null],
+        [48,716578602.3850417,3,null,"detach",null,null,null,null,null,null,null],
+        [49,716578602.3905002,3,null,"cancel",null,null,0,null,null,null,null],
+        [50,716578602.4057086,3,3,"observed",13,true,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [53,716608664.2373334,4,1,"ready",32,null,null,null,null,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [58,716609071.4279169,4,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [59,716609071.4337085,4,3,"accepted",13,null,null,389,376,null,"0d1b5b4b0d7468727573682420"],
+        [60,716609071.4611669,4,3,"applied",13,null,null,389,389,null,"0d1b5b4b0d7468727573682420"]
+      ]
+    },
+    {
+      "run": "normal-sezth9s4",
+      "relay": "preFixRelay",
+      "native": "committedNative",
+      "reader": "continuous",
+      "result": "relay-forwarded-no-URLSession-observation-through-native-footer",
+      "observation": "The send succeeded. The retired socket logged a stale receive error and no matching received frame through the native footer. The fresh socket applied the prompt.",
+      "originalFilesSHA256": {"observations.json": "d3d4e778cffeedb445dee2f34f649ea861785d3cfcacc3eb8f9958d8e54554af","native-wire.jsonl": "b992ecec48a94b439d6a5f430cb1781fa4dea1b2910538f439495ac67d9dbd1b","server.json": "d5d2e83b10ce323423db90a4faeb043bd99c1d393f79562353d77f55ab791c2e"},
+      "checkpointCount": 4,
+      "readyResumed": [false,true,true,false],
+      "exits": 0,
+      "explicitCloses": 0,
+      "relayPhase": "checkpoint",
+      "relayEventIndex": 16,
+      "relayObservationCount": 57,
+      "nativeFooter": {"sequence": 82,"event": "finished","text": "failure","receivedBytes": 539,"appliedBytes": 539},
+      "totals": {"upstreamBytes": 552,"forwardedBytes": 552,"replayBytes": 270,"urlSessionObservedBytes": 539,"nativeReceivedBytes": 539,"nativeAppliedBytes": 539,"upstreamBinaryFrames": 21,"forwardedBinaryFrames": 21,"observedBinaryFrames": 20,"appliedBinaryFrames": 20},
+      "byAttachment": [
+        [1,false,106,106,0,106,106,106,5,5,5,5],
+        [2,true,151,151,89,151,151,151,7,7,7,7],
+        [3,true,194,194,181,181,181,181,2,2,1,1],
+        [4,false,101,101,0,101,101,101,7,7,7,7]
+      ],
+      "upstreamPromptByteRanges": {
+        "3": [
+          {"frame": 3,"start": 181,"end": 194}
+        ],
+        "4": [
+          {"frame": 3,"start": 16,"end": 29}
+        ]
+      },
+      "relayRows": [
+        [34,1611.924584,3,1,"sentToNative","useHere",9,31,31,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [36,1613.486417,3,2,"sentToNative","playing",10,181,181,null,null],
+        [37,1614.136709,3,3,"receivedFromUpstream","checkpoint",10,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [38,2136.070125,3,3,"sentToNative","detach",11,13,13,null,"0d1b5b4b0d7468727573682420"],
+        [40,32202.817917,4,1,"sentToNative","resume",12,32,32,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [44,32277.44125,4,3,"receivedFromUpstream","focus",13,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [46,32635.69375,4,3,"sentToNative","input",14,13,13,null,"0d1b5b4b0d7468727573682420"]
+      ],
+      "nativeRows": [
+        [50,716754303.5867919,3,1,"ready",31,null,null,null,null,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [53,716754305.3142085,3,2,"applied",181,null,null,438,438,null,null],
+        [54,716754827.3138335,3,null,"detach",null,null,null,null,null,null,null],
+        [55,716754827.3219585,3,null,"cancel",null,null,0,null,null,null,null],
+        [56,716754827.8866252,3,null,"receive-error",315,true,1000,null,null,null,null],
+        [59,716784894.5661668,4,1,"ready",32,null,null,null,null,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [64,716785327.3766252,4,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [65,716785327.3820835,4,3,"accepted",13,null,null,467,454,null,"0d1b5b4b0d7468727573682420"],
+        [66,716785327.4075418,4,3,"applied",13,null,null,467,467,null,"0d1b5b4b0d7468727573682420"]
+      ]
+    },
+    {
+      "run": "pause-q39sav2j",
+      "relay": "preFixRelay",
+      "native": "earlyNative",
+      "reader": "stopAfterTakeoverReplay",
+      "result": "relay-send-rejected",
+      "observation": "The controlled reader stopped after the takeover replay. The old socket send returned zero. The run ended before the replacement socket opened.",
+      "originalFilesSHA256": {"observations.json": "ad0f202b0b7a7b9fdcfd436ce2b696f1c41f8c0980a23bd3f4ad936f7b61e709","native-wire.jsonl": "edcb10150af8f405063a84b46a2449d80c91b4c9956d404fb8424706812d894f","server.json": "d5d2e83b10ce323423db90a4faeb043bd99c1d393f79562353d77f55ab791c2e"},
+      "checkpointCount": 4,
+      "readyResumed": [false,true,true],
+      "exits": 0,
+      "explicitCloses": 0,
+      "relayPhase": "failed",
+      "relayEventIndex": 11,
+      "relayObservationCount": 34,
+      "nativeFooter": {"sequence": 50,"event": "finished","text": "failure","receivedBytes": 360,"appliedBytes": 360},
+      "totals": {"upstreamBytes": 373,"forwardedBytes": 360,"replayBytes": 218,"urlSessionObservedBytes": 360,"nativeReceivedBytes": 360,"nativeAppliedBytes": 360,"upstreamBinaryFrames": 12,"forwardedBinaryFrames": 11,"observedBinaryFrames": 11,"appliedBinaryFrames": 11},
+      "byAttachment": [
+        [1,false,80,80,0,80,80,80,4,4,4,4],
+        [2,true,125,125,63,125,125,125,6,6,6,6],
+        [3,true,168,155,155,155,155,155,2,1,1,1]
+      ],
+      "upstreamPromptByteRanges": {
+        "3": [
+          {"frame": 3,"start": 155,"end": 168}
+        ]
+      },
+      "relayRows": [
+        [30,1429.343541,3,1,"sentToNative","useHere",9,31,31,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [32,1430.223416,3,3,"receivedFromUpstream","playing",10,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [33,1430.642833,3,2,"sentToNative","playing",10,155,155,null,null],
+        [34,1938.944083,3,3,"sentToNative","detach",11,13,0,null,"0d1b5b4b0d7468727573682420"]
+      ],
+      "nativeRows": [
+        [44,716578123.6120001,3,1,"ready",31,null,null,null,null,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [47,716578125.3021668,3,2,"applied",155,null,null,360,360,null,null],
+        [48,716578632.2743752,3,null,"detach",null,null,null,null,null,null,null],
+        [49,716578632.2836668,3,null,"cancel",null,null,0,null,null,null,null]
+      ]
+    },
+    {
+      "run": "fixed1-ep3l3m6r",
+      "relay": "fixedRelay",
+      "native": "committedNative",
+      "reader": "continuous",
+      "result": "exact-completed",
+      "observation": "The old prompt was forwarded in Use Here and applied before native detach. The fresh shell independently applied its prompt. All messages matched through completion.",
+      "originalFilesSHA256": {"controller.json": "57555f413c21df435eea82026faee99b07010748d3ebb30c3ac09e5ef04317f0","native-wire.jsonl": "45f81539f7cd5334b426092ffbe6961bcc7d026205de062e04f12eeecb537d98","server.json": "d5d2e83b10ce323423db90a4faeb043bd99c1d393f79562353d77f55ab791c2e"},
+      "checkpointCount": 7,
+      "readyResumed": [false,true,true,false,false],
+      "exits": 1,
+      "explicitCloses": 1,
+      "relayPhase": "close",
+      "relayEventIndex": 25,
+      "relayObservationCount": 89,
+      "nativeFooter": {"sequence": 128,"event": "finished","text": "success","receivedBytes": 620,"appliedBytes": 620},
+      "totals": {"upstreamBytes": 620,"forwardedBytes": 620,"replayBytes": 218,"urlSessionObservedBytes": 620,"nativeReceivedBytes": 620,"nativeAppliedBytes": 620,"upstreamBinaryFrames": 32,"forwardedBinaryFrames": 32,"observedBinaryFrames": 32,"appliedBinaryFrames": 32},
+      "byAttachment": [
+        [1,false,80,80,0,80,80,80,8,8,8,8],
+        [2,true,125,125,63,125,125,125,6,6,6,6],
+        [3,true,168,168,155,168,168,168,2,2,2,2],
+        [4,false,150,150,0,150,150,150,10,10,10,10],
+        [5,false,97,97,0,97,97,97,6,6,6,6]
+      ],
+      "upstreamPromptByteRanges": {
+        "3": [
+          {"frame": 3,"start": 155,"end": 168}
+        ],
+        "4": [
+          {"frame": 3,"start": 16,"end": 29}
+        ]
+      },
+      "oldPromptObservedMinusNativeDetachMs": -813.098583,
+      "relayRows": [
+        [38,1320.884458,3,1,"sentToNative","useHere",9,31,31,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [40,1322.037,3,3,"receivedFromUpstream","useHere",9,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [41,1322.198666,3,2,"sentToNative","useHere",9,155,155,null,null],
+        [42,1323.7695,3,3,"sentToNative","useHere",9,13,13,null,"0d1b5b4b0d7468727573682420"],
+        [44,32209.338833,4,1,"sentToNative","resume",12,32,32,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [48,32382.731041,4,3,"receivedFromUpstream","focus",13,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [49,32752.369,4,3,"sentToNative","input",14,13,13,null,"0d1b5b4b0d7468727573682420"]
+      ],
+      "nativeRows": [
+        [56,716879368.5041251,3,1,"ready",31,null,null,null,null,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [59,716879369.9613335,3,2,"applied",155,null,null,360,360,null,null],
+        [60,716879371.3379169,3,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [61,716879371.3435417,3,3,"accepted",13,null,null,373,360,null,"0d1b5b4b0d7468727573682420"],
+        [62,716879371.3655835,3,3,"applied",13,null,null,373,373,null,"0d1b5b4b0d7468727573682420"],
+        [63,716880184.4365002,3,null,"detach",null,null,null,null,null,null,null],
+        [64,716880184.4453335,3,null,"cancel",null,null,0,null,null,null,null],
+        [65,716880184.8156252,3,null,"receive-error",315,true,1000,null,null,null,null],
+        [68,716910257.5755836,4,1,"ready",32,null,null,null,null,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [73,716910801.0832502,4,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [74,716910801.0945001,4,3,"accepted",13,null,null,402,389,null,"0d1b5b4b0d7468727573682420"],
+        [75,716910801.1660419,4,3,"applied",13,null,null,402,402,null,"0d1b5b4b0d7468727573682420"]
+      ]
+    },
+    {
+      "run": "fixed2-os9nbccn",
+      "relay": "fixedRelay",
+      "native": "committedNative",
+      "reader": "continuous",
+      "result": "exact-completed",
+      "observation": "The old prompt was forwarded in Use Here and applied before native detach. The fresh shell independently applied its prompt. All messages matched through completion.",
+      "originalFilesSHA256": {"controller.json": "26e571a5072b3cf4fe9455ccd8d3b04eb5f394b5d2c3afba3c499e2bb1f89ba8","native-wire.jsonl": "a3eccf8411b772b22e5ff6f296bcad575897890141d12c5289f8d56645ebcb94","server.json": "d5d2e83b10ce323423db90a4faeb043bd99c1d393f79562353d77f55ab791c2e"},
+      "checkpointCount": 7,
+      "readyResumed": [false,true,true,false,false],
+      "exits": 1,
+      "explicitCloses": 1,
+      "relayPhase": "close",
+      "relayEventIndex": 25,
+      "relayObservationCount": 83,
+      "nativeFooter": {"sequence": 119,"event": "finished","text": "success","receivedBytes": 620,"appliedBytes": 620},
+      "totals": {"upstreamBytes": 620,"forwardedBytes": 620,"replayBytes": 218,"urlSessionObservedBytes": 620,"nativeReceivedBytes": 620,"nativeAppliedBytes": 620,"upstreamBinaryFrames": 29,"forwardedBinaryFrames": 29,"observedBinaryFrames": 29,"appliedBinaryFrames": 29},
+      "byAttachment": [
+        [1,false,80,80,0,80,80,80,5,5,5,5],
+        [2,true,125,125,63,125,125,125,6,6,6,6],
+        [3,true,168,168,155,168,168,168,2,2,2,2],
+        [4,false,150,150,0,150,150,150,9,9,9,9],
+        [5,false,97,97,0,97,97,97,7,7,7,7]
+      ],
+      "upstreamPromptByteRanges": {
+        "3": [
+          {"frame": 3,"start": 155,"end": 168}
+        ],
+        "4": [
+          {"frame": 3,"start": 16,"end": 29}
+        ]
+      },
+      "oldPromptObservedMinusNativeDetachMs": -835.305625,
+      "relayRows": [
+        [32,1405.04425,3,1,"sentToNative","useHere",9,31,31,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [34,1406.37625,3,3,"receivedFromUpstream","useHere",9,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [35,1406.696333,3,2,"sentToNative","useHere",9,155,155,null,null],
+        [36,1408.302666,3,3,"sentToNative","useHere",9,13,13,null,"0d1b5b4b0d7468727573682420"],
+        [38,32320.655125,4,1,"sentToNative","resume",12,32,32,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [42,32379.389541,4,3,"receivedFromUpstream","focus",13,13,null,null,"0d1b5b4b0d7468727573682420"],
+        [43,32749.888083,4,3,"sentToNative","input",14,13,13,null,"0d1b5b4b0d7468727573682420"]
+      ],
+      "nativeRows": [
+        [47,716879208.2607085,3,1,"ready",31,null,null,null,null,"{\"type\":\"ready\",\"resumed\":true}",null],
+        [50,716879209.8517085,3,2,"applied",155,null,null,360,360,null,null],
+        [51,716879211.3320417,3,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [52,716879211.3368751,3,3,"accepted",13,null,null,373,360,null,"0d1b5b4b0d7468727573682420"],
+        [53,716879211.3559585,3,3,"applied",13,null,null,373,373,null,"0d1b5b4b0d7468727573682420"],
+        [54,716880046.6376668,3,null,"detach",null,null,null,null,null,null,null],
+        [55,716880046.6479585,3,null,"cancel",null,null,0,null,null,null,null],
+        [56,716880046.9798752,3,null,"receive-error",315,true,1000,null,null,null,null],
+        [59,716910123.8822085,4,1,"ready",32,null,null,null,null,"{\"type\":\"ready\",\"resumed\":false}",null],
+        [64,716910553.0095001,4,3,"observed",13,false,null,null,null,null,"0d1b5b4b0d7468727573682420"],
+        [65,716910553.0149585,4,3,"accepted",13,null,null,402,389,null,"0d1b5b4b0d7468727573682420"],
+        [66,716910553.0409168,4,3,"applied",13,null,null,402,402,null,"0d1b5b4b0d7468727573682420"]
+      ]
+    }
+  ]
+}
