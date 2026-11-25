@@ -26,7 +26,7 @@ def grid_pixels(state, image):
     return scale, grid
 
 
-def measure(image, state, appearance, row, column, expected_label):
+def measure(image, state, appearance, row, column, expected_label, *, use_adjacent_canvas=False):
     label = state.get("cursorSpinnerLabel")
     if label != expected_label:
         raise ValueError(f"Expected native spinner label {expected_label!r}, observed {label!r}.")
@@ -57,11 +57,20 @@ def measure(image, state, appearance, row, column, expected_label):
               math.ceil((sx+sw)*scale)-math.floor(sx*scale)+2, math.ceil((sy+sh)*scale)-math.floor(sy*scale)+2]
     # The native spinner replaces the block cursor on an empty cell in these scenes.
     # Its visible spokes must differ from the nearby Slate canvas, even in an inactive window.
-    ratio, point, ink, background = contrast["measure_pixels"](pixels, region)
+    background_pixels = None
+    if use_adjacent_canvas:
+        # The reconnect-typing movie has an empty cell after the insertion point.
+        # Sample its interior to avoid H.264 color bleed at the animated spoke edges.
+        left, top = math.ceil((cx + 1.25 * w) * scale), math.ceil((cy + 0.25 * h) * scale)
+        right, bottom = math.floor((cx + 1.75 * w) * scale), math.floor((cy + 0.75 * h) * scale)
+        if not (grid[0] <= left < right < grid[2] and grid[1] <= top < bottom < grid[3]):
+            raise ValueError("No adjacent canvas cell inside the terminal grid.")
+        background_pixels = pixels.crop((left, top, right, bottom))
+    ratio, point, ink, background = contrast["measure_pixels"](pixels, region, background_pixels=background_pixels)
     if ratio < 3:
         raise ValueError(f"Leading spoke contrast {ratio:.3f}:1 is below 3:1 at {point}.")
     return dict(accessibilityLabel=label, expectedCursorCell=[row, column], spinnerPoints=spinner, cellPoints=state["cursorCellFrame"],
-                imagePixels=[pixels.width, pixels.height], region=region, contrast=ratio, ink=ink, background=background)
+                imagePixels=[pixels.width, pixels.height], region=region, spokePixel=point, contrast=ratio, ink=ink, background=background)
 
 
 def compare(wait_image, waiting, live_image, live, appearance):

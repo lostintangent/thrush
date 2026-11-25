@@ -23,16 +23,17 @@ def measure(frame, region):
     return measure_pixels(capture, region)
 
 
-def measure_pixels(capture, region):
+def measure_pixels(capture, region, *, background_pixels=None):
     x, y, width, height = region
     if min(x, y) < 0 or min(width, height) < 5 or x + width > capture.width or y + height > capture.height:
         raise ValueError(f"Spinner region {region} falls outside the {capture.width}×{capture.height} frame or is too small.")
     pixels = capture.crop((x, y, x + width - 1, y + height - 1))
-    perimeter = [pixel for index, pixel in enumerate(pixels)
-                 if index % width in (0, width - 1) or index // width in (0, height - 1)]
-    background, _ = Counter(perimeter).most_common(1)[0]
-    if any(max(abs(a - b) for a, b in zip(pixel, background)) > 2 for pixel in perimeter):
-        raise ValueError("The spinner region needs a clean border of local background on all four sides.")
+    if background_pixels is None:
+        background_pixels = [pixel for index, pixel in enumerate(pixels)
+                             if index % width in (0, width - 1) or index // width in (0, height - 1)]
+    background, _ = Counter(background_pixels).most_common(1)[0]
+    if any(max(abs(a - b) for a, b in zip(pixel, background)) > 2 for pixel in background_pixels):
+        raise ValueError("The spinner needs uniform local background pixels for its contrast measurement.")
     center_x, center_y = (width - 1) / 2, (height - 1) / 2
     bg_luminance = luminance(background)
     ratios = {}

@@ -3,6 +3,7 @@ from pathlib import Path
 import gzip
 import hashlib
 import json
+import math
 import platform
 import re
 import runpy
@@ -48,20 +49,30 @@ def check(movie, views, appearance, still, work):
     measure = runpy.run_path(str(Path(__file__).with_name("spinner.py")))["measure"]
     state = views["reconnecting"]
     start, end = views["spinnerIntervalSeconds"]
-    if start < 0 or end - start < 0.8:
+    duration = end - start
+    if start < 0 or duration < 0.8:
         raise ValueError("The movie must cover a sustained pre-replay outage.")
     ffmpeg = decoder(work)
     previous = start
-    for n, fraction in enumerate((0.25, 0.5, 0.75)):
+    midpoint = (start + end) / 2
+    # The adjacent midpoint samples avoid aliasing a periodic spinner with evenly spaced seeks.
+    times = [start + duration / 4, midpoint, midpoint + min(0.2, duration / 8), end - duration / 4]
+    leading = []
+    for n, target in enumerate(times):
         frame = work / f"sample-{n}.png"
-        actual = sample(ffmpeg, movie, start + fraction * (end - start), frame)
+        actual = sample(ffmpeg, movie, target, frame)
         if not previous < actual < end:
             raise ValueError(f"Movie timestamp {actual} is outside the measured outage interval.")
         previous = actual
-        result = measure(frame, state, appearance, 8, len("~/thrush % git"), "Reconnecting")
-        print(f"Movie frame {actual}s: cursor spinner at {result['region']}, contrast {result['contrast']:.2f}:1.", flush=True)
-        if fraction == 0.5:
+        result = measure(frame, state, appearance, 8, len("~/thrush % git"), "Reconnecting", use_adjacent_canvas=True)
+        point = result["spokePixel"]
+        leading.append(point)
+        print(f"Movie frame {actual}s: leading spoke at {point}, contrast {result['contrast']:.3f}:1.", flush=True)
+        if target == midpoint:
             shutil.copyfile(frame, still)
+    # A frozen indicator can still have sufficient contrast. Require a change of leading spoke.
+    if max(math.dist(a, b) for a in leading for b in leading) < min(result["region"][2:]) / 4:
+        raise ValueError("The leading spoke stayed in the same position during the recorded outage.")
 
 
 if __name__ == "__main__":
