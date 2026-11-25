@@ -456,14 +456,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
-    /// An in-band replay replaces the entire source, whose generation and row IDs start over.
-    /// Keep the native responder and any committed selection that still identifies the same text.
-    package func replaceDisplayedSnapshot(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
+    /// Install a replay, retained screen, or new shell without disturbing its native responder.
+    package func replaceDisplayedSnapshot(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?,
+                                          archivingMainScreen: Bool = false) {
         synchronizedOutput.reset()
         #if os(macOS)
         macInput.invalidateTranscriptCache()
         #endif
-        transcript.replace(next)
+        transcript.replace(next, archivingMainScreen: archivingMainScreen)
         snapshot = next.viewport(rowsFromBottom: transcript.offset)
         renderer?.discardGeometry()
         lastPointer = nil

@@ -26,6 +26,7 @@ final class PaneWorkflowDriver {
         let error: String?
         let capture: Bool?
         let ended: Bool?
+        let archivedRows: [String]?
     }
     private struct Entry: Codable {
         let name: String, eventIndex: Int
@@ -33,6 +34,8 @@ final class PaneWorkflowDriver {
         let generation: UInt64, acceptedGeneration: UInt64, renderedGeneration: UInt64
         let synchronized: Bool, hasPresentationTime: Bool
         let copiedText: String?
+        let sameNativePane, sessionEnded: Bool?
+        let archivedRows: [String]?
     }
     private struct Report: Encodable {
         let workflow: String, sourceSHA256: String
@@ -52,6 +55,8 @@ final class PaneWorkflowDriver {
 
     private let control: URL, output: URL
     private let view: TerminalView
+    private weak var originalContainer: AnyObject?
+    private weak var originalWindow: AnyObject?
     private var session: TerminalSession
     private let setActive: (Bool) -> Void
     private let newSession: NewSession
@@ -195,6 +200,8 @@ final class PaneWorkflowDriver {
             case .layout:
                 try await NativeWorkflowActions.resize(.init(columns: fixture.columns, rows: fixture.rows), view: view)
                 try await confirmLayout(eventIndex: -1)
+                originalContainer = view.superview
+                originalWindow = view.window
                 // The peer can select a source recorded at the settled handset geometry.
                 fixture = try ReplayFixture.decode(await get("fixture"))
             case .reclaim:
@@ -257,7 +264,7 @@ final class PaneWorkflowDriver {
                     guard projected.events.count == 1, let expected = projected.events.first, expected.name == event.name else {
                         throw Failure("The reference omitted \(event.name).")
                     }
-                    let entry = try await inspect(expected, state: state)
+                    let entry = try await inspect(expected, state: state, lifecycle: fixture.name == "live-lifecycle")
                     if checkKeyboardAfterShellAction {
                         try await NativeWorkflowActions.verifyKeyboardDown(view)
                         checkKeyboardAfterShellAction = false
@@ -293,7 +300,7 @@ final class PaneWorkflowDriver {
         throw Failure("The pane and its WebSocket did not settle on the same grid at event \(eventIndex).")
     }
 
-    private func inspect(_ expected: ReplayFixture.Event, state: State) async throws -> Entry {
+    private func inspect(_ expected: ReplayFixture.Event, state: State, lifecycle: Bool) async throws -> Entry {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         var redrawAfter = ContinuousClock.now.advanced(by: .seconds(1))
         var detail = "Waiting for the recorded output"
@@ -331,12 +338,27 @@ final class PaneWorkflowDriver {
                         try WorkflowCheckpoint.verify(expected, snapshot: snapshot, nativePalette: view.resolvedTheme.palette,
                                                       accepted: accepted, renderedGeneration: frame.generation, copiedText: copied)
                     }
+                    if lifecycle {
+                        guard let originalContainer, let originalWindow,
+                              view.superview === originalContainer, view.window === originalWindow else {
+                            throw Failure("The native terminal changed its pane or window")
+                        }
+                        guard session.hasEnded == (state.ended == true) else {
+                            throw Failure("The native session has an unexpected end state")
+                        }
+                    }
+                    if let markers = state.archivedRows {
+                        var remaining = markers[...]
+                        for row in snapshot.history where row.text == remaining.first { remaining = remaining.dropFirst() }
+                        guard remaining.isEmpty else { throw Failure("The native scrollback lost earlier shell rows") }
+                    }
                     return Entry(name: expected.name, eventIndex: state.eventIndex, columns: snapshot.size.columns,
                                  rows: snapshot.size.rows, receivedBytes: received, appliedBytes: applied,
                                  attachments: state.attachments, generation: snapshot.generation,
                                  acceptedGeneration: accepted.generation, renderedGeneration: frame.generation,
                                  synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: lastTimedSubmission == frame.submittedAt,
-                                 copiedText: copied)
+                                 copiedText: copied, sameNativePane: lifecycle ? true : nil,
+                                 sessionEnded: lifecycle ? session.hasEnded : nil, archivedRows: state.archivedRows)
                 } catch { detail = String(describing: error) }
             } else {
                 detail = "peer sent \(state.outputBytes), session received \(received) and applied \(applied)"
@@ -382,18 +404,7 @@ final class PaneWorkflowDriver {
               let frame = lastFrame, frame.generation == entry.renderedGeneration else {
             throw Failure("Missing the submitted grid for " + entry.name)
         }
-        // UIKit may finish moving the keyboard after Metal completes the unchanged final drawable.
-        // Map its actual submitted pixels through the settled window geometry before capturing.
-        let layout: WorkflowCapture.Layout
-        if ended {
-            guard frame.drawableSize == view.drawableSize,
-                  let settled = WorkflowCapture.Layout(view: view, drawableGrid: frame.drawableGrid) else {
-                throw Failure("Final framebuffer geometry changed before capture.")
-            }
-            layout = settled
-        } else {
-            layout = frame.layout
-        }
+        let layout = ended ? try await settledFinalLayout(generation: entry.renderedGeneration) : frame.layout
         let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
                                      snapshot: accepted, layout: layout, copied: entry.copiedText, ended: ended)
         try save(marker, as: base + ".json")
@@ -403,6 +414,24 @@ final class PaneWorkflowDriver {
             guard ContinuousClock.now < deadline else { throw Failure("No native screenshot for " + entry.name) }
             try await Task.sleep(for: .milliseconds(20))
         }
+    }
+
+    /// UIKit can resize the Metal drawable as it dismisses the keyboard and displays the toolbar.
+    private func settledFinalLayout(generation: UInt64) async throws -> WorkflowCapture.Layout {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        var size = view.drawableSize
+        var since = ContinuousClock.now
+        while ContinuousClock.now < deadline {
+            if size != view.drawableSize { size = view.drawableSize; since = .now }
+            if let frame = lastFrame, frame.generation == generation, frame.drawableSize == size,
+               since.duration(to: .now) >= .milliseconds(300),
+               let layout = WorkflowCapture.Layout(view: view, drawableGrid: frame.drawableGrid) {
+                return layout
+            }
+            view.draw()
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        throw Failure("Final framebuffer did not settle at \(view.drawableSize), last completed \(String(describing: lastFrame?.drawableSize))")
     }
 
     private func save(_ value: some Encodable, as name: String) throws {

@@ -17,7 +17,7 @@ export type Phase = "attaching" | "layout" | "playing" | "input" | "resize" | "d
 type Downstream = ServerWebSocket<{url: string; grid: Grid}>;
 type Link = { app: Downstream; server: WebSocket; number: number; serverFrame: number; clientFrame: number; open: boolean; grid: Grid };
 type Frame = { link: Link; number: number; data: string | Uint8Array };
-type TraceEvent = "receivedFromUpstream" | "replacementOutput" | "sentToNative" | "receivedFromNative";
+type TraceEvent = "receivedFromUpstream" | "sentToNative" | "receivedFromNative";
 type FrameObservation = {
     sequence: number; monotonicMs: number; attachment: number; frame: number; event: TraceEvent;
     phase: Phase; eventIndex: number; length: number; hex?: string; text?: string; sendResult?: number;
@@ -40,10 +40,10 @@ export class LiveRun {
     attachments = 0;
     exits = 0;
     explicitCloses = 0;
-    // The expired session declines this fresh shell. Its startup output belongs to the next session.
-    private replacementAttachment = 0;
-    readonly replacementOutput = { receivedBytes: 0, afterCloseBytes: 0, afterCloseFrames: 0 };
-    expectExpiryOnNextAttachment() { this.replacementAttachment = this.attachments + 1; }
+    // The native session archives its old main screen only on an unexpected fresh ready.
+    private archiveNextFresh = false;
+    private previousScreen?: ReturnType<typeof openReference>;
+    expectReplacement() { this.archiveNextFresh = true; }
     inputBytes = 0;
     outputBytes = 0;
     grid: Grid;
@@ -51,7 +51,7 @@ export class LiveRun {
     readonly wire = { upstreamBinaryFrames: 0, upstreamBinaryBytes: 0, forwardedBinaryFrames: 0,
         forwardedBinaryBytes: 0, replayFrames: 0, replayBytes: 0, synchronizedIntermediateFrames: 0,
         upstreamControls: 0, forwardedControls: 0, clientBinaryFrames: 0, clientControls: 0 };
-    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean; ended?: boolean } =
+    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean; ended?: boolean; archivedRows?: string[] } =
         { phase: "attaching", eventIndex: -1, name: "" };
     failure?: Error;
     private active?: Link;
@@ -76,7 +76,7 @@ export class LiveRun {
     get lastCloseCode() { return this.closures.at(-1)?.code; }
     get driverState() { return { ...this.state, outputBytes: this.outputBytes, attachments: this.attachments, grid: this.grid }; }
     get observations() {
-        return { state: this.driverState, wire: this.wire, replacementOutput: this.replacementOutput, bootstrapWrites: this.bootstrapWrites, inputBytes: this.inputBytes, attachments: this.attachments,
+        return { state: this.driverState, wire: this.wire, bootstrapWrites: this.bootstrapWrites, inputBytes: this.inputBytes, attachments: this.attachments,
             ready: this.ready, exits: this.exits, explicitCloses: this.explicitCloses, perAttachment: this.perAttachment,
             closures: this.closures, checkpoints: this.acknowledgements, evidence: this.evidence, error: this.failure?.message,
             queuedFrames: this.frames.length, queuedBytes: this.queuedBytes, forwardingAttachment: this.forwarding?.number,
@@ -129,12 +129,7 @@ export class LiveRun {
             if (typeof raw === "string") this.wire.upstreamControls++;
             else { this.wire.upstreamBinaryFrames++; this.wire.upstreamBinaryBytes += raw.byteLength; totals.upstreamBytes += raw.byteLength; }
             if (!link.open) {
-                if (typeof raw !== "string" && link.number === this.replacementAttachment) {
-                    this.replacementOutput.receivedBytes += raw.byteLength;
-                    this.replacementOutput.afterCloseBytes += raw.byteLength;
-                    this.replacementOutput.afterCloseFrames++;
-                    this.observe(link, number, "replacementOutput", raw);
-                }
+                this.fail(Error(`Received output on detached attachment ${link.number}, frame ${number}`));
                 return;
             }
             this.queuedBytes += typeof raw === "string" ? Buffer.byteLength(raw) : raw.byteLength;
@@ -176,7 +171,6 @@ export class LiveRun {
     clientMessage(app: Downstream, raw: string | Buffer) {
         const link = this.active;
         assert(link?.open && link.app === app && link.server.readyState === WebSocket.OPEN, "Input without an open upstream");
-        assert.notEqual(link.number, this.replacementAttachment, "The ended session wrote to a different shell");
         this.observe(link, ++link.clientFrame, "receivedFromNative", raw);
         if (typeof raw === "string") {
             const control = JSON.parse(raw);
@@ -204,29 +198,23 @@ export class LiveRun {
         const { data, link } = frame;
         this.forwarding = link;
         this.queuedBytes -= typeof data === "string" ? Buffer.byteLength(data) : data.byteLength;
-        if (link.number === this.replacementAttachment && typeof data !== "string") {
-            assert.equal(this.ready[link.number - 1], false, "Only the refused fresh attachment may have unowned startup output");
-            this.replacementOutput.receivedBytes += data.byteLength;
-            const sent = link.open ? link.app.sendBinary(data) : 0;
-            this.observe(link, frame.number, "replacementOutput", data, sent);
-            if (sent !== 0) {
-                this.wire.forwardedBinaryFrames++;
-                this.wire.forwardedBinaryBytes += data.byteLength;
-                this.perAttachment[link.number - 1].forwardedBytes += data.byteLength;
-            } else {
-                this.replacementOutput.afterCloseBytes += data.byteLength;
-                this.replacementOutput.afterCloseFrames++;
-            }
-            this.forwarding = undefined;
-            return;
-        }
         assert(link.open && this.active === link, "A native attachment detached with undelivered upstream frames");
         if (typeof data === "string") {
             const control = JSON.parse(data);
             if (control.type === "ready") {
                 assert(typeof control.resumed === "boolean");
                 this.ready.push(control.resumed);
-                this.reference.dispose();
+                if (this.archiveNextFresh) {
+                    assert.equal(control.resumed, false, "Expected a new PTY after expiry");
+                    this.previousScreen = this.reference;
+                    this.archiveNextFresh = false;
+                } else {
+                    this.reference.dispose();
+                    if (!control.resumed) {
+                        this.previousScreen?.dispose();
+                        this.previousScreen = undefined;
+                    }
+                }
                 this.reference = openReference(this.grid);
                 observeBackgrounds(this.reference, this.sgrBackgrounds);
                 this.replayNext = control.resumed;
@@ -302,12 +290,12 @@ export class LiveRun {
     async prepareFreshShell() {
         if (!this.bootstrapShell) return;
         const link = this.active;
-        assert(link?.open && (this.ready.at(-1) === false || (this.replacementAttachment > 0 && link.number === this.replacementAttachment + 1)),
+        assert(link?.open && this.ready.at(-1) === false,
                "Only a newly allocated shell accepts fixture setup");
         const marker = ".thrush-ready-" + randomUUID();
         // This is a separate harness write. Every byte the PTY emits still reaches the native pane and reference.
         const quotedPath = "'" + this.bootstrapShell.replaceAll("'", "'\\''") + "'";
-        const command = Buffer.from("exec " + quotedPath + " " + marker + "\r");
+        const command = Buffer.from("exec " + quotedPath + " " + marker + (this.previousScreen ? " --keep-history" : "") + "\r");
         link.server.send(command);
         this.bootstrapWrites.push({ attachment: link.number, bytes: command.length });
         await this.until(() => {
@@ -331,14 +319,15 @@ export class LiveRun {
         if (!["layout", "resize", "focus"].includes(this.state.phase) || index !== this.state.eventIndex || !same(grid, this.grid)) return false;
         this.accepted = true; this.wake?.(); return true;
     }
-    async checkpoint(index: number, predicate: () => boolean, capture?: boolean, ended = false) {
+    async checkpoint(index: number, predicate: () => boolean, capture?: boolean, ended = false, archivedRows?: string[]) {
         const event = this.fixture.events[index];
         this.phase("playing", index);
         await this.until(predicate, event.name);
         this.phase("checkpoint", index);
         if (capture !== undefined) this.state.capture = capture;
         if (ended) this.state.ended = true;
-        this.pendingReference = referenceDocument(this.reference, this.fixture, event);
+        if (archivedRows) this.state.archivedRows = archivedRows;
+        this.pendingReference = referenceDocument(this.reference, this.fixture, event, this.previousScreen);
         // Native framebuffer capture can retry for 160 seconds before the pane acknowledges.
         await this.until(() => this.accepted, "acknowledgement of " + event.name, 190_000, false);
     }
@@ -352,6 +341,11 @@ export class LiveRun {
         assert.equal(body.attachments, this.attachments);
         assert.equal(body.columns, ref.columns); assert.equal(body.rows, ref.rows);
         if (ref.events[0].copy) assert.equal(body.copiedText, ref.events[0].copy.text);
+        if (this.fixture.name === "live-lifecycle") {
+            assert.equal(body.sameNativePane, true, "The native view moved to a different pane or window");
+            assert.equal(body.sessionEnded, this.state.ended ?? false);
+            if (this.state.archivedRows) assert.deepEqual(body.archivedRows, this.state.archivedRows);
+        }
         this.acknowledgements.push(body); this.accepted = true; this.wake?.();
         return true;
     }

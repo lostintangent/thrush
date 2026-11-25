@@ -94,7 +94,10 @@ struct ReconnectCheck {
         try await expect(.replay, from: session) // Serialized application arrows and bracketed paste.
         try await expect(.output, from: session) // Peer acknowledged all three re-encoded inputs.
         let delivered = ["ambiguous", "up", "paste", "left"]
-        guard await session.text(inRow: 0) == "ok", attemptsOnWire.withLock({ $0 }) == delivered else {
+        let editor = await session.snapshot()
+        guard editor.isAlternate, editor.rows[0].text == "ok", editor.modes.applicationCursorKeys,
+              editor.modes.bracketedPaste, await session.currentTerminal.title == "Original shell",
+              attemptsOnWire.withLock({ $0 }) == delivered else {
             throw Failure("Buffered input did not drain exactly once in order")
         }
 
@@ -104,20 +107,20 @@ struct ReconnectCheck {
         try await session.send(.text(String(emoji.dropLast())), onWriteStarted: mark("stale text"))
         try await session.send(.paste("abcd"), onWriteStarted: mark("stale paste"))
         try await reject(.text("x"), from: session)
-        try await expect(.exit, from: session)
-        guard await session.state == .ended, await session.text(inRow: 0) == "ok",
-              await session.currentTerminal.title == "Original shell",
-              !(await session.show(userInitiated: true)), await clock.delays == schedule + [.milliseconds(250)],
-              attemptsOnWire.withLock({ $0 }) == delivered else {
-            throw Failure("Replacement changed the old session or wrote its held input")
+        try await expect(.replaced, from: session)
+        let fresh = await session.snapshot()
+        guard await session.state == .active, !fresh.isAlternate, !fresh.modes.applicationCursorKeys,
+              !fresh.modes.bracketedPaste, await session.currentTerminal.title.isEmpty,
+              fresh.history.map(\.text).filter({ !$0.isEmpty }) == ["saved-main"], fresh.rows.allSatisfy({ $0.text.isEmpty }),
+              await clock.delays == schedule + [.milliseconds(250)], attemptsOnWire.withLock({ $0 }) == delivered else {
+            throw Failure("Replacement must archive the main screen, reset shell state and discard its held input")
         }
-        session = open()
-        try await expect(.ready(resumed: true), from: session)
-        try await expect(.replay, from: session)
         try await session.send(.text("clean"))
         try await expect(.output, from: session)
+        guard await session.text(inRow: 0) == "new$ " else { throw Failure("Fresh prompt missed the first row") }
+        try await expect(.output, from: session)
         try await expect(.exit, from: session)
-        guard await session.text(inRow: 0) == "done",
+        guard await session.text(inRow: 0) == "new$ clean",
               !(await session.show()), !(await session.show(userInitiated: true)) else {
             throw Failure("The old session restarted after natural exit")
         }

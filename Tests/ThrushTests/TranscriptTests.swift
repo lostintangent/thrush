@@ -165,3 +165,21 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
     #expect(reader.offset == 0)
     #expect(reader.selection == nil)
 }
+
+@Test func adoptingNewShellKeepsRepeatedScreenRowsAndDropsUnusedSelection() {
+    let size = Terminal.Size(columns: 12, rows: 10)
+    var terminal = Terminal(size: size)
+    _ = terminal.receive("one\r\nsame\r\nend\r\none\r\nsame\r\nend".utf8)
+    var selected = TerminalTranscript()
+    selected.display(terminal.snapshot())
+    selected.selection = .init(anchorRow: 4, anchorColumn: 0, headRow: 4, headColumn: 3)
+    var padding = selected
+    padding.selection = .init(anchorRow: 9, anchorColumn: 0, headRow: 9, headColumn: 1)
+    terminal.startNewShell(at: size)
+    let screen = terminal.snapshot()
+    selected.replace(screen, archivingMainScreen: true)
+    padding.replace(screen, archivingMainScreen: true)
+    selected.scroll(selected.historyCount)
+    #expect(selected.selection == .init(anchorRow: 4, anchorColumn: 0, headRow: 4, headColumn: 3))
+    #expect(padding.selection == nil)
+}

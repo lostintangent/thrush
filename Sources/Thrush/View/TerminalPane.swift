@@ -93,6 +93,7 @@ import ThrushCore
         private var isPresented = false
         private var drawingVisible = false
         private var epoch: UInt64 = 0
+        private var shellRevision: UInt64 = 0
         private var reader: Task<Void, Never>?
         private var actions: Task<Void, Never>?
         private var spinnerDelay: Task<Void, Never>?
@@ -262,10 +263,12 @@ import ThrushCore
             guard phase == .live || phase == .reconnecting else { return }
             // A pointer position belongs to the screen that was under the pointer.
             if case .pointer = input, phase != .live { return }
+            // A queued keystroke belongs to the shell that was on screen when it was typed.
+            let revision = shellRevision
             let onWrite = pane?.onWriteStarted
             perform { session, _ in
-                if let onWrite { try await session.send(input) { onWrite(CACurrentMediaTime()) } }
-                else { try await session.send(input) }
+                if let onWrite { try await session.send(input, forShell: revision) { onWrite(CACurrentMediaTime()) } }
+                else { try await session.send(input, forShell: revision) }
             }
         }
 
@@ -282,14 +285,15 @@ import ThrushCore
 
         private func start(_ session: TerminalSession, userInitiated: Bool, stamp: UInt64) async {
             guard epoch == stamp, active, reader == nil, let view else { return }
-            let (retainedScreen, status) = await session.show(userInitiated: userInitiated, theme: view.resolvedTheme,
-                                                              needsRetainedScreen: !hasScreen)
+            let attachment = await session.show(userInitiated: userInitiated, theme: view.resolvedTheme,
+                                                needsRetainedScreen: !hasScreen)
             guard epoch == stamp else { return }
-            if let retainedScreen {
+            shellRevision = attachment.shellRevision
+            if let retainedScreen = attachment.retainedScreen {
                 view.replaceDisplayedSnapshot(retainedScreen, receivedAt: nil)
                 hasScreen = true
             }
-            if let status {
+            if let status = attachment.status {
                 await apply(status, stamp: stamp)
                 return
             }
@@ -320,6 +324,14 @@ import ThrushCore
                 hasScreen = true
                 becomeLive()
                 pane?.onReady?(false)
+            case .replaced(let screen, let revision):
+                shellRevision = revision
+                view?.cancelPendingInput()
+                view?.replaceDisplayedSnapshot(screen, receivedAt: nil, archivingMainScreen: true)
+                hasScreen = true
+                becomeLive()
+                pane?.onReady?(false)
+                view?.announce("New shell")
             case .awaitingReplay:
                 pane?.onReady?(true)
             case .screen(let screen):

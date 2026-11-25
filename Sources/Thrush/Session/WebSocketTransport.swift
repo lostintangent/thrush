@@ -194,7 +194,7 @@ final class WebSocketTransport {
                 if let replay {
                     // The last screen stays visible until the complete replay can replace it.
                     let size = replay == .resumed ? attachmentSize : session.terminal.size
-                    session.resetTerminal(size: size)
+                    session.terminal.prepareForReplay(at: size)
                 }
                 let reply = session.apply(bytes)
                 // The reply reports the focus of this moment, so it's queued before anything can suspend
@@ -221,20 +221,19 @@ final class WebSocketTransport {
                 case (.ready, .connecting):
                     guard let resumed = control.resumed else { throw TransportError.unexpectedMessage }
                     frameTrace?.record("ready", attachment: attachment, message: message)
-                    if session.hasSeenReady && !resumed {
-                        // The server opened a different shell. Leave it for the app and keep
-                        // the old shell’s last screen. No held input belongs to the new shell.
-                        park(as: .ended, in: session)
-                        await session.publishMetadata(hasEnded: true)
-                        return .exit
-                    }
+                    let replaced = session.hasSeenReady && !resumed
                     session.hasSeenReady = true
                     retryMilliseconds = 250
                     if resumed {
                         nextReplay = .resumed
                         session.state = .awaitingReplay
                     } else {
-                        session.resetTerminal(size: attachmentSize)
+                        if replaced {
+                            session.shellRevision &+= 1
+                            session.terminal.startNewShell(at: attachmentSize)
+                        } else {
+                            session.resetTerminal(size: attachmentSize)
+                        }
                         session.lastReceiptTime = nil
                         discardHeldInput()
                         do { try await activate(current, in: session) }
@@ -244,7 +243,7 @@ final class WebSocketTransport {
                     // A resumed ready precedes the replay that supplies the authoritative title.
                     await session.publishMetadata(title: resumed ? nil : session.terminal.title, hasEnded: false)
                     guard session.lifetime == stamp else { throw CancellationError() }
-                    return .ready(resumed: resumed)
+                    return replaced ? .replaced : .ready(resumed: resumed)
                 case (.ready, .active) where control.resumed == true && nextReplay == nil:
                     frameTrace?.record("ready", attachment: attachment, message: message)
                     nextReplay = .live

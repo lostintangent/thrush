@@ -18,8 +18,7 @@ const steps = {
     reclaimed: { name: "A grid tap restored the other owner's output", checkpoint: true },
     orphan: { name: "Leave the shell beyond orphan expiry" },
     returnAfterExpiry: { name: "Return after orphan expiry" },
-    replaceSession: { name: "Open a session for the replacement shell" },
-    focusReplacement: { name: "Focus the replacement shell for typing" },
+    replaced: { name: "The replacement prompt starts above an empty grid", checkpoint: true },
     identifyReplacement: { name: "Identify the replacement shell", text: "echo FRESH:${TAG-unset}:$$" },
     runIdentifyReplacement: { name: "Run the replacement identity command", enter: true },
     fresh: { name: "Expired shell replaced with a clean environment", checkpoint: true },
@@ -27,6 +26,7 @@ const steps = {
     runQuit: { name: "Exit the real shell", enter: true },
     ended: { name: "Final output survives shell exit", checkpoint: true },
     newShell: { name: "Have the app create a new session" },
+    empty: { name: "The new session starts with a clean screen and history", checkpoint: true },
     focusNewShell: { name: "Focus the new shell for typing" },
     identifyNewShell: { name: "Identify the new shell", text: "echo NEW:${TAG-unset}:$$" },
     runIdentifyNewShell: { name: "Run the new shell identity command", enter: true },
@@ -146,7 +146,7 @@ export async function runLifecycle(run: LiveRun) {
         }
         await run.checkpoint(index(key), matches, key === "reclaimed" || key === "ended", key === "ended");
     };
-    const focus = async (key: "focusReplacement" | "focusNewShell") => {
+    const focus = async (key: "focusNewShell") => {
         await run.until(hasPrompt, "fresh shell prompt before focusing");
         const before = run.grid;
         await run.layout(index(key), "focus");
@@ -202,16 +202,12 @@ export async function runLifecycle(run: LiveRun) {
     await waitForDeath(original, 40_000);
     const orphanMs = performance.now() - detachedAt;
     assert(orphanMs >= 29_000, "The real PTY expired before its 30-second orphan window");
-    run.expectExpiryOnNextAttachment();
+    run.expectReplacement();
     run.phase("resume", index("returnAfterExpiry"));
     await waitReady(4, false);
-    await run.until(() => run.closures.some(c => c.attachment === 4 && c.side === "upstream"),
-                    "the old session released the replacement shell");
-    run.phase("newShell", index("replaceSession"));
-    await waitReady(5, true);
-    await run.until(() => run.perAttachment[4].replayBytes > 0, "the new session received the replacement shell replay");
     await run.prepareFreshShell();
-    const replacementFocus = await focus("focusReplacement");
+    await run.checkpoint(index("replaced"), () => hasPrompt() && run.reference.buffer.active.cursorY === 0, false, false,
+                         ["START:" + original, "FORE:acorn:" + original, "OTHER:acorn:" + original]);
     await command("identifyReplacement", "runIdentifyReplacement");
     const fresh = /^FRESH:unset:([0-9]+)$/;
     await screen("fresh", fresh);
@@ -225,10 +221,12 @@ export async function runLifecycle(run: LiveRun) {
     await waitForDeath(replacement, 5_000);
     const beforeNew = run.inputBytes;
     run.phase("newShell", index("newShell"));
-    await waitReady(6, false);
+    await waitReady(5, false);
     const restartBytes = run.inputBytes - beforeNew;
     assert.equal(restartBytes, 0, "The app toolbar sent terminal input");
     await run.prepareFreshShell();
+    await run.checkpoint(index("empty"), () => hasPrompt() && run.reference.buffer.active.cursorY === 0 &&
+                         run.reference.buffer.active.baseY === 0, false);
     const newShellFocus = await focus("focusNewShell");
     await command("identifyNewShell", "runIdentifyNewShell");
     const newShell = /^NEW:unset:([0-9]+)$/;
@@ -236,13 +234,13 @@ export async function runLifecycle(run: LiveRun) {
     const restarted = pidOnScreen(run, newShell);
     assert.notEqual(restarted, replacement);
     assert(!matchingRow(run, /^FINAL:[0-9]+$/), "The new session inherited the ended shell's screen");
-    assert.deepEqual(run.ready, [false, true, true, false, true, false]);
+    assert.deepEqual(run.ready, [false, true, true, false, false]);
     run.beforeComplete = async () => {
         await waitForDeath(restarted, 5_000);
         assert.equal(run.explicitCloses, 1, "The final shell needs one explicit close");
         run.evidence.lifecycle = { originalPID: original, replacementPID: replacement, restartedPID: restarted,
             observedOrphanLifetimeMs: Math.round(orphanMs), reclaimTapInputBytes: reclaimBytes, newSessionInputBytes: restartBytes,
-            focusGrids: [replacementFocus, newShellFocus],
+            focusGrids: [newShellFocus],
             displacedCloseCode: 4000, finalRowBeforeNewShell: "FINAL:" + replacement, explicitlyClosedPIDDead: true };
     };
 }

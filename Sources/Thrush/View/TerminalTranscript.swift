@@ -64,9 +64,16 @@ struct TerminalTranscript {
         }
     }
 
-    /// Install the complete state of a serialized replay. Revisions and history indexes
-    /// belong to the previous emulator, so only logical text can identify a surviving row.
-    mutating func replace(_ next: Terminal.Snapshot) {
+    mutating func replace(_ next: Terminal.Snapshot, archivingMainScreen: Bool = false) {
+        if archivingMainScreen {
+            // Main-screen rows keep their positions in scrollback, including identical prompts.
+            display(next)
+            if let range = absoluteSelection, max(range.anchorRow, range.headRow) >= next.history.count {
+                absoluteSelection = nil // The old screen's unused trailing rows were discarded.
+            }
+            return
+        }
+        // Serialized replay has its own history indexes. Identify surviving rows by their logical text.
         guard let old = source, old.isAlternate == next.isAlternate,
               offset > 0 || absoluteSelection != nil else {
             source = next

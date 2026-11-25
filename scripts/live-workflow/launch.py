@@ -150,7 +150,14 @@ def live_pty(root, output, bash, codex, workflows, endpoint=None):
     # For an already running server, exec this same fixture from its ordinary interactive shell.
     # Clear the setup command from the screen, then acknowledge it on the shared local filesystem.
     executable(shell, "#!/bin/sh\nset -eu\ncd " + shlex.quote(str(work)) + "\n"
-               + """if [ "$#" -eq 1 ]; then printf '\\033c'; : > "$1"; fi\n"""
+               + """if [ "$#" -gt 0 ]; then
+    case "${2:-}" in
+        --keep-history) printf '\\033[2J\\033[H' ;;
+        *) printf '\\033c' ;;
+    esac
+    : > "$1"
+fi
+"""
                + "exec " + shlex.join(["/usr/bin/env", "-i", *(f"{k}={v}" for k, v in shell_env.items()),
                                       str(bash), "--noprofile", "--norc", "-i"]) + "\n")
     with ExitStack() as stack:
@@ -264,12 +271,12 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
                     except (OSError, ValueError) as error:
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
-                    if device and name == "lifecycle" and "app toolbar" in str(failure):
+                    if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
                         try:
                             subprocess.run([ROOT / "scripts/capture-demo.sh", "simulator", device,
-                                            output / "toolbar-at-failure.png"], check=True, timeout=20)
+                                            output / "pane-at-failure.png"], check=True, timeout=20)
                         except (OSError, subprocess.SubprocessError) as error:
-                            print(f"Could not retain the simulator toolbar image: {error}", file=sys.stderr)
+                            print(f"Could not retain the simulator pane image: {error}", file=sys.stderr)
                     raise
                 finally:
                     if device and host.poll() is None:

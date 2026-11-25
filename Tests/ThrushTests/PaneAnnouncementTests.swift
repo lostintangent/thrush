@@ -88,10 +88,49 @@ import Testing
         #expect(view.selectedText == "keep")
     }
 
+    try peer.send("\u{1b}]2;old title\u{7}", opcode: .binary)
+    try await waitFor("The old title is observable.") { session.title == "old title" }
+    peer.drop()
+    try await waitFor("A third reconnect is awaiting its ready frame.") { label(in: view) == "Reconnecting" && peer.opens == 6 }
+    view.sendInput(.text("old-shell-only"))
+    var typedDuringReplacement = false
+    // The actor has adopted the new shell when its title clears, but the pane still displays the old one.
+    let typeOnOldScreen: @MainActor @Sendable () -> Void = {
+        typedDuringReplacement = true
+        view.sendInput(.text("key-during-replacement"))
+        view.selectWord(row: 0, column: 0)
+    }
+    withObservationTracking { _ = session.title } onChange: {
+        MainActor.assumeIsolated { typeOnOldScreen() }
+    }
+    try peer.send(#"{"type":"ready","resumed":false}"#, opcode: .text)
+    try await waitFor("The pane announces the replacement and returns to live input.") {
+        announcements.last == "New shell" && label(in: view) == nil
+    }
+    #expect(typedDuringReplacement && !session.hasEnded)
+    #expect(view.historyOffset == 0 && view.selectedText == "keep")
+    let newPrompt = "replacement shell"
+    try peer.send(newPrompt, opcode: .binary)
+    try await waitFor("Fresh output appears on the live grid.") { view.snapshot?.rows.first?.text == newPrompt }
+    view.setHistoryOffset(view.historyCount)
+    #expect(view.snapshot?.rows.first?.text == transcript && view.selectedText == "keep")
+    let archivedRows = view.historyCount
+    peer.drop()
+    try await waitFor("The next socket reattaches to the replacement shell.") { label(in: view) == "Reconnecting" && peer.opens == 7 }
+    try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
+    try peer.send(newPrompt, opcode: .binary) // The server knows only its current shell.
+    try await waitFor("The pane finished replay while reading its archive.") { label(in: view) == nil }
+    #expect(view.historyOffset == archivedRows && view.historyCount == archivedRows)
+    #expect(view.snapshot?.rows.first?.text == transcript && view.selectedText == "keep")
+    view.setHistoryOffset(0)
+    view.sendInput(.text("new-shell-only"))
+    try await waitFor("The replacement shell receives its new input.") { peer.receivedBinary.contains("new-shell-only") }
+    #expect(peer.receivedBinary == ["new-shell-only"])
+
     try peer.send(#"{"type":"exit"}"#, opcode: .text)
     try await waitFor("The shell end is announced.") { announcements.last == "Shell ended" }
     let reopened = surface()
     host.rootView = pane(reopened)
-    try await waitFor("A new pane displays the ended session's final screen.") { reopened.snapshot?.rows.first?.text == transcript }
-    #expect(announcements == ["Reconnecting", "Reconnecting", "Shell ended"])
+    try await waitFor("A new pane displays the ended session's final screen.") { reopened.snapshot?.rows.first?.text == newPrompt }
+    #expect(announcements == ["Reconnecting", "Reconnecting", "Reconnecting", "New shell", "Reconnecting", "Shell ended"])
 }

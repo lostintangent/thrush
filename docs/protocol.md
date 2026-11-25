@@ -8,7 +8,7 @@ Open a WebSocket at `/socket?service=terminal&clientId=ID&cols=C&rows=R`. Percen
 
 | Sender | Message | Receiver action |
 | --- | --- | --- |
-| Server | `{"type":"ready","resumed":false}` | The server started a fresh shell. On a first attachment, start with a blank terminal at the requested size. If this was an attempt to resume a previous shell, discard held input and detach. |
+| Server | `{"type":"ready","resumed":false}` | The server started a fresh shell. On a first attachment, start with a blank terminal at the requested size. On reattach, retain the previous main screen in history, discard held input and adopt the new shell. |
 | Server | `{"type":"ready","resumed":true}` | The **next binary message** is the replay. Apply it to a fresh terminal at the negotiated size, then apply subsequent output. An empty screen still gets a replay message. |
 | Server | Binary | Feed bytes to the terminal. A UTF-8 character or VT sequence can span messages. |
 | Client | Binary | Write to the PTY in order. This includes typed input, paste and replies to terminal queries. |
@@ -20,7 +20,7 @@ If the WebSocket closes without a terminal `close` message, its attachment to th
 
 On a resumed attachment, wait for the binary replay before sending a resize held during the handshake. Send held keystrokes once, using the input modes restored by the replay. This includes the first keystroke used to reclaim a displaced shell. A tap to reclaim sends no terminal input.
 
-If a session trying to resume receives fresh ready, the previous shell has ended. The session preserves its screen and history, discards held keys, detaches from the newly created shell and sets `hasEnded`. The app can create a new `TerminalSession` to use another shell. A new session that attaches with the same client ID before the orphan deadline can resume the shell the server just created.
+A fresh ready on reattach starts a different shell on the same session. Keep the previous shell’s main screen in history, discard its alternate screen and any held input, and reset the modes and title. The new shell starts at row one and accepts input immediately. `hasEnded` stays false. A later replay describes the current shell and retains surviving history from earlier shells.
 
 ## Replay
 

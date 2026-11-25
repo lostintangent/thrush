@@ -1,6 +1,6 @@
 # Terminal pane lifecycle
 
-A `TerminalSession` belongs to one shell. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
+A `TerminalSession` owns a terminal and its scrollback. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
 
 ## Opening and reconnecting
 
@@ -12,9 +12,13 @@ During an ordinary reconnect, hold committed text, paste and keys in order. IME 
 
 When another WebSocket attachment takes ownership, keep the last screen and stop automatic retries. A deliberate tap in the terminal requests ownership without sending terminal bytes. A keystroke also requests ownership and is held until the same shell resumes. Further input follows it in order. Scrolling, selection, copying, focus changes and foreground return leave the other window in control.
 
+## The server starts a replacement shell
+
+A fresh ready on reattach means the old shell expired. Keep its main screen in scrollback, with the earlier history, and leave the alternate screen behind. Start the replacement at row one with fresh modes and title. Discard held input intended for the old shell. The same session immediately accepts input and `hasEnded` stays false. Announce “New shell” once.
+
 ## The shell ends
 
-Apply the last output before reporting exit. If a reconnect receives fresh ready, discard held input, detach from the replacement shell and retain the previous shell’s screen. In either case the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
+Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
 
 ## In-band replay
 
@@ -28,4 +32,4 @@ When a WebSocket reader falls behind, the server can send `ready(resumed: true)`
 
 Open a shell, interrupt a WebSocket while typing and check the spinner at the cursor. Verify that the grid holds its size and a resumed Vim receives the held key in its restored mode. Displace the shell from another window and confirm that reading or foregrounding either pane leaves ownership alone. Reclaim once by tapping and once by typing. The tap sends no terminal bytes and the triggering key reaches the same shell exactly once.
 
-Let an orphan expire with input held. Verify the old session ends, the last screen is still selectable, and the replacement shell receives none of the old input. On natural exit, copy the final line and check that the app can dismiss the tab or present a new session. With VoiceOver enabled, the reading position stays on terminal content throughout.
+Let an orphan expire with input held. Verify that the replacement prompt starts at row one, the previous main screen is readable in history and the replacement receives only new input. On natural exit, copy the final line and check that the app can dismiss the tab or present a new session in the same pane. A new session starts with a fresh screen and history. With VoiceOver enabled, the reading position stays on terminal content throughout.

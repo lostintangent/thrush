@@ -15,7 +15,8 @@ struct LifecycleCheck {
     )
 
     func run() async throws {
-        let first = try open()
+        let tab = try await TerminalSession(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+        let first = await tab.actor
         try await expectReady(first, resumed: false)
         try await expectOutput(first, rows: ["old-only", "old", ""])
         try await expectOutput(first, rows: ["old-only", "old", ""])
@@ -72,19 +73,28 @@ struct LifecycleCheck {
         // The peer withholds ready. The old session may hold this input only for its original shell.
         try await first.send(.text("stale"))
         try await checkpoint("ready")
-        guard try await first.nextEvent() == .exit else { throw Failure("The missing shell did not end its session") }
-        try expectRetained(restored, in: await first.snapshot())
-        try await expectEnded(first)
-        let replacement = try open()
-        try await expectReady(replacement, resumed: true)
-        guard try await replacement.nextEvent() == .replay, await replacement.text(inRow: 0) == "new$ " else {
-            throw Failure("The app’s new session did not receive the replacement shell")
+        guard try await first.nextEvent() == .replaced, await first.state == .active, await !tab.hasEnded else {
+            throw Failure("The open tab did not adopt the replacement shell after expiry")
         }
-        try await replacement.send(.key(.up))
-        try await expectOutput(replacement, rows: ["new$ N", "", ""])
-        try await closeWithPendingRead(replacement)
+        let archived = ["history", "one", "two", "shell$"]
+        let fresh = await first.snapshot()
+        guard fresh.history.map(\.text) == archived, fresh.rows.allSatisfy({ $0.text.isEmpty }),
+              fresh.cursorRow == 0, fresh.cursorColumn == 0, fresh.size == size, fresh.palette == palette else {
+            throw Failure("Replacement must archive the previous screen and start at the top of a clean grid")
+        }
+        try await first.send(.key(.up)) // Immediately accepted on the fresh attachment.
+        try await expectOutput(first, rows: ["new$ ", "", ""])
+        try await expectOutput(first, rows: ["new$ N", "", ""])
+        try await checkpoint("replacement-replay")
+        guard try await first.nextEvent() == .replay else { throw Failure("Expected the new shell's in-band replay") }
+        let repaired = await first.snapshot()
+        guard repaired.history.map(\.text) == archived, repaired.rows.map(\.text) == ["new$ N", "", ""] else {
+            throw Failure("The replacement shell's replay lost the archive or duplicated its own screen")
+        }
+        try await closeWithPendingRead(first)
         try await checkpoint("closed")
-        try await expectEnded(replacement)
+        guard await tab.hasEnded else { throw Failure("Explicit close did not end the tab's session") }
+        try await expectEnded(first)
 
         // The previous socket's displacement must leave the host-owned session usable.
         let observed = Mutex(Data())
@@ -99,10 +109,6 @@ struct LifecycleCheck {
             throw Failure("Exit must follow the final output and preserve it on screen")
         }
         try await expectEnded(final)
-    }
-
-    private func open() throws -> SessionActor {
-        try SessionActor(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
     }
 
     private func open(in session: URLSession,

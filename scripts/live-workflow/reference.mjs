@@ -24,10 +24,16 @@ export function logicalLines(terminal, viewportOnly = false) {
     return result;
 }
 
-export function referenceDocument(terminal, fixture, event) {
+export function referenceDocument(terminal, fixture, event, previousScreen = undefined) {
     const cells = new Pool(), lines = new Pool();
     cells.get({ text: '', width: 1, flags: 0, foreground: -1, background: -1 });
     const expected = checkpoint(terminal, cells, lines);
+    if (previousScreen) {
+        const old = checkpoint(previousScreen, cells, lines);
+        assert(!old.isAlternate, 'The Bash lifecycle fixture archives the main screen');
+        const last = old.visible.findLastIndex(id => lines.values[id].wrapped || lines.values[id].runs.length);
+        expected.history.unshift(...old.history, ...old.visible.slice(0, last + 1));
+    }
     expected.synchronizedOutput = terminal.modes.synchronizedOutputMode;
     const entry = { name: event.name, offsetMicroseconds: 0, checkpoint: expected, lifecycle: event.lifecycle };
     let copy;

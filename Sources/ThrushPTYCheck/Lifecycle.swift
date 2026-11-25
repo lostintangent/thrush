@@ -51,20 +51,29 @@ struct PTYLifecycle {
         guard orphanAge >= .seconds(29), await orphan.show() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
-        guard try await orphan.nextEvent() == .exit, await orphan.state == .ended,
-              !(await orphan.show(userInitiated: true)) else { throw PTYCheckFailure("Expired shell restarted its session") }
+        guard try await orphan.nextEvent() == .replaced, await orphan.state == .active else {
+            throw PTYCheckFailure("The session did not adopt its replacement PTY")
+        }
+        let replacement = await orphan.snapshot()
+        guard replacement.rows.allSatisfy({ $0.text.isEmpty }), replacement.cursorRow == 0, replacement.cursorColumn == 0,
+              replacement.history.contains(where: { $0.text == "PID-\(orphanPID)" }) else {
+            throw PTYCheckFailure("The replacement needs a blank home and the old shell in scrollback")
+        }
+        try await PTYCheck.enterFixture(orphan)
+        try await row("THRUSH-\(token)", in: orphan)
+        try await orphan.send(.text("printf '\\r\\nEXIT-%s\\n' final; exit\r"))
+        while try await orphan.nextEvent() == .output {}
+        guard await orphan.state == .ended, await !orphan.show(userInitiated: true),
+              await orphan.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
+            throw PTYCheckFailure("Real exit lost its final bytes or reopened the ended session")
+        }
         let successor = try connect()
-        guard try await successor.nextEvent() == .ready(resumed: true), try await successor.nextEvent() == .replay else {
-            throw PTYCheckFailure("The new session did not resume the replacement PTY")
+        let successorPID = try await freshShell(successor)
+        guard successorPID != orphanPID, await successor.snapshot().history.isEmpty else {
+            throw PTYCheckFailure("The app-created session inherited earlier history")
         }
-        try await PTYCheck.enterFixture(successor)
-        try await row("THRUSH-\(token)", in: successor)
-        try await successor.send(.text("printf '\\r\\nEXIT-%s\\n' final; exit\r"))
-        while try await successor.nextEvent() == .output {}
-        guard await successor.state == .ended,
-              await successor.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
-            throw PTYCheckFailure("Real shell exit preceded its last bytes")
-        }
+        try await successor.closeShell()
+        try await waitForProcessExit(successorPID, within: .seconds(5))
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")
     }
 

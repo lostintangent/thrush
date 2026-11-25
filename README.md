@@ -17,7 +17,7 @@ Add the package and link the `Thrush` product to your app target. Thrush needs m
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
-Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. Each session owns a terminal and talks to one shell. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
+Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. The session owns the terminal and its scrollback. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
 
 ```swift
 import Thrush
@@ -31,7 +31,7 @@ TerminalPane(session)
 
 The pane paints its whole frame, fits its grid to the safe area inside it and reports each new size to the session. Give it `.ignoresSafeArea()` and the terminal's background runs under a navigation bar or Mac toolbar while its first row starts below. It follows the system appearance between Slate Light and Slate Dark, shows the Esc, Ctrl, Tab and arrow key row above the iPhone keyboard, and handles focus, selection, copying and scrolling through history. A program that asks hears whenever the pane gains or loses keyboard focus. The WebSocket stays attached while the pane is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the pane leaves the screen or the iPhone app goes to the background.
 
-On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the pane keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. VoiceOver announces a sustained reconnect and lets the user know when the shell ends.
+On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the pane keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. If the server has already released the shell, the same session opens its replacement at the top of the screen. Scroll up to read the previous shell’s main screen and history. Input held for that shell is discarded. VoiceOver announces a sustained reconnect, a new shell or a shell exit once.
 
 An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row of Esc, Ctrl, Tab and arrow keys above the keyboard. Each argument after the session is optional.
 
@@ -47,7 +47,7 @@ TerminalPane(
 
 To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
-SwiftUI observes `session.title` and `session.hasEnded` directly. On `main`, a shell that exits, is closed by the app, or is replaced during a reconnect leaves its final screen and history readable. Both sample apps keep that screen until the user chooses **New Shell** in the app’s toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Pane lifecycle](docs/design/pane-states.md)
+SwiftUI observes `session.title` and `session.hasEnded` directly. When the shell exits or the app closes the session, its final screen and history remain readable. Both sample apps keep that screen until the user chooses **New Shell** in the app’s toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Pane lifecycle](docs/design/pane-states.md)
 
 ```swift
 TerminalPane(model.tab.session)
@@ -58,7 +58,7 @@ TerminalPane(model.tab.session)
     }
 ```
 
-The tab model’s `newShell()` replaces the finished tab with a new one. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/app-consumer/Sources/AppConsumer/AppConsumer.swift)
+Pass a different `TerminalSession` to the same `TerminalPane` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the pane’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/app-consumer/Sources/AppConsumer/AppConsumer.swift)
 
 ### WebSocket transport
 
