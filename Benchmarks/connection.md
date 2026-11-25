@@ -15,3 +15,14 @@ The first complete exchange is a warmup. Five measured passes each launch a fres
 The peer advances an independent virtual clock to test the 30-second orphan deadline immediately before and at expiry. The post-expiry measurement begins when the fresh ready frame is sent. The reclaimed replay interval begins when the peer releases the held replay frame. The automatic recovery interval starts at the resumed ready response, after the injected backoff. These intervals exclude the time spent waiting at those gates.
 
 The JSON records each interval’s five samples in nanoseconds, nearest-rank p50 and p95, the peer script’s SHA-256 and the host environment. Five samples make p95 the slowest measured sample. The report describes scripted, headless macOS loopback. Presentation and physical iPhone measurements have separate workloads. CI checks wire and screen correctness independently of elapsed time.
+
+## Recorded run
+
+The M1 Max completed five measured passes on `559d507`. The one-minute load average was 91.70 across ten active cores, with thermal state fair. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](connection.json)
+
+| Interval | p50 | p95 |
+| --- | ---: | ---: |
+| Foreground ready and replay to Up | 0.799 ms | 0.872 ms |
+| Recovery ready and replay to held Up | 0.454 ms | 0.905 ms |
+| In-band replay to deferred resize | 0.291 ms | 0.345 ms |
+| Final ready, output and exit to socket close | 0.680 ms | 0.941 ms |

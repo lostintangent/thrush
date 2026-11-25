@@ -1,0 +1,360 @@
+{
+  "attachmentGrid" : {
+    "columns" : 16,
+    "rows" : 3
+  },
+  "attachmentsPerPass" : 14,
+  "buildConfiguration" : "release",
+  "bunVersion" : "1.4.6",
+  "environment" : {
+    "commit" : "559d507d5b877d23faed3939ada4dfd6ff976db0",
+    "contended" : true,
+    "coreCount" : 10,
+    "displayInterval" : "headless",
+    "hardwareModel" : "MacBookPro18,4",
+    "loadAverage" : {
+      "fifteenMinutes" : 334.84912109375,
+      "fiveMinutes" : 169.23291015625,
+      "oneMinute" : 91.70361328125
+    },
+    "lowPowerMode" : false,
+    "operatingSystem" : "Version 27.2.1 (Build 26B131)",
+    "powerSource" : "AC Power",
+    "processor" : "Apple M1 Max",
+    "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
+    "thermalState" : "fair",
+    "worktreeDirty" : false
+  },
+  "freshShellsPerPass" : 9,
+  "intervals" : [
+    {
+      "name" : "Fresh ready to resize",
+      "samplesNanoseconds" : [
+        2442459,
+        2548708,
+        2660917,
+        2502958,
+        2398167
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 2502958,
+        "p95Nanoseconds" : 2660917
+      }
+    },
+    {
+      "name" : "Resize echo to detach",
+      "samplesNanoseconds" : [
+        1331958,
+        1395292,
+        1399708,
+        1721958,
+        1441250
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 1399708,
+        "p95Nanoseconds" : 1721958
+      }
+    },
+    {
+      "name" : "Foreground ready and replay to Up",
+      "samplesNanoseconds" : [
+        595542,
+        799250,
+        871833,
+        639500,
+        870000
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 799250,
+        "p95Nanoseconds" : 871833
+      }
+    },
+    {
+      "name" : "Takeover ready and replay to Up",
+      "samplesNanoseconds" : [
+        532291,
+        1079584,
+        895083,
+        693458,
+        924667
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 895083,
+        "p95Nanoseconds" : 1079584
+      }
+    },
+    {
+      "name" : "Reclaimed replay to deferred resize",
+      "samplesNanoseconds" : [
+        314250,
+        358083,
+        372916,
+        323583,
+        349166
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 349166,
+        "p95Nanoseconds" : 372916
+      }
+    },
+    {
+      "name" : "Deferred resize to reclaim key",
+      "samplesNanoseconds" : [
+        134333,
+        176042,
+        183416,
+        161375,
+        258166
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 176042,
+        "p95Nanoseconds" : 258166
+      }
+    },
+    {
+      "name" : "Reclaim echo to detach",
+      "samplesNanoseconds" : [
+        201042,
+        329666,
+        288083,
+        329042,
+        383333
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 329042,
+        "p95Nanoseconds" : 383333
+      }
+    },
+    {
+      "name" : "Post-expiry ready to Up",
+      "samplesNanoseconds" : [
+        304417,
+        927417,
+        352458,
+        439375,
+        335667
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 352458,
+        "p95Nanoseconds" : 927417
+      }
+    },
+    {
+      "name" : "Up echo to explicit close",
+      "samplesNanoseconds" : [
+        157458,
+        760667,
+        195041,
+        212541,
+        206709
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 206709,
+        "p95Nanoseconds" : 760667
+      }
+    },
+    {
+      "name" : "Final ready, output and exit to socket close",
+      "samplesNanoseconds" : [
+        464708,
+        638500,
+        941042,
+        680333,
+        723417
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 680333,
+        "p95Nanoseconds" : 941042
+      }
+    },
+    {
+      "name" : "Ready to last write before loss",
+      "samplesNanoseconds" : [
+        298208,
+        339333,
+        437166,
+        373917,
+        469875
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 373917,
+        "p95Nanoseconds" : 469875
+      }
+    },
+    {
+      "name" : "Recovery ready and replay to held Up",
+      "samplesNanoseconds" : [
+        405625,
+        453750,
+        405917,
+        905417,
+        508708
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 453750,
+        "p95Nanoseconds" : 905417
+      }
+    },
+    {
+      "name" : "Held Up to bracketed paste",
+      "samplesNanoseconds" : [
+        45500,
+        38042,
+        55250,
+        2125,
+        125334
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 45500,
+        "p95Nanoseconds" : 125334
+      }
+    },
+    {
+      "name" : "Held paste to replay-time Left",
+      "samplesNanoseconds" : [
+        41375,
+        38166,
+        43208,
+        834,
+        49291
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 41375,
+        "p95Nanoseconds" : 49291
+      }
+    },
+    {
+      "name" : "Drained input echo to next outage",
+      "samplesNanoseconds" : [
+        211958,
+        209667,
+        153250,
+        291333,
+        231708
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 211958,
+        "p95Nanoseconds" : 291333
+      }
+    },
+    {
+      "name" : "Replacement ready to fresh input",
+      "samplesNanoseconds" : [
+        445375,
+        389375,
+        432000,
+        594250,
+        438209
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 438209,
+        "p95Nanoseconds" : 594250
+      }
+    },
+    {
+      "name" : "User restart ready to input",
+      "samplesNanoseconds" : [
+        639292,
+        819583,
+        495167,
+        408833,
+        457917
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 495167,
+        "p95Nanoseconds" : 819583
+      }
+    },
+    {
+      "name" : "Visible replay to new input",
+      "samplesNanoseconds" : [
+        554708,
+        600792,
+        478542,
+        462167,
+        384666
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 478542,
+        "p95Nanoseconds" : 600792
+      }
+    },
+    {
+      "name" : "In-band ready to active Up",
+      "samplesNanoseconds" : [
+        2614917,
+        2519416,
+        2576167,
+        2606833,
+        2551208
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 2576167,
+        "p95Nanoseconds" : 2614917
+      }
+    },
+    {
+      "name" : "In-band replay to deferred resize",
+      "samplesNanoseconds" : [
+        345500,
+        291208,
+        270250,
+        272209,
+        341375
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 291208,
+        "p95Nanoseconds" : 345500
+      }
+    },
+    {
+      "name" : "Deferred resize to restored Up",
+      "samplesNanoseconds" : [
+        117958,
+        73750,
+        137125,
+        129708,
+        62583
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 117958,
+        "p95Nanoseconds" : 137125
+      }
+    },
+    {
+      "name" : "Restored Up to bracketed paste",
+      "samplesNanoseconds" : [
+        38208,
+        7209,
+        63625,
+        7583,
+        10750
+      ],
+      "timing" : {
+        "p50Nanoseconds" : 10750,
+        "p95Nanoseconds" : 63625
+      }
+    }
+  ],
+  "measuredPasses" : 5,
+  "measurement" : "Scripted macOS loopback, peer-observed with Bun.nanoseconds()",
+  "measuresPhysicalIPhone" : false,
+  "measuresPresentation" : false,
+  "recordedAt" : "2026-11-25T06:24:32Z",
+  "resizes" : [
+    {
+      "columns" : 18,
+      "rows" : 3
+    },
+    {
+      "columns" : 17,
+      "rows" : 3
+    }
+  ],
+  "schemaVersion" : 1,
+  "takeoversPerPass" : 2,
+  "virtualOrphanLifetimeMilliseconds" : 30000,
+  "warmupPasses" : 1,
+  "workload" : "scripts\/lifecycle-peer.ts",
+  "workloadSHA256" : "7150c45acf503e904a5a7675ce6200e913a40254bcfc82771348515f11f79db2"
+}
