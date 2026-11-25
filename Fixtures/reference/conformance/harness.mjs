@@ -233,10 +233,13 @@ async function gapReport(results, emitted, defects, shrinker) {
     '# Conformance gap report', '',
     `Thrush \`${revision}\` against the pinned reference emulator from Toy Box \`${reference.description.toyBox.slice(0, 7)}\`, `
       + `with ${reference.description.scrollback} rows of history and Unicode ${reference.description.unicode} widths.`, '',
-    '| Corpus | Cases | Match | Differ |', '| --- | ---: | ---: | ---: |',
-    ...Object.keys(results).map(corpus => `| ${corpus} | ${results[corpus].length} | ${passing(corpus)} | ${results[corpus].length - passing(corpus)} |`),
+    '| Corpus | Cases | Match | Differ | Reference defects |', '| --- | ---: | ---: | ---: | ---: |',
+    ...Object.keys(results).map(corpus => {
+      const defective = results[corpus].filter(result => defects[result.testCase.name]).length;
+      return `| ${corpus} | ${results[corpus].length} | ${passing(corpus)} | ${results[corpus].length - passing(corpus) - defective} | ${defective} |`;
+    }),
     '',
-    defectCount ? `${defectCount} cases are reference defects and count as neither. They're listed at the end.` : '',
+    defectCount ? 'Reference defects are listed at the end, with why Thrush differs.' : '',
     '',
     '## Ranked function gaps', '',
     'Each failing function case is shrunk to the fewest bytes that still disagree, and grouped by the functions left in them. '
@@ -280,7 +283,7 @@ async function gapReport(results, emitted, defects, shrinker) {
       '## Reference defects', '',
       '| Case | Reason | Differences |', '| --- | --- | --- |',
       ...Object.entries(defects).map(([name, defect]) =>
-        `| ${cell(name)} | ${cell(defect.reason)} | ${cell((defect.differences ?? []).map(describe).join('; '))} |`),
+        `| ${cell(name)} | ${cell(defect.reason)} | ${cell(summarize(defect.differences ?? []))} |`),
       '',
     ] : []),
   ];
@@ -290,6 +293,11 @@ async function gapReport(results, emitted, defects, shrinker) {
 function describe(difference) {
   if (!difference) return undefined;
   return `${difference.path}: reference ${difference.reference}, Thrush ${difference.thrush}`;
+}
+
+function summarize(differences, shown = 4) {
+  const more = differences.length - shown;
+  return differences.slice(0, shown).map(describe).join('; ') + (more > 0 ? `; and ${more} more` : '');
 }
 
 function length(steps) { return steps.reduce((sum, step) => sum + (step.write?.length ?? 1), 0); }
