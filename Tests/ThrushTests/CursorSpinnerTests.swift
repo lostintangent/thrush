@@ -59,6 +59,36 @@ import UIKit
     #expect(view.selectedText == "keep")
 }
 
+@MainActor @Test func cursorSpinnerUsesProgramCursorInkAndContrastsWithItsCell() throws {
+    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    view.theme = .slateDark
+    view.setWaiting("Reconnecting")
+    let spinner = try #require(view.subviews.compactMap { $0 as? CursorSpinner }.first)
+    func expectInk(_ r: UInt8, _ g: UInt8, _ b: UInt8) throws {
+        #if os(macOS)
+        let color = try #require(spinner.ink)
+        #else
+        let color = try #require(spinner.color?.cgColor)
+        #endif
+        let components = try #require(color.components)
+        #expect(components.map { UInt8(($0 * 255).rounded()) } == [r, g, b, 255])
+    }
+    try expectInk(0xfd, 0x9a, 0x01)
+    var terminal = Terminal(size: try #require(view.gridSize))
+    _ = terminal.receive("\u{1b}]12;#93cba2\u{7}".utf8)
+    view.display(terminal)
+    try expectInk(0x93, 0xcb, 0xa2)
+    // The program paints a light cell in precisely its cursor color.
+    _ = terminal.receive("\u{1b}[48;2;147;203;162m \r".utf8)
+    view.display(terminal)
+    try expectInk(0, 0, 0)
+    _ = terminal.receive("\u{1b}[0m\u{1b}[2J\u{1b}]12;#131d27\u{7}".utf8)
+    view.display(terminal)
+    try expectInk(255, 255, 255)
+}
+
 #if os(macOS)
 @MainActor @Test func onlyAnUnmodifiedSingleGridClickReclaimsTheShell() async throws {
     let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))

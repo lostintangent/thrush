@@ -1,3 +1,4 @@
+import Foundation
 import ThrushCore
 
 /// The terminal's palette and the colors used to draw its cursor and selection.
@@ -76,6 +77,26 @@ enum Paint {
                    theme.selection, theme.selectionInk].map(\.vector)
         return colors
     }
+}
+
+extension Terminal.RGB {
+    /// WCAG relative luminance.
+    var luminance: Double {
+        func linear(_ component: UInt8) -> Double {
+            let value = Double(component) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
+
+    /// WCAG contrast ratio, from 1 to 21.
+    func contrast(with other: Terminal.RGB) -> Double {
+        let (a, b) = (luminance, other.luminance)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+
+    /// Whether white text contrasts more than black on this color.
+    var isDark: Bool { contrast(with: .init(red: 255, green: 255, blue: 255)) > contrast(with: .init(red: 0, green: 0, blue: 0)) }
 }
 
 // Opaque backing for native chrome when Reduce Transparency is enabled.

@@ -4,7 +4,7 @@ A `TerminalSession` belongs to one shell. The app keeps it when a tab moves out 
 
 ## Opening and reconnecting
 
-A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Show the spinner after 200 ms. It stays still with Reduce Motion and is labeled “Connecting” or “Reconnecting” for VoiceOver. Announce “Reconnecting” once when an interruption reaches that delay. Keep the grid, selection, keyboard focus and VoiceOver reading position in place.
+A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Show the spinner after 200 ms. Its spokes use the cursor color in active and inactive windows, with a contrasting fallback against the cell beneath it. It stays still with Reduce Motion and is labeled “Connecting” or “Reconnecting” for VoiceOver. Announce “Reconnecting” once when an interruption reaches that delay. Keep the grid, selection, keyboard focus and VoiceOver reading position in place.
 
 During an ordinary reconnect, hold committed text, paste and keys in order. IME preedit stays local. After `ready(resumed: true)`, wait for the binary replay to restore the shell’s input modes, then send held input once. The restored shell controls what appears as echo.
 
