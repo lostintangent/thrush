@@ -1,4 +1,5 @@
 // Cell-width observations from the pinned Toy Box Unicode 11 provider.
+// Only zero- and double-width ranges need a table entry. Other printable scalars occupy one cell.
 // Regenerate with bun Fixtures/reference/generate-widths.mjs ../toy-box.
 extension ColumnWidth {
     static let zero: [ClosedRange<UInt32>] = [

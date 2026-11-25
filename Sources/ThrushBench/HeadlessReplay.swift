@@ -143,7 +143,7 @@ struct HeadlessReplay: Encodable {
                         alternate = snapshot.isAlternate
                     }
                     guard history == event.historyRowsBefore, normalHistory == event.normalHistoryRowsBefore else {
-                        throw BenchmarkError("Pre-resize history differs from the xterm reference at \(event.name).")
+                        throw BenchmarkError("Pre-resize history differs from the reference at \(event.name).")
                     }
                     let start = DispatchTime.now().uptimeNanoseconds
                     terminal.resize(to: requested.size)

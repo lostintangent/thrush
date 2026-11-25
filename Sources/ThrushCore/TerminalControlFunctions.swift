@@ -1,0 +1,119 @@
+/// Names the wire identifiers for supported terminal functions. Dispatch uses those names
+/// to connect each control sequence to its effect on the screen, modes or replies.
+enum TerminalControlFunction {
+    enum C0: UInt8 {
+        /// BS, 0x08.
+        case backspace = 0x08
+        /// LF, 0x0A.
+        case lineFeed = 0x0a
+        /// VT, 0x0B.
+        case verticalTab = 0x0b
+        /// FF, 0x0C.
+        case formFeed = 0x0c
+        /// CR, 0x0D.
+        case carriageReturn = 0x0d
+    }
+
+    enum Escape: UInt32 {
+        /// DECKPAM, ESC =.
+        case applicationKeypad = 0x3d
+        /// DECKPNM, ESC >.
+        case numericKeypad = 0x3e
+    }
+
+    enum CSI: UInt32 {
+        /// CUU, CSI Ps A.
+        case cursorUp = 0x41
+        /// CUD, CSI Ps B.
+        case cursorDown = 0x42
+        /// CUF, CSI Ps C.
+        case cursorForward = 0x43
+        /// CUB, CSI Ps D.
+        case cursorBackward = 0x44
+        /// CUP, CSI row ; column H.
+        case cursorPosition = 0x48
+        /// ED, CSI Ps J.
+        case eraseInDisplay = 0x4a
+        /// EL, CSI Ps K.
+        case eraseInLine = 0x4b
+        /// DA1, CSI Ps c.
+        case primaryDeviceAttributes = 0x63
+        /// DA2, CSI > Ps c.
+        case secondaryDeviceAttributes = 0x3e_63
+        /// DECSET, CSI ? Pm h.
+        case setPrivateMode = 0x3f_68
+        /// DECRST, CSI ? Pm l.
+        case resetPrivateMode = 0x3f_6c
+        /// SGR, CSI Pm m.
+        case graphicRendition = 0x6d
+        /// DSR, CSI Ps n.
+        case deviceStatusReport = 0x6e
+        /// DECRQM, CSI ? Ps $ p.
+        case requestPrivateMode = 0x3f_24_70
+        /// DECSCUSR, CSI Ps SP q.
+        case cursorStyle = 0x20_71
+        /// DECSTBM, CSI top ; bottom r.
+        case scrollMargins = 0x72
+    }
+
+    enum OSC: Int {
+        /// OSC 4, indexed colors.
+        case indexedColor = 4
+        /// OSC 10, default foreground.
+        case foregroundColor = 10
+        /// OSC 11, default background.
+        case backgroundColor = 11
+    }
+
+    case execute(C0)
+    case escape(Escape)
+    case control(CSI)
+    case command(OSC)
+    case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
+
+    init?(_ action: EscapeParser.Action) {
+        switch action {
+        case .execute(let byte):
+            guard let function = C0(rawValue: byte) else { return nil }
+            self = .execute(function)
+        case .esc(let id):
+            guard let function = Escape(rawValue: id.rawValue) else { return nil }
+            self = .escape(function)
+        case .csi(let id):
+            guard let function = CSI(rawValue: id.rawValue) else { return nil }
+            self = .control(function)
+        case .oscStart(let id):
+            self = OSC(rawValue: id).map(Self.command) ?? .ignoredString
+        case .dcsStart:
+            self = .ignoredString
+        case .stringPut(let scalar):
+            self = .stringPut(scalar)
+        case .stringEnd(let success):
+            self = .stringEnd(success: success)
+        case .printable:
+            return nil
+        }
+    }
+}
+
+extension Terminal {
+    enum EraseRange: Int {
+        case toEnd = 0
+        case entire = 2
+    }
+
+    enum PrivateMode: Int {
+        case applicationCursorKeys = 1
+        case cursorBlink = 12
+        case cursorVisible = 25
+        case applicationKeypad = 66
+        case mousePress = 1000
+        case mouseDrag = 1002
+        case mouseMotion = 1003
+        case sendFocus = 1004
+        case mouseSGR = 1006
+        case alternateScreen = 1049
+        case bracketedPaste = 2004
+        case synchronizedOutput = 2026
+    }
+}

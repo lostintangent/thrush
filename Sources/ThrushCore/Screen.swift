@@ -1,3 +1,7 @@
+// Applies cursor movement, printing, erasing and scrolling to the active screen.
+// A circular row index lets the normal screen scroll a line into history without shifting
+// every remaining visible row.
+
 extension Terminal {
     /// The oldest row is always at index zero, including after the backing array wraps.
     package struct History: RandomAccessCollection, Sendable {
@@ -198,6 +202,24 @@ extension Terminal {
             active.column = min(max(0, column), size.columns - 1)
         }
 
+        // CUU/CUD stop at the scroll margin when approached from inside it.
+        mutating func cursorUp(_ count: Int) {
+            move(toRow: max(row >= scrollTop ? scrollTop : 0, row - count), column: column)
+        }
+
+        mutating func cursorDown(_ count: Int) {
+            move(toRow: min(row <= scrollBottom ? scrollBottom : size.rows - 1, row + count), column: column)
+        }
+
+        mutating func cursorForward(_ count: Int) {
+            move(toRow: row, column: column + count)
+        }
+
+        mutating func cursorBackward(_ count: Int) {
+            // A pending wrap still measures CUB from the last visible column.
+            move(toRow: row, column: min(column, size.columns - 1) - count)
+        }
+
         mutating func setScrollRegion(top: Int, bottom: Int) {
             if top >= 0, top < bottom, bottom < size.rows {
                 active.scrollTop = top
@@ -243,17 +265,17 @@ extension Terminal {
                 active.rows[index].generation = revision
             }
             // A standalone combining mark occupies a cell of width zero. At the pending wrap
-            // margin xterm advances its cursor even though no visible cell receives the mark.
+            // margin the cursor advances even though no visible cell receives the mark.
             active.column += max(1, width)
         }
 
-        mutating func writeASCII(_ bytes: UnsafeBufferPointer<UInt8>, style: Style) {
+        mutating func writeASCII(_ bytes: Span<UInt8>, style: Style) {
             var offset = 0
             while offset < bytes.count {
                 revision &+= 1
                 if column >= size.columns { wrap(style: style) }
                 let count = min(bytes.count - offset, size.columns - column)
-                let segment = UnsafeBufferPointer(rebasing: bytes[offset..<(offset + count)])
+                let segment = bytes.extracting(offset..<(offset + count))
                 let index = active.index(of: row)
                 active.rows[index].writeASCII(segment, at: column, style: style)
                 active.rows[index].generation = revision
@@ -262,8 +284,8 @@ extension Terminal {
             }
         }
 
-        mutating func eraseLine(_ mode: Int, style: Style) {
-            guard mode == 0 else { return }  // The recorded editor clears from its cursor to the margin.
+        mutating func eraseLine(_ range: EraseRange, style: Style) {
+            guard range == .toEnd else { return }  // The recorded editor clears from its cursor to the margin.
             active.column = min(column, size.columns)
             revision &+= 1
             let index = active.index(of: row)
@@ -272,16 +294,14 @@ extension Terminal {
             active.rows[index].generation = revision
         }
 
-        mutating func eraseDisplay(_ mode: Int, style: Style) {
+        mutating func eraseDisplay(_ range: EraseRange, style: Style) {
             let firstRow: Int
-            switch mode {
-            case 0:
-                eraseLine(0, style: style)
+            switch range {
+            case .toEnd:
+                eraseLine(.toEnd, style: style)
                 firstRow = row + 1
-            case 2:
+            case .entire:
                 firstRow = 0
-            default:
-                return
             }
             active.column = min(column, size.columns)
             revision &+= 1

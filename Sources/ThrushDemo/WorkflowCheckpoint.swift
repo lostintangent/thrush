@@ -1,7 +1,7 @@
 import Thrush
 import ThrushReplay
 
-/// Checks a paused workflow against the pinned xterm recording and the running pane.
+/// Checks a paused workflow against the recorded checkpoint and the running pane.
 package enum WorkflowCheckpoint {
     private struct Failure: Error, CustomStringConvertible {
         let description: String

@@ -89,6 +89,7 @@ function shellEdges() {
   });
   output('Reversed ANSI colors', osc(ansiQuery));
   output('Extended colors with reversed ANSI palette', osc('4;16;?;231;?;232;?;255;?'));
+  output('SGR with indexed and RGB subparameters', utf8('\r\n\x1b[38:5:44;48:2::10:20:30;1mA\x1b[38:7:1;92;22mB\x1b[0m'));
   return {name:'shell-edges', columns:1, rows:2, events};
 }
 const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13,

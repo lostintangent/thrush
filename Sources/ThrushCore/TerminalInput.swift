@@ -1,3 +1,6 @@
+// Encodes committed text, pasted text and keystrokes as input for the shell.
+// The active terminal modes and keyboard modifiers determine which bytes a key sends.
+
 extension Terminal {
     /// A user action to encode with ``Terminal/encode(_:)`` under the current terminal modes.
     package enum Input: Sendable {
@@ -90,35 +93,62 @@ extension Terminal {
     }
 
     private func encodeKey(_ key: Input.Key, modifiers: Input.Modifiers) -> [UInt8] {
-        let parameter = UInt8(ascii: "1") + modifiers.rawValue
-        func cursorKey(_ final: UInt8) -> [UInt8] {
-            if modifiers.isEmpty { return [0x1b, modes.applicationCursorKeys ? 0x4f : 0x5b, final] }
-            return [0x1b, 0x5b, 0x31, 0x3b, parameter, final]
-        }
-        func tildeKey(_ digit: UInt8, modified: Bool) -> [UInt8] {
-            modified ? [0x1b, 0x5b, digit, 0x3b, parameter, 0x7e] : [0x1b, 0x5b, digit, 0x7e]
-        }
-        func scalarKey(_ byte: UInt8) -> [UInt8] { modifiers.contains(.alt) ? [0x1b, byte] : [byte] }
+        func scalar(_ byte: UInt8) -> [UInt8] { modifiers.contains(.alt) ? [0x1b, byte] : [byte] }
 
+        func report(_ sequence: KeySequence) -> [UInt8] {
+            sequence.encode(applicationCursorKeys: modes.applicationCursorKeys, modifiers: modifiers)
+        }
         switch key {
-        case .up: return cursorKey(0x41)
-        case .down: return cursorKey(0x42)
-        case .right: return cursorKey(0x43)
-        case .left: return cursorKey(0x44)
-        case .home: return cursorKey(0x48)
-        case .end: return cursorKey(0x46)
-        case .delete: return tildeKey(0x33, modified: !modifiers.isEmpty)
-        case .pageUp, .pageDown:
-            // Shift+Page scrolls the host viewport without writing to the shell.
-            guard !modifiers.contains(.shift) else { return [] }
-            let digit: UInt8 = if case .pageUp = key { 0x35 } else { 0x36 }
-            return tildeKey(digit, modified: modifiers.contains(.control))
-        case .enter: return scalarKey(0x0d)
-        case .escape: return scalarKey(0x1b)
-        case .backspace: return scalarKey(modifiers.contains(.control) ? 0x08 : 0x7f)
+        case .up: return report(.cursor(UInt8(ascii: "A")))
+        case .down: return report(.cursor(UInt8(ascii: "B")))
+        case .right: return report(.cursor(UInt8(ascii: "C")))
+        case .left: return report(.cursor(UInt8(ascii: "D")))
+        case .home: return report(.cursor(UInt8(ascii: "H")))
+        case .end: return report(.cursor(UInt8(ascii: "F")))
+        case .delete: return report(.numbered(3))
+        case .pageUp: return report(.numbered(5, modifyOn: .control, localOn: .shift))
+        case .pageDown: return report(.numbered(6, modifyOn: .control, localOn: .shift))
+        case .enter: return scalar(0x0d)
+        case .escape: return scalar(0x1b)
+        case .backspace: return scalar(modifiers.contains(.control) ? 0x08 : 0x7f)
         case .tab: return modifiers.contains(.shift) ? [0x1b, 0x5b, 0x5a] : [0x09]
-        case .character(let character):
-            return encodeCharacter(character, modifiers: modifiers)
+        case .character(let character): return encodeCharacter(character, modifiers: modifiers)
+        }
+    }
+
+    /// The wire sequence for a cursor, function or numbered editing key.
+    enum KeySequence {
+        case cursor(UInt8)
+        case ss3(UInt8)
+        /// Local modifiers consume the key. A matching reporting modifier includes the whole chord.
+        case numbered(UInt8, modifyOn: Input.Modifiers = [.shift, .alt, .control], localOn: Input.Modifiers = [])
+
+        func encode(applicationCursorKeys: Bool, modifiers: Input.Modifiers) -> [UInt8] {
+            // Specialize the parameter and final byte so an unmodified key can reuse constant storage.
+            @inline(__always) func csi(_ number: UInt8, final: UInt8, modifiers: Input.Modifiers) -> [UInt8] {
+                let digit = UInt8(ascii: "0") + number % 10
+                let modifier = UInt8(ascii: "1") + modifiers.rawValue
+                // Construct the common one-digit report in one allocation.
+                var bytes: [UInt8] = modifiers.isEmpty
+                    ? [0x1b, 0x5b, digit, final]
+                    : [0x1b, 0x5b, digit, 0x3b, modifier, final]
+                if number >= 10 { bytes.insert(contentsOf: String(number / 10).utf8, at: 2) }
+                return bytes
+            }
+
+            func letter(_ final: UInt8, ss3: Bool) -> [UInt8] {
+                if modifiers.isEmpty { return [0x1b, ss3 ? 0x4f : 0x5b, final] }
+                return csi(1, final: final, modifiers: modifiers)
+            }
+
+            switch self {
+            case .cursor(let final): return letter(final, ss3: applicationCursorKeys)
+            case .ss3(let final): return letter(final, ss3: true)
+            case .numbered(let number, let modifyOn, let localOn):
+                guard modifiers.isDisjoint(with: localOn) else { return [] }
+                let wireModifiers: Input.Modifiers = modifiers.isDisjoint(with: modifyOn) ? [] : modifiers
+                return csi(number, final: UInt8(ascii: "~"), modifiers: wireModifiers)
+            }
         }
     }
 

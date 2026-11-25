@@ -49,7 +49,7 @@ struct LoopbackCheck {
               let final = fixture.events.last, await connection.text(inRow: final.row) == final.text
         else { throw CheckFailure("Expected the last output to remain readable at exit") }
 
-        // A width-one request must use xterm's effective width in the attach URL and every resize.
+        // A one-column request needs two columns in the attach URL and every resize.
         let minimum = Terminal.Size(columns: 1, rows: 2)
         let defaults = Terminal.Palette.default
         let light = Terminal.Palette(foreground: defaults.background, background: defaults.foreground, ansi: defaults.ansi)

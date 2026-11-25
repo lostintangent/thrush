@@ -1,3 +1,6 @@
+// A row stores each glyph’s column width and style alongside its text. Single scalars
+// stay in the cell. Only glyphs with combining marks need a separate string.
+
 extension Terminal {
     package enum Color: Equatable, Sendable {
         case `default`, indexed(UInt8), rgb(UInt8, UInt8, UInt8)
@@ -134,16 +137,15 @@ extension Terminal {
             }
         }
 
-        mutating func writeASCII(_ bytes: UnsafeBufferPointer<UInt8>, at column: Int, style: Style) {
+        mutating func writeASCII(_ bytes: Span<UInt8>, at column: Int, style: Style) {
             let end = column + bytes.count
             let range = column..<end
             clearWideEdges(range, style: style)
             discardClusters(in: range)
             ensureLength(end)
-            cells.withUnsafeMutableBufferPointer { target in
-                for offset in bytes.indices {
-                    target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), style: style)
-                }
+            var target = cells.mutableSpan
+            for offset in bytes.indices {
+                target[column + offset] = StoredCell(glyph: UInt32(bytes[offset]), style: style)
             }
         }
 

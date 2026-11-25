@@ -18,7 +18,7 @@ enum ReaderComparison {
     static func checkExitScreen(_ capture: URL) throws {
         let bytes = try Data(contentsOf: capture)
         var terminal = Terminal(size: .init(columns: 80, rows: 24))
-        _ = bytes.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
+        _ = terminal.receive(Span(viewing: bytes.bytes))
         let expected = (131051...131072).map { "THRUSH \($0) " + String(repeating: ".", count: 48) }
                      + ["THRUSH-SHELL-EXIT", ""]
         guard (0..<24).map({ terminal.text(inRow: $0) }) == expected else {

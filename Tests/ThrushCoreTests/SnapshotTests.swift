@@ -38,7 +38,7 @@ import ThrushFixtures
     #expect(beforeGrow.history.map(\.text) == ["A"])
     #expect(beforeGrow.rows.map(\.text) == ["B", "C"])
 
-    // xterm 6.0.0 retains B above the viewport and exposes only two rows below it.
+    // Shrinking the alternate screen retains B above the viewport and exposes only two rows below it.
     // Its next physical slot aliases B. Thrush supplies an ordinary blank row there.
     terminal.resize(to: size)
     let grown = terminal.snapshot()
@@ -96,7 +96,7 @@ import ThrushFixtures
     let visible = terminal.snapshot()
     #expect(visible.synchronizedOutputID == nil)
 
-    // Pinned xterm advances the grid and returns CPR while synchronized output is active.
+    // The terminal advances the grid and returns CPR while synchronized output is active.
     #expect(terminal.receive((start + "A\u{1b}[6n").utf8) == Array("\u{1b}[1;2R".utf8))
     let first = terminal.snapshot()
     let batch = try #require(first.synchronizedOutputID)

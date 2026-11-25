@@ -49,7 +49,7 @@ final class SynchronizedOutputGate {
                 deadline = nil
                 held = nil
             } else {
-                // Repeated DECSET changes the ID but the pinned xterm keeps the
+                // Repeated DECSET changes the ID but retains the
                 // first watchdog running. A DECSET after expiry starts a new hold.
                 serviceDeadline()
                 if deadline == nil { deadline = now().advanced(by: .seconds(1)) }

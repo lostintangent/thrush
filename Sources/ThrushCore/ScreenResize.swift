@@ -1,3 +1,6 @@
+// Reflows soft-wrapped lines on the normal screen when the column count changes.
+// The alternate screen keeps fixed row positions so an application can redraw its layout.
+
 extension Terminal.Buffer {
     mutating func resize(to newSize: Terminal.Size, revision: inout UInt64) {
         let generation = revision
@@ -42,7 +45,7 @@ extension Terminal.Buffer {
 
         if oldSize.columns != newSize.columns {
             if alternate {
-                // xterm leaves off-screen columns of the alternate buffer intact on shrink.
+                // Shrinking the alternate buffer preserves its off-screen columns.
                 // Growing can expose them again until the application repaints.
                 for index in lines.indices {
                     if newSize.columns > oldSize.columns { lines[index].truncate(to: newSize.columns) }

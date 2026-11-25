@@ -51,7 +51,7 @@ struct BulkText: Encodable {
                         applied += chunk.count
                     }
                 }
-                // Pinned xterm validates these same rows, wrap, history and CPR in the fixture generator.
+                // The fixture generator checks these same rows, wraps, history and cursor reply.
                 let snapshot = terminal.snapshot()
                 let wrapped = grid.columns < line.count
                 let expected = String(decoding: wrapped ? line.dropFirst(grid.columns) : line[...], as: UTF8.self)

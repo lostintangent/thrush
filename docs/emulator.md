@@ -14,16 +14,16 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 ## Layers
 
 ```
-bytes ─▶ Scanner ─── text runs ─────────────────────────▶ Screen.print
-            └─── controls ─▶ Parser ─▶ Terminal.perform ─▶ Screen operations
-                             framing    dispatch            grid mutation
+bytes ─▶ TextScanner ── printable ASCII runs ─▶ Screen.writeASCII
+           ├─────────── Unicode scalars ─────▶ Screen.write
+           └─────────── controls ────────────▶ EscapeParser ─▶ Terminal.apply
 ```
 
 | Layer | Knows | Doesn't know |
 | --- | --- | --- |
-| `Scanner` | Where text ends. It finds runs of printable ASCII and well-formed UTF-8, carries a split scalar across chunk boundaries and discards malformed bytes, so an interrupted prefix such as `E2 82` before `Z` leaves only `Z`. | What any control does. |
-| `Parser` | The VT500 state machine: where a sequence starts and ends, its prefix, intermediates, parameters and bounded string payloads. It emits print, execute, escape, control and command events. | What any sequence does. Adding a function never changes it. |
-| `Terminal.perform` | Which named function a sequence is, its parameter defaults and which screen operation or mode it drives. | How the grid stores cells. |
+| `TextScanner` | Where text ends. It finds printable ASCII runs, decodes other text one Unicode scalar at a time, carries a split scalar across chunk boundaries and discards malformed bytes, so an interrupted prefix such as `E2 82` before `Z` leaves only `Z`. | What any control does. |
+| `EscapeParser` | Where a VT control starts and ends. It gathers a prefix, intermediates and parameters, and streams string payloads to a handler that enforces the size limit. | What any sequence does. Adding a function never changes it. |
+| `Terminal.apply` | Which named function a sequence is, its parameter defaults and which screen operation or mode it drives. | How the grid stores cells. |
 | `Screen` | Cursor, margins, cells, wraps, history and both buffers, through intention-revealing operations such as `insertBlanks(_:)` and `deleteCharacters(_:)`. | Escape sequences. |
 
 Input runs the other way through one key table that maps each `Terminal.Input.Key` to its sequence, with a single shared modifier rule.
@@ -32,13 +32,16 @@ Input runs the other way through one key table that maps each `Terminal.Input.Ke
 
 Most output is text, so text never enters the state machine.
 
-- **Text runs skip the parser.** In the ground state the scanner checks input in SIMD-width blocks for the first byte that isn't text. Everything before it goes to `Screen.print` as one run. Only C0 controls, ESC and malformed bytes reach the parser.
-- **Printing fills cells in bulk.** `Screen.print` writes a run row by row with one style ID and wraps at the margin. Widths come from a two-level table. Only combining marks, joiners and variation selectors take the grapheme path.
+- **Text runs skip the parser.** In the ground state, the scanner searches blocks of 16 bytes for the first byte outside printable ASCII. `Screen.writeASCII` receives the run. `Screen.write` receives other printable Unicode scalars individually. Control bytes and complete C1 scalars go to the framer.
+- **Printing fills cells in bulk.** `Screen.writeASCII` writes a printable ASCII run row by row with the current style and wraps at the margin. ASCII occupies one column. For other scalars, `ColumnWidth` searches the ordered Unicode 11 ranges for zero-width and double-width characters. Combining marks extend the preceding cell when there is one.
 - **The state machine is data.** Escape framing is a precomputed table indexed by state and byte that yields the next state and action in one load.
-- **Parameters stay where they're parsed.** The parser collects parameters in fixed storage it owns. Dispatch receives a small command identifier that packs the prefix, intermediates and final byte, then reads parameters in place. Nothing about a sequence is copied or allocated. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
-- **Cells are plain data.** A cell is a small fixed-size value holding a scalar, width flags and a style ID. Styles are interned in a table and grapheme clusters live out of line. Cells hold no strings, references or optionals.
-- **History is a ring.** Visible rows and history share one ring of fixed-width rows. A line feed at the bottom margin moves an index instead of memory, and steady output reuses rows instead of allocating them.
-- **Steady output allocates nothing.** ThrushBench counts allocations for each workload and fails when output that only prints, moves and scrolls allocates.
+- **Parameters stay where they're parsed.** The parser collects parameters in fixed storage it owns. Dispatch receives a small command identifier that packs the prefix, intermediates and final byte, then reads parameters in place. Dispatch needs no parameter array allocation or copy. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
+
+The comparison benchmark will guide these proposed storage changes.
+
+- **Cells are plain data.** Today a cell holds a scalar, width flags and its style, with grapheme clusters kept separately. Measure whether interning styles reduces the cost of scrolling and snapshots.
+- **History is a ring.** Visible rows already rotate through a circular index. Measure whether sharing row storage with history and reusing evicted rows improves sustained output.
+- **Steady output allocates nothing.** Add allocation counts for steady printing, cursor motion and scrolling, then use those measurements to remove recurring allocations.
 
 ## Modern Swift we use
 
@@ -61,15 +64,13 @@ Most output is text, so text never enters the state machine.
 
 ## Adding a control function
 
-1. Add a conformance case with the bytes a real program sends, then run the harness to see the reference's result beside Thrush's.
-2. Give the function a name in the dispatch, with its mnemonic and form in a doc comment.
-3. Add one line to `Terminal.perform` that decodes its parameters and calls a screen operation. Add the operation to `Screen` if none fits.
-4. Run the harness and ThrushBench. The case must match the reference, and no workload may slow down.
+1. Capture the program’s output and generate the expected cells, cursor and replies using the pinned reference emulator. Include omitted and zero parameters and a delivery split inside the sequence. [Fixture commands](../Fixtures/reference/m2/README.md)
+2. Add the named function to the appropriate family in [TerminalControlFunctions.swift](../Sources/ThrushCore/TerminalControlFunctions.swift). For example, `TerminalControlFunction.CSI.cursorForward` has wire value `0x43` and the comment `CUF, CSI Ps C`.
+3. Add its case in [Terminal.apply](../Sources/ThrushCore/Terminal.swift). The CUF handler calls `screen.cursorForward(parser.parameters[0, default: 1])`. The same subscript handles both missing and zero counts. Implement the cursor or row operation in [Screen.swift](../Sources/ThrushCore/Screen.swift). For a string command, route its OSC number to a payload handler and commit the result only on successful termination.
+4. Run `swift test`, then `swift run -c release ThrushBench` and `python3 scripts/check-benchmark-report.py`. The replay runner checks each reference checkpoint before measuring the recording.
 
 ## Adding a key
 
-1. Add the case to `Terminal.Input.Key`.
-2. Add one line to the key table naming its sequence family, such as CSI final, SS3 final or tilde number.
-3. Add the expected bytes for plain and modified presses to the key encoding tests.
-
-Core finalizes these recipes with the real type and file names when the restructure lands.
+1. Add a case to `Terminal.Input.Key` in [TerminalInput.swift](../Sources/ThrushCore/TerminalInput.swift) and route the native key event to it. Keep committed text on the input method’s existing path.
+2. In `encodeKey(_:modifiers:)`, choose the family and final byte or number. For example, Up uses `.cursor(UInt8(ascii: "A"))`. An F1 case would use `.ss3(UInt8(ascii: "P"))`, and F5 would use `.numbered(15)`. The shared encoder applies the active cursor mode and modifier parameter. Numbered keys can specify which modifiers the host handles locally.
+3. Record plain and modified presses using the reference keyboard evaluator. Add them to the [key encoding checks](../Tests/ThrushCoreTests/KeySequenceTests.swift) and the recorded input workload for the program that uses them.

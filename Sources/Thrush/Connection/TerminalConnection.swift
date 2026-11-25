@@ -308,7 +308,7 @@ public actor TerminalConnection {
                     terminal = Terminal(size: terminal.size, palette: terminal.palette)
                     isResynchronizing = false
                 }
-                let reply = bytes.withUnsafeBytes { terminal.receive($0.bindMemory(to: UInt8.self)) }
+                let reply = terminal.receive(Span(viewing: bytes.bytes))
                 appliedBytes += bytes.count
                 frameTrace?.record("applied", attachment: attachment, message: message, received: receivedBytes, applied: appliedBytes)
                 onOutput?(bytes)

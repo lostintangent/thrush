@@ -1,17 +1,28 @@
-/// Stream UTF-8 across calls. Like the server, discard malformed subsequences
-/// and reconsider the next lead byte after an interrupted multibyte scalar.
-struct ScalarDecoder: Sendable {
+/// Finds runs of printable ASCII in 16-byte blocks so the grid can write a run at once.
+/// It also carries incomplete UTF-8 scalars across chunks. ThrushBench exercises this path
+/// with a one-megabyte ASCII stream delivered in 4 KiB chunks.
+struct TextScanner: Sendable {
+    /// The first non-printable or non-ASCII byte, or the end of the input.
+    /// A lane is printable ASCII exactly when subtracting space gives a value below 95.
+    static func endOfASCII(in bytes: Span<UInt8>, from start: Int) -> Int {
+        var index = start
+        while bytes.count - index >= 16 {
+            let block = bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self)
+            if (block &- 0x20).max() >= 95 { break }
+            index += 16
+        }
+        while index < bytes.count && bytes[index] &- 0x20 < 95 { index += 1 }
+        return index
+    }
+
     private var value: UInt32 = 0
     private var remaining = 0
     private var nextRange: ClosedRange<UInt8> = 0x80...0xbf
 
     var isComplete: Bool { remaining == 0 }
 
-    func needsRestart(before byte: UInt8) -> Bool {
-        remaining > 0 && !nextRange.contains(byte)
-    }
-
     mutating func decode(_ byte: UInt8) -> Unicode.Scalar? {
+        if remaining > 0 && !nextRange.contains(byte) { self = Self() }
         if remaining > 0 {
             value = (value << 6) | UInt32(byte & 0x3f)
             remaining -= 1

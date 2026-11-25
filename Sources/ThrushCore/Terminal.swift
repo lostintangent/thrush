@@ -1,3 +1,6 @@
+// Owns the parser, screen and modes for one shell. Each chunk of output advances that
+// state and returns any reply bytes the caller needs to send back to the shell.
+
 /// The grid dimensions and colors used by a terminal pane.
 public struct Terminal: Sendable {
     /// The pane’s visible dimensions in character cells, supplied to the socket factory.
@@ -46,8 +49,9 @@ public struct Terminal: Sendable {
         didSet { if oldValue != palette { generation &+= 1 } }
     }
     package private(set) var modes = Modes()
-    private var decoder = ScalarDecoder()
+    private var scanner = TextScanner()
     private var parser = EscapeParser()
+    private var stringHandler = TerminalStringHandler()
     private var screen: Screen
     private var style = Style()
     private var savedStyle = Style()
@@ -65,22 +69,22 @@ public struct Terminal: Sendable {
     /// UTF-8 characters and escape sequences can span calls. An empty result means
     /// this chunk produced no reply. Forward nonempty results in arrival order.
     package mutating func receive(_ bytes: some Sequence<UInt8>) -> [UInt8] {
-        if let replies = bytes.withContiguousStorageIfAvailable({ receive($0) }) { return replies }
+        if let replies = bytes.withContiguousStorageIfAvailable({ receive($0.span) }) { return replies }
         var replies: [UInt8] = []
         for byte in bytes { consume(byte, replies: &replies) }
         return replies
     }
 
     /// Apply a borrowed network or replay buffer synchronously without copying it.
-    package mutating func receive(_ bytes: UnsafeBufferPointer<UInt8>) -> [UInt8] {
+    package mutating func receive(_ bytes: Span<UInt8>) -> [UInt8] {
         var replies: [UInt8] = []
         var index = 0
         while index < bytes.count {
             let byte = bytes[index]
-            if byte >= 0x20, byte < 0x7f, parser.isGround, decoder.isComplete {
+            if byte >= 0x20, byte < 0x7f, parser.isGround, scanner.isComplete {
                 let start = index
-                repeat { index += 1 } while index < bytes.count && bytes[index] >= 0x20 && bytes[index] < 0x7f
-                screen.writeASCII(UnsafeBufferPointer(rebasing: bytes[start..<index]), style: style)
+                index = TextScanner.endOfASCII(in: bytes, from: start)
+                screen.writeASCII(bytes.extracting(start..<index), style: style)
                 hasCombiningBase = true
                 generation &+= 1
             } else {
@@ -114,10 +118,8 @@ public struct Terminal: Sendable {
     }
 
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
-        if decoder.needsRestart(before: byte) { decoder = ScalarDecoder() }
-        guard let scalar = decoder.decode(byte), scalar.value != 0xfeff else { return }
-        let action = parser.consume(scalar)
-        if case .printable = action {
+        guard let scalar = scanner.decode(byte), scalar.value != 0xfeff else { return }
+        if parser.isGround, scalar.value >= 0xa0 || (0x20..<0x7f).contains(scalar.value) {
             let width = ColumnWidth.of(scalar)
             screen.write(scalar, width: width, style: style, joinsPrevious: hasCombiningBase)
             hasCombiningBase = width > 0 || hasCombiningBase
@@ -125,115 +127,122 @@ public struct Terminal: Sendable {
             return
         }
         if scalar.value != 0x7f { hasCombiningBase = false }
-        switch action {
-        case .carriageReturn: screen.carriageReturn()
-        case .lineFeed: screen.lineFeed(style: style)
-        case .backspace: screen.backspace()
-        case .colorQueries(let queries):
-            palette.appendReplies(to: &replies, for: queries)
-            return
-        case .keypad(let enabled):
-            modes.applicationKeypad = enabled
-            return
-        case .csi(let final, let prefix, let intermediate, let parameters):
-            handleCSI(final, prefix: prefix, intermediate: intermediate, parameters: parameters, replies: &replies)
-            return
-        case nil, .printable: return
+        if let action = parser.consume(scalar), let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
+        if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
+            apply(function, replies: &replies)
         }
-        generation &+= 1
     }
 
-    private mutating func handleCSI(
-        _ final: UInt8, prefix: UInt8?, intermediate: UInt8?, parameters: [Int], replies: inout [UInt8]
-    ) {
-        let first = parameters[0]
-        switch (prefix, intermediate, final) {
-        case (nil, 0x20, 0x71): // DECSCUSR overrides the cursor until a zero or omitted parameter.
-            switch first {
-            case 0...2: modes.cursorShape = .block
-            case 3, 4: modes.cursorShape = .underline
-            case 5, 6: modes.cursorShape = .bar
-            default: break
+    /// Applies one named VT function. Screen operations advance the frame generation together below.
+    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
+        switch function {
+        case .execute(.backspace): screen.backspace()
+        case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed): screen.lineFeed(style: style)
+        case .execute(.carriageReturn): screen.carriageReturn()
+        case .escape(.applicationKeypad):
+            modes.applicationKeypad = true
+            return
+        case .escape(.numericKeypad):
+            modes.applicationKeypad = false
+            return
+        case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
+        case .control(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
+        case .control(.cursorForward): screen.cursorForward(parser.parameters[0, default: 1])
+        case .control(.cursorBackward): screen.cursorBackward(parser.parameters[0, default: 1])
+        case .control(.cursorPosition):
+            screen.move(toRow: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
+        case .control(.eraseInDisplay):
+            if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseDisplay(range, style: style) }
+        case .control(.eraseInLine):
+            if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
+        case .control(.primaryDeviceAttributes):
+            if parser.parameters[0] == 0 { replies.append(contentsOf: "\u{1b}[?1;2c".utf8) }
+            return
+        case .control(.secondaryDeviceAttributes):
+            if parser.parameters[0] == 0 { replies.append(contentsOf: "\u{1b}[>0;276;0c".utf8) }
+            return
+        case .control(.setPrivateMode):
+            setPrivateModes(parser.parameters, enabled: true)
+            return
+        case .control(.resetPrivateMode):
+            setPrivateModes(parser.parameters, enabled: false)
+            return
+        case .control(.graphicRendition):
+            style.applySGR(parser.parameters)
+            return
+        case .control(.deviceStatusReport):
+            if parser.parameters[0] == 6 { replies.append(contentsOf: "\u{1b}[\(screen.row + 1);\(screen.column + 1)R".utf8) }
+            return
+        case .control(.requestPrivateMode):
+            if PrivateMode(rawValue: parser.parameters[0]) == .cursorBlink {
+                replies.append(contentsOf: (modes.cursorBlink ? "\u{1b}[?12;1$y" : "\u{1b}[?12;2$y").utf8)
             }
-            modes.cursorBlinkOverride = first == 0 ? nil : !first.isMultiple(of: 2)
-            generation &+= 1
             return
-        case (nil, nil, 0x63) where first == 0:
-            // Codex probes primary device attributes alongside its optional keyboard query.
-            replies.append(contentsOf: "\u{1b}[?1;2c".utf8)
-            return
-        case (0x3e, nil, 0x63) where first == 0:
-            // Secondary device attributes advertised by the server's configured xterm.
-            replies.append(contentsOf: "\u{1b}[>0;276;0c".utf8)
-            return
-        case (0x3f, 0x24, 0x70) where first == 12:
-            // Vim probes cursor blink before changing it. DECRQM reports set (1) or reset (2).
-            replies.append(contentsOf: (modes.cursorBlink ? "\u{1b}[?12;1$y" : "\u{1b}[?12;2$y").utf8)
-            return
-        case (0x3f, nil, 0x68), (0x3f, nil, 0x6c):
-            for mode in parameters { setPrivateMode(mode, enabled: final == 0x68) }
-            return
-        case (nil, nil, _): break
-        default: return
-        }
-
-        switch final {
-        case 0x41, 0x42: // CUU/CUD stop at the scroll margin when approached from inside it.
-            let count = max(1, first)
-            let row = screen.row
-            let target: Int
-            if final == 0x41 {
-                target = max(row >= screen.scrollTop ? screen.scrollTop : 0, row - count)
-            } else {
-                target = min(row <= screen.scrollBottom ? screen.scrollBottom : size.rows - 1, row + count)
-            }
-            screen.move(toRow: target, column: screen.column)
-        case 0x43: // CUF advances over unwritten cells when Vim draws an indented line.
-            screen.move(toRow: screen.row, column: screen.column + max(1, first))
-        case 0x44: // CUB measures from the visible right margin even when wrapping is pending.
-            screen.move(toRow: screen.row, column: min(screen.column, size.columns - 1) - max(1, first))
-        case 0x48: // CUP
-            let column = parameters.count > 1 ? parameters[1] : 1
-            screen.move(toRow: max(1, first) - 1, column: max(1, column) - 1)
-        case 0x4a: screen.eraseDisplay(first, style: style)
-        case 0x4b: screen.eraseLine(first, style: style)
-        case 0x6d:
-            style.applySGR(parameters)
-            return
-        case 0x6e where first == 6:
-            replies.append(contentsOf: "\u{1b}[\(screen.row + 1);\(screen.column + 1)R".utf8)
-            return
-        case 0x72: // DECSTBM homes the cursor after a valid change of margins.
-            let top = max(1, first)
-            let specified = parameters.count > 1 ? parameters[1] : 0
-            let bottom = specified == 0 ? size.rows : min(specified, size.rows)
+        case .control(.cursorStyle): setCursorStyle(parser.parameters[0])
+        case .control(.scrollMargins):
+            let top = parser.parameters[0, default: 1]
+            let bottom = min(parser.parameters[1, default: size.rows], size.rows)
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
             screen.move(toRow: 0, column: 0)
-        default: return
+        case .command(.indexedColor):
+            stringHandler.start(.indexedColor)
+            return
+        case .command(.foregroundColor):
+            stringHandler.start(.foregroundColor)
+            return
+        case .command(.backgroundColor):
+            stringHandler.start(.backgroundColor)
+            return
+        case .ignoredString:
+            parser.discardStringPayload()
+            stringHandler.start(nil)
+            return
+        case .stringPut(let scalar):
+            stringHandler.put(scalar)
+            return
+        case .stringEnd(let success):
+            palette.appendReplies(to: &replies, for: stringHandler.finish(success: success))
+            return
         }
         generation &+= 1
     }
 
-    private mutating func setPrivateMode(_ mode: Int, enabled: Bool) {
+    private mutating func setPrivateModes(_ parameters: ControlParameters, enabled: Bool) {
+        for index in 0..<parameters.count {
+            if let mode = PrivateMode(rawValue: parameters[index]) { setPrivateMode(mode, enabled: enabled) }
+        }
+    }
+
+    private mutating func setCursorStyle(_ parameter: Int) {
+        switch parameter {
+        case 0...2: modes.cursorShape = .block
+        case 3, 4: modes.cursorShape = .underline
+        case 5, 6: modes.cursorShape = .bar
+        default: break
+        }
+        modes.cursorBlinkOverride = parameter == 0 ? nil : !parameter.isMultiple(of: 2)
+    }
+
+    private mutating func setPrivateMode(_ mode: PrivateMode, enabled: Bool) {
         switch mode {
-        case 1: modes.applicationCursorKeys = enabled
-        case 12:
+        case .applicationCursorKeys: modes.applicationCursorKeys = enabled
+        case .cursorBlink:
             modes.cursorBlink = enabled
             generation &+= 1
-        case 25:
+        case .cursorVisible:
             modes.cursorVisible = enabled
             generation &+= 1
-        case 66: modes.applicationKeypad = enabled
-        case 1000, 1002, 1003:
-            let next: MouseTracking = enabled ? (mode == 1000 ? .press : mode == 1002 ? .drag : .all) : .off
+        case .applicationKeypad: modes.applicationKeypad = enabled
+        case .mousePress, .mouseDrag, .mouseMotion:
+            let next: MouseTracking = enabled ? (mode == .mousePress ? .press : mode == .mouseDrag ? .drag : .all) : .off
             if modes.mouseTracking != next {
                 modes.mouseTracking = next
                 generation &+= 1
             }
-        case 1006: modes.mouseSGR = enabled
-        case 1004: modes.sendFocus = enabled
-        case 1049:
+        case .mouseSGR: modes.mouseSGR = enabled
+        case .sendFocus: modes.sendFocus = enabled
+        case .alternateScreen:
             guard enabled != screen.isAlternate else { return }
             if enabled {
                 screen.saveCursor()
@@ -245,12 +254,11 @@ public struct Terminal: Sendable {
                 style = savedStyle
             }
             generation &+= 1
-        case 2004: modes.bracketedPaste = enabled
-        case 2026:
+        case .bracketedPaste: modes.bracketedPaste = enabled
+        case .synchronizedOutput:
             // The presenter owns the timeout. Parsing, input and replies continue during a batch.
             generation &+= 1
             modes.synchronizedOutputID = enabled ? generation : nil
-        default: break
         }
     }
 }

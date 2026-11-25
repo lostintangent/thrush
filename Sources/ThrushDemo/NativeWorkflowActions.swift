@@ -87,7 +87,7 @@ enum NativeWorkflowActions {
         guard selection.anchorRow != selection.headRow,
               selection.anchorRow + top == copy.start.row, selection.anchorColumn == copy.start.column,
               selection.headRow + top == endRow, selection.headColumn == endColumn else {
-            throw Failure("The selected native cells differ from xterm's soft-wrapped range.")
+            throw Failure("The selected native cells differ from the recorded soft-wrapped range.")
         }
         #if os(macOS)
         let result = probe.selection // Cocoa Copy reads the native selection into a private pasteboard.

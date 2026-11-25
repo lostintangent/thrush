@@ -1,3 +1,6 @@
+// Defines the default, indexed and RGB colors of a terminal theme. Drawing and replies
+// to a program’s color queries use the same palette.
+
 extension Terminal {
     /// An sRGB color with 8-bit channels.
     public struct RGB: Equatable, Sendable {
@@ -38,7 +41,7 @@ extension Terminal {
             self.ansi = ansi
         }
 
-        /// White text on a black background with xterm’s Tango ANSI colors.
+        /// White text on a black background with the Tango ANSI colors.
         package static let `default` = Self(
             foreground: RGB(0xffffff), background: RGB(0x000000),
             ansi: [
@@ -49,7 +52,7 @@ extension Terminal {
 
         /// The color at an index in the 256-color terminal palette.
         ///
-        /// Indices 0–15 use ``ansi``, 16–231 use xterm's 6 × 6 × 6 color cube, and 232–255 use its gray ramp.
+        /// Indices 0–15 use ``ansi``, 16–231 use a 6 × 6 × 6 color cube, and 232–255 use a gray ramp.
         package subscript(index index: UInt8) -> RGB {
             if index < 16 { return ansi[Int(index)] }
             if index >= 232 {
@@ -90,7 +93,7 @@ extension Terminal {
             func hex(_ digit: UInt8) -> UInt8 { digit < 10 ? 48 + digit : 87 + digit }
             let high = hex(channel >> 4)
             let low = hex(channel & 15)
-            // Replicating the 8-bit value gives xterm's four-digit, 16-bit channel.
+            // Replicating the 8-bit value gives the four-digit, 16-bit channel in an OSC reply.
             output.append(contentsOf: [high, low, high, low])
         }
     }

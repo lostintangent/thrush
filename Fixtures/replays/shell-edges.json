@@ -56,7 +56,9 @@
 {"text":"w","width":1,"flags":0,"foreground":1,"background":4},
 {"text":"a","width":1,"flags":0,"foreground":1,"background":4},
 {"text":"r","width":1,"flags":0,"foreground":1,"background":4},
-{"text":"n","width":1,"flags":0,"foreground":1,"background":4}
+{"text":"n","width":1,"flags":0,"foreground":1,"background":4},
+{"text":"A","width":1,"flags":1,"foreground":44,"background":660766},
+{"text":"B","width":1,"flags":0,"foreground":10,"background":660766}
 ],
 "lines":[
 {"wrapped":false,"text":"AB","runs":[1,1,1,2]},
@@ -95,7 +97,8 @@
 {"wrapped":true,"text":"ld 界é","runs":[1,9,1,10,1,5,1,12,1,13,1,14]},
 {"wrapped":false,"text":"abc中EF","runs":[1,46,1,47,1,48,1,49,1,50,1,51,1,52]},
 {"wrapped":true,"text":"中hi","runs":[1,49,1,41,1,42,1,40]},
-{"wrapped":false,"text":"warn","runs":[1,53,1,54,1,55,1,56]}
+{"wrapped":false,"text":"warn","runs":[1,53,1,54,1,55,1,56]},
+{"wrapped":false,"text":"AB","runs":[1,57,1,58]}
 ],
 "events":[
 {"name":"BOM before shell prompt","offsetMicroseconds":0,"bytes":"77u/QUIbWzZu","checkpoint":{"columns":2,"rows":2,"cursorRow":0,"cursorColumn":2,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[0,1]},"reply":"G1sxOzNS"},
@@ -170,5 +173,6 @@
 {"name":"Custom foreground and background","offsetMicroseconds":69000,"bytes":"G10xMDs/Oz8H","reply":"G10xMDtyZ2I6ZDlkOS9lNmU2L2YxZjEbXBtdMTE7cmdiOjEyMTIvMjQyNC8zNDM0G1w="},
 {"name":"Host reverses palette and queries both defaults","offsetMicroseconds":70000,"palette":{"foreground":"#122434","background":"#d9e6f1","ansi":["#e6f1ff","#71b8c4","#c68cc2","#739cdd","#d6ae52","#61b985","#db697a","#566d7a","#acb8c2","#367d81","#98619b","#4277aa","#b2832c","#25835b","#a64152","#091321"]},"bytes":"G10xMDs/Oz8H","checkpoint":{"columns":8,"rows":5,"cursorRow":4,"cursorColumn":4,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[0,32],"visible":[33,34,35,1,36]},"reply":"G10xMDtyZ2I6MTIxMi8yNDI0LzM0MzQbXBtdMTE7cmdiOmQ5ZDkvZTZlNi9mMWYxG1w="},
 {"name":"Reversed ANSI colors","offsetMicroseconds":71000,"bytes":"G100OzA7PzsxOz87Mjs/OzM7Pzs0Oz87NTs/OzY7Pzs3Oz87ODs/Ozk7PzsxMDs/OzExOz87MTI7PzsxMzs/OzE0Oz87MTU7Pwc=","checkpoint":{"columns":8,"rows":5,"cursorRow":4,"cursorColumn":4,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[0,32],"visible":[33,34,35,1,36]},"reply":"G100OzA7cmdiOmU2ZTYvZjFmMS9mZmZmG1wbXTQ7MTtyZ2I6NzE3MS9iOGI4L2M0YzQbXBtdNDsyO3JnYjpjNmM2LzhjOGMvYzJjMhtcG100OzM7cmdiOjczNzMvOWM5Yy9kZGRkG1wbXTQ7NDtyZ2I6ZDZkNi9hZWFlLzUyNTIbXBtdNDs1O3JnYjo2MTYxL2I5YjkvODU4NRtcG100OzY7cmdiOmRiZGIvNjk2OS83YTdhG1wbXTQ7NztyZ2I6NTY1Ni82ZDZkLzdhN2EbXBtdNDs4O3JnYjphY2FjL2I4YjgvYzJjMhtcG100Ozk7cmdiOjM2MzYvN2Q3ZC84MTgxG1wbXTQ7MTA7cmdiOjk4OTgvNjE2MS85YjliG1wbXTQ7MTE7cmdiOjQyNDIvNzc3Ny9hYWFhG1wbXTQ7MTI7cmdiOmIyYjIvODM4My8yYzJjG1wbXTQ7MTM7cmdiOjI1MjUvODM4My81YjViG1wbXTQ7MTQ7cmdiOmE2YTYvNDE0MS81MjUyG1wbXTQ7MTU7cmdiOjA5MDkvMTMxMy8yMTIxG1w="},
-{"name":"Extended colors with reversed ANSI palette","offsetMicroseconds":72000,"bytes":"G100OzE2Oz87MjMxOz87MjMyOz87MjU1Oz8H","checkpoint":{"columns":8,"rows":5,"cursorRow":4,"cursorColumn":4,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[0,32],"visible":[33,34,35,1,36]},"reply":"G100OzE2O3JnYjowMDAwLzAwMDAvMDAwMBtcG100OzIzMTtyZ2I6ZmZmZi9mZmZmL2ZmZmYbXBtdNDsyMzI7cmdiOjA4MDgvMDgwOC8wODA4G1wbXTQ7MjU1O3JnYjplZWVlL2VlZWUvZWVlZRtc"}
+{"name":"Extended colors with reversed ANSI palette","offsetMicroseconds":72000,"bytes":"G100OzE2Oz87MjMxOz87MjMyOz87MjU1Oz8H","checkpoint":{"columns":8,"rows":5,"cursorRow":4,"cursorColumn":4,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[0,32],"visible":[33,34,35,1,36]},"reply":"G100OzE2O3JnYjowMDAwLzAwMDAvMDAwMBtcG100OzIzMTtyZ2I6ZmZmZi9mZmZmL2ZmZmYbXBtdNDsyMzI7cmdiOjA4MDgvMDgwOC8wODA4G1wbXTQ7MjU1O3JnYjplZWVlL2VlZWUvZWVlZRtc"},
+{"name":"SGR with indexed and RGB subparameters","offsetMicroseconds":73000,"bytes":"DQobWzM4OjU6NDQ7NDg6Mjo6MTA6MjA6MzA7MW1BG1szODo3OjE7OTI7MjJtQhtbMG0=","checkpoint":{"columns":8,"rows":5,"cursorRow":4,"cursorColumn":2,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[0,32,33],"visible":[34,35,1,36,37]}}
 ]}

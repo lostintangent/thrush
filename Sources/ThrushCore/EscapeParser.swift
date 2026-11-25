@@ -1,212 +1,112 @@
-/// An incremental parser for the control repertoire in the recorded shell and Vim sessions.
-/// Unknown control strings stream directly to their terminator without allocating payload storage.
-struct EscapeParser: Sendable {
-    enum Action {
-        case printable, carriageReturn, lineFeed, backspace
-        case keypad(Bool)
-        case colorQueries([ColorQuery])
-        case csi(final: UInt8, prefix: UInt8?, intermediate: UInt8?, parameters: [Int])
+// Frames control sequences across input chunks. The terminal can act on each complete
+// identifier or consume a string as it arrives, even when one read ends halfway through it.
+
+/// A control's private prefix, intermediate bytes and final byte packed in wire order.
+struct ControlIdentifier: Hashable, Sendable {
+    let rawValue: UInt32
+
+    init(_ final: UInt8, prefix: UInt8? = nil, intermediate: UInt8? = nil, secondIntermediate: UInt8? = nil) {
+        var collected = UInt32(prefix ?? 0)
+        if let intermediate { collected = collected << 8 | UInt32(intermediate) }
+        if let secondIntermediate { collected = collected << 8 | UInt32(secondIntermediate) }
+        self.init(collected: collected, final: final)
     }
 
-    private enum State: Equatable {
-        case ground, escape, escapeIntermediate, csi, ignoreCSI, osc, controlString
-    }
-
-    private var state: State = .ground
-    private var colorQueries = ColorQueryParser()
-    private var parameters: [Int] = []
-    private var prefix: UInt8?
-    private var intermediate: UInt8?
-    private var hasParameter = false
-    var isGround: Bool { state == .ground }
-
-    mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
-        if state == .osc {
-            switch scalar.value {
-            case 0x07, 0x1b, 0x9c: // BEL, the ESC of a 7-bit ST, or 8-bit ST
-                state = scalar.value == 0x1b ? .escape : .ground
-                let queries = colorQueries.finish()
-                return queries.isEmpty ? nil : .colorQueries(queries)
-            case 0x18, 0x1a, 0x80...0x9f:
-                // CAN/SUB cancel without replies. A new C1 introducer replaces this OSC.
-                state = .ground
-                colorQueries = ColorQueryParser()
-            case 0x00...0x1f:
-                return nil
-            default:
-                colorQueries.put(scalar.value)
-                return nil
-            }
-        }
-
-        switch scalar.value {
-        case 0x18, 0x1a, 0x9c: // CAN, SUB and ST
-            state = .ground
-            return nil
-        case 0x1b:
-            state = .escape
-            return nil
-        default:
-            break
-        }
-
-        if state == .controlString { return nil }
-
-        switch scalar.value {
-        case 0x08: return .backspace
-        case 0x0a...0x0c: return .lineFeed
-        case 0x0d: return .carriageReturn
-        case 0x90, 0x98, 0x9e, 0x9f:
-            state = .controlString
-            return nil
-        case 0x9d:
-            state = .osc
-            return nil
-        case 0x9b:
-            beginCSI()
-            return nil
-        case 0x00...0x1f, 0x7f...0x9f:
-            return nil
-        default:
-            break
-        }
-
-        switch state {
-        case .ground:
-            return .printable
-        case .escape:
-            switch scalar.value {
-            case 0x5b: beginCSI()
-            case 0x5d: state = .osc
-            case 0x50, 0x58, 0x5e, 0x5f: state = .controlString
-            case 0x20...0x2f: state = .escapeIntermediate
-            case 0x3d, 0x3e:
-                state = .ground
-                return .keypad(scalar.value == 0x3d)
-            default: state = .ground
-            }
-        case .escapeIntermediate:
-            if !(0x20...0x2f).contains(scalar.value) { state = .ground }
-        case .csi:
-            switch scalar.value {
-            case 0x40...0x7e:
-                state = .ground
-                return .csi(final: UInt8(scalar.value), prefix: prefix, intermediate: intermediate, parameters: parameters)
-            case 0x3c...0x3f where prefix == nil && intermediate == nil && !hasParameter:
-                prefix = UInt8(scalar.value)
-            case 0x20...0x2f where intermediate == nil:
-                intermediate = UInt8(scalar.value)
-            case 0x30...0x39 where intermediate == nil:
-                hasParameter = true
-                let index = parameters.count - 1
-                parameters[index] = min(Int(Int32.max), parameters[index] * 10 + Int(scalar.value - 0x30))
-            case 0x3b where intermediate == nil && parameters.count < 32:
-                hasParameter = true
-                parameters.append(0)
-            default:
-                state = .ignoreCSI
-            }
-        case .ignoreCSI:
-            if (0x40...0x7e).contains(scalar.value) { state = .ground }
-        case .osc, .controlString:
-            break
-        }
-        return nil
-    }
-
-    private mutating func beginCSI() {
-        parameters.removeAll(keepingCapacity: true)
-        parameters.append(0)
-        prefix = nil
-        intermediate = nil
-        hasParameter = false
-        state = .csi
+    fileprivate init(collected: UInt32, final: UInt8) {
+        rawValue = collected << 8 | UInt32(final)
     }
 }
 
-/// Recognize only the query fields a host palette can answer. Invalid fields and unknown OSCs
-/// consume constant space. The ordered list of valid requests is held until termination so a
-/// cancellation can discard the entire command without sending a partial reply.
-private struct ColorQueryParser: Sendable {
-    private enum Field {
-        case identifier, index, indexedSpec(UInt8?), foreground, background, ignore
+/// Frames a Unicode scalar stream into VT controls. String payloads are forwarded
+/// as they arrive; the framer never accumulates their contents.
+struct EscapeParser: Sendable {
+    enum Action {
+        case printable, execute(UInt8)
+        case esc(ControlIdentifier), csi(ControlIdentifier)
+        case oscStart(Int), dcsStart(ControlIdentifier)
+        case stringPut(Unicode.Scalar), stringEnd(success: Bool)
     }
 
-    private enum Token {
-        case empty, number(Int), question, invalid
+    private enum Pending { case stringEnd(Bool), execute(UInt8) }
 
-        mutating func append(_ code: UInt32) {
-            switch (self, code) {
-            case (.empty, 0x3f):
-                self = .question
-            case (.empty, 0x30...0x39):
-                self = .number(Int(code - 0x30))
-            case (.number(let value), 0x30...0x39):
-                self = .number(min(256, value * 10 + Int(code - 0x30)))
-            default:
-                self = .invalid
-            }
+    private var state = State.ground.rawValue
+    private var collected: UInt32 = 0
+    /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
+    private(set) var parameters = ControlParameters()
+    private var oscIdentifier = -1
+    private var pending: Pending?
+    var isGround: Bool { state == State.ground.rawValue }
+
+    /// A scalar can finish an empty OSC or interrupt a string and execute a C1
+    /// control. Drain the second notification after an OSC start or string end.
+    mutating func takePendingAction() -> Action? {
+        defer { pending = nil }
+        switch pending {
+        case .stringEnd(let success): return .stringEnd(success: success)
+        case .execute(let byte): return .execute(byte)
+        case nil: return nil
         }
     }
 
-    private var field = Field.identifier
-    private var token = Token.empty
-    private var queries: [ColorQuery] = []
-    private var payloadLength: Int?
-    // The pinned OscHandler discards payloads longer than ten million UTF-16 code units.
-    private static let payloadLimit = 10_000_000
-
-    mutating func put(_ code: UInt32) {
-        if let payloadLength {
-            let length = payloadLength + (code > 0xffff ? 2 : 1)
-            if length > Self.payloadLimit {
-                queries = []
-                field = .ignore
-                self.payloadLength = nil
-                return
-            }
-            self.payloadLength = length
+    /// Suppress payload delivery after dispatch declines a string command.
+    mutating func discardStringPayload() {
+        switch state {
+        case State.oscPayload.rawValue: state = State.discardedOSC.rawValue
+        case State.dcsPayload.rawValue: state = State.discardedDCS.rawValue
+        default:
+            // An OSC without a payload separator starts and ends on the same scalar.
+            if case .stringEnd = pending { pending = nil }
         }
-        if case .ignore = field { return }
-        if code == 0x3b { finishField() }
-        else { token.append(code) }
     }
 
-    mutating func finish() -> [ColorQuery] {
-        finishField()
-        let result = queries
-        self = Self()
-        return result
-    }
-
-    private mutating func finishField() {
-        defer { token = .empty }
-        switch field {
-        case .identifier:
-            switch token {
-            case .number(4): field = .index
-            case .number(10): field = .foreground
-            case .number(11): field = .background
-            default: field = .ignore; return
-            }
-            payloadLength = 0
-        case .index:
-            if case .number(let index) = token {
-                field = .indexedSpec(UInt8(exactly: index))
+    mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
+        let code = scalar.value
+        let index = Int(state) << 8 | Int(min(code, 0xA0))
+        let transition = Self.transitions[index]
+        state = transition.nextState
+        // Operations that use a byte are reachable only for single-byte code points.
+        let byte = UInt8(truncatingIfNeeded: code)
+        switch transition.operation {
+        case Operation.ignore.rawValue: return nil
+        case Operation.print.rawValue: return .printable
+        case Operation.execute.rawValue: return .execute(byte)
+        case Operation.beginEscape.rawValue:
+            collected = 0
+        case Operation.beginHeader.rawValue, Operation.cancelAndBeginHeader.rawValue:
+            collected = 0
+            parameters.reset()
+            if transition.operation == Operation.cancelAndBeginHeader.rawValue { return .stringEnd(success: false) }
+        case Operation.collect.rawValue:
+            collected = collected << 8 | code
+        case Operation.parameter.rawValue:
+            parameters.append(byte)
+        case Operation.escapeFinal.rawValue: return .esc(ControlIdentifier(collected: collected, final: byte))
+        case Operation.controlFinal.rawValue: return .csi(ControlIdentifier(collected: collected, final: byte))
+        case Operation.startDCS.rawValue: return .dcsStart(ControlIdentifier(collected: collected, final: byte))
+        case Operation.beginOSC.rawValue, Operation.cancelAndBeginOSC.rawValue:
+            oscIdentifier = -1
+            if transition.operation == Operation.cancelAndBeginOSC.rawValue { return .stringEnd(success: false) }
+        case Operation.oscDigit.rawValue:
+            let digit = Int(code - 0x30)
+            if oscIdentifier <= (Int.max - digit) / 10 {
+                oscIdentifier = max(0, oscIdentifier) * 10 + digit
             } else {
-                field = .indexedSpec(nil)
+                state = State.invalidOSC.rawValue
             }
-        case .indexedSpec(let index):
-            if let index, case .question = token { queries.append(.indexed(index)) }
-            field = .index
-        case .foreground:
-            if case .question = token { queries.append(.foreground) }
-            field = .background
-        case .background:
-            if case .question = token { queries.append(.background) }
-            field = .ignore
-        case .ignore:
-            break
+        case Operation.startOSC.rawValue: return .oscStart(oscIdentifier)
+        case Operation.put.rawValue: return .stringPut(scalar)
+        case Operation.finish.rawValue, Operation.cancel.rawValue:
+            collected = 0
+            return .stringEnd(success: transition.operation == Operation.finish.rawValue)
+        case Operation.finishEmptyOSC.rawValue, Operation.cancelEmptyOSC.rawValue:
+            collected = 0
+            pending = .stringEnd(transition.operation == Operation.finishEmptyOSC.rawValue)
+            return .oscStart(oscIdentifier)
+        case Operation.cancelAndExecute.rawValue:
+            pending = .execute(byte)
+            return .stringEnd(success: false)
+        default: preconditionFailure("Invalid framing table operation")
         }
+        return nil
     }
 }

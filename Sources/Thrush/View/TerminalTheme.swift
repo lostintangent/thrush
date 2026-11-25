@@ -53,7 +53,7 @@ extension Terminal.RGB {
     }
 }
 
-/// The first 256 entries match xterm indexes. A direct RGB token bypasses this table.
+/// The first 256 entries hold indexed terminal colors. A direct RGB token bypasses this table.
 enum Paint {
     static let foreground: UInt32 = 256
     static let background: UInt32 = 257

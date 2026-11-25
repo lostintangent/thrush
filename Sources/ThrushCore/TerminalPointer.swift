@@ -1,3 +1,6 @@
+// Encodes pointer events for programs that request mouse tracking. The active tracking
+// mode selects which events to send, and the coordinate format determines their encoding.
+
 extension Terminal {
     package enum MouseTracking: Sendable { case off, press, drag, all }
 }

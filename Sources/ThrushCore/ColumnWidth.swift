@@ -1,4 +1,5 @@
-/// The server selects Unicode 11 independently of the operating system's Unicode version.
+/// Returns how many grid columns a scalar occupies. Using the server’s Unicode 11 widths
+/// keeps wide characters and combining marks at the same cursor positions on every host.
 enum ColumnWidth {
     static func of(_ scalar: Unicode.Scalar) -> Int {
         let code = scalar.value

@@ -237,7 +237,7 @@ final class PaneWorkflowDriver {
                 case .checkpoint:
                     let projected = try ReplayFixture.decode(await get("checkpoint", index: state.eventIndex))
                     guard projected.events.count == 1, let expected = projected.events.first, expected.name == event.name else {
-                        throw Failure("The native xterm reference omitted \(event.name).")
+                        throw Failure("The reference omitted \(event.name).")
                     }
                     let entry = try await inspect(expected, state: state)
                     if checkKeyboardAfterShellAction {
