@@ -53,13 +53,13 @@ def run_logged(args, log, timeout, observe=None):
         raise RuntimeError(f"{args[0]} exited {result.returncode}. See {log.name}.\n" + log.read_text()[-2800:])
 
 
-def build_test_runner(work, out, source=HERE / (RUNNER + ".swift")):
+def build_test_runner(work, out, source=HERE / (RUNNER + ".swift"), *, mac=False, name=RUNNER):
     # XCUITest needs a UI-test bundle. Keep the product and its generated project inside
     # the disposable build directory; the real app is always the normal SwiftPM bundle.
-    project = work / (RUNNER + ".xcodeproj")
+    project = work / (name + ".xcodeproj")
     shared = project / "xcshareddata/xcschemes"
     shared.mkdir(parents=True)
-    (work / (RUNNER + ".swift")).symlink_to(source)
+    (work / (name + ".swift")).symlink_to(source)
     objects = {}
 
     def item(key, isa, **values):
@@ -70,19 +70,20 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift")):
          developmentRegion="en", knownRegions=["en", "Base"])
     item("GROUP", "PBXGroup", children=["SOURCE", "PRODUCTS"], sourceTree="<group>")
     item("PRODUCTS", "PBXGroup", children=["BUNDLE"], name="Products", sourceTree="<group>")
-    item("SOURCE", "PBXFileReference", lastKnownFileType="sourcecode.swift", path=RUNNER + ".swift", sourceTree="<group>")
-    item("BUNDLE", "PBXFileReference", explicitFileType="wrapper.cfbundle", path=RUNNER + ".xctest",
+    item("SOURCE", "PBXFileReference", lastKnownFileType="sourcecode.swift", path=name + ".swift", sourceTree="<group>")
+    item("BUNDLE", "PBXFileReference", explicitFileType="wrapper.cfbundle", path=name + ".xctest",
          sourceTree="BUILT_PRODUCTS_DIR")
-    item("TARGET", "PBXNativeTarget", name=RUNNER, productName=RUNNER, productReference="BUNDLE",
+    item("TARGET", "PBXNativeTarget", name=name, productName=name, productReference="BUNDLE",
          productType="com.apple.product-type.bundle.ui-testing", buildConfigurationList="TARGETCFG",
          buildPhases=["COMPILE", "LINK"], buildRules=[], dependencies=[])
     item("TEST", "PBXBuildFile", fileRef="SOURCE")
     for key, kind, files in [("COMPILE", "PBXSourcesBuildPhase", ["TEST"]), ("LINK", "PBXFrameworksBuildPhase", [])]:
         item(key, kind, buildActionMask="2147483647", files=files, runOnlyForDeploymentPostprocessing="0")
+    platform = dict(SDKROOT="macosx", MACOSX_DEPLOYMENT_TARGET="27.0") if mac else dict(
+        SDKROOT="iphoneos", IPHONEOS_DEPLOYMENT_TARGET="27.0", TARGETED_DEVICE_FAMILY="1")
     for key, debug, settings in [
-        ("CFG", "DEBUG", dict(SDKROOT="iphoneos", IPHONEOS_DEPLOYMENT_TARGET="27.0", SWIFT_VERSION="5.0",
-                             CLANG_ENABLE_MODULES="YES", TARGETED_DEVICE_FAMILY="1")),
-        ("TARGETCFG", "TARGETDEBUG", dict(PRODUCT_NAME=RUNNER, PRODUCT_BUNDLE_IDENTIFIER=BUNDLE_ID,
+        ("CFG", "DEBUG", dict(**platform, SWIFT_VERSION="5.0", CLANG_ENABLE_MODULES="YES")),
+        ("TARGETCFG", "TARGETDEBUG", dict(PRODUCT_NAME=name, PRODUCT_BUNDLE_IDENTIFIER=BUNDLE_ID,
                                          GENERATE_INFOPLIST_FILE="YES", CODE_SIGN_IDENTITY="-")),
     ]:
         item(key, "XCConfigurationList", buildConfigurations=[debug], defaultConfigurationIsVisible="0",
@@ -91,8 +92,8 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift")):
     with (project / "project.pbxproj").open("wb") as file:
         plistlib.dump(dict(archiveVersion="1", objectVersion="56", classes={}, objects=objects, rootObject="PROJECT"), file)
     ref = (f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="TARGET" '
-           f'BuildableName="{RUNNER}.xctest" BlueprintName="{RUNNER}" ReferencedContainer="container:{project.name}"/>')
-    (shared / (RUNNER + ".xcscheme")).write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+           f'BuildableName="{name}.xctest" BlueprintName="{name}" ReferencedContainer="container:{project.name}"/>')
+    (shared / (name + ".xcscheme")).write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
 <Scheme version="1.7">
   <BuildAction parallelizeBuildables="NO" buildImplicitDependencies="YES"><BuildActionEntries>
     <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">{ref}</BuildActionEntry>
@@ -101,8 +102,8 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift")):
 </Scheme>
 """)
     derived = work / "DerivedData"
-    run_logged(["xcodebuild", "-project", project, "-scheme", RUNNER, "-derivedDataPath", derived,
-                "-destination", "generic/platform=iOS Simulator", "build-for-testing"], out / "runner-build.log", 300)
+    run_logged(["xcodebuild", "-project", project, "-scheme", name, "-derivedDataPath", derived,
+                "-destination", "platform=macOS" if mac else "generic/platform=iOS Simulator", "build-for-testing"], out / "runner-build.log", 300)
     return next((derived / "Build/Products").glob("*.xctestrun"))
 
 
