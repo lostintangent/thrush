@@ -76,6 +76,15 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.5
+      - name: Check conformance against the pinned reference
+        run: |
+          toy_box="$RUNNER_TEMP/toy-box"
+          pin=$(python3 -c 'import json; print(json.load(open("Fixtures/reference/conformance/reference.json"))["reference"]["toyBox"])')
+          git init -q "$toy_box"
+          git -C "$toy_box" fetch -q --depth 1 https://github.com/lostintangent/toy-box "$pin"
+          git -C "$toy_box" checkout -q FETCH_HEAD
+          (cd "$toy_box" && bun install --frozen-lockfile)
+          scripts/check-conformance.sh "$toy_box"
       - name: Verify the loopback exchange
         run: scripts/check-loopback.sh
       - name: Verify recorded shell, Vim and Codex workflows over WebSocket

@@ -1,6 +1,6 @@
 # Conformance harness
 
-The harness feeds the same bytes to the pinned reference emulator, `@xterm/headless` 6.0.0 configured as the Toy Box server configures it, and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching.
+The harness feeds the same bytes to the pinned reference emulator, `@xterm/headless` 6.0.0 configured as the Toy Box server configures it, and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching. CI also runs the harness against Toy Box at the pinned revision and fails if any generated file would change.
 
 ```sh
 scripts/check-conformance.sh ../toy-box                     # fail if any generated file would change
