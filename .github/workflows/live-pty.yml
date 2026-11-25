@@ -18,6 +18,10 @@ on:
         type: choice
         options: [all, shell, vim, codex, lifecycle]
         default: all
+      trace_lifecycle_frames:
+        description: Record both ends of the scripted lifecycle WebSocket
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,6 +36,7 @@ jobs:
       LIVE_PLATFORM: ${{ inputs.platform }}
       LIVE_APPEARANCE: ${{ inputs.appearance }}
       LIVE_WORKFLOW: ${{ inputs.workflow }}
+      TRACE_LIFECYCLE_FRAMES: ${{ inputs.trace_lifecycle_frames }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,6 +75,7 @@ jobs:
         run: |
           flags=()
           if [[ "$LIVE_WORKFLOW" != all ]]; then flags+=(--workflow "$LIVE_WORKFLOW"); fi
+          if [[ "$TRACE_LIFECYCLE_FRAMES" == true ]]; then flags+=(--trace-lifecycle-frames); fi
           if [[ -x "$RUNNER_TEMP/codex-cli" ]]; then flags+=(--codex-bin "$RUNNER_TEMP/codex-cli"); fi
           python3 -B scripts/live-workflow/launch.py \
             --public-web-build --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" --toy-box "$RUNNER_TEMP/toy-box" \

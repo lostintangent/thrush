@@ -27,6 +27,8 @@ The Codex check records the pane’s OSC 11 reply, the CLI’s truecolor backgro
 
 `server.json` records the server source, CLI version and response source. `source.json` identifies the app build, executable SHA-256, platform and appearance. Each workflow directory contains its native `workflow-report.json`, independent `controller-report.json`, and original captures. A locked Mac can supply window pixels and GPU completion while leaving presentation timestamps unavailable. The physical iPhone pass uses Toy Box’s TestFlight build.
 
+For a frame-level comparison of the finite lifecycle script, pass `--trace-lifecycle-frames` or select that option when dispatching the hosted run. The relay records the attachment, ordinal and payload of each message. The sample records what URLSession returned and which bytes the terminal received and applied in `native-wire.jsonl`. If the workflow fails, `controller-at-failure.json` retains the relay's observations before teardown.
+
 
 ## Mac sample result
 
