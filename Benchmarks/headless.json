@@ -1,0 +1,857 @@
+{
+  "buildConfiguration" : "release",
+  "bulk" : [
+    {
+      "appliedBytes" : 5243200,
+      "bytesPerPass" : 1048640,
+      "chunkBytes" : 4096,
+      "chunkTime" : {
+        "p50Nanoseconds" : 19917,
+        "p95Nanoseconds" : 20625
+      },
+      "grid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
+      "measuredPasses" : 5,
+      "receiveMiBPerSecond" : 193.01817046236573,
+      "receivedBytes" : 5243200
+    },
+    {
+      "appliedBytes" : 5243200,
+      "bytesPerPass" : 1048640,
+      "chunkBytes" : 4096,
+      "chunkTime" : {
+        "p50Nanoseconds" : 25583,
+        "p95Nanoseconds" : 27042
+      },
+      "grid" : {
+        "columns" : 40,
+        "rows" : 32
+      },
+      "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
+      "measuredPasses" : 5,
+      "receiveMiBPerSecond" : 151.36044838042096,
+      "receivedBytes" : 5243200
+    },
+    {
+      "appliedBytes" : 5243200,
+      "bytesPerPass" : 1048640,
+      "chunkBytes" : 4096,
+      "chunkTime" : {
+        "p50Nanoseconds" : 19083,
+        "p95Nanoseconds" : 19500
+      },
+      "grid" : {
+        "columns" : 80,
+        "rows" : 14
+      },
+      "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
+      "measuredPasses" : 5,
+      "receiveMiBPerSecond" : 204.62669450870922,
+      "receivedBytes" : 5243200
+    }
+  ],
+  "environment" : {
+    "commit" : "04c69f871d6bc7922ef6a4ddb743d1753f3c3dfd",
+    "contended" : true,
+    "coreCount" : 10,
+    "displayInterval" : "headless",
+    "hardwareModel" : "MacBookPro18,4",
+    "loadAverage" : {
+      "fifteenMinutes" : 328.22802734375,
+      "fiveMinutes" : 337.01171875,
+      "oneMinute" : 311.7509765625
+    },
+    "lowPowerMode" : false,
+    "operatingSystem" : "Version 27.2.1 (Build 26B131)",
+    "powerSource" : "AC Power",
+    "processor" : "Apple M1 Max",
+    "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
+    "thermalState" : "nominal",
+    "worktreeDirty" : false
+  },
+  "recordedAt" : "2026-11-25T05:33:41Z",
+  "recordings" : [
+    {
+      "appliedBytes" : 2604175,
+      "burstDrain" : {
+        "p50Nanoseconds" : 3029083,
+        "p95Nanoseconds" : 3091166
+      },
+      "chunkTime" : {
+        "p50Nanoseconds" : 13167,
+        "p95Nanoseconds" : 14125
+      },
+      "encodedInputBytes" : 1600,
+      "fixturePeakBytesInOneSecond" : 58076,
+      "fixturePeakMultiple" : 1372.1999179325671,
+      "fixtureSHA256" : "79b8c53755a6cc59a9143234006804dbbce5c64bd52de3a76201d28f30300c1b",
+      "initialGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "input" : [
+        {
+          "bytesPerCall" : 8,
+          "name" : "Build numbered log",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 18,
+          "name" : "Refill landscape history",
+          "timing" : {
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 167
+          }
+        },
+        {
+          "bytesPerCall" : 18,
+          "name" : "Refill history before Vim",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 16,
+          "name" : "Open scratch file",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
+          }
+        },
+        {
+          "bytesPerCall" : 4,
+          "name" : "Save and quit Vim",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        }
+      ],
+      "maximumQueuedBytes" : 8192,
+      "maximumQueuedSlots" : 16,
+      "measuredReplays" : 25,
+      "meetsTwiceRecordedPeak" : true,
+      "name" : "shell-log",
+      "paletteChangesPerReplay" : 0,
+      "queueByteLimit" : 8192,
+      "queueSlotLimit" : 16,
+      "queuedBytesAfterDrain" : 0,
+      "receiveMiBPerSecond" : 76.00010150323082,
+      "receivedBytes" : 2604175,
+      "referenceCheckpointsPerReplay" : 14,
+      "replyBytes" : 2050,
+      "requestedGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "resizes" : [
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "historyRowsBefore" : 1000,
+          "normalHistoryRowsBefore" : 1000,
+          "requested" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "timing" : {
+            "p50Nanoseconds" : 577458,
+            "p95Nanoseconds" : 581709
+          },
+          "to" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "historyRowsBefore" : 1000,
+          "normalHistoryRowsBefore" : 1000,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "timing" : {
+            "p50Nanoseconds" : 255709,
+            "p95Nanoseconds" : 261958
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "historyRowsBefore" : 1000,
+          "normalHistoryRowsBefore" : 1000,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "timing" : {
+            "p50Nanoseconds" : 28833,
+            "p95Nanoseconds" : 30375
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 1000,
+          "requested" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "timing" : {
+            "p50Nanoseconds" : 577000,
+            "p95Nanoseconds" : 581334
+          },
+          "to" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 1000,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "timing" : {
+            "p50Nanoseconds" : 256417,
+            "p95Nanoseconds" : 258292
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 497,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "timing" : {
+            "p50Nanoseconds" : 15291,
+            "p95Nanoseconds" : 15667
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "withinDisplayInterval" : true
+        }
+      ]
+    },
+    {
+      "appliedBytes" : 218000,
+      "burstDrain" : {
+        "p50Nanoseconds" : 65042,
+        "p95Nanoseconds" : 68792
+      },
+      "chunkTime" : {
+        "p50Nanoseconds" : 1167,
+        "p95Nanoseconds" : 7000
+      },
+      "encodedInputBytes" : 1175,
+      "fixturePeakBytesInOneSecond" : 5611,
+      "fixturePeakMultiple" : 29566.4407267893,
+      "fixtureSHA256" : "a1221d6db990216f54d0332b1865df49dd98c38d96c18e73e65ce19840ff2431",
+      "initialGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "input" : [
+        {
+          "bytesPerCall" : 16,
+          "name" : "Open scratch file",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "Enter insert mode",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 25,
+          "name" : "Paste scratch text",
+          "timing" : {
+            "p50Nanoseconds" : 167,
+            "p95Nanoseconds" : 209
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "Finish insertion",
+          "timing" : {
+            "p50Nanoseconds" : 0,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 4,
+          "name" : "Save and quit Vim",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        }
+      ],
+      "maximumQueuedBytes" : 4465,
+      "maximumQueuedSlots" : 16,
+      "measuredReplays" : 25,
+      "meetsTwiceRecordedPeak" : true,
+      "name" : "vim-edit",
+      "paletteChangesPerReplay" : 0,
+      "queueByteLimit" : 8192,
+      "queueSlotLimit" : 16,
+      "queuedBytesAfterDrain" : 0,
+      "receiveMiBPerSecond" : 158.21199313928105,
+      "receivedBytes" : 218000,
+      "referenceCheckpointsPerReplay" : 8,
+      "replyBytes" : 2050,
+      "requestedGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "resizes" : [
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "timing" : {
+            "p50Nanoseconds" : 5209,
+            "p95Nanoseconds" : 5708
+          },
+          "to" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 40,
+            "rows" : 32
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "timing" : {
+            "p50Nanoseconds" : 3667,
+            "p95Nanoseconds" : 3875
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 80,
+            "rows" : 14
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "timing" : {
+            "p50Nanoseconds" : 1000,
+            "p95Nanoseconds" : 1042
+          },
+          "to" : {
+            "columns" : 80,
+            "rows" : 24
+          },
+          "withinDisplayInterval" : true
+        }
+      ]
+    },
+    {
+      "appliedBytes" : 427750,
+      "burstDrain" : {
+        "p50Nanoseconds" : 167750,
+        "p95Nanoseconds" : 169584
+      },
+      "chunkTime" : {
+        "p50Nanoseconds" : 250,
+        "p95Nanoseconds" : 3292
+      },
+      "encodedInputBytes" : 1150,
+      "fixturePeakBytesInOneSecond" : 17110,
+      "fixturePeakMultiple" : 7368.868769584611,
+      "fixtureSHA256" : "0ac1751f7641c98fb813e2bb52f833a1c63d0932a540a611c9322fc0cc8bc5e7",
+      "initialGrid" : {
+        "columns" : 2,
+        "rows" : 2
+      },
+      "input" : [
+        {
+          "bytesPerCall" : 3,
+          "name" : "key up",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key left",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key right",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key down",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "key escape",
+          "timing" : {
+            "p50Nanoseconds" : 0,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "key tab",
+          "timing" : {
+            "p50Nanoseconds" : 0,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "key backspace",
+          "timing" : {
+            "p50Nanoseconds" : 0,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 1,
+          "name" : "key enter",
+          "timing" : {
+            "p50Nanoseconds" : 0,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "paste a\nb",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key up",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key left",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key right",
+          "timing" : {
+            "p50Nanoseconds" : 41,
+            "p95Nanoseconds" : 42
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "key down",
+          "timing" : {
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 15,
+          "name" : "paste a\nb",
+          "timing" : {
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 125
+          }
+        }
+      ],
+      "maximumQueuedBytes" : 8192,
+      "maximumQueuedSlots" : 16,
+      "measuredReplays" : 25,
+      "meetsTwiceRecordedPeak" : true,
+      "name" : "shell-edges",
+      "paletteChangeTime" : {
+        "p50Nanoseconds" : 0,
+        "p95Nanoseconds" : 42
+      },
+      "paletteChangesPerReplay" : 2,
+      "queueByteLimit" : 8192,
+      "queueSlotLimit" : 16,
+      "queuedBytesAfterDrain" : 0,
+      "receiveMiBPerSecond" : 120.24054016837377,
+      "receivedBytes" : 427750,
+      "referenceCheckpointsPerReplay" : 53,
+      "replyBytes" : 44500,
+      "requestedGrid" : {
+        "columns" : 1,
+        "rows" : 2
+      },
+      "resizes" : [
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 2,
+            "rows" : 2
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 6,
+            "rows" : 3
+          },
+          "timing" : {
+            "p50Nanoseconds" : 875,
+            "p95Nanoseconds" : 1041
+          },
+          "to" : {
+            "columns" : 6,
+            "rows" : 3
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 6,
+            "rows" : 3
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 1,
+            "rows" : 2
+          },
+          "timing" : {
+            "p50Nanoseconds" : 625,
+            "p95Nanoseconds" : 666
+          },
+          "to" : {
+            "columns" : 2,
+            "rows" : 2
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 2,
+            "rows" : 2
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 0,
+          "requested" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "timing" : {
+            "p50Nanoseconds" : 1000,
+            "p95Nanoseconds" : 1042
+          },
+          "to" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "historyRowsBefore" : 2,
+          "normalHistoryRowsBefore" : 2,
+          "requested" : {
+            "columns" : 7,
+            "rows" : 4
+          },
+          "timing" : {
+            "p50Nanoseconds" : 2542,
+            "p95Nanoseconds" : 2666
+          },
+          "to" : {
+            "columns" : 7,
+            "rows" : 4
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 7,
+            "rows" : 4
+          },
+          "historyRowsBefore" : 2,
+          "normalHistoryRowsBefore" : 2,
+          "requested" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "timing" : {
+            "p50Nanoseconds" : 2250,
+            "p95Nanoseconds" : 2375
+          },
+          "to" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 3,
+          "requested" : {
+            "columns" : 6,
+            "rows" : 4
+          },
+          "timing" : {
+            "p50Nanoseconds" : 3209,
+            "p95Nanoseconds" : 3500
+          },
+          "to" : {
+            "columns" : 6,
+            "rows" : 4
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : true,
+          "from" : {
+            "columns" : 6,
+            "rows" : 4
+          },
+          "historyRowsBefore" : 0,
+          "normalHistoryRowsBefore" : 5,
+          "requested" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "timing" : {
+            "p50Nanoseconds" : 2959,
+            "p95Nanoseconds" : 3125
+          },
+          "to" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 12,
+            "rows" : 4
+          },
+          "historyRowsBefore" : 3,
+          "normalHistoryRowsBefore" : 3,
+          "requested" : {
+            "columns" : 5,
+            "rows" : 5
+          },
+          "timing" : {
+            "p50Nanoseconds" : 3000,
+            "p95Nanoseconds" : 3167
+          },
+          "to" : {
+            "columns" : 5,
+            "rows" : 5
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 5,
+            "rows" : 5
+          },
+          "historyRowsBefore" : 4,
+          "normalHistoryRowsBefore" : 4,
+          "requested" : {
+            "columns" : 4,
+            "rows" : 5
+          },
+          "timing" : {
+            "p50Nanoseconds" : 2959,
+            "p95Nanoseconds" : 3167
+          },
+          "to" : {
+            "columns" : 4,
+            "rows" : 5
+          },
+          "withinDisplayInterval" : true
+        },
+        {
+          "alternate" : false,
+          "from" : {
+            "columns" : 4,
+            "rows" : 5
+          },
+          "historyRowsBefore" : 5,
+          "normalHistoryRowsBefore" : 5,
+          "requested" : {
+            "columns" : 8,
+            "rows" : 5
+          },
+          "timing" : {
+            "p50Nanoseconds" : 3083,
+            "p95Nanoseconds" : 3250
+          },
+          "to" : {
+            "columns" : 8,
+            "rows" : 5
+          },
+          "withinDisplayInterval" : true
+        }
+      ]
+    },
+    {
+      "appliedBytes" : 375,
+      "burstDrain" : {
+        "p50Nanoseconds" : 500,
+        "p95Nanoseconds" : 708
+      },
+      "chunkTime" : {
+        "p50Nanoseconds" : 292,
+        "p95Nanoseconds" : 458
+      },
+      "encodedInputBytes" : 0,
+      "fixturePeakBytesInOneSecond" : 15,
+      "fixturePeakMultiple" : 3061474.406073965,
+      "fixtureSHA256" : "66a33a4d0280a236de2849f62d6f911b956e9e5322abb1183915654c2315800f",
+      "initialGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "input" : [
+
+      ],
+      "maximumQueuedBytes" : 15,
+      "maximumQueuedSlots" : 1,
+      "measuredReplays" : 25,
+      "meetsTwiceRecordedPeak" : true,
+      "name" : "prompt-bom",
+      "paletteChangesPerReplay" : 0,
+      "queueByteLimit" : 8192,
+      "queueSlotLimit" : 16,
+      "queuedBytesAfterDrain" : 0,
+      "receiveMiBPerSecond" : 43.794742671117284,
+      "receivedBytes" : 375,
+      "referenceCheckpointsPerReplay" : 1,
+      "replyBytes" : 150,
+      "requestedGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "resizes" : [
+
+      ]
+    }
+  ],
+  "referenceIntervalNanoseconds" : 8333333,
+  "referenceRefreshHz" : 120,
+  "schemaVersion" : 1
+}
