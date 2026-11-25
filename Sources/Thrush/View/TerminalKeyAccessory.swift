@@ -2,10 +2,12 @@
 import ThrushCore
 import UIKit
 
-/// Implement this on a host-supplied keyboard accessory to send semantic input to the terminal.
+/// Adopt this protocol on a custom keyboard accessory view to send keys to its terminal.
 @MainActor public protocol TerminalInputAccessory: AnyObject {
-    /// Invoke this handler when a control commits input. The terminal installs it while the accessory is in use.
-    var onInput: ((Terminal.Input) -> Void)? { get set }
+    /// The pane installs this handler while your view is the active accessory.
+    /// Pass a UIKit key-command input, such as `UIKeyCommand.inputUpArrow`, or one character.
+    /// For example, `onKeyPress?("c", .control)` sends Control-C and `onKeyPress?("\r", [])` sends Return.
+    var onKeyPress: ((_ input: String, _ modifiers: UIKeyModifierFlags) -> Void)? { get set }
 }
 
 /// The controls attached to the system keyboard for this viewport.

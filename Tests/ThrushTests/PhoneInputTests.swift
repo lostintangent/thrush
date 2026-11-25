@@ -107,12 +107,12 @@ import UIKit
 }
 
 @MainActor
-@Test func replacingCustomAccessoryDisconnectsItsInput() throws {
+@Test func customAccessoryKeysFollowTerminalModesAndDisconnectOnReplacement() throws {
     final class HostAccessory: UIView, TerminalInputAccessory {
-        var onInput: ((Terminal.Input) -> Void)?
+        var onKeyPress: ((String, UIKeyModifierFlags) -> Void)?
     }
 
-    let terminal = Terminal(size: .init(columns: 40, rows: 20))
+    var terminal = Terminal(size: .init(columns: 40, rows: 20))
     let view = TerminalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
@@ -121,15 +121,33 @@ import UIKit
     view.onInput = { sent.append(terminal.encode($0)) }
     view.keyboardAccessory = .custom(first)
     #expect(view.phoneInput.inputAccessoryView === first)
-    first.onInput?(.key(.escape))
+    let firstPress = try #require(first.onKeyPress)
+    firstPress(UIKeyCommand.inputEscape, [])
+    firstPress(UIKeyCommand.inputUpArrow, [])
+    _ = terminal.receive("\u{1b}[?1h".utf8)
+    firstPress(UIKeyCommand.inputUpArrow, [])
+    firstPress("t", .control)
+    firstPress(UIKeyCommand.inputRightArrow, [.control, .shift])
+    firstPress("🐦", [])
+    firstPress("x", .command)
+    firstPress("two keys", [])
+    #expect(sent == [[27], [27, 91, 65], [27, 79, 65], [20], Array("\u{1b}[1;6C".utf8), Array("🐦".utf8)])
     view.keyboardAccessory = .custom(second)
-    #expect(first.onInput == nil)
-    second.onInput?(.key(.tab))
+    #expect(first.onKeyPress == nil)
+    sent.removeAll()
+    firstPress("x", [])
+    second.onKeyPress?("\t", .shift)
+    second.onKeyPress?("\r", [])
+    second.onKeyPress?("\u{8}", [])
+    second.onKeyPress?(UIKeyCommand.inputDelete, [])
+    second.onKeyPress?("\u{f728}", [])
+    view.setInputAvailability(.blocked, dismissKeyboard: false)
+    second.onKeyPress?("x", [])
     view.keyboardAccessory = .none
-    #expect(second.onInput == nil && view.phoneInput.inputAccessoryView == nil)
+    #expect(second.onKeyPress == nil && view.phoneInput.inputAccessoryView == nil)
     view.keyboardAccessory = .standard
     #expect(view.phoneInput.inputAccessoryView is TerminalKeyAccessory)
-    #expect(sent == [[27], [9]])
+    #expect(sent == [[27, 91, 90], [13], [127], [127], Array("\u{1b}[3~".utf8)])
 }
 
 @MainActor

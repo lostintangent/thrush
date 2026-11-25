@@ -1,6 +1,6 @@
 extension Terminal {
     /// A user action to encode with ``Terminal/encode(_:)`` under the current terminal modes.
-    public enum Input: Sendable {
+    package enum Input: Sendable {
         /// Committed text, including the result of input-method composition, sent as UTF-8.
         case text(String)
         /// Pasted text. The encoder normalizes line endings to carriage returns and adds delimiters when the shell requests bracketed paste.
@@ -11,7 +11,7 @@ extension Terminal {
         case key(Key, modifiers: Modifiers = [])
 
         /// A key whose terminal sequence can depend on modifiers and the shell's current modes.
-        public enum Key: Sendable {
+        package enum Key: Sendable {
             /// The Up Arrow key.
             case up
             /// The Down Arrow key.
@@ -47,17 +47,17 @@ extension Terminal {
         /// Keyboard modifiers used in terminal key and pointer reports.
         ///
         /// Handle Command shortcuts in the host before forwarding input.
-        public struct Modifiers: OptionSet, Sendable {
+        package struct Modifiers: OptionSet, Sendable {
             /// The bit mask containing the active terminal modifiers.
-            public let rawValue: UInt8
+            package let rawValue: UInt8
             /// Creates a modifier set from its bit mask. Use an array literal to combine named flags.
-            public init(rawValue: UInt8) { self.rawValue = rawValue }
+            package init(rawValue: UInt8) { self.rawValue = rawValue }
             /// The Shift key.
-            public static let shift = Self(rawValue: 1)
+            package static let shift = Self(rawValue: 1)
             /// The terminal Alt modifier, corresponding to Option on Apple keyboards.
-            public static let alt = Self(rawValue: 2)
+            package static let alt = Self(rawValue: 2)
             /// The Control key.
-            public static let control = Self(rawValue: 4)
+            package static let control = Self(rawValue: 4)
         }
     }
 
@@ -65,7 +65,7 @@ extension Terminal {
     ///
     /// Send a nonempty result to the shell. The shell supplies the echo. An action
     /// handled locally or disabled by the active modes can produce an empty result.
-    public func encode(_ input: Input) -> [UInt8] {
+    package func encode(_ input: Input) -> [UInt8] {
         switch input {
         case .text(let text):
             return Array(text.utf8)

@@ -73,15 +73,7 @@ Keep one `TerminalConnection` for each shell tab. Pass that connection to `Termi
 
 Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, set `keyboardAccessory: .none` to hide the standard terminal keys or pass a custom native accessory.
 
-## Render a terminal directly
-
-Create one `TerminalView(frame:)` from `Thrush` for the lifetime of the viewport. On the main actor, `display(_:)` accepts a terminal value captured by its serial owner. The built-in pane supplies immutable screen snapshots from its connection. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.
-
-A nil `view.theme` follows AppKit or UIKit appearance. To customize the 22 terminal colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and assign it to the view. Supply `view.resolvedTheme.palette` when creating the terminal and update its `palette` from `onThemeChange`. This keeps OSC replies consistent with indexed colors on screen. The host owns the window. Thrush supplies the iPhone keyboard accessory. Set `keyboardAccessory` to `.none` to hide it or `.custom(...)` to install a native replacement.
-
-The shader resolves palette colors from one buffer. Each immutable row has its own generation, so cursor moves and theme changes reuse its Metal geometry. The atlas stores premultiplied color emoji and coverage for tinted glyphs. A new drawable receives a complete frame, including every reused row.
-
-See [the render and interaction benchmarks](../Benchmarks/rendering.md) for the native measurement commands and [the Slate design](design/dark-demo.md) for the palettes and cell metrics.
+To change individual colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it to the pane. The pane uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Slate palettes and cell metrics](design/dark-demo.md)
 
 ## Verify window and scene lifetime
 

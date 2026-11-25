@@ -54,11 +54,13 @@ TerminalPane(
 )
 ```
 
+To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values. On iPhone, a custom accessory is a `UIView` that conforms to `TerminalInputAccessory`. Its buttons call `onKeyPress` with a UIKit key string and modifiers, for example `onKeyPress?(UIKeyCommand.inputUpArrow, [])` or `onKeyPress?("c", .control)`.
+
 To close a tab, end its shell with `try await terminal.closeShell()`. [Pane states and behavior](docs/design/pane-states.md)
 
 ### The socket
 
-The factory returns a fresh, suspended `URLSessionWebSocketTask` from the host's own session for each attachment, so the host keeps its authentication and configuration. The connection speaks the Toy Box terminal protocol. Binary frames carry PTY output. The server sends JSON `ready`, with `resumed` telling a resumed shell from a fresh one, and `exit`. The client sends keystrokes as binary frames and JSON `resize` and `close`. The client ID names the shell, so reattaching with the same ID resumes it.
+The factory receives the shell’s client ID and a `Terminal.Size`. Use `size.columns` and `size.rows` when constructing the endpoint. Return a fresh, suspended `URLSessionWebSocketTask` from the host’s own session for each attachment to preserve its authentication and configuration. The connection speaks the Toy Box terminal protocol. Binary frames carry PTY output. The server sends JSON `ready`, with `resumed` telling a resumed shell from a fresh one, and `exit`. The client sends keystrokes as binary frames and JSON `resize` and `close`. The client ID names the shell, so reattaching with the same ID resumes it.
 
 Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 

@@ -4,9 +4,9 @@ extension Terminal {
 
 extension Terminal.Input {
     /// A native pointer event in zero-based cell coordinates on the live grid.
-    public struct Pointer: Equatable, Sendable {
+    package struct Pointer: Equatable, Sendable {
         /// The phase of the pointer event.
-        public enum Action: Sendable {
+        package enum Action: Sendable {
             /// A button press or a single scroll-wheel step.
             case press
             /// A button release.
@@ -16,7 +16,7 @@ extension Terminal.Input {
         }
 
         /// The button or scroll-wheel direction associated with a pointer event.
-        public enum Button: Sendable {
+        package enum Button: Sendable {
             /// The left mouse button.
             case left
             /// The middle mouse button.
@@ -32,18 +32,18 @@ extension Terminal.Input {
         }
 
         /// The phase of this event.
-        public let action: Action
+        package let action: Action
         /// The button involved, or the wheel direction for a scroll.
-        public let button: Button
+        package let button: Button
         /// The cell's row, counting downward from zero at the top of the visible grid.
-        public let row: Int
+        package let row: Int
         /// The cell's column, counting rightward from zero at the left edge of the grid.
-        public let column: Int
+        package let column: Int
         /// The terminal keyboard modifiers held during this event.
-        public let modifiers: Modifiers
+        package let modifiers: Modifiers
 
         /// Creates a pointer event at the given visible cell. Encoding an event outside the grid returns no bytes.
-        public init(_ action: Action, button: Button, row: Int, column: Int, modifiers: Modifiers = []) {
+        package init(_ action: Action, button: Button, row: Int, column: Int, modifiers: Modifiers = []) {
             self.action = action
             self.button = button
             self.row = row

@@ -52,16 +52,26 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
 
     func setAccessory(_ choice: TerminalKeyboardAccessory) {
         guard accessoryChoice != choice else { return }
-        if case .custom(let previous) = accessoryChoice { previous.onInput = nil }
+        if case .custom(let previous) = accessoryChoice { previous.onKeyPress = nil }
         accessory.clearModifier()
         accessoryChoice = choice
         switch choice {
         case .standard: inputAccessoryView = accessory
         case .none: inputAccessoryView = nil
         case .custom(let custom):
-            custom.onInput = { [weak terminalView] input in
-                guard let terminalView, terminalView.acceptsTerminalInput else { return }
-                terminalView.sendInput(input)
+            custom.onKeyPress = { [weak self, weak custom] input, flags in
+                guard let self, let custom, case .custom(let current) = accessoryChoice, current === custom,
+                      !flags.contains(.command) else { return }
+                let code: UIKeyboardHIDUsage = switch input {
+                case "\r", "\n": .keyboardReturnOrEnter
+                case "\u{8}", "\u{7f}": .keyboardDeleteOrBackspace
+                case "\u{f728}": .keyboardDeleteForward
+                case "\u{1b}": .keyboardEscape
+                default: Self.navigation[input] ?? .keyboardErrorUndefined
+                }
+                if let (key, modifiers) = Self.hardwareKey(code, characters: input, flags: flags, acceptsCharacter: true) {
+                    sendKey(key, modifiers: modifiers)
+                }
             }
             inputAccessoryView = custom
         }
@@ -287,7 +297,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
     }
 
-    static func hardwareKey(_ code: UIKeyboardHIDUsage, characters: String, flags: UIKeyModifierFlags)
+    static func hardwareKey(_ code: UIKeyboardHIDUsage, characters: String, flags: UIKeyModifierFlags, acceptsCharacter: Bool = false)
         -> (Terminal.Input.Key, Terminal.Input.Modifiers)? {
         var modifiers = Terminal.Input.Modifiers()
         if flags.contains(.shift) { modifiers.insert(.shift) }
@@ -309,8 +319,9 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case .keyboardTab: key = .tab
         case .keyboardReturnOrEnter, .keypadEnter: key = .enter
         default:
-            // Let the input method handle printable keys, including Option dead keys.
-            guard modifiers.contains(.control), characters.count == 1, let character = characters.first else { return nil }
+            // The accessory supplies a committed character. Physical printable keys go through the input method.
+            guard acceptsCharacter || modifiers.contains(.control), characters.count == 1,
+                  let character = characters.first else { return nil }
             key = .character(character)
         }
         return (key, modifiers)

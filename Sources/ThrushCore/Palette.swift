@@ -38,8 +38,8 @@ extension Terminal {
             self.ansi = ansi
         }
 
-        /// The headless default, with white text, a black background, and xterm's Tango ANSI colors.
-        public static let `default` = Self(
+        /// White text on a black background with xterm’s Tango ANSI colors.
+        package static let `default` = Self(
             foreground: RGB(0xffffff), background: RGB(0x000000),
             ansi: [
                 0x2e3436, 0xcc0000, 0x4e9a06, 0xc4a000, 0x3465a4, 0x75507b, 0x06989a, 0xd3d7cf,
@@ -50,7 +50,7 @@ extension Terminal {
         /// The color at an index in the 256-color terminal palette.
         ///
         /// Indices 0–15 use ``ansi``, 16–231 use xterm's 6 × 6 × 6 color cube, and 232–255 use its gray ramp.
-        public subscript(index index: UInt8) -> RGB {
+        package subscript(index index: UInt8) -> RGB {
             if index < 16 { return ansi[Int(index)] }
             if index >= 232 {
                 let gray = 8 + (index - 232) * 10
