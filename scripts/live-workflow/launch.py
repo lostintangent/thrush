@@ -302,14 +302,15 @@ def main():
     if any(out.iterdir()):
         parser.error("The output directory must be empty")
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
+    if not args.app:
+        # Xcode can mount a read-only Metal toolchain under the build user's home.
+        with (out / "build.log").open("xb") as log:
+            subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], stdout=log,
+                           stderr=subprocess.STDOUT, timeout=900, check=True)
     pane = load(ROOT / "scripts/check-pane-workflows.py")
     with tempfile.TemporaryDirectory(prefix="thrush-live-") as scratch, ExitStack() as stack:
         endpoint, work, modules, env = stack.enter_context(live_pty(
             Path(scratch), out, toy_box, bash, codex, workflows, args.working_tree, args.public_web_build))
-        if not args.app:
-            with (out / "build.log").open("xb") as log:
-                subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], env=env, stdout=log,
-                               stderr=subprocess.STDOUT, timeout=900, check=True)
         with (app / ("Contents/Info.plist" if args.platform == "mac" else "Info.plist")).open("rb") as file:
             info = plistlib.load(file)
         app_executable = (app / "Contents/MacOS" if args.platform == "mac" else app) / info["CFBundleExecutable"]

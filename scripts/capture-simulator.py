@@ -216,11 +216,18 @@ class Phone:
             return state if time.monotonic() - since >= 0.7 else False
 
         print("Waiting for the first native keyboard attachment", flush=True)
+        warmed = False
         try:
             state = wait_for("the warm-up keyboard and accessory", ready, 100)
             save_json(self.out / "keyboard-warmup.json", state)
+            warmed = True
         finally:
-            sim("terminate", self.device, APP_ID, timeout=45, check=False)
+            try:
+                sim("terminate", self.device, APP_ID, timeout=45, check=False)
+            except subprocess.TimeoutExpired as error:
+                if warmed:
+                    raise
+                print(f"Simulator termination: {error}", file=sys.stderr, flush=True)
 
     def interrupt_after_focus(self, pid, keyboard):
         def ready():
