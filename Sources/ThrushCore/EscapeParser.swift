@@ -70,12 +70,30 @@ struct EscapeParser: Sendable {
     }
 
     /// Starting at ESC, consume ASCII until one action is ready or ordinary input can resume.
-    mutating func consumeEscape(in bytes: Span<UInt8>, index: inout Int) -> Action? {
+    mutating func consumeEscape(in bytes: Span<UInt8>, index: inout Int, borrowingParametersFor final: UInt32,
+                                borrowedParameters: inout Range<Int>?) -> Action? {
         // The 7-bit CSI introducer enters the same header state as its C1 form.
         if isGround, bytes.count - index >= 2, bytes[index + 1] == UInt8(ascii: "[") {
             state = Tag(.csiEntry)
             beginHeader()
             index += 2
+            // A complete, unprefixed header can lend its parameters to a streaming consumer.
+            // Other headers use the same fixed storage as a CSI continued in a later chunk.
+            let start = index
+            while index < bytes.count, (UInt8(ascii: "0")...UInt8(ascii: ";")).contains(bytes[index]) {
+                index += 1
+            }
+            if index < bytes.count, UInt32(bytes[index]) == final {
+                borrowedParameters = start..<index
+                let identifier = ControlIdentifier(bytes[index])
+                index += 1
+                state = Tag(.ground)
+                return .csi(identifier)
+            }
+            if start < index {
+                state = Tag(.csiParameters)
+                for position in start..<index { parameters.append(bytes[position]) }
+            }
         }
         while index < bytes.count {
             let byte = bytes[index]

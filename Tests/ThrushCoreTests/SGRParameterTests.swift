@@ -36,3 +36,35 @@ import ThrushCore
     #expect(row[3].style.background == .rgb(0, 0, 0))
     #expect(row[3].style.bold)
 }
+
+@Test func sgrOperandLimitsAndCancellationMatchAtEverySplit() {
+    let csi = "\u{1b}["
+    let text = csi + "1;4;38:2::9:8:7;48;5;42mA" + csi + "0;31;7\u{18}B"
+        + csi + "3" + String(repeating: ":1", count: 31) + ";4:0;7mC"
+        + csi + String(repeating: "3;", count: 31) + "22;0mD" + csi + "mE"
+    let bytes = Array(text.utf8)
+
+    var initial = Terminal.Style()
+    initial.foreground = .rgb(9, 8, 7)
+    initial.background = .indexed(42)
+    initial.bold = true
+    initial.underline = true
+    var changed = initial
+    changed.italic = true
+    changed.inverse = true
+    changed.underline = false // The zero in 4:0 is the 32nd colon field.
+    var unbold = changed
+    unbold.bold = false // Operand 32 is 22. The following reset is past the limit.
+    // CAN cancels the reset before B. The empty SGR before E resets all attributes.
+    let expected = [initial, initial, changed, unbold, .init()]
+
+    for split in 0...bytes.count {
+        var terminal = Terminal(size: .init(columns: 8, rows: 2))
+        _ = terminal.receive(bytes[..<split])
+        let remaining = sequence(state: bytes[split...].makeIterator()) { $0.next() }
+        _ = terminal.receive(remaining)
+        let row = terminal.snapshot().rows[0]
+        #expect(row.text == "ABCDE")
+        #expect(expected.indices.map { row[$0].style } == expected, "SGR split at byte \(split)")
+    }
+}

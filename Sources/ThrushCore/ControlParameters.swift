@@ -2,16 +2,18 @@
 /// Dispatch reads them in place. Copying them with each parser action made control-heavy
 /// output about 12 times slower.
 struct ControlParameters: Sendable {
-    private var main: InlineArray<32, Int32> = .init(repeating: 0)
-    private var subparameters: InlineArray<32, Int32> = .init(repeating: 0)
+    private typealias Fields = InlineArray<32, Int32>
+    /// Applies separately to the main parameters and to the colon components across the header.
+    static var limit: Int { Fields.count }
+
+    private var main = Fields(repeating: 0)
+    private var subparameters = Fields(repeating: 0)
     private var subparameterStarts: InlineArray<32, UInt8> = .init(repeating: 0)
     private(set) var count = 1
     private var totalSubparameters = 0
 
     private enum Destination { case main, subparameter, discardSubparameters, discardRemainder }
     private var destination: Destination = .main
-
-    var hasSubparameters: Bool { totalSubparameters != 0 }
 
     subscript(_ index: Int) -> Int { self[index, default: 0] }
 

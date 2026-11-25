@@ -96,8 +96,16 @@ public struct Terminal: Sendable {
                 generation &+= 1
             } else if byte == EscapeParser.escape, scanner.isComplete {
                 hasCombiningBase = false
-                let action = parser.consumeEscape(in: bytes, index: &index)
-                dispatch(action, replies: &replies)
+                var borrowedParameters: Range<Int>?
+                let action = parser.consumeEscape(
+                    in: bytes, index: &index, borrowingParametersFor: TerminalControlFunction.CSI.graphicRendition.rawValue,
+                    borrowedParameters: &borrowedParameters
+                )
+                if let borrowedParameters {
+                    dispatch(action, replies: &replies, rendition: bytes.extracting(borrowedParameters))
+                } else {
+                    dispatch(action, replies: &replies)
+                }
             } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isReadingTitle {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
@@ -188,15 +196,17 @@ public struct Terminal: Sendable {
     }
 
     @inline(__always)
-    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
-        if let action, let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
+    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8], rendition: Span<UInt8>? = nil) {
+        if let action, let function = TerminalControlFunction(action) {
+            apply(function, replies: &replies, rendition: rendition)
+        }
         if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
             apply(function, replies: &replies)
         }
     }
 
     /// Applies one named VT function. Screen operations advance the frame generation together below.
-    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
+    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8], rendition: Span<UInt8>? = nil) {
         switch function {
         case .execute(.backspace): screen.backspace()
         case .execute(.horizontalTab): screen.horizontalTab()
@@ -301,7 +311,11 @@ public struct Terminal: Sendable {
             setPrivateModes(enabled: false)
             return
         case .control(.graphicRendition):
-            style.applySGR(parser.parameters)
+            if let rendition {
+                style.applySGR(rendition)
+            } else {
+                style.applySGR(parser.parameters)
+            }
             return
         case .control(.deviceStatusReport):
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
