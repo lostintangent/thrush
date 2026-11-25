@@ -117,79 +117,67 @@ extension Terminal.Buffer {
         return result
     }
 
-    /// Narrowing works up from the bottom, as the pinned server does. Each logical line that no
-    /// longer fits is laid out again over its own rows, and the rows it adds are inserted after the
-    /// pass. Making room for them moves the cursor down by removing rows from the bottom, so a line
-    /// below can disappear while the added rows of a line above it survive.
+    /// Work up from the bottom so each expansion can move the cursor before we visit the
+    /// next line. Keep new rows at their original insertion points until the viewport settles.
     private mutating func reflowNarrower(
         _ lines: inout [Terminal.Row], base: inout Int, oldWidth: Int, newSize: Terminal.Size,
         maxCount: Int, generation: UInt64
     ) {
-        var insertions: [(index: Int, rows: [Terminal.Row])] = []
-        var inserted = 0
-        var index = lines.count - 1
-        while index >= 0 {
-            defer { index -= 1 }
-            guard index < lines.count, lines[index].isWrapped || lines[index].trimmedLength > newSize.columns else {
-                continue
-            }
-            let end = index + 1
-            while index > 0, lines[index].isWrapped { index -= 1 }
-            let group = index..<end
-            if group.contains(base + row) { continue }
+        var insertions: [(boundary: Int, rows: [Terminal.Row])] = []
+        var retainedExtras = 0
+        var end = lines.count
+        while end > 0 {
+            let last = end - 1
+            var start = last
+            while start > 0, lines[start].isWrapped { start -= 1 }
+            let group = start..<end
+            end = start
+            guard lines[last].isWrapped || lines[last].trimmedLength > newSize.columns,
+                  !group.contains(base + row) else { continue }
 
-            let layout = narrowed(lines[group], oldWidth: oldWidth, newWidth: newSize.columns, generation: generation)
-            let added = layout.count - group.count
-            // Rows past the history limit leave from the top, so they need no room.
-            let overflow = base == 0 && row != lines.count - 1
-                ? row - maxCount + added : lines.count - maxCount + added
-            for (offset, line) in layout.prefix(group.count).enumerated() { lines[index + offset] = line }
-            if added > 0 {
-                insertions.append((end + inserted, Array(layout[group.count...])))
-                inserted += added
+            let layout = narrowed(lines[group], oldWidth: oldWidth, newWidth: newSize.columns,
+                                  roomForExtras: maxCount - retainedExtras, generation: generation)
+            for (offset, line) in layout.originals.enumerated() { lines[start + offset] = line }
+            if !layout.extras.isEmpty {
+                insertions.append((group.upperBound, layout.extras))
+                retainedExtras += layout.extras.count
             }
-            for _ in 0..<max(0, added - max(0, overflow)) {
-                if base > 0 {
-                    if base < min(maxCount, lines.count + inserted) - newSize.rows { base += 1 }
-                } else if row < newSize.rows - 1 {
-                    row += 1
-                    lines.removeLast()
-                } else {
-                    base += 1
-                }
-            }
-            saved.row = min(saved.row + added, base + newSize.rows - 1)
+
+            // With no scrollback, move the cursor down and discard that many original
+            // viewport rows from the bottom. Any remaining expansion enters scrollback.
+            let growth = max(0, layout.growth)
+            let cursorShift = base == 0 ? min(growth, newSize.rows - 1 - row) : 0
+            row += cursorShift
+            lines.removeLast(cursorShift)
+            let historyRoom = Terminal.History.limit - base
+            base += min(growth - cursorShift, historyRoom)
+            saved.row = min(saved.row + layout.growth, base + newSize.rows - 1)
+            end = min(end, lines.count)
         }
 
         if !insertions.isEmpty {
-            // Fill from the bottom, so rows past the history limit fall off the top.
-            let count = min(maxCount, lines.count + inserted)
-            var rearranged: [Terminal.Row] = []
-            rearranged.reserveCapacity(count)
-            var source = lines.count - 1
+            var expanded: [Terminal.Row] = []
+            expanded.reserveCapacity(lines.count + retainedExtras)
             var next = 0
-            var placed = 0
-            while rearranged.count < count {
-                if next < insertions.count, source < 0 || insertions[next].index > source + placed {
-                    rearranged.append(contentsOf: insertions[next].rows.reversed().prefix(count - rearranged.count))
-                    placed += insertions[next].rows.count
-                    next += 1
-                } else {
-                    rearranged.append(lines[source])
-                    source -= 1
-                }
+            for insertion in insertions.reversed() {
+                // A removed original row can still have additional wrapped rows after it.
+                let boundary = min(insertion.boundary, lines.count)
+                expanded.append(contentsOf: lines[next..<boundary])
+                expanded.append(contentsOf: insertion.rows)
+                next = boundary
             }
-            lines = rearranged.reversed()
+            expanded.append(contentsOf: lines[next...])
+            expanded.removeFirst(max(0, expanded.count - maxCount))
+            lines = expanded
         }
         for index in lines.indices { lines[index].truncate(to: newSize.columns) }
     }
 
-    /// Lays a logical line out again at a narrower width over its own rows, then new ones. Its rows
-    /// keep any cells past the new text, as the server rewrites them in place. A row ends one cell
-    /// early when a wide glyph would straddle its edge.
+    /// A logical line first rewrites its original rows, then adds wrapped rows.
+    /// A wide glyph that would straddle an edge starts on the next row.
     private func narrowed(
-        _ group: ArraySlice<Terminal.Row>, oldWidth: Int, newWidth: Int, generation: UInt64
-    ) -> [Terminal.Row] {
+        _ group: ArraySlice<Terminal.Row>, oldWidth: Int, newWidth: Int, roomForExtras: Int, generation: UInt64
+    ) -> (originals: [Terminal.Row], extras: [Terminal.Row], growth: Int) {
         var used = group.indices.map { usedLength(of: group, at: $0, width: oldWidth) }
         // A wide glyph that a narrower screen cut from the last column takes back its second half.
         if group.last!.stored(at: oldWidth - 1).width == 2 { used[used.count - 1] += 1 }
@@ -214,21 +202,29 @@ extension Terminal.Buffer {
             laidOut += lengths.last!
         }
 
-        var result: [Terminal.Row] = []
+        let growth = lengths.count - group.count
+        // Skip rows that will fall off the top of history. Later lines have already
+        // claimed their extra rows, and this line's last rows are the next to keep.
+        let first = growth > roomForExtras ? lengths.count - roomForExtras : 0
+        var originals: [Terminal.Row] = []
+        var extras: [Terminal.Row] = []
         var source = 0
-        var sourceColumn = 0
-        for (offset, length) in lengths.enumerated() {
+        var sourceColumn = lengths[..<first].reduce(0, +)
+        for offset in first..<lengths.count {
+            let length = lengths[offset]
             var row = offset < group.count
                 ? group[group.startIndex + offset]
                 : Terminal.Row(columns: newWidth, generation: generation, wrapped: true)
             var column = 0
             while column < length {
-                while sourceColumn == used[source] {
+                while sourceColumn >= used[source] {
+                    sourceColumn -= used[source]
                     source += 1
-                    sourceColumn = 0
                 }
                 let count = min(length - column, used[source] - sourceColumn)
-                row.copy(sourceColumn..<(sourceColumn + count), from: group[group.startIndex + source], to: column)
+                if source != offset || sourceColumn != column {
+                    row.copy(sourceColumn..<(sourceColumn + count), from: group[group.startIndex + source], to: column)
+                }
                 column += count
                 sourceColumn += count
                 if sourceColumn > oldWidth { row.restoreContinuation(at: column - 1) }
@@ -236,9 +232,9 @@ extension Terminal.Buffer {
             // Only the cell after a short row is blanked. A wide glyph before it stays, even one a
             // narrower screen left without its second half.
             if length < newWidth { row.fillWithBlanks(length..<(length + 1)) }
-            result.append(row)
+            if offset < group.count { originals.append(row) } else { extras.append(row) }
         }
-        return result
+        return (originals, extras, growth)
     }
 
     /// The cells a row contributes to its logical line. A continued row runs to the edge, or stops

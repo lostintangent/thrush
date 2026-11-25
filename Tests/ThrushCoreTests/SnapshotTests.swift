@@ -238,3 +238,16 @@ import ThrushFixtures
     terminal.resize(to: .init(columns: 2, rows: 3))
     #expect(colors() == [[.indexed(1), .indexed(2)], [.indexed(3), .indexed(4)], [.indexed(5)]])
 }
+
+@Test func narrowingALongWrappedLineKeepsItsTailInHistory() {
+    var terminal = Terminal(size: .init(columns: 48, rows: 2))
+    let glyphs = (0..<2048).map { String(Unicode.Scalar(0x4e00 + $0)!) }
+    _ = terminal.receive((glyphs.joined() + "\r\n").utf8)
+    terminal.resize(to: .init(columns: 2, rows: 2))
+
+    // Each glyph fills one row. The last glyph and the following blank fill the viewport.
+    let snapshot = terminal.snapshot()
+    #expect(snapshot.rows.map(\.text) == [glyphs.last!, ""])
+    #expect(snapshot.history.map(\.text) == Array(glyphs.dropLast().suffix(Terminal.History.limit)))
+    #expect(snapshot.history.allSatisfy { $0.isWrapped && $0[0].width == 2 && $0[1].width == 0 })
+}
