@@ -7,7 +7,6 @@ struct MacToolbarProof: View {
     let session: TerminalSession
     var body: some View {
         TerminalPane(session)
-            .ignoresSafeArea()
             .navigationTitle("Terminal")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

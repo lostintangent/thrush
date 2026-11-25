@@ -4,6 +4,9 @@ import ThrushCore
 
 /// A terminal pane that shows its session while visible.
 /// Keep the session in a model that outlives the pane's SwiftUI updates.
+///
+/// Like a SwiftUI background, the pane's canvas extends under any bar, toolbar or safe area its frame meets,
+/// while its grid stays inside the safe area and above the iPhone keyboard.
 @MainActor public struct TerminalPane: View {
     private let session: TerminalSession
     /// Whether the app is showing the pane. Set this to false when hiding a retained tab.
@@ -63,6 +66,8 @@ import ThrushCore
 
         var body: some View {
             NativePane(pane: pane, owner: coordinator)
+                // The container insets the grid itself, from the native safe area and keyboard.
+                .ignoresSafeArea()
                 .onAppear { coordinator.setPresented(true) }
                 .onDisappear { coordinator.setPresented(false) }
                 #if os(iOS)

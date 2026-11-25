@@ -10,7 +10,6 @@ struct PhoneToolbarProof: View {
     var body: some View {
         NavigationStack {
             TerminalPane(session)
-                .ignoresSafeArea()
                 .navigationTitle(session.title.isEmpty ? "Terminal" : session.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

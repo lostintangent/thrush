@@ -60,9 +60,6 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         let session = DemoSession(options: DemoOptions())
         self.session = session
         super.init(rootView: DemoSurface(session: session))
-        // The live pane owns safe area and keyboard avoidance. The isolated render benchmark
-        // uses the hosting controller's safe content area because it has no pane container.
-        if session.options.benchmarkURL == nil && !session.options.checksToolbar { safeAreaRegions = [] }
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 

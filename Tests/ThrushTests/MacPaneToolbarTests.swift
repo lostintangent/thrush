@@ -4,8 +4,12 @@ import SwiftUI
 import Testing
 @testable import Thrush
 
-@MainActor @Test(arguments: [false, true])
-func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
+enum MacPaneHost: CaseIterable {
+    case window, toolbar, toolbarIgnoringSafeArea, paddedToolbar
+}
+
+@MainActor @Test(arguments: MacPaneHost.allCases)
+func macPaneFitsTheWindowContentLayout(host layout: MacPaneHost) throws {
     _ = NSApplication.shared
     let session = TerminalSession { _ in
         throw URLError(.cannotConnectToHost)
@@ -14,21 +18,22 @@ func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
     var pane = TerminalPane(session, isActive: false, theme: .slateDark)
     pane.preparedView = terminal
     var style: NSWindow.StyleMask = [.titled, .closable, .resizable]
-    if fullSizeToolbar { style.insert(.fullSizeContentView) }
+    if layout != .window { style.insert(.fullSizeContentView) }
     let window = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 720, height: 480),
                           styleMask: style, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
-    if fullSizeToolbar {
+    if layout != .window {
         window.toolbar = NSToolbar(identifier: "Shell")
         window.toolbarStyle = .unified
-        let host = NSHostingView(rootView: pane.ignoresSafeArea())
-        host.sizingOptions = []
-        window.contentView = host
-    } else {
-        let host = NSHostingView(rootView: pane)
-        host.sizingOptions = []
-        window.contentView = host
     }
+    let root = switch layout {
+    case .window, .toolbar: AnyView(pane)
+    case .toolbarIgnoringSafeArea: AnyView(pane.ignoresSafeArea())
+    case .paddedToolbar: AnyView(pane.padding(24))
+    }
+    let hosting = NSHostingView(rootView: root)
+    hosting.sizingOptions = []
+    window.contentView = hosting
     window.titlebarAppearsTransparent = true
     window.orderFront(nil)
     defer { window.close() }
@@ -37,14 +42,18 @@ func macPaneFitsTheWindowContentLayout(fullSizeToolbar: Bool) throws {
 
     let container = try #require(terminal.superview?.superview as? TerminalPaneContainer)
     let paneFrame = container.convert(container.bounds, to: nil)
-    let safe = window.contentLayoutRect
-    if fullSizeToolbar {
+    let bounds = host.convert(host.bounds, to: nil)
+    // A pane meeting the toolbar's edge paints beneath it. A padded pane stays inside the safe area.
+    let safe = layout == .paddedToolbar ? window.contentLayoutRect.insetBy(dx: 24, dy: 24) : window.contentLayoutRect
+    switch layout {
+    case .window:
+        #expect(paneFrame == safe && paneFrame == bounds)
+    case .toolbar, .toolbarIgnoringSafeArea:
         #expect(window.toolbar?.isVisible == true)
-        #expect(paneFrame.maxY > safe.maxY)
-    } else {
+        #expect(paneFrame.maxY > safe.maxY && paneFrame == bounds)
+    case .paddedToolbar:
         #expect(paneFrame == safe)
     }
-    #expect(paneFrame == host.convert(host.bounds, to: nil))
     let shade = TerminalTheme.slateDark.palette.background
     let fill = CGColor(srgbRed: CGFloat(shade.red) / 255, green: CGFloat(shade.green) / 255,
                        blue: CGFloat(shade.blue) / 255, alpha: 1)

@@ -4,12 +4,14 @@ import Testing
 @testable import Thrush
 import UIKit
 
-@MainActor @Test func navigationToolbarOverlaysThePaneButClearsRowOne() async throws {
+// The pane extends under the bar by default, and a host's own `.ignoresSafeArea()` changes nothing.
+@MainActor @Test(arguments: [false, true])
+func navigationToolbarOverlaysThePaneButClearsRowOne(hostIgnoresSafeArea: Bool) async throws {
     let url = try #require(URL(string: "ws://127.0.0.1:1/socket"))
     let session = TerminalSession { _ in URLSession.shared.webSocketTask(with: url) }
+    let content = TerminalPane(session)
     let host = UIHostingController(rootView: NavigationStack {
-        TerminalPane(session)
-            .ignoresSafeArea()
+        Group { if hostIgnoresSafeArea { content.ignoresSafeArea() } else { content } }
             .navigationTitle("Terminal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") {} } }
