@@ -104,7 +104,7 @@ Run the UIKit, Metal and recorded workflow tests on a designated iOS 27 simulato
 scripts/check-ios-ui.sh "$udid"
 ```
 
-The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`.
+The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone 17 simulator for every push and pull request.
 
 The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, four short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on an available Xcode host, pass a new or empty output directory.
 

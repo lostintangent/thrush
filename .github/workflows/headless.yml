@@ -89,6 +89,28 @@ jobs:
           bun Fixtures/reference/check-serialization.mjs "$(swift build -c release --show-bin-path)/ThrushBench"
           python3 scripts/check-benchmark-report.py
 
+  iphone-tests:
+    name: iPhone UIKit tests
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: xcode-27
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run the UIKit, Metal and recorded workflow tests on a fresh iPhone 17
+        run: |
+          runtime=$(xcrun simctl list runtimes available --json | python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"] if r["name"].startswith("iOS 27.")
+                      and any(t["name"] == "iPhone 17" for t in r["supportedDeviceTypes"])]
+          print(max(runtimes, key=lambda r: tuple(map(int, r["version"].split("."))))["identifier"])')
+          udid=$(xcrun simctl create "Thrush tests" "iPhone 17" "$runtime")
+          xcrun simctl bootstatus "$udid" -b
+          scripts/check-ios-ui.sh "$udid"
+
   iphone-proof:
     name: iPhone simulator proof
     if: github.event_name == 'workflow_dispatch'
