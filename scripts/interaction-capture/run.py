@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Record real iPhone terminal interactions from the packaged app on a disposable simulator."""
 import argparse
+import contextlib
 import importlib.util
 import json
 import os
@@ -99,12 +100,19 @@ def collect(phone, device, endpoint, plan, out, work):
 
     # The runner timestamps just the gestures in the foreground app. Trim setup, launches
     # and XCTest's transitions out of the simulator's recording before handing it to design.
-    with phone.record_switch():
-        video_start = time.time()
+    # A simulator with no recording surface can still run UIKit gestures and return
+    # XCTest screenshots. Collect those even when its video encoder is unavailable.
+    with contextlib.ExitStack() as stack:
+        video_start = None
+        try:
+            stack.enter_context(phone.record_switch())
+            video_start = time.time()
+        except (RuntimeError, TimeoutError, subprocess.SubprocessError) as error:
+            (out / "recording-error.log").write_text(str(error) + "\n")
         try:
             run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
                         f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                        "-resultBundlePath", result], out / "ui-gestures.log", 360)
+                        "-resultBundlePath", result], out / "ui-gestures.log", 720)
         finally:
             if result.exists():
                 # XCTest retains accepted frames even when a subsequent gesture fails. Read
@@ -124,6 +132,8 @@ def collect(phone, device, endpoint, plan, out, work):
                             src = exported / Path(attachment["exportedFileName"]).name
                             shutil.copyfile(src, out / (name + (".png" if is_frame else "-motion.json")))
 
+    if video_start is None:
+        raise RuntimeError("Screen recording unavailable. See recording-error.log.")
     movie = out / "appearance-switch.mov"
     for appearance in APPEARANCES:
         for clip in CLIPS:
@@ -175,16 +185,24 @@ def main():
         info = plistlib.loads((app / "Info.plist").read_bytes())
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
-        with simulator.disposable_phone(out) as device, simulator.peer(out) as endpoint:
-            run_logged(["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 360)
+        with simulator.peer(out) as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
-            try:
-                collect(phone, device, endpoint, plan, out, work)
-                check_images(out)
-            except Exception:
-                simulator.sim("io", device, "screenshot", "--mask=black", str(out / "failure.png"),
-                              timeout=20, check=False)
-                raise
+            failures = {}
+            def attempt(name, action, *args):
+                print(f"Running {name}", flush=True)
+                try:
+                    action(*args)
+                except Exception as error:
+                    failures[name] = str(error)
+                    print(f"{name} failed: {error}", file=sys.stderr, flush=True)
+
+            attempt("keyboard warm-up", phone.warm_keyboard, "dark")
+            attempt("native gestures", collect, phone, device, endpoint, plan, out, work)
+            attempt("interaction screenshots", check_images, out)
+            attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
+            simulator.save_json(out / "checks.json", {"failures": failures})
+            if failures:
+                raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
     print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
 
 
