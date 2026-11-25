@@ -25,6 +25,10 @@ on:
         type: choice
         options: [any, visible, hidden]
         default: any
+      layout_only:
+        description: Measure a named scene's settled keyboard and grid
+        type: boolean
+        default: false
       oracle:
         description: Optional repository-relative Python screenshot checker under scripts/
         type: string
@@ -89,11 +93,14 @@ jobs:
           CAPTURE_ORIENTATION: ${{ inputs.orientation }}
           CAPTURE_KEYBOARD: ${{ inputs.keyboard }}
           CAPTURE_ORACLE: ${{ inputs.oracle }}
+          CAPTURE_LAYOUT_ONLY: ${{ inputs.layout_only }}
         run: |
+          flags=()
+          if [[ "$CAPTURE_LAYOUT_ONLY" == true ]]; then flags+=(--layout-only); fi
           python3 scripts/capture-simulator.py --output "$RUNNER_TEMP/thrush-iphone-proof" \
             --scene "$CAPTURE_SCENE" --appearance "${CAPTURE_APPEARANCE:-dark}" \
             --orientation "${CAPTURE_ORIENTATION:-portrait}" --keyboard "${CAPTURE_KEYBOARD:-any}" \
-            --oracle "$CAPTURE_ORACLE"
+            --oracle "$CAPTURE_ORACLE" "${flags[@]}"
       - name: Upload captures and measurements
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

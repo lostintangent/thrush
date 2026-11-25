@@ -238,14 +238,15 @@ public final class TerminalView: MTKView, MTKViewDelegate {
 
     private func applyClearColor() {
         let c = resolvedTheme.palette.background.vector
+        let background = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
         #if os(macOS)
         let alpha = effectiveOpacity
+        (layer as? CAMetalLayer)?.backgroundColor = alpha == 1 ? background : nil
         #else
         let alpha = 1.0
+        (layer as? CAMetalLayer)?.backgroundColor = background
         #endif
         // Core Animation composites the drawable as premultiplied RGBA.
-        (layer as? CAMetalLayer)?.backgroundColor = alpha == 1
-            ? CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1) : nil
         clearColor = MTLClearColor(red: Double(c.x) * alpha, green: Double(c.y) * alpha,
                                    blue: Double(c.z) * alpha, alpha: alpha)
     }

@@ -58,25 +58,54 @@ def runtime():
 
 
 @contextlib.contextmanager
-def disposable_phone(out):
-    chosen = runtime()
-    device_type = next(t["identifier"] for t in chosen["supportedDeviceTypes"] if t["name"] == "iPhone 17")
-    name = "Thrush capture " + uuid.uuid4().hex[:8]
-    device = str(uuid.UUID(sim("create", name, device_type, chosen["identifier"]).stdout.strip())).upper()
-    print(f"Booting {name} on {chosen['name']} ({device})", flush=True)
-    save_json(out / "device.json", dict(device=device, deviceType=device_type, runtime=chosen["identifier"],
-                                       version=chosen["version"], build=chosen.get("buildversion")))
+def disposable_phone(out, attach_display=True):
+    device = None
     try:
-        sim("boot", device)
-        boot = sim("bootstatus", device, "-b", timeout=300)
-        (out / "boot.log").write_text(boot.stdout + boot.stderr)
-        sim("io", device, "screenConfig", "power", "on")
+        chosen = runtime()
+        device_type = next(t["identifier"] for t in chosen["supportedDeviceTypes"] if t["name"] == "iPhone 17")
+        name = "Thrush capture " + uuid.uuid4().hex[:8]
+        print(f"Creating {name} on {chosen['name']}", flush=True)
+        device = str(uuid.UUID(sim("create", name, device_type, chosen["identifier"]).stdout.strip())).upper()
+        save_json(out / "device.json", dict(device=device, deviceType=device_type, runtime=chosen["identifier"],
+                                            version=chosen["version"], build=chosen.get("buildversion")))
+        print(f"Booting {device} and waiting for system services", flush=True)
+        with (out / "boot.log").open("w") as log:
+            subprocess.run(["xcrun", "simctl", "bootstatus", device, "-b"], stdout=log, stderr=subprocess.STDOUT,
+                           timeout=300, check=True)
+        print(f"Boot finished for {device}", flush=True)
+        if attach_display and os.environ.get("GITHUB_ACTIONS") == "true":
+            # Give the hosted device a native display client. The supplied UDID belongs
+            # to this job and points Simulator.app at precisely the phone just booted.
+            simulator = Path(os.environ["DEVELOPER_DIR"]) / "Applications/Simulator.app"
+            with (out / "display.log").open("w") as log:
+                try:
+                    process = subprocess.run(["/usr/bin/open", "-na", str(simulator), "--args", "-CurrentDeviceUDID", device],
+                                             stdout=log, stderr=subprocess.STDOUT, timeout=15)
+                    print(f"Attached hosted Simulator display client (open status {process.returncode})", flush=True)
+                except (OSError, subprocess.SubprocessError) as error:
+                    print(f"Simulator display client: {error}", file=log, flush=True)
         yield device
-    finally:
+    except BaseException:
         try:
-            sim("shutdown", device, timeout=45, check=False)
-        finally:
-            sim("delete", device, timeout=45)
+            inventory = sim("list", "devices", "--json", timeout=15, check=False)
+            (out / "simulator-inventory.log").write_text(inventory.stdout + inventory.stderr)
+        except (OSError, subprocess.SubprocessError) as error:
+            (out / "simulator-inventory.log").write_text(str(error) + "\n")
+        raise
+    finally:
+        original_failure = sys.exc_info()[0] is not None
+        if device:
+            print(f"Cleaning up {device}", flush=True)
+            try:
+                sim("shutdown", device, timeout=45, check=False)
+            except (OSError, subprocess.SubprocessError) as error:
+                print(f"Simulator shutdown: {error}", file=sys.stderr, flush=True)
+            try:
+                sim("delete", device, timeout=45)
+            except (OSError, subprocess.SubprocessError, RuntimeError) as error:
+                if not original_failure:
+                    raise
+                print(f"Simulator deletion: {error}", file=sys.stderr, flush=True)
 
 
 @contextlib.contextmanager
@@ -149,12 +178,14 @@ class Phone:
             return upright
         return raw
 
-    def frame(self, scene, appearance, orientation, keyboard, pid, oracle, previous=None):
+    def frame(self, scene, appearance, orientation, keyboard, pid, oracle, previous=None, layout_only=False):
         name = f"{scene}-{appearance}-{orientation}"
         path = self.out / (name + ".png")
         last_error = "The scene has not reported a GPU-completed draw."
         candidate = self.scratch / "frame.png"
         print(f"Waiting for {name}", flush=True)
+        observed = None
+        since = time.monotonic()
 
         def matches(state):
             ready = (state.get("pid") == pid and state.get("scene") == scene and
@@ -168,13 +199,32 @@ class Phone:
             return True
 
         def capture():
-            nonlocal last_error
+            nonlocal last_error, observed, since
             state = self.state()
             if not matches(state):
+                observed = None
                 last_error = f"Requested {scene}, {appearance}, {orientation}, keyboard {keyboard}, PID {pid}; received {state}"
                 return False
-            candidate.unlink(missing_ok=True)
-            sim("io", self.device, "screenshot", "--mask=black", str(candidate), timeout=20)
+            if state != observed:
+                observed, since = state, time.monotonic()
+                save_json(self.out / (name + "-observed.json"), state)
+                print(f"{name}: {state['columns']} × {state['rows']} cells, "
+                      f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
+                      flush=True)
+            if layout_only:
+                if time.monotonic() - since < 0.7:
+                    return False
+                save_json(self.out / (name + ".json"), state)
+                return state
+            for attempt in (1, 2):
+                candidate.unlink(missing_ok=True)
+                try:
+                    sim("io", self.device, "screenshot", "--mask=black", str(candidate), timeout=75)
+                    break
+                except (RuntimeError, subprocess.TimeoutExpired) as error:
+                    print(f"{name} screenshot attempt {attempt}: {error}", file=sys.stderr, flush=True)
+                    if attempt == 2:
+                        raise
             if self.state() != state:
                 last_error = "The displayed generation or layout changed during capture."
                 return False
@@ -196,9 +246,6 @@ class Phone:
                 candidate.replace(self.out / (name + "-framebuffer.png"))
             upright.replace(path)
             save_json(self.out / (name + ".json"), dict(state, framebufferRotationDegrees=90 if upright != candidate else 0))
-            print(f"{name}: {state['columns']} × {state['rows']} cells, "
-                  f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
-                  flush=True)
             return state
 
         candidate.unlink(missing_ok=True)
@@ -207,9 +254,12 @@ class Phone:
         except TimeoutError as error:
             if candidate.exists():
                 candidate.replace(self.out / (name + "-failed.png"))
-            else:
-                sim("io", self.device, "screenshot", "--mask=black", str(self.out / (name + "-failed.png")),
-                    timeout=15, check=False)
+            elif not layout_only and observed is None:
+                try:
+                    sim("io", self.device, "screenshot", "--mask=black", str(self.out / (name + "-failed.png")),
+                        timeout=15, check=False)
+                except subprocess.TimeoutExpired:
+                    pass
             raise RuntimeError(f"{name}: {last_error}") from error
 
     @contextlib.contextmanager
@@ -277,6 +327,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
     parser.add_argument("--scene", default="", help="A scene registered by the demo. Leave empty to run the full proof.")
+    parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
     parser.add_argument("--keyboard", choices=("visible", "hidden", "any"), default="any")
@@ -284,6 +335,8 @@ def main():
     args = parser.parse_args()
     if args.scene and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,64}", args.scene):
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
+    if args.layout_only and (not args.scene or args.oracle):
+        parser.error("--layout-only requires a named scene and provides native metadata only.")
     oracle = None
     if args.oracle:
         oracle = (ROOT / args.oracle).resolve()
@@ -307,15 +360,20 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    with disposable_phone(out) as device, peer(out) as endpoint, tempfile.TemporaryDirectory(dir=out) as work:
+    with disposable_phone(out, attach_display=not args.layout_only) as device, peer(out) as endpoint, tempfile.TemporaryDirectory(dir=out) as work:
+        phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
             if args.scene:
                 pid = phone.launch(args.scene, args.appearance, args.orientation, args.keyboard)
-                phone.frame(args.scene, args.appearance, args.orientation, args.keyboard, pid, oracle)
+                phone.frame(args.scene, args.appearance, args.orientation, args.keyboard, pid, oracle, layout_only=args.layout_only)
             else:
                 phone.suite()
         except Exception:
+            if phone:
+                state = phone.state()
+                if state:
+                    save_json(out / "last-native-state.json", state)
             try:
                 logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact",
                            "--predicate", 'process == "ThrushDemo"', timeout=20, check=False)
