@@ -72,8 +72,8 @@ func runTransportBenchmark(arguments: [String]) throws {
     guard arguments.count == 1 || (arguments.count == 3 && arguments[1] == "--output" && !arguments[2].isEmpty) else {
         throw BenchmarkError("Usage: ThrushBench \(arguments[0]) [--output PATH]")
     }
-    let stream = arguments[0] == "--transport"
-    let defaultOutput = stream ? ".build/benchmarks/transport.json" : ".build/benchmarks/connection.json"
+    let appTransport = arguments[0] == "--app-transport"
+    let defaultOutput = appTransport ? ".build/benchmarks/app-transport.json" : ".build/benchmarks/websocket.json"
     let output = URL(filePath: arguments.count == 3 ? arguments[2] : defaultOutput)
     let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let swift = ["swift", "build", "-c", "release", "--package-path", root.path]
@@ -81,7 +81,7 @@ func runTransportBenchmark(arguments: [String]) throws {
     let bin = try Environment.command("/usr/bin/env", swift + ["--show-bin-path"], captureDiagnostics: false)
     let client = URL(filePath: bin).appending(path: "ThrushLoopbackCheck")
     let environment = try Environment.read()
-    if stream {
+    if appTransport {
         let fixture = try FirstBytesFixture.load()
         let json = try Environment.command(client.path, ["--transport"], captureDiagnostics: false)
         let samples = try JSONDecoder().decode([UInt64].self, from: Data(json.utf8))

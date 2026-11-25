@@ -115,7 +115,7 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 | Resize with full history | Worst p95 0.801 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
 | Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
-| Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [WebSocket lifecycle](Benchmarks/connection.md) |
+| Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [WebSocket lifecycle](Benchmarks/transport.md) |
 | Real shells | Bash, Vim, Codex and shell lifecycle on Mac and iPhone, with 34 checkpoints per platform and end-to-end byte counts | [Live workflows](Benchmarks/live-workflows.md) |
 
 The timings come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.

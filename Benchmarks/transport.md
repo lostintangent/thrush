@@ -1,6 +1,10 @@
-# WebSocket lifecycle measurements
+# Transport measurements
 
-Run `swift run -c release ThrushBench --connection` from the repository root with the full Xcode toolchain and Bun on the path. The command builds the matching Release loopback client, prints p50 and p95 in milliseconds, and writes `.build/benchmarks/connection.json`. Use `--output PATH` to retain another run.
+These workloads time a session's transport, which moves bytes between the session and its shell.
+
+## WebSocket transport
+
+Run `swift run -c release ThrushBench --websocket` from the repository root with the full Xcode toolchain and Bun on the path. The command builds the matching Release loopback client, prints p50 and p95 in milliseconds, and writes `.build/benchmarks/websocket.json`. Use `--output PATH` to retain another run.
 
 The workload starts a Bun WebSocket peer on the Mac’s loopback interface. The first six attachments cover a fresh shell, a brief detach and foreground return, takeover by a second WebSocket client, user-initiated reclaim, orphan expiry and a fresh shell after explicit close. This shell sends its last two output frames before exit. The initial 16 × 3 grid makes a single row of history observable on resume. The first client sends one 18 × 3 resize and the foreground attachment returns to 16 × 3. During reclaim the session coalesces two requests into a single 17 × 3 resize after replay. Both sides check the exchange in every pass.
 
@@ -16,11 +20,9 @@ The peer advances an independent virtual clock to test the 30-second orphan dead
 
 The JSON records each interval’s five samples in nanoseconds, nearest-rank p50 and p95, the peer script’s SHA-256 and the machine environment. Five samples make p95 the slowest measured sample. The report describes scripted, headless macOS loopback. Presentation and physical iPhone measurements have separate workloads. CI checks wire and screen correctness independently of elapsed time.
 
-Run `swift run -c release ThrushBench --transport` to time the session with an app-supplied `TerminalTransport` from its first read through EOF. The checker verifies the first-bytes fixture’s final rows, reply bytes and received/applied counts. One warmup and five measured passes produce `.build/benchmarks/transport.json`.
+### Recorded run
 
-## Recorded run
-
-The M1 Max completed five measured passes on `559d507`. The one-minute load average was 91.70 across ten active cores, with thermal state fair. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](connection.json)
+The M1 Max completed five measured passes on `559d507`. The one-minute load average was 91.70 across ten active cores, with thermal state fair. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](websocket.json)
 
 | Interval | p50 | p95 |
 | --- | ---: | ---: |
@@ -28,6 +30,10 @@ The M1 Max completed five measured passes on `559d507`. The one-minute load aver
 | Recovery ready and replay to held Up | 0.454 ms | 0.905 ms |
 | In-band replay to deferred resize | 0.291 ms | 0.345 ms |
 | Final ready, output and exit to socket close | 0.680 ms | 0.941 ms |
+
+## App transport
+
+Run `swift run -c release ThrushBench --app-transport` to time the session with an app-supplied `TerminalTransport` from its first read through EOF. The checker verifies the first-bytes fixture’s final rows, reply bytes and received/applied counts. One warmup and five measured passes produce `.build/benchmarks/app-transport.json`.
 
 ## Measure a replay
 
