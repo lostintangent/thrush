@@ -2,7 +2,7 @@
 
 ![The Thrush mark, with an amber brow, neck and chest and a terminal chevron cut into its slate wing](Thrush-logo-amber.png)
 
-Build a native terminal that any Mac or iPhone app can embed, so someone can run a shell, edit in Vim and use the Codex terminal UI inside it. A server the host chooses runs the shell and owns the pseudoterminal (PTY). Thrush owns what the remote bytes mean, what appears on the screen and how native input becomes bytes again. [Toy Box](https://github.com/lostintangent/toy-box) is the first app to adopt Thrush, but nothing in Thrush's code, API, protocol, docs, sample apps, benchmarks or CI depends on it.
+Build a native terminal that any Mac or iPhone app can embed, so someone can run a shell, edit in Vim and use the Codex terminal UI inside it. A server the host chooses runs the shell and owns the pseudoterminal (PTY). Thrush owns what the remote bytes mean, what appears on the screen and how native input becomes bytes again. [Toy Box](https://github.com/lostintangent/toy-box) is the first app to adopt it.
 
 **Channel identity.** The bird above is the approved Thrush logo. The channel avatar places the transparent square export on a white background, with the bird filling most of the square while its wing and tail clear the avatar's rounded corners. It preserves the amber brow, neck and chest and the open chevron in the slate wing. [Channel avatar PNG](Thrush-channel-white.png) · [Transparent square export](Thrush-channel.png)
 
