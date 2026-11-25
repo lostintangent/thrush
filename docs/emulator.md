@@ -28,6 +28,28 @@ bytes ─▶ TextScanner ── printable ASCII runs ─▶ Screen.writeASCII
 
 Input runs the other way through one key table that maps each `Terminal.Input.Key` to its sequence, with a single shared modifier rule.
 
+## Following one chunk
+
+A shell that prints a green prompt sends these 16 bytes:
+
+```
+ESC [ 3 2 m ~ / s r c ESC [ 0 m ␠ $ ␠
+```
+
+Here is how ThrushCore turns them into cells.
+
+1. **The chunk arrives.** The host calls `Terminal.receive(_:)` with a `Span` over the bytes. The loop checks the first byte. ESC isn't printable, so it takes the slow path through `consume`.
+2. **The scanner decodes a scalar.** `TextScanner.decode` returns U+001B. A multibyte character would take several calls, and a chunk that ends halfway through one carries the partial scalar into the next call.
+3. **The parser frames the sequence.** `EscapeParser.consume` looks up its current state and the scalar in the transition table. ESC moves it from the ground state to escape, and `[` moves it to the start of a control sequence and clears the parameters. `3` and `2` accumulate `32` in `ControlParameters`, and `m` is the final byte. That transition returns `.csi` with an identifier packing the final byte and any prefix and intermediates. Nothing has been copied or allocated.
+4. **Dispatch names it.** `TerminalControlFunction(action)` maps the identifier to `.control(.graphicRendition)`, the function the specs call SGR.
+5. **`apply` runs it.** The `graphicRendition` case calls `style.applySGR(parser.parameters)`. It reads `32` in place and sets the foreground to palette color 2, green. Nothing visible changed, so the frame generation stays the same.
+6. **Text takes the fast path.** Back in `receive`, `~` is printable ASCII, the parser is in the ground state and no scalar is half decoded. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
+7. **The rest repeats the pattern.** `ESC [ 0 m` resets the style through the same steps, and ` $ ` is one more run in the default style.
+
+When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `apply` would append `ESC [ 1 ; 9 R` to the replies, which `receive` returns for the host to send to the shell.
+
+Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key table maps Up to cursor final `A`, so it sends `ESC [ A`. If the program enabled application cursor keys with `ESC [ ? 1 h`, it sends `ESC O A` instead.
+
 ## The hot path
 
 Most output is text, so text never enters the state machine.
