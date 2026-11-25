@@ -14,6 +14,8 @@ A table entry of `sub-tick` means both clock reads returned the same timestamp. 
 
 Before the replays, each run samples the Mac’s one-, five- and fifteen-minute load averages, active logical core count and thermal state. The runner marks the report `contended` when the one-minute load exceeds the core count. Use contended runs for correctness and collect timing baselines when the machine settles.
 
+To measure run-to-run noise, run `python3 scripts/measure-first-bytes.py CHECKOUT OUTPUT` with a clean Thrush checkout and a fresh output directory. It builds the Release executable once and saves five consecutive samples from a quiet period. The manual [first-bytes workflow](../.github/workflows/first-bytes.yml) runs the same procedure on one hosted Mac. Each JSON identifies its processor, power state, source revision, fixture and load.
+
 ## Provisional Mac baseline
 
 Five consecutive Release runs measured clean revision `0cd03d0fd191` on Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. The one-minute load stayed above the active core count in every sample. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
