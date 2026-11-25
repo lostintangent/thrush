@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       trace_rotation_layout:
-        description: Record the shell's UIKit layouts and keyboard frame notifications
+        description: Record the shell's UIKit layouts, keyboard frames and anchored row, and check them through rotation
         type: boolean
         default: false
   push:

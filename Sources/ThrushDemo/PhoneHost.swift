@@ -85,8 +85,9 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
-        layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
+        // The trace forwards frame submissions to the capture hook it wraps.
+        layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
         if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesNotice {
             noticeObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {

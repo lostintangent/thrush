@@ -12,6 +12,7 @@ import UIKit
     private var lastBounds: CGSize?
     private var settleDuration: TimeInterval = 0
     private var settleTask: Task<Void, Never>?
+    private var releaseTask: Task<Void, Never>?
 
     init(_ pane: TerminalPaneContainer) {
         self.pane = pane
@@ -25,6 +26,10 @@ import UIKit
     override func viewDidLoad() {
         super.viewDidLoad()
         pane.terminal.beforeViewportResize = { [weak self] source in self?.keyboardLayoutBegan(source: source) }
+        pane.terminal.onHeldGridReady = { [weak self] in
+            // A frame requested before another turn began must not end the new hold.
+            if self?.releaseTask != nil { self?.releaseRotation() }
+        }
         for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)), name: name, object: nil)
         }
@@ -48,6 +53,8 @@ import UIKit
     override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
         if !coordinator.targetTransform.isIdentity, pane.terminal.gridSize != nil {
             settleTask?.cancel()
+            releaseTask?.cancel()
+            releaseTask = nil
             rotation = coordinator
             coordinatorFinished = false
             keyboardWasVisible = (pane.terminal.holdsGridGeometry && keyboardWasVisible)
@@ -84,7 +91,7 @@ import UIKit
     }
 
     private func checkGeometry() {
-        guard pane.terminal.holdsGridGeometry else { return }
+        guard pane.terminal.holdsGridGeometry, releaseTask == nil else { return }
         // The keyboard may publish its destination before UIKit completes the rotation.
         if keyboardWasVisible && keyboardMatchesGuide() {
             finishRotation()
@@ -97,12 +104,15 @@ import UIKit
         }
         // The keyboard can deliver its layout after the orientation coordinator finishes.
         // When UIKit sends no keyboard frame notification, wait for one system animation
-        // interval without another change to the usable bounds.
+        // interval without another change to the usable bounds. A guide that still has the
+        // source orientation's width keeps that orientation's keyboard height, so it only
+        // settles after a much longer wait.
         let bounds = pane.viewportSize
         guard bounds != lastBounds else { return }
         lastBounds = bounds
         settleTask?.cancel()
-        let interval = max(settleDuration, UIView.inheritedAnimationDuration)
+        let followsTurn = abs(pane.keyboardLayoutGuide.layoutFrame.width - pane.bounds.width) <= 1
+        let interval = followsTurn ? max(settleDuration, UIView.inheritedAnimationDuration) : Self.staleGuideWait
         settleTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
             self?.finishRotation()
@@ -127,6 +137,29 @@ import UIKit
     func finishRotation() {
         settleTask?.cancel()
         settleTask = nil
+        rotation = nil
+        coordinatorFinished = false
+        // Keep the anchored source frame until the terminal delivers a frame at the
+        // destination size, then commit the new layout together with that frame.
+        pane.layoutIfNeeded()
+        guard pane.terminal.publishHeldGrid(for: pane.viewportSize) else { return releaseRotation() }
+        releaseTask = Task { [weak self] in
+            do { try await Task.sleep(for: Self.frameWait) } catch { return }
+            self?.releaseRotation()
+        }
+    }
+
+    /// A connection that is replaying or reconnecting may not answer a resize with a frame.
+    static let frameWait = Duration.milliseconds(250)
+    /// A loaded system can keep the keyboard in the source orientation for well over a second.
+    static let staleGuideWait: TimeInterval = 3
+
+    /// Ends any hold now, as when SwiftUI removes the pane.
+    func releaseRotation() {
+        settleTask?.cancel()
+        settleTask = nil
+        releaseTask?.cancel()
+        releaseTask = nil
         rotation = nil
         coordinatorFinished = false
         releasing = true

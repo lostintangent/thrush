@@ -142,9 +142,31 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     // The pane coordinates the size change with UIKit's keyboard and orientation transitions.
     var holdsGridGeometry = false {
         didSet {
-            if oldValue && !holdsGridGeometry { updateGeometry() }
+            guard oldValue != holdsGridGeometry else { return }
+            heldGrid = nil
+            if !holdsGridGeometry {
+                // The new bounds and the first frame drawn for them commit together.
+                presentsWithLayout = true
+                updateGeometry()
+            }
         }
     }
+    /// Called when the terminal delivers its first frame at the grid published while holding.
+    var onHeldGridReady: (() -> Void)?
+    private var heldGrid: Terminal.Size?
+
+    /// Publishes the grid for the pane's destination viewport while the held frame stays on
+    /// screen. Returns false when no resized frame is coming, so the pane can release now.
+    func publishHeldGrid(for viewport: CGSize) -> Bool {
+        guard holdsGridGeometry, let metrics, snapshot != nil, viewport.width > 0, viewport.height > 0 else { return false }
+        let next = metrics.size(in: viewport)
+        guard next != gridSize else { return false }
+        gridSize = next
+        heldGrid = next
+        onGridSizeChange?(next)
+        return true
+    }
+    private var presentsWithLayout = false
     #endif
 
     /// The terminal font size in points, from 6 through 96. A nil value uses 14 on Mac or 13 on iPhone.
@@ -465,6 +487,12 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
         refreshInteraction()
         received = receivedAt
+        #if os(iOS)
+        if let heldGrid, next.size == heldGrid {
+            self.heldGrid = nil
+            onHeldGridReady?()
+        }
+        #endif
         invalidateFrame()
     }
 
@@ -657,6 +685,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     package func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
         updateGeometry()
+        #if os(iOS)
+        if presentsWithTransaction != presentsWithLayout { presentsWithTransaction = presentsWithLayout }
+        presentsWithLayout = false
+        #endif
         prepareRenderer()
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
@@ -727,6 +759,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
                                   height: CGFloat(metrics.y(size?.rows ?? 0) - metrics.y(0)))
                 onFrameSubmitted(submitted, size, grid)
             }
+            #if os(iOS)
+            if presentsWithTransaction {
+                frame.buffer.commit()
+                frame.buffer.waitUntilScheduled()
+                drawable.present()
+                return
+            }
+            #endif
             frame.buffer.present(drawable)
             frame.buffer.commit()
             showsBlinkingText = frame.blinks

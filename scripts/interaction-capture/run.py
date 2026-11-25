@@ -278,6 +278,50 @@ def check_keyboard_release(out, appearance):
         start = event["time"]
 
 
+def check_anchored_row(out, appearance):
+    """Every displayed frame keeps the reader's row visible and moves it only with its viewport."""
+    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
+    landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
+    trace = out / f"rotation-layout-{landscape['pid']}.jsonl"
+    frames = []
+    for line in trace.read_text().splitlines():
+        event = json.loads(line)
+        if (event["source"] == "accessory.display" and event.get("anchor") and start <= event["time"] <= end
+                and (event.get("layout") or {}).get("appearance") == appearance):
+            frames.append(event)
+    if len(frames) < 30:
+        raise ValueError(f"{appearance}: only {len(frames)} displayed frames recorded the anchored row.")
+    reference = frames[0]["anchor"]
+    if reference["kind"] != "prompt" or not reference["text"]:
+        raise ValueError(f"{appearance}: the turn began anchored to {reference['kind']} row {reference['text']!r}.")
+
+    def span(rect):
+        (_, y), (_, height) = rect
+        return y, y + height
+
+    previous = None
+    for event in frames:
+        anchor = event["anchor"]
+        top, bottom = span(anchor["rowInWindow"])
+        visible_top, visible_bottom = span(anchor["viewportInWindow"])
+        when = f"{appearance} frame at {event['time'] - start:.3f}s ({anchor['columns']} × {anchor['rows']})"
+        if (anchor["kind"], anchor["text"]) != (reference["kind"], reference["text"]):
+            raise ValueError(f"{when} anchored {anchor['kind']} row {anchor['row']} {anchor['text']!r} "
+                             f"instead of {reference['text']!r}.")
+        accessory = anchor.get("accessoryTopInWindow")
+        if top < visible_top - 1 or bottom > visible_bottom + 1 or (accessory is not None and bottom > accessory + 1):
+            raise ValueError(f"{when} drew {reference['text']!r} at {top:g}–{bottom:g} pt, outside the viewport "
+                             f"{visible_top:g}–{visible_bottom:g} pt above the accessory at {accessory}.")
+        if previous:
+            moved = abs(top - previous[0])
+            carried = max(abs(visible_top - previous[1]), abs(visible_bottom - previous[2]))
+            if moved > carried + 1:
+                raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt.")
+        previous = (top, visible_top, visible_bottom)
+    print(f"{appearance} anchored row: {len(frames)} displayed frames kept {reference['text']!r} in view "
+          f"and moved it only with the viewport.", flush=True)
+
+
 def check_rotation_sizes(out, appearance):
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     expected = []
@@ -360,7 +404,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="A new or empty directory for captures and logs.")
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
     parser.add_argument("--trace-rotation-layout", action="store_true",
-                        help="Record UIKit geometry, animation context and keyboard notifications during the shell gestures.")
+                        help="Record UIKit geometry, keyboard notifications and the anchored row of each displayed frame "
+                             "during the shell gestures, and check them through rotation.")
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--accessibility-only", action="store_true",
                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
@@ -419,6 +464,7 @@ def main():
                     attempt("rotation layout traces", collect_layout_traces, phone, out)
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} keyboard release", check_keyboard_release, out, appearance)
+                        attempt(f"{appearance} anchored row", check_anchored_row, out, appearance)
                 if options.rotation_only:
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} rotation", check_images, out, (appearance,),

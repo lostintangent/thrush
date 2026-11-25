@@ -103,6 +103,65 @@ import UIKit
     #expect(terminal.bounds.size == host.usableRect.size)
 }
 
+/// Drawing the source grid in the destination bounds would show its top rows for a frame.
+/// The pane keeps the held frame until the terminal delivers the destination grid.
+@MainActor @Test func heldPaneMovesToTheDestinationWithItsFirstResizedFrame() throws {
+    let host = RotationPane()
+    let terminal = host.terminal
+    let portraitGrid = try #require(terminal.gridSize)
+    var shell = Terminal(size: portraitGrid)
+    let output = (1..<(portraitGrid.rows - 1)).map { "Compile unit \($0)" } + ["Build complete.", "~/thrush % "]
+    _ = shell.receive(output.joined(separator: "\r\n").utf8)
+    terminal.display(shell)
+    var emitted: [Terminal.Size] = []
+    terminal.onGridSizeChange = { emitted.append($0) }
+    var ready = 0
+    terminal.onHeldGridReady = {
+        ready += 1
+        host.pane.endRotation()
+    }
+
+    host.pane.beginRotation()
+    host.resize(to: host.landscape)
+    let heldBounds = terminal.bounds
+    let heldCursor = terminal.convert(terminal.cursorRect, to: host.window)
+    #expect(terminal.publishHeldGrid(for: host.pane.viewportSize))
+    let settled = try #require(emitted.first)
+    #expect(emitted == [settled] && terminal.gridSize == settled)
+    #expect(settled.rows < portraitGrid.rows && settled.columns > portraitGrid.columns)
+    host.pane.layoutIfNeeded()
+    #expect(terminal.holdsGridGeometry && terminal.bounds == heldBounds)
+    #expect(terminal.convert(terminal.cursorRect, to: host.window) == heldCursor)
+
+    _ = shell.receive("l".utf8)
+    terminal.display(shell)
+    #expect(ready == 0 && terminal.holdsGridGeometry && terminal.bounds == heldBounds)
+
+    shell.resize(to: settled)
+    terminal.display(shell)
+    #expect(ready == 1 && !terminal.holdsGridGeometry)
+    #expect(terminal.bounds.size == host.pane.viewportSize)
+    #expect(emitted == [settled])
+    let cursor = terminal.convert(terminal.cursorRect, to: host.window)
+    #expect(host.usableRect.contains(cursor))
+    #expect(abs(cursor.maxY - heldCursor.maxY) < cursor.height)
+}
+
+@MainActor @Test func heldPaneReleasesWhenTheConnectionSendsNoResizedFrame() async throws {
+    let host = RotationPane()
+    let controller = PhonePaneController(host.pane)
+    controller.loadViewIfNeeded()
+    let terminal = host.terminal
+    terminal.display(Terminal(size: try #require(terminal.gridSize)))
+    host.pane.beginRotation()
+    host.resize(to: host.landscape)
+    controller.finishRotation()
+    #expect(terminal.holdsGridGeometry)
+    try await Task.sleep(for: PhonePaneController.frameWait * 2)
+    #expect(!terminal.holdsGridGeometry)
+    #expect(terminal.bounds.size == host.pane.viewportSize)
+}
+
 /// The keyboard can resize the source-orientation pane before its controller receives
 /// viewWillTransition. Replay the observed usable sizes at the native resize boundary.
 @MainActor @Test func sourceKeyboardResizeCanBeHeldBeforeItPublishesAnIntermediateGrid() throws {

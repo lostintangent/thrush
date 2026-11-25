@@ -52,6 +52,24 @@ import UIKit
         let sharesReceivingWindow: Bool?
     }
 
+    /// The row a reader follows, as the most recently submitted frame draws it: the prompt
+    /// at the live edge, otherwise the first visible history row.
+    private struct DrawnRow {
+        let kind, text: String
+        let row, columns, rows: Int
+        let top, height: CGFloat
+    }
+
+    /// Where that row appears on screen for a displayed frame, in the window's presented geometry.
+    private struct Anchor: Encodable {
+        let kind, text: String
+        let row, columns, rows: Int
+        let rowInWindow, viewportInWindow: CGRect
+        let windowSize: CGSize
+        /// Present when the keyboard window shares the app window's presented size.
+        let accessoryTopInWindow: CGFloat?
+    }
+
     private struct Event: Encodable {
         let time: TimeInterval
         let source: String
@@ -60,6 +78,7 @@ import UIKit
         let keyboardAnimationDuration: TimeInterval?
         var afterNotificationAt: TimeInterval? = nil
         var accessorySample: AccessorySample?
+        var anchor: Anchor?
     }
 
     private weak var terminal: TerminalView?
@@ -69,6 +88,7 @@ import UIKit
     private var sampleUntil: CFTimeInterval = 0
     private var link: CADisplayLink?
     private var keyboardEndFrameInScreen: CGRect?
+    private var drawn: DrawnRow?
     private let output: FileHandle
 
     init?(terminal: TerminalView, host: UIViewController) {
@@ -90,6 +110,11 @@ import UIKit
         boundsObservation = terminal.layer.observe(\.bounds, options: [.new]) { [weak self] _, _ in
             MainActor.assumeIsolated { self?.recordLayout("terminal.bounds") }
         }
+        let submitted = terminal.onFrameSubmitted
+        terminal.onFrameSubmitted = { [weak self] time, size, grid in
+            submitted?(time, size, grid)
+            self?.frameSubmitted(size, grid: grid)
+        }
         for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: name, object: nil)
         }
@@ -99,6 +124,9 @@ import UIKit
         guard let layout, layout != previous else { return }
         if let previous, previous.windowSize != layout.windowSize || previous.orientation != layout.orientation {
             sampleTransition(for: host?.transitionCoordinator?.transitionDuration ?? 0)
+        } else if link != nil {
+            // A pane can release its held grid after the window and keyboard settle.
+            sampleTransition(for: 0)
         }
         previous = layout
         write(Event(time: Date.now.timeIntervalSince1970, source: source, layout: layout,
@@ -123,6 +151,39 @@ import UIKit
         }
     }
 
+    private func frameSubmitted(_ size: Terminal.Size?, grid: CGRect) {
+        guard let terminal, let size, size.rows > 0, let snapshot = terminal.snapshot, snapshot.size == size else {
+            drawn = nil
+            return
+        }
+        let scale = terminal.traitCollection.displayScale
+        let following = terminal.historyOffset == 0 && snapshot.cursorVisible
+        let row = following ? snapshot.cursorRow : 0
+        let height = grid.height / CGFloat(size.rows) / scale
+        drawn = DrawnRow(kind: following ? "prompt" : "history",
+                         text: snapshot.rows[row].text.trimmingCharacters(in: .whitespaces),
+                         row: row, columns: size.columns, rows: size.rows,
+                         top: grid.minY / scale + CGFloat(row) * height, height: height)
+        if link != nil { sampleTransition(for: 0) }
+    }
+
+    private func anchor(in window: UIWindow?, accessory: UIView?) -> Anchor? {
+        guard let drawn, let terminal, let viewport = terminal.superview, let window,
+              let layer = terminal.layer.presentation(), let clip = viewport.layer.presentation(),
+              let windowLayer = window.layer.presentation() else { return nil }
+        let row = CGRect(x: 0, y: drawn.top, width: layer.bounds.width, height: drawn.height)
+        var accessoryTop: CGFloat?
+        if let accessory, let accessoryLayer = accessory.layer.presentation(),
+           let accessoryWindow = accessory.window?.layer.presentation(),
+           accessoryWindow.bounds.size == windowLayer.bounds.size {
+            accessoryTop = accessoryLayer.convert(accessoryLayer.bounds, to: accessoryWindow).minY
+        }
+        return Anchor(kind: drawn.kind, text: drawn.text, row: drawn.row, columns: drawn.columns, rows: drawn.rows,
+                      rowInWindow: layer.convert(row, to: windowLayer),
+                      viewportInWindow: clip.convert(clip.bounds, to: windowLayer),
+                      windowSize: windowLayer.bounds.size, accessoryTopInWindow: accessoryTop)
+    }
+
     private func sampleTransition(for duration: TimeInterval) {
         sampleUntil = max(sampleUntil, CACurrentMediaTime() + max(duration, 0.5) + 0.25)
         guard link == nil else { return }
@@ -143,7 +204,7 @@ import UIKit
                                      sharesReceivingWindow: accessory?.window.map { $0 === window })
         write(Event(time: Date.now.timeIntervalSince1970, source: "accessory.display", layout: layout,
                     keyboardEndFrameInScreen: keyboardEndFrameInScreen, keyboardAnimationDuration: nil,
-                    accessorySample: sample))
+                    accessorySample: sample, anchor: anchor(in: window, accessory: accessory)))
         if CACurrentMediaTime() >= sampleUntil {
             display.invalidate()
             link = nil
