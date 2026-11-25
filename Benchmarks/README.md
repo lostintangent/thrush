@@ -14,16 +14,14 @@ Before the replays, each run samples the Mac’s one-, five- and fifteen-minute 
 
 ## Provisional Mac baseline
 
-The shared Mac was under heavy load during these runs. Its one-minute load average was near 299 shortly afterward, across ten active cores. Use these numbers as provisional timing evidence.
+Five consecutive Release runs measured clean revision `0cd03d0fd191` on Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. The one-minute load stayed above the active core count in every sample. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
 
-Five consecutive Release runs measured clean revision `174bc3770612` on an Apple M1 Max (MacBookPro18,4), macOS 27.2.1, Swift 6.4.2, on AC power with nominal thermal state. Each run checked 2,000 measured 80 × 24 replays after 100 warmups. The [saved JSON](first-bytes.json) is the run with the median receive throughput.
-
-| Run | Receive (MiB/s) | 8-byte prompt p95 (ns) | 4-byte cursor query p95 (ns) | 75-byte burst drain p95 (ns) |
-| --- | ---: | ---: | ---: | ---: |
-| 1 | 9.48 | 834 | 542 | 7,500 |
-| 2 | 9.67 | 833 | 500 | 7,417 |
-| 3 | 9.26 | 875 | 542 | 7,542 |
-| 4 | 7.01 | 916 | 584 | 8,167 |
-| 5 (saved) | 9.41 | 834 | 542 | 7,500 |
+| Run | 1 min load / cores | Receive (MiB/s) | 8-byte prompt p95 (ns) | 4-byte query p95 (ns) | 75-byte drain p95 (ns) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 253.96 / 10 | 9.74 | 833 | 500 | 7,417 |
+| 2 | 251.88 / 10 | 9.87 | 791 | 500 | 7,166 |
+| 3 (saved) | 250.93 / 10 | 9.55 | 875 | 542 | 8,125 |
+| 4 | 251.81 / 10 | 9.50 | 833 | 541 | 7,459 |
+| 5 | 250.23 / 10 | 9.33 | 875 | 583 | 7,625 |
 
 Every run applied all 150,000 input bytes and produced 36,000 query-reply bytes and 18,000 key bytes. The burst counters describe the 75 fixture bytes available to the synchronous runner at once and the zero remaining when it finished. The JSON also records clock percentiles for each chunk, row read and Up encoding.
