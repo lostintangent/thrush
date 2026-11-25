@@ -147,6 +147,8 @@ def live_pty(root, output, toy_box, bash, codex, workflows, working_tree=False, 
         work = home / "workspace"
         work.mkdir(mode=0o700)
         configure_workspace(work, home, env, codex, responses)
+        if "recovery" in workflows:
+            shutil.copyfile(Path(__file__).with_name("recovery-producer.py"), work / "recovery-producer.py")
         source = json.loads((root / "data/source.json").read_text())
         bun = subprocess.check_output(["bun", "--version"], env=env, text=True).strip()
         key = source["toyBoxRevision"]
@@ -188,6 +190,28 @@ def verify_controller(name, output, driver):
         raise RuntimeError(f"Live {name} controller acknowledgements differ from native checkpoints in {output}")
 
 
+def stall_upstream(proxy, host, log, work, output, device):
+    wait_for(proxy, log, (work / "recovery-stop-now").exists, 60)
+    # Stop the process that owns the real server socket. The native window keeps running.
+    proxy.send_signal(signal.SIGSTOP)
+    try:
+        _, status = os.waitpid(proxy.pid, os.WUNTRACED)
+        if not os.WIFSTOPPED(status):
+            raise RuntimeError("The real upstream reader failed to stop")
+        stopped = time.monotonic()
+        (work / "recovery-go").touch()
+        wait_for(host, log, (work / "recovery-produced.json").exists, 30)
+        produced = time.monotonic()
+        time.sleep(2)  # Let the server parse the finite silent tail before the reader drains.
+    finally:
+        proxy.send_signal(signal.SIGCONT)
+    resumed = time.monotonic()
+    (output / "recovery-stall.json").write_text(json.dumps(dict(
+        upstreamReaderPID=proxy.pid, nativeProcessPID=host.pid if not device else None,
+        readerStopSignal=os.WSTOPSIG(status), producerDoneAfterSeconds=produced - stopped,
+        readerResumedAfterSeconds=resumed - stopped), indent=2) + "\n")
+
+
 def run_workflow(name, upstream, work, modules, env, app, output, appearance, device, documents, pane):
     output.mkdir()
     log = output / "controller.log"
@@ -206,7 +230,9 @@ def run_workflow(name, upstream, work, modules, env, app, output, appearance, de
                 command = [app / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
             with pane.running([*command, *options], output / "app.log", **({} if device else {"env": env})) as host:
                 try:
-                    pane.await_report(name if name != "lifecycle" else "live-lifecycle", host, proxy,
+                    if name == "recovery":
+                        stall_upstream(proxy, host, log, work, output, device)
+                    pane.await_report("live-" + name if name in ("lifecycle", "recovery") else name, host, proxy,
                                       driver, output, "simulator" if device else "mac", device or str(host.pid),
                                       verify_fixture=False)
                     verify_controller(name, output, driver)
@@ -230,7 +256,7 @@ def main():
     parser.add_argument("--toy-box", type=Path, default=ROOT.parent / "toy-box", help="Local checkout containing the pinned revision")
     parser.add_argument("--public-web-build", action="store_true", help="Use the documented CI substitute for Toy Box’s web animation components in a disposable copy of the pin")
     parser.add_argument("--working-tree", action="store_true", help="Build the current Toy Box files instead of the pinned revision")
-    parser.add_argument("--workflow", action="append", choices=WORKFLOWS, help="Repeat to select workflows; default: all four")
+    parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"), help="Select workflows. Defaults to shell, vim, codex and lifecycle. Use recovery with --working-tree.")
     parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
@@ -239,6 +265,8 @@ def main():
     if args.public_web_build and args.working_tree:
         parser.error("The public web build uses the pinned server revision; select one source mode")
     workflows = args.workflow or list(WORKFLOWS)
+    if "recovery" in workflows and not args.working_tree:
+        parser.error("The recovery workflow needs the candidate's in-band repair. Pass --working-tree with its Toy Box checkout.")
     if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
         parser.error("Choose each workflow once and use --device only with --platform simulator")
     if args.bash is None:
