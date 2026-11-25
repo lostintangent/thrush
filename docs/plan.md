@@ -4,7 +4,7 @@
 
 Build a first-party terminal emulator that lets someone run a shell, edit in Vim and use the Codex terminal UI on a Mac or iPhone. Toy Box already runs the shell and owns the pseudoterminal (PTY). Thrush owns what the remote bytes mean, what appears on the screen and how native input becomes bytes again.
 
-**Channel identity.** The bird above is the approved Thrush logo. The channel Lead uses the transparent square export as the channel avatar. It preserves the amber brow, neck and chest and the open chevron in the slate wing. [Channel avatar PNG](Thrush-channel.png)
+**Channel identity.** The bird above is the approved Thrush logo. The channel avatar places the transparent square export on a white background, with the bird filling most of the square while its wing and tail clear the avatar's rounded corners. It preserves the amber brow, neck and chest and the open chevron in the slate wing. [Channel avatar PNG](Thrush-channel-white.png) · [Transparent square export](Thrush-channel.png)
 
 **Delivery order.** Build a standalone Swift package against a scripted server. Draw its first visible prompt with Metal. Prove the same demo against a disposable Toy Box PTY. Integrate the proven package into the two Toy Box apps last. The first release commits to the three workflows below. Add terminal features when a named workflow or its recorded replay requires them.
 
