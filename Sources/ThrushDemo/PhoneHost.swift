@@ -1,6 +1,7 @@
 #if os(iOS)
 import Thrush
 import ThrushUI
+import SwiftUI
 import UIKit
 
 @main
@@ -48,38 +49,46 @@ private extension UIColor {
     }
 }
 
-private final class PhoneHost: UIViewController {
-    let session = DemoSession(options: DemoOptions())
+private final class PhoneHost: UIHostingController<DemoSurface> {
+    let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
+    private var noticeObservation: Task<Void, Never>?
+
+    init() {
+        let session = DemoSession(options: DemoOptions())
+        self.session = session
+        super.init(rootView: DemoSurface(session: session))
+        // The live pane owns safe area and keyboard avoidance. The isolated render benchmark
+        // uses the hosting controller's safe content area because it has no pane container.
+        if session.options.benchmarkURL == nil { safeAreaRegions = [] }
+    }
+    @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        if session.view.theme != nil { return .lightContent }
+        if session.theme != nil { return .lightContent }
         return traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let grid = session.view
-        view.addSubview(grid)
-        grid.translatesAutoresizingMaskIntoConstraints = false
-        let safe = view.safeAreaLayoutGuide
-        NSLayoutConstraint.activate([
-            grid.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
-            grid.trailingAnchor.constraint(equalTo: safe.trailingAnchor),
-            grid.topAnchor.constraint(equalTo: safe.topAnchor),
-            grid.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-        ])
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
-        session.onError = { [weak self] in self?.showError($0) }
-        applyChrome(grid.resolvedTheme)
-        if let responder = grid.subviews.first(where: { $0 is UITextView }) {
-            captureLayout = PhoneCapture.observe(session, in: view, input: responder)
+        applyChrome(session.view.resolvedTheme)
+        session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
+        captureLayout = PhoneCapture.observe(session, in: view)
+        if captureLayout != nil, session.options.scene.capturesNotice {
+            noticeObservation = Task { [weak self] in
+                while !Task.isCancelled, self != nil {
+                    self?.captureLayout?()
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+            }
         }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        focusIfRequested()
         captureLayout?()
     }
 
@@ -89,27 +98,15 @@ private final class PhoneHost: UIViewController {
     }
 
     func focusIfRequested() {
-        guard session.options.keyboard, viewIfLoaded?.window?.windowScene?.activationState == .foregroundActive,
-              !focusRequested else { return }
+        guard !focusRequested, session.options.keyboard, session.hasUsableShell || session.options.benchmarkURL != nil,
+              session.view.window != nil,
+              viewIfLoaded?.window?.windowScene?.activationState == .foregroundActive else { return }
         focusRequested = session.view.focusInput()
     }
 
     private func applyChrome(_ theme: TerminalTheme) {
         view.backgroundColor = UIColor(terminal: theme.palette.background)
         setNeedsStatusBarAppearanceUpdate()
-    }
-
-    private func showError(_ detail: String) {
-        guard presentedViewController == nil else { return }
-        let alert = UIAlertController(title: "Couldn’t connect to the terminal",
-                                      message: "\(detail)\n\nThe demo peer is expected at \(session.options.endpoint.absoluteString).",
-                                      preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
-            guard let self else { return }
-            session.replay(session.options.scene)
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
     }
 }
 #endif

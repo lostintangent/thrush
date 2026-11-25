@@ -74,6 +74,34 @@ private struct MacInputFixture {
 }
 
 @MainActor
+@Test func appKitFrozenPaneAllowsCopyAndDropsPendingComposition() throws {
+    let host = try MacInputFixture()
+    var shell = Terminal(size: .init(columns: 20, rows: 4))
+    _ = shell.receive("final output".utf8)
+    host.view.display(shell)
+    var writes: [Terminal.Input] = []
+    host.view.onInput = { writes.append($0) }
+    let unspecified = NSRange(location: NSNotFound, length: 0)
+    let insertion = NSRange(location: 1, length: 0)
+    host.input.setMarkedText("日", selectedRange: insertion, replacementRange: unspecified)
+    host.view.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: true)
+    host.input.setMarkedText("翼", selectedRange: insertion, replacementRange: unspecified)
+    host.input.insertText("鳥", replacementRange: unspecified)
+    host.input.unmarkText()
+    try host.key(36, characters: "\r")
+    let board = NSPasteboard.withUniqueName()
+    defer { board.releaseGlobally() }
+    board.setString("explicit paste", forType: .string)
+    host.input.paste(from: board)
+    #expect(!host.input.hasMarkedText())
+    #expect(writes.isEmpty)
+
+    host.input.setAccessibilitySelectedTextRange(.init(location: 0, length: 12))
+    host.input.copySelection(to: board)
+    #expect(board.string(forType: .string) == "final output")
+}
+
+@MainActor
 @Test func appKitKeysAndPasteUseCurrentTerminalModes() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 20, rows: 4))

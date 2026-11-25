@@ -47,6 +47,8 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     // A separate transcript interaction handles terminal selection, scrolling and keyboard focus.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool { false }
     override var hasText: Bool { true }
+    private var acceptsInput: Bool { terminalView?.acceptsTerminalInput == true }
+    override var canBecomeFirstResponder: Bool { acceptsInput && super.canBecomeFirstResponder }
 
     func setAccessory(_ choice: TerminalKeyboardAccessory) {
         guard accessoryChoice != choice else { return }
@@ -57,13 +59,20 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case .standard: inputAccessoryView = accessory
         case .none: inputAccessoryView = nil
         case .custom(let custom):
-            custom.onInput = { [weak terminalView] input in terminalView?.sendInput(input) }
+            custom.onInput = { [weak terminalView] input in
+                guard let terminalView, terminalView.acceptsTerminalInput else { return }
+                terminalView.sendInput(input)
+            }
             inputAccessoryView = custom
         }
         if isFirstResponder { reloadInputViews() }
     }
 
     func synchronize(cursorRect: CGRect, pointSize: CGFloat, theme: TerminalTheme) {
+        if accessory.isUserInteractionEnabled != acceptsInput {
+            accessory.isUserInteractionEnabled = acceptsInput
+            accessory.accessibilityElementsHidden = !acceptsInput
+        }
         let width = terminalView?.bounds.width ?? 0
         let themeChanged = self.theme != theme
         let fontChanged = font?.pointSize != pointSize
@@ -99,6 +108,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     /// UITextInput implementations can call one another. Observe the complete edit after returning
     /// to the outermost call, when UIKit has updated both the text storage and its marked range.
     private func edit(_ action: () -> Void) {
+        guard acceptsInput else { return }
         editingDepth += 1
         action()
         editingDepth -= 1
@@ -133,6 +143,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     private func deliverCommittedText() {
+        guard acceptsInput else { clearDocument(); return }
         guard markedTextRange == nil, let committed = text, !committed.isEmpty else {
             layoutComposition()
             return
@@ -170,7 +181,17 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     override func paste(_ sender: Any?) {
+        guard acceptsInput else { return }
         terminalView?.paste(from: .general)
+    }
+
+    override func paste(itemProviders: [NSItemProvider]) {
+        guard acceptsInput else { return }
+        super.paste(itemProviders: itemProviders)
+    }
+
+    override func canPaste(_ itemProviders: [NSItemProvider]) -> Bool {
+        acceptsInput && super.canPaste(itemProviders)
     }
 
     // UIKit also delivers item-provider paste and drop operations through UITextPasteDelegate.
@@ -182,7 +203,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     func pasteText(_ content: String) {
-        guard !content.isEmpty else { return }
+        guard acceptsInput, !content.isEmpty else { return }
         if markedTextRange != nil { unmarkText() }
         accessory.clearModifier()
         terminalView?.sendInput(.paste(content))
@@ -195,14 +216,15 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(terminalKey(_:)) { return markedTextRange == nil }
+        if action == #selector(terminalKey(_:)) { return acceptsInput && markedTextRange == nil }
         if action == #selector(copy(_:)) { return terminalView?.selectedText?.isEmpty == false }
-        if action == #selector(paste(_:)) { return UIPasteboard.general.hasStrings }
+        if action == #selector(paste(_:)) { return acceptsInput && UIPasteboard.general.hasStrings }
         if action == #selector(cut(_:)) { return false }
         return super.canPerformAction(action, withSender: sender)
     }
 
     private func sendKey(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers = []) {
+        guard acceptsInput else { return }
         var modifiers = modifiers
         if accessory.controlArmed { modifiers.insert(.control) }
         accessory.clearModifier()
@@ -236,19 +258,19 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        if markedTextRange != nil { return super.keyCommands }
+        if !acceptsInput || markedTextRange != nil { return super.keyCommands }
         return terminalKeyCommands + (super.keyCommands ?? [])
     }
 
     @objc private func terminalKey(_ command: UIKeyCommand) {
-        guard markedTextRange == nil, let characters = command.input else { return }
+        guard acceptsInput, markedTextRange == nil, let characters = command.input else { return }
         let code = Self.navigation[characters] ?? .keyboardErrorUndefined
         guard let (key, mods) = Self.hardwareKey(code, characters: characters, flags: command.modifierFlags) else { return }
         sendKey(key, modifiers: mods)
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        guard markedTextRange == nil else {
+        guard acceptsInput, markedTextRange == nil else {
             super.pressesBegan(presses, with: event)
             return
         }

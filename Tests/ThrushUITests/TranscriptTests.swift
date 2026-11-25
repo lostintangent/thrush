@@ -104,3 +104,64 @@ import Thrush
     #expect(view.reportPointer(.press, button: .left, row: 1, column: 4))
     #expect(sent == [Array("\u{1b}[<35;4;3M".utf8), Array("\u{1b}[<0;5;2M".utf8)])
 }
+
+private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -> Terminal.Snapshot {
+    var terminal = Terminal(size: .init(columns: columns, rows: rows))
+    _ = terminal.receive(lines.joined(separator: "\r\n").utf8)
+    return terminal.snapshot()
+}
+
+@Test func replacingReplayRelocatesWrappedReaderAndBackwardSelection() {
+    var reader = TerminalTranscript()
+    reader.display(replayScreen(["old", "0123456789abcdef", "after", "tail", "extra", "$"], columns: 8))
+    reader.scroll(reader.historyCount - 2)
+    reader.selection = .init(anchorRow: 0, anchorColumn: 3, headRow: 0, headColumn: 0)
+    #expect(reader.selection.map { reader.text(in: $0) } == "89ab")
+
+    reader.replace(replayScreen(["new", "old", "0123456789abcdef", "after", "tail", "extra", "$"], columns: 4))
+    #expect(reader.source?.viewport(rowsFromBottom: reader.offset).rows.first?.text == "89ab")
+    #expect(reader.selection == .init(anchorRow: 0, anchorColumn: 3, headRow: 0, headColumn: 0))
+    #expect(reader.selection.map { reader.text(in: $0) } == "89ab")
+}
+
+@Test func replacingReplayFindsNearestSurvivingNeighborOrOldestRow() {
+    var reader = TerminalTranscript()
+    reader.display(replayScreen(["apple", "birch", "cedar", "elm", "fern", "ivy"]))
+    reader.scroll(reader.historyCount - 2)
+    reader.selectLine(row: 0)
+    reader.replace(replayScreen(["first", "elm", "spruce", "birch", "end"]))
+    #expect(reader.source?.viewport(rowsFromBottom: reader.offset).rows.first?.text == "elm")
+    #expect(reader.selection == nil)
+
+    reader.replace(replayScreen(["from scratch", "row two", "three", "four", "five"]))
+    #expect(reader.offset == reader.historyCount)
+    #expect(reader.source?.viewport(rowsFromBottom: reader.offset).rows.first?.text == "from scratch")
+}
+
+@Test func replacingReplayUsesUniqueNeighborsAndRejectsAmbiguousEndpoints() {
+    var reader = TerminalTranscript()
+    reader.display(replayScreen(["one", "repeat", "two", "tag", "repeat", "end", "live"]))
+    reader.scroll(reader.historyCount - 1)
+    reader.selectLine(row: 0)
+    reader.replace(replayScreen(["new", "one", "repeat", "two", "tag", "repeat", "end", "live"]))
+    #expect(reader.selection.map { reader.text(in: $0) } == "repeat")
+    #expect(reader.source?.viewport(rowsFromBottom: reader.offset).rows[1].text == "two")
+
+    // The retained copy in the new snapshot cannot identify which of two identical
+    // occurrences in the old snapshot a person selected.
+    reader = TerminalTranscript()
+    reader.display(replayScreen(["a", "repeat", "b", "a", "repeat", "b", "live"]))
+    reader.scroll(reader.historyCount - 1)
+    reader.selectLine(row: 0)
+    reader.replace(replayScreen(["a", "repeat", "b", "live"]))
+    #expect(reader.selection == nil)
+}
+
+@Test func replacingReplayRequiresExactBytesBetweenUniqueSelectionEndpoints() {
+    var reader = TerminalTranscript()
+    reader.display(replayScreen(["head", "cafe\u{301}", "tail"]))
+    reader.selection = .init(anchorRow: 0, anchorColumn: 0, headRow: 2, headColumn: 3)
+    reader.replace(replayScreen(["head", "café", "tail"]))
+    #expect(reader.offset == 0)
+    #expect(reader.selection == nil)
+}

@@ -45,6 +45,8 @@ To capture a single registered scene, pass its name, system appearance, orientat
 gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible
 ```
 
+Pass `-f scene=notices -f appearance=dark -f keyboard=hidden` to capture Connecting, Reconnecting, Previous shell ended, Open in another window and Ended in one simulator. The peer opens real terminal WebSockets, waits for a cursor-position reply before interrupting an established transcript, attaches a second client for takeover and sends the server exit message for Ended. Each PNG has a JSON sidecar with the mounted native status, its frame and its action. The transcript states also require a completed GPU frame. Use `notice-connecting`, `notice-reconnecting`, `notice-replacement`, `notice-displaced` or `notice-ended` for an individual capture.
+
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and accessory measurements for the PTY recorder.
 
 ## Run a recorded interaction
@@ -53,7 +55,13 @@ Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow
 
 Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native host at a different grid or palette, append `--view` to the peer command. That mode accepts the host’s actual cursor position and color query replies. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
 
-## Embed the view
+## Embed the pane
+
+Keep one `TerminalConnection` for each shell tab. Pass that connection to `TerminalPane(connection)` from SwiftUI. Supply `isActive: selected` if a tab can stay in the view hierarchy while another is selected. The pane measures its grid, applies the screen palette, routes native input and owns attachment, reconnect, takeover and exit. Its optional `onExit` callback leaves the final transcript readable. Both native sample apps embed this pane.
+
+Pass `theme:` or `fontSize:` to customize the running pane. With the default theme it follows system appearance. On iPhone, set `keyboardAccessory: .none` to hide the standard terminal keys or pass a custom native accessory.
+
+## Render a terminal directly
 
 Create one `TerminalView(frame:)` from ThrushUI for the lifetime of the viewport. On the main actor, `display(_:receivedAt:)` accepts a terminal value captured by its serial owner. The package-private connection uses the same API with an immutable screen snapshot. A terminal can continue parsing while hidden. Call `reset()` on the view when replacing that terminal, and use `setRenderingActive(_:)` for native lifecycle transitions. Apply distinct sizes from `onGridSizeChange` to the emulator and transport.
 

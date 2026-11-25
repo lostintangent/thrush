@@ -52,7 +52,13 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .iBeam) }
 
+    func invalidateTranscriptCache() {
+        previousGeneration = nil
+        accessibilityText = nil
+    }
+
     func refresh() {
+        if !terminal.acceptsTerminalInput { discardComposition() }
         if previousGeneration != terminal.snapshot?.generation || previousOffset != terminal.historyOffset {
             accessibilityText = nil
             previousGeneration = terminal.snapshot?.generation
@@ -111,17 +117,18 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
                     terminal.setHistoryOffset(terminal.historyOffset + (terminal.snapshot?.size.rows ?? 1))
                 } else if modifiers == .shift, case .pageDown = key {
                     terminal.setHistoryOffset(terminal.historyOffset - (terminal.snapshot?.size.rows ?? 1))
-                } else {
+                } else if terminal.acceptsTerminalInput {
                     terminal.sendInput(.key(key, modifiers: modifiers))
                 }
                 return
             }
+            guard terminal.acceptsTerminalInput else { return }
             if flags.contains(.control), let text = event.charactersIgnoringModifiers, text.count == 1, let key = text.first {
                 terminal.sendInput(.key(.character(key), modifiers: modifiers))
                 return
             }
         }
-        interpretKeyEvents([event])
+        if terminal.acceptsTerminalInput { interpretKeyEvents([event]) }
     }
 
     private static func specialKey(_ keyCode: UInt16) -> Terminal.Input.Key? {
@@ -152,6 +159,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     override func doCommand(by selector: Selector) {
+        guard terminal.acceptsTerminalInput else { return }
         switch selector {
         case #selector(insertNewline(_:)), #selector(insertLineBreak(_:)): terminal.sendInput(.key(.enter))
         case #selector(insertTab(_:)): terminal.sendInput(.key(.tab))
@@ -177,7 +185,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     func insertText(_ string: Any, replacementRange: NSRange) {
-        guard let text = attributed(string)?.string else { return }
+        guard terminal.acceptsTerminalInput, let text = attributed(string)?.string else { return }
         let commit: String
         if hasMarkedText(), let valid = bounded(replacementRange, to: marked.length) {
             commit = (marked.string as NSString).replacingCharacters(in: valid, with: text)
@@ -189,7 +197,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
-        guard let text = attributed(string) else { return }
+        guard terminal.acceptsTerminalInput, let text = attributed(string) else { return }
         let buffer = NSMutableAttributedString(attributedString: marked)
         let replacement = bounded(replacementRange, to: buffer.length) ?? NSRange(location: 0, length: buffer.length)
         buffer.replaceCharacters(in: replacement, with: text)
@@ -202,6 +210,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     func unmarkText() {
+        guard terminal.acceptsTerminalInput else { clearMarkedText(); return }
         guard hasMarkedText() else { return }
         let commit = marked.string
         clearMarkedText()
@@ -287,7 +296,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     @objc func paste(_ sender: Any?) { paste(from: .general) }
 
     func paste(from pasteboard: NSPasteboard) {
-        if let text = pasteboard.string(forType: .string), !text.isEmpty {
+        if terminal.acceptsTerminalInput, let text = pasteboard.string(forType: .string), !text.isEmpty {
             discardComposition()
             terminal.sendInput(.paste(text))
         }
@@ -302,7 +311,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(copy(_:)): terminal.selectedText?.isEmpty == false
-        case #selector(paste(_:)): NSPasteboard.general.availableType(from: [.string]) != nil
+        case #selector(paste(_:)): terminal.acceptsTerminalInput && NSPasteboard.general.availableType(from: [.string]) != nil
         case #selector(selectAll(_:)): terminal.snapshot != nil
         default: true
         }
@@ -453,7 +462,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         }
         if latest.isHidden, offset > 0 { latest.apply(terminal.resolvedTheme) }
         latest.isHidden = offset == 0
-        latest.frame = CGRect(x: max(0, bounds.maxX - 120), y: max(0, bounds.maxY - 56), width: 104, height: 44)
+        latest.frame = CGRect(x: max(0, bounds.maxX - 120), y: max(0, bounds.maxY - terminal.noticeBottomInset - 56), width: 104, height: 44)
     }
 
     @objc private func historyDidScroll() {

@@ -8,6 +8,7 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     unowned let terminal: TerminalView
     private let scroll = UIScrollView()
     private let latest = UIButton(type: .system)
+    private lazy var latestBottom = latest.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8)
     private lazy var selectionControls = PhoneSelectionControls(transcript: self)
     private var syncing = false
     private var rowHeight: CGFloat = 18
@@ -73,7 +74,7 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         addSubview(latest)
         NSLayoutConstraint.activate([
             latest.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            latest.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            latestBottom,
             latest.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
             latest.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
         ])
@@ -93,6 +94,11 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     @objc private func accessibilitySettingsChanged() { synchronize() }
 
     func synchronize() {
+        let inset = terminal.noticeBottomInset
+        if latestBottom.constant != -8 - inset {
+            latestBottom.constant = -8 - inset
+            scroll.verticalScrollIndicatorInsets.bottom = inset
+        }
         guard !syncing else { return }
         syncing = true
         defer { syncing = false }
@@ -142,7 +148,7 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         guard !latest.isHidden else { return }
         let protected = selectionControls.protectedRects
         let width = latest.bounds.width, height = latest.bounds.height
-        let left = CGRect(x: 12, y: bounds.maxY - 8 - height, width: width, height: height)
+        let left = CGRect(x: 12, y: bounds.maxY + latestBottom.constant - height, width: width, height: height)
         let right = left.offsetBy(dx: bounds.width - 24 - width, dy: 0)
         let trailing = effectiveUserInterfaceLayoutDirection == .leftToRight ? right : left
         let leading = trailing == right ? left : right

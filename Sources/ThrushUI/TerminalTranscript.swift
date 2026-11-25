@@ -64,6 +64,131 @@ struct TerminalTranscript {
         }
     }
 
+    /// Install the complete state of a serialized replay. Revisions and history indexes
+    /// belong to the previous emulator, so only logical text can identify a surviving row.
+    mutating func replace(_ next: Terminal.Snapshot) {
+        guard let old = source, old.isAlternate == next.isAlternate,
+              offset > 0 || absoluteSelection != nil else {
+            source = next
+            offset = 0
+            absoluteSelection = nil
+            return
+        }
+
+        let before = ReplayLines(old)
+        let after = ReplayLines(next)
+        let oldTop = top
+        let wasReading = offset > 0
+        let previousRange = absoluteSelection
+        let previousText = selection.map { text(in: $0) }
+        source = next
+        offset = 0
+        absoluteSelection = nil
+
+        if wasReading {
+            let line = before.lineAtRow[oldTop]
+            let first: Int
+            if let target = after.match(line, from: before) {
+                let column = old.cellOffset(of: .init(row: oldTop, column: 0), in: before.lines[line].rows)
+                first = next.position(at: column, in: after.lines[target].rows)?.row ?? after.lines[target].rows.lowerBound
+            } else {
+                first = after.nearestSurvivingRow(to: line, from: before) ?? 0
+            }
+            scroll(next.history.count - first)
+        }
+
+        guard let previousRange, let previousText else { return }
+        func endpoint(_ position: Position) -> Position? {
+            guard before.lineAtRow.indices.contains(position.row), (0..<old.size.columns).contains(position.column) else { return nil }
+            let line = before.lineAtRow[position.row]
+            guard let target = after.match(line, from: before) else { return nil }
+            let column = old.cellOffset(of: position, in: before.lines[line].rows)
+            return next.position(at: column, in: after.lines[target].rows)
+        }
+        guard let a = endpoint(previousRange.anchor), let b = endpoint(previousRange.head),
+              (previousRange.anchor <= previousRange.head) == (a <= b) else { return }
+        let candidate = Selection(anchor: a, head: b)
+        if text(in: candidate.shifted(by: -top)).utf8.elementsEqual(previousText.utf8) {
+            absoluteSelection = candidate
+        }
+    }
+
+    private struct ReplayLines {
+        struct Line {
+            let rows: ClosedRange<Int>
+            let bytes: [UInt8]
+        }
+
+        struct Context: Hashable {
+            let before: [UInt8]?
+            let text: [UInt8]
+            let after: [UInt8]?
+        }
+
+        var lines: [Line] = []
+        var lineAtRow: [Int] = []
+        // A negative value means that this sequence occurs more than once.
+        private var occurrences: [Context: Int] = [:]
+
+        init(_ source: Terminal.Snapshot) {
+            var start = 0
+            while start < source.count {
+                let rows = source.logicalRows(containing: start)
+                lineAtRow.append(contentsOf: repeatElement(lines.count, count: rows.count))
+                lines.append(Line(rows: rows, bytes: Array(source.lineText(rows).utf8)))
+                start = rows.upperBound + 1
+            }
+            for index in lines.indices {
+                for context in contexts(at: index) {
+                    occurrences[context] = occurrences[context] == nil ? index : -1
+                }
+            }
+        }
+
+        private func contexts(at index: Int) -> [Context] {
+            let text = lines[index].bytes
+            let before = index > 0 ? lines[index - 1].bytes : nil
+            let after = index + 1 < lines.count ? lines[index + 1].bytes : nil
+            var result = [Context(before: nil, text: text, after: nil)]
+            if let before { result.append(Context(before: before, text: text, after: nil)) }
+            if let after { result.append(Context(before: nil, text: text, after: after)) }
+            if let before, let after { result.append(Context(before: before, text: text, after: after)) }
+            return result
+        }
+
+        /// Both snapshots must identify a single occurrence. If two equally specific
+        /// neighbors point to different copies, neither one proves the old identity.
+        func match(_ index: Int, from old: Self) -> Int? {
+            var best = -1
+            var matched: Int?
+            for context in old.contexts(at: index) {
+                guard old.occurrences[context] == index, let target = occurrences[context], target >= 0 else { continue }
+                let score = (context.before == nil ? 0 : 1) + (context.after == nil ? 0 : 1)
+                if score > best {
+                    best = score
+                    matched = target
+                } else if score == best && matched != target {
+                    matched = nil
+                }
+            }
+            return matched
+        }
+
+        func nearestSurvivingRow(to index: Int, from old: Self) -> Int? {
+            for distance in 1..<old.lines.count {
+                let following = index + distance
+                if following < old.lines.count, let target = match(following, from: old) {
+                    return lines[target].rows.lowerBound
+                }
+                let preceding = index - distance
+                if preceding >= 0, let target = match(preceding, from: old) {
+                    return lines[target].rows.upperBound
+                }
+            }
+            return nil
+        }
+    }
+
     /// Like a terminal emulator's line translation, keep printed spaces and omit unused trailing cells.
     func text(in selection: Selection) -> String {
         guard let source else { return "" }
@@ -144,7 +269,7 @@ struct TerminalTranscript {
             preceding = oldStart > 0 ? source.lineText(source.logicalRows(containing: oldStart - 1)) : nil
             following = lines.upperBound + 1 < source.count
                 ? source.lineText(source.logicalRows(containing: lines.upperBound + 1)) : nil
-            cellOffset = (oldStart..<row).reduce(0) { $0 + source.textEnd(in: $1) } + max(0, position.column)
+            cellOffset = source.cellOffset(of: .init(row: row, column: max(0, position.column)), in: lines)
         }
 
         func resolve(in source: Terminal.Snapshot) -> Position? {
@@ -166,15 +291,8 @@ struct TerminalTranscript {
                 start = rows.upperBound + 1
             }
             guard let rows = best?.rows else { return nil }
-            var column = cellOffset
-            for y in rows {
-                let length = source.textEnd(in: y)
-                if y == rows.upperBound || column < length {
-                    return .init(row: y, column: min(column, source.size.columns - 1))
-                }
-                column -= length
-            }
-            return nil
+            return source.position(at: cellOffset, in: rows)
+                ?? .init(row: rows.upperBound, column: source.size.columns - 1)
         }
     }
 }
@@ -195,6 +313,23 @@ private extension TerminalView.Selection {
 
 private extension Terminal.Snapshot {
     var count: Int { history.count + rows.count }
+
+    func cellOffset(of position: TerminalTranscript.Position, in rows: ClosedRange<Int>) -> Int {
+        (rows.lowerBound..<position.row).reduce(position.column) { $0 + textEnd(in: $1) }
+    }
+
+    func position(at offset: Int, in rows: ClosedRange<Int>) -> TerminalTranscript.Position? {
+        var column = offset
+        for row in rows {
+            if row == rows.upperBound {
+                return column < size.columns ? .init(row: row, column: column) : nil
+            }
+            let length = textEnd(in: row)
+            if column < length { return .init(row: row, column: column) }
+            column -= length
+        }
+        return nil
+    }
 
     func logicalRows(containing row: Int) -> ClosedRange<Int> {
         var first = row, last = row

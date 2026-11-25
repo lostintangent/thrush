@@ -17,6 +17,16 @@ final class InteractionBenchmark {
         let presentedAt: Double?
     }
 
+    private struct AnchoredReplay: Encodable {
+        let columns: Int
+        let rows: Int
+        let historyRows: Int
+        let readingLine: String
+        let selectedLine: String
+        let milliseconds: [Double]
+        let p95Milliseconds: Double
+    }
+
     private struct Report: Encodable {
         let schemaVersion = 1
         let recordedAt = Date()
@@ -35,6 +45,7 @@ final class InteractionBenchmark {
         let receiptToPresentationP95Milliseconds: Double?
         let keyToVisibleEchoP95Milliseconds: Double?
         let samples: [Sample]
+        let anchoredReplay: AnchoredReplay
     }
 
     private let view: TerminalView
@@ -115,14 +126,58 @@ final class InteractionBenchmark {
                             keyToReceiptP95Milliseconds: p95(samples.map { $0.receivedAt - $0.keyAt })!,
                             receiptToPresentationP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.receivedAt } }) : nil,
                             keyToVisibleEchoP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.keyAt } }) : nil,
-                            samples: samples)
+                            samples: samples, anchoredReplay: try measureAnchoredReplay())
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try encoder.encode(report).write(to: reportURL, options: .atomic)
         print("ThrushBench interactions   \(grid.columns) × \(grid.rows)   \(samples.count) echoed keys")
+        print(String(format: "Anchored replay   %d history rows   %.3f ms p95",
+                     report.anchoredReplay.historyRows, report.anchoredReplay.p95Milliseconds))
         print("Report \(reportURL.path)")
+    }
+
+    /// A private viewport keeps the live connection, its responder and its echo timeline intact.
+    private func measureAnchoredReplay() throws -> AnchoredReplay {
+        let grid = Terminal.Size(columns: 80, rows: 24)
+        let historyRows = 1_000
+        func numberedSnapshot(start: Int) -> Terminal.Snapshot {
+            var terminal = Terminal(size: grid)
+            let range = start..<(start + historyRows + grid.rows)
+            _ = terminal.receive(range.map { "Build step \($0)" }.joined(separator: "\r\n").utf8)
+            return terminal.snapshot()
+        }
+        let first = numberedSnapshot(start: 0)
+        let second = numberedSnapshot(start: 12)
+        guard first.history.count == historyRows, second.history.count == historyRows else {
+            throw RenderBenchmark.Failure("Replay workload did not fill both history buffers.")
+        }
+
+        let reader = TerminalView(frame: .zero)
+        reader.replaceDisplayedSnapshot(first, receivedAt: nil)
+        reader.setHistoryOffset(historyRows - 512)
+        let readingLine = "Build step 512"
+        let selectedLine = "Build step 513"
+        let range = TerminalView.Selection(anchorRow: 1, anchorColumn: 0,
+                                           headRow: 1, headColumn: selectedLine.utf8.count - 1)
+        reader.selection = range
+        var times: [Double] = []
+        for sample in 0..<20 {
+            let restored = sample.isMultiple(of: 2) ? second : first
+            let start = CACurrentMediaTime()
+            reader.replaceDisplayedSnapshot(restored, receivedAt: nil)
+            times.append((CACurrentMediaTime() - start) * 1_000)
+            guard let displayed = reader.snapshot,
+                  displayed.rows[0].text == readingLine, displayed.rows[1].text == selectedLine,
+                  reader.selection == range else {
+                throw RenderBenchmark.Failure("The replay moved the history reader or its selected line.")
+            }
+        }
+        let p95 = times.sorted()[Int(ceil(0.95 * Double(times.count))) - 1]
+        return AnchoredReplay(columns: grid.columns, rows: grid.rows, historyRows: historyRows,
+                              readingLine: readingLine, selectedLine: selectedLine, milliseconds: times,
+                              p95Milliseconds: p95)
     }
 
     private func echo(marker: String, expectedSuffix: String, probe: NativeInteractionProbe,

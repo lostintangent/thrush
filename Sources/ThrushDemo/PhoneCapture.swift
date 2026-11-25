@@ -12,21 +12,22 @@ enum PhoneCapture {
         var gpuCompleted = false
         var rowsPrepared = 0, glyphUploads = 0
         var cellGridPixels: CGRect?
+        var notice: VisiblePaneNotice?
         let columns, rows: Int
         let windowPoints, gridFrame: CGRect
         let displayScale, keyboardHeight, accessoryHeight: CGFloat
         let selection: [Int]?
     }
 
-    static func observe(_ session: DemoSession, in root: UIView, input: UIResponder) -> (() -> Void)? {
+    static func observe(_ session: DemoSession, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
-        let layout: () -> State? = { [weak session, weak root, weak input] in
+        let layout: () -> State? = { [weak session, weak root] in
             guard let session, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let view = session.view
             let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
             let selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
-            let accessory = input?.inputAccessoryView
+            let accessory = view.subviews.first(where: \.isFirstResponder)?.inputAccessoryView
             return State(scene: session.options.scene.rawValue, appearance: appearance,
                 orientation: scene.effectiveGeometry.interfaceOrientation.isLandscape ? "landscape" : "portrait",
                 pid: ProcessInfo.processInfo.processIdentifier,
@@ -35,9 +36,15 @@ enum PhoneCapture {
                 displayScale: view.traitCollection.displayScale, keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
                 accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0, selection: selection)
         }
-        func write(_ state: State) {
+        let capturesNotice = session.options.scene.capturesNotice
+        var lastWritten: State?
+        let write: (State) -> Void = { [weak view = session.view] layout in
+            var state = layout
+            if capturesNotice { state.notice = view?.visiblePaneNotice }
+            guard state != lastWritten else { return }
             do {
                 try JSONEncoder().encode(state).write(to: destination, options: .atomic)
+                lastWritten = state
             } catch {
                 FileHandle.standardError.write(Data("Could not record capture state: \(error)\n".utf8))
             }

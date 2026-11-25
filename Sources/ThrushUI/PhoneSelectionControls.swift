@@ -165,7 +165,7 @@ final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionD
                 terminal.selectLine(row: selection.headRow)
             })
         }
-        if UIPasteboard.general.hasStrings {
+        if terminal.acceptsTerminalInput && UIPasteboard.general.hasStrings {
             actions.append(UIAction(title: "Paste", image: UIImage(systemName: "document.on.clipboard")) { [weak self] _ in
                 self?.terminal.phoneInput.paste(nil)
             })

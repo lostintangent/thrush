@@ -44,7 +44,8 @@ final class MetalRenderer {
     }
 
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
-                pass: MTLRenderPassDescriptor, viewport: CGSize, selection: TerminalView.Selection? = nil) throws -> Prepared {
+                pass: MTLRenderPassDescriptor, viewport: CGSize, selection: TerminalView.Selection? = nil,
+                showsCursor: Bool = true) throws -> Prepared {
         if previousTheme != theme {
             let table = Paint.table(theme)
             colorTable = table.withUnsafeBytes { bytes in
@@ -89,7 +90,7 @@ final class MetalRenderer {
                 if geo.buffer != nil { visible.append((y, geo)) }
             }
             cached = next
-            if snapshot.cursorVisible, (0..<min(snapshot.rows.count, area.rows)).contains(snapshot.cursorRow) {
+            if showsCursor, snapshot.cursorVisible, (0..<min(snapshot.rows.count, area.rows)).contains(snapshot.cursorRow) {
                 let row = snapshot.rows[snapshot.cursorRow]
                 // A pending wrap puts the logical cursor just beyond the right margin.
                 var x = min(snapshot.cursorColumn, columns - 1)

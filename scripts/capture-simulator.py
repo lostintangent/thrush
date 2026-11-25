@@ -19,6 +19,13 @@ ROOT = Path(__file__).resolve().parent.parent
 APP_ID = "app.thrush.demo"
 ORACLE = ROOT / "scripts/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
+NOTICE_SCENES = {
+    "notice-connecting": ("Connecting", None, None, None),
+    "notice-reconnecting": ("Reconnecting", "Typing waits for this shell to resume.", None, None),
+    "notice-replacement": ("Previous shell ended", "New shell ready.", None, None),
+    "notice-displaced": ("Open in another window", None, "Use Here", "Use shell in this window"),
+    "notice-ended": ("Ended", None, "New Shell", "New Shell"),
+}
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim"}
 
 
@@ -109,10 +116,10 @@ def disposable_phone(out, attach_display=True):
 
 
 @contextlib.contextmanager
-def peer(out):
+def peer(out, notices=False):
     log = out / "peer.log"
     with log.open("w") as output:
-        server = subprocess.Popen(["bun", "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
+        server = subprocess.Popen(["bun", "scripts/notice-peer.ts" if notices else "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
                                   cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
         try:
             def endpoint():
@@ -194,6 +201,12 @@ class Phone:
                      state.get("appearance") == appearance and state.get("orientation") == orientation)
             if not ready or (scene in TERMINAL_SCENES and (not state.get("gpuCompleted") or not state["generation"])):
                 return False
+            if scene in NOTICE_SCENES:
+                notice = state.get("notice") or {}
+                if tuple(notice.get(k) for k in ("title", "detail", "action", "actionLabel")) != NOTICE_SCENES[scene]:
+                    return False
+                if scene != "notice-connecting" and (not state.get("gpuCompleted") or not state["generation"]):
+                    return False
             if keyboard == "visible":
                 return state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44
             if keyboard == "hidden":
@@ -328,7 +341,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
-    parser.add_argument("--scene", default="", help="A scene registered by the demo. Leave empty to run the full proof.")
+    parser.add_argument("--scene", default="", help="A demo scene or 'notices' for all five mounted pane states. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -362,13 +375,16 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    with peer(out) as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
+    with peer(out, notices=args.scene in NOTICE_SCENES or args.scene == "notices") as endpoint, disposable_phone(out, attach_display=not args.layout_only) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
             if args.scene:
-                pid = phone.launch(args.scene, args.appearance, args.orientation, args.keyboard)
-                phone.frame(args.scene, args.appearance, args.orientation, args.keyboard, pid, oracle, layout_only=args.layout_only)
+                scenes = NOTICE_SCENES if args.scene == "notices" else [args.scene]
+                keyboard = "hidden" if (args.scene == "notices" or args.scene in NOTICE_SCENES) and args.keyboard == "any" else args.keyboard
+                for scene in scenes:
+                    pid = phone.launch(scene, args.appearance, args.orientation, keyboard)
+                    phone.frame(scene, args.appearance, args.orientation, keyboard, pid, oracle, layout_only=args.layout_only)
             else:
                 phone.suite()
         except Exception:

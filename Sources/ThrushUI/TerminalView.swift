@@ -141,6 +141,14 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     private(set) var metrics: GridMetrics?
     var transcript = TerminalTranscript()
     package private(set) var snapshot: Terminal.Snapshot?
+    private(set) var acceptsTerminalInput = true
+    private(set) var showsLiveCursor = true
+    var noticeBottomInset: CGFloat = 0 {
+        didSet { if oldValue != noticeBottomInset { refreshInteraction() } }
+    }
+    var onViewportInteractionChange: (() -> Void)?
+    private var finalFrameRevision: UInt64 = 0
+    private var finalFrameWaiter: CheckedContinuation<Void, Never>?
     private var lastPointer: Terminal.Input.Pointer?
     private var capturedButtons: Set<Terminal.Input.Pointer.Button> = []
     #if os(macOS)
@@ -248,6 +256,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     #endif
 
     private func updateAttachment() {
+        if window == nil { finishFinalFrame() }
         synchronizedOutput.setActive(active && window != nil)
         updateGeometry()
         invalidateFrame()
@@ -344,10 +353,67 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
+    /// An in-band replay replaces the entire source, whose generation and row IDs start over.
+    /// Keep the native responder and any committed selection that still identifies the same text.
+    package func replaceDisplayedSnapshot(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
+        synchronizedOutput.reset()
+        #if os(macOS)
+        macInput.invalidateTranscriptCache()
+        #endif
+        transcript.replace(next)
+        snapshot = next.viewport(rowsFromBottom: transcript.offset)
+        renderer?.discardGeometry()
+        lastPointer = nil
+        capturedButtons.removeAll()
+        refreshInteraction()
+        received = receivedAt
+        invalidateFrame()
+    }
+
+    /// Flush synchronized output and publish the final drawable before adding the Ended notice.
+    /// Simulator provides the GPU completion callback in place of a drawable presentation handler.
+    func presentFinal(_ next: Terminal.Snapshot) async {
+        synchronizedOutput.reset()
+        accept(next, receivedAt: received)
+        guard active, window != nil, device != nil else { return }
+        finishFinalFrame()
+        await withCheckedContinuation { continuation in
+            finalFrameWaiter = continuation
+            invalidateFrame()
+        }
+    }
+
+    private func finishFinalFrame() {
+        finalFrameRevision &+= 1
+        finalFrameWaiter?.resume()
+        finalFrameWaiter = nil
+    }
+
+    func setInputAvailability(acceptsKeys: Bool, showsCursor: Bool, dismissKeyboard: Bool) {
+        if acceptsTerminalInput != acceptsKeys {
+            acceptsTerminalInput = acceptsKeys
+            refreshInteraction()
+        }
+        if showsLiveCursor != showsCursor {
+            showsLiveCursor = showsCursor
+            invalidateFrame()
+        }
+        if dismissKeyboard {
+            cancelPendingInput()
+            #if os(iOS)
+            phoneInput.resignFirstResponder()
+            #endif
+        }
+    }
+
     /// Call when replacing the underlying terminal. Row revisions belong to a single terminal.
     public func reset() {
+        finishFinalFrame()
         synchronizedOutput.reset()
         snapshot = nil
+        #if os(macOS)
+        macInput.invalidateTranscriptCache()
+        #endif
         transcript = TerminalTranscript()
         cancelPendingInput()
         refreshInteraction()
@@ -359,6 +425,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
     public func setRenderingActive(_ newValue: Bool) {
         guard active != newValue else { return }
         active = newValue
+        if !active { finishFinalFrame() }
         synchronizedOutput.setActive(active && window != nil)
         if active { invalidateFrame() } else {
             cancelPendingInput()
@@ -368,6 +435,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
 
     /// Give native text input and hardware keys to this viewport.
     @discardableResult public func focusInput() -> Bool {
+        guard acceptsTerminalInput else { return false }
         #if os(macOS)
         return window?.makeFirstResponder(macInput) ?? false
         #else
@@ -393,6 +461,7 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme)
         phoneTranscript.synchronize()
         #endif
+        onViewportInteractionChange?()
     }
 
     package func setHistoryOffset(_ rows: Int) {
@@ -450,16 +519,23 @@ public final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, viewport: drawableSize, selection: selection)
+                                            pass: pass, viewport: drawableSize, selection: selection, showsCursor: showsLiveCursor)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent
             if first { hasSubmittedContent = true }
-            let presentation = onFrame.map {
+            let finalRevision = finalFrameWaiter == nil ? nil : finalFrameRevision
+            let report = onFrame
+            let presentation: Presentation? = (report != nil || finalRevision != nil) ?
                 Presentation(cpu: submitted - started, shaderCompile: first ? firstCompilation : nil,
                              firstFrame: first ? submitted - firstContentStart : nil, submitted: submitted, received: received,
                              generation: snapshot?.generation ?? 0, uploads: frame.glyphUploads,
-                             rows: frame.rowsPrepared, report: $0)
-            }
+                             rows: frame.rowsPrepared) { [weak self] frame in
+                    report?(frame)
+                    if let self, let finalRevision, self.finalFrameRevision == finalRevision {
+                        if frame.gpuCompleted { self.finishFinalFrame() }
+                        else { self.invalidateFrame() }
+                    }
+                } : nil
             #if targetEnvironment(simulator)
             // The Simulator SDK exposes no drawable presentation handler or timestamp.
             presentation?.presentationKnown = true

@@ -44,10 +44,12 @@ final class PhoneTranscriptAccessibility {
                             view.selectAccessibleLine(row)
                             return true
                         },
-                        UIAccessibilityCustomAction(name: "Type in terminal") { [weak view] _ in
-                            view?.terminal.focusInput() ?? false
-                        },
                     ]
+                    if terminal.acceptsTerminalInput {
+                        element.accessibilityCustomActions?.append(UIAccessibilityCustomAction(name: "Type in terminal") { [weak view] _ in
+                            view?.terminal.focusInput() ?? false
+                        })
+                    }
                     next[id] = element
                     result.append(element)
                 }

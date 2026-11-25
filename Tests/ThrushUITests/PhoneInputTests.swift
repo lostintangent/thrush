@@ -131,4 +131,35 @@ import UIKit
     #expect(view.phoneInput.inputAccessoryView is TerminalKeyAccessory)
     #expect(sent == [[27], [9]])
 }
+
+@MainActor
+@Test func aDisplacedPhoneShellKeepsSelectionAndRejectsNewInput() throws {
+    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+    let window = UIWindow(frame: view.bounds)
+    window.addSubview(view)
+    defer { withExtendedLifetime(window) {} }
+    var term = Terminal(size: .init(columns: 40, rows: 20))
+    _ = term.receive("Final output.".utf8)
+    view.display(term)
+    let selected = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 12)
+    view.selection = selected
+    var sent: [[UInt8]] = []
+    view.onInput = { sent.append(term.encode($0)) }
+    let input = view.phoneInput
+    input.setMarkedText("つばさ", selectedRange: .init(location: 3, length: 0))
+    view.setInputAvailability(acceptsKeys: false, showsCursor: false, dismissKeyboard: true)
+    #expect(!input.canBecomeFirstResponder)
+    #expect(input.canPerformAction(#selector(UIResponderStandardEditActions.copy(_:)), withSender: nil))
+    input.insertText("ignored")
+    input.setMarkedText("鳥", selectedRange: .init(location: 1, length: 0))
+    input.unmarkText()
+    input.deleteBackward()
+    input.pasteText("old paste")
+    #expect(input.markedTextRange == nil && input.text.isEmpty)
+    #expect(view.selection == selected && view.selectedText == "Final output.")
+    #expect(sent.isEmpty)
+    view.setInputAvailability(acceptsKeys: true, showsCursor: true, dismissKeyboard: false)
+    input.insertText("w")
+    #expect(sent == [[119]])
+}
 #endif

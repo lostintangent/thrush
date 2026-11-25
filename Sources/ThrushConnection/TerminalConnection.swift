@@ -51,8 +51,8 @@ public actor TerminalConnection {
     private var retryWait: Task<Void, Error>?
     private var retryMilliseconds = 250
     private var pendingEvent: Event?
-    private var hasSeenReady = false
-    private var exitedNaturally = false
+    package private(set) var hasSeenReady = false
+    package private(set) var exitedNaturally = false
     private var recovering = false
     private var lifetime: UInt64 = 0
     private var heldInput: [HeldInput] = []

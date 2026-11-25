@@ -1,5 +1,6 @@
 #if os(macOS)
 import AppKit
+import SwiftUI
 import Thrush
 import ThrushUI
 
@@ -20,7 +21,6 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     let session = DemoSession(options: DemoOptions())
     private var window: NSWindow!
     private var activeAppearance: DemoOptions.Appearance = .system
-    private var hasAlert = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let cycle = CommandLine.arguments.contains("--cycle-appearance")
@@ -35,12 +35,13 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         window.tabbingMode = .disallowed
         window.titlebarSeparatorStyle = .none
         window.titlebarAppearsTransparent = true
-        window.contentView = session.view
+        let host = NSHostingView(rootView: DemoSurface(session: session))
+        host.sizingOptions = []
+        window.contentView = host
         window.setFrame(NSRect(x: 0, y: 0, width: 720, height: 486), display: false)
         window.center()
 
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
-        session.onError = { [weak self] in self?.showError($0) }
         session.onBenchmarkFinished = { success in
             if !success { exit(EXIT_FAILURE) }
             NSApp.terminate(nil)
@@ -48,8 +49,10 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         applyChrome(session.view.resolvedTheme)
         makeMenus()
         if cycle { session.onFirstOutput = { [weak self] in self?.cycleAppearance() } }
+        session.onFirstUsable = { [weak self] in self?.session.view.focusInput() }
         window.makeKeyAndOrderFront(nil)
-        session.view.focusInput()
+        host.layoutSubtreeIfNeeded()
+        if session.options.benchmarkURL != nil { session.view.focusInput() }
         NSApp.activate()
         session.setActive(true)
     }
@@ -131,9 +134,9 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     @objc private func changeAppearance(_ sender: NSMenuItem) {
         if sender.title == "Custom" {
             setAppearance(.dark)
-            session.view.theme = DemoSession.customTheme
+            session.theme = DemoSession.customTheme
         } else if let appearance = DemoOptions.Appearance(rawValue: sender.title.lowercased()) {
-            session.view.theme = nil
+            session.theme = nil
             setAppearance(appearance)
         }
     }
@@ -142,7 +145,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if item.action == #selector(selectScene(_:)) {
             item.state = (item.representedObject as? String) == session.options.scene.rawValue ? .on : .off
         } else if item.action == #selector(changeAppearance(_:)) {
-            let name = session.view.theme == nil ? activeAppearance.rawValue : "custom"
+            let name = session.theme == nil ? activeAppearance.rawValue : "custom"
             item.state = item.title.lowercased() == name ? .on : .off
         }
         return true
@@ -154,21 +157,6 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         case .system: NSApp.appearance = nil
         case .light: NSApp.appearance = NSAppearance(named: .aqua)
         case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
-        }
-    }
-
-    private func showError(_ detail: String) {
-        guard !hasAlert else { return }
-        hasAlert = true
-        let alert = NSAlert()
-        alert.messageText = "Couldn’t connect to the terminal"
-        alert.informativeText = "\(detail)\n\nThe demo peer is expected at \(session.options.endpoint.absoluteString)."
-        alert.addButton(withTitle: "Retry")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self else { return }
-            hasAlert = false
-            if response == .alertFirstButtonReturn { session.replay(session.options.scene) }
         }
     }
 }
