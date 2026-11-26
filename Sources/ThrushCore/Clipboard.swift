@@ -9,9 +9,9 @@ extension Terminal {
     /// selection copies to it. Pd is the text in base64, up to any padding. A program reads with `?` and
     /// gets no reply, so it never sees what the user copied. Text that's empty or isn't base64 copies
     /// nothing, and the control string limit caps a copy near 7.5 MB.
-    static func clipboardText(_ payload: String) -> String? {
-        guard let separator = payload.utf8.firstIndex(of: UInt8(ascii: ";")) else { return nil }
-        let encoded = payload.utf8[separator...].dropFirst().prefix { $0 != UInt8(ascii: "=") }
+    static func clipboardText(_ payload: [UInt8]) -> String? {
+        guard let separator = payload.firstIndex(of: UInt8(ascii: ";")) else { return nil }
+        let encoded = payload[(separator + 1)...].prefix { $0 != UInt8(ascii: "=") }
         var text: [UInt8] = []
         text.reserveCapacity(encoded.count / 4 * 3 + 2)
         var bits: UInt32 = 0
