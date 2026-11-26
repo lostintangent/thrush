@@ -8,16 +8,16 @@ on:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - examples/app-consumer/**
-      - scripts/check-app-consumer.sh
+      - examples/swiftui/**
+      - scripts/check-swiftui-example.sh
       - .github/workflows/command-line-tools.yml
   pull_request:
     paths:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - examples/app-consumer/**
-      - scripts/check-app-consumer.sh
+      - examples/swiftui/**
+      - scripts/check-swiftui-example.sh
       - .github/workflows/command-line-tools.yml
 
 # A newer push supersedes a running build.
@@ -40,4 +40,4 @@ jobs:
       - name: Show the toolchain
         run: swift --version
       - name: Link the public Thrush product in an external Mac app
-        run: scripts/check-app-consumer.sh mac
+        run: scripts/check-swiftui-example.sh mac

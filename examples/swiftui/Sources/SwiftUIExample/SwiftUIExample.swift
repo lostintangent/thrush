@@ -21,7 +21,7 @@ struct ServerAPI: Sendable {
 }
 
 @main
-struct AppConsumer: App {
+struct SwiftUIExample: App {
     var body: some Scene {
         WindowGroup { ShellWindow() }
     }

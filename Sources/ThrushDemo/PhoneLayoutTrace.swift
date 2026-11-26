@@ -107,7 +107,7 @@ import UIKit
     }
 
     private weak var terminal: TerminalMetalView?
-    private weak var host: UIViewController?
+    private weak var controller: UIViewController?
     private var boundsObservation: NSKeyValueObservation?
     private var previous: Layout?
     private var sampleUntil: CFTimeInterval = 0
@@ -116,7 +116,7 @@ import UIKit
     private var drawn: DrawnRow?
     private let output: FileHandle
 
-    init?(terminal: TerminalMetalView, host: UIViewController) {
+    init?(terminal: TerminalMetalView, controller: UIViewController) {
         guard CommandLine.arguments.contains("--trace-rotation-layout") else { return nil }
         let pid = ProcessInfo.processInfo.processIdentifier
         let url = URL.documentsDirectory.appending(path: "rotation-layout-\(pid).jsonl")
@@ -128,9 +128,9 @@ import UIKit
             return nil
         }
         self.terminal = terminal
-        self.host = host
+        self.controller = controller
         super.init()
-        // A terminal-only resize can occur between host layout passes. Observe its model
+        // A terminal-only resize can occur between controller layout passes. Observe its model
         // layer on the same UIKit call stack, before the inherited animation context ends.
         boundsObservation = terminal.layer.observe(\.bounds, options: [.new]) { [weak self] _, _ in
             MainActor.assumeIsolated { self?.recordLayout("terminal.bounds") }
@@ -148,7 +148,7 @@ import UIKit
     func recordLayout(_ source: String) {
         guard let layout, layout != previous else { return }
         if let previous, previous.windowSize != layout.windowSize || previous.orientation != layout.orientation {
-            sampleTransition(for: host?.transitionCoordinator?.transitionDuration ?? 0)
+            sampleTransition(for: controller?.transitionCoordinator?.transitionDuration ?? 0)
         } else if link != nil {
             // The canvas can release its held grid after the window and keyboard settle.
             sampleTransition(for: 0)
@@ -222,7 +222,7 @@ import UIKit
     }
 
     @objc private func sampleFrame(_ display: CADisplayLink) {
-        let window = host?.viewIfLoaded?.window
+        let window = controller?.viewIfLoaded?.window
         let input = terminal?.subviews.first(where: \.isFirstResponder)
         let accessory = input?.inputAccessoryView
         let right = accessory.flatMap { Self.descendant(of: $0, labeled: "Right arrow") }
@@ -256,7 +256,7 @@ import UIKit
     }
 
     private var layout: Layout? {
-        guard let terminal, let host, let root = host.viewIfLoaded, let window = root.window,
+        guard let terminal, let controller, let root = controller.viewIfLoaded, let window = root.window,
               let scene = window.windowScene else { return nil }
         let orientation: String = switch scene.effectiveGeometry.interfaceOrientation {
         case .portrait: "portrait"
@@ -272,7 +272,7 @@ import UIKit
                       orientation: orientation, appearance: terminal.traitCollection.userInterfaceStyle == .dark ? "dark" : "light",
                       columns: terminal.gridSize?.columns, rows: terminal.gridSize?.rows,
                       inheritedAnimationDuration: UIView.inheritedAnimationDuration,
-                      transitionCoordinatorDuration: host.transitionCoordinator?.transitionDuration)
+                      transitionCoordinatorDuration: controller.transitionCoordinator?.transitionDuration)
     }
 
     private func write(_ event: Event) {

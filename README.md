@@ -58,7 +58,7 @@ TerminalView(model.tab.session)
     }
 ```
 
-Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/app-consumer/Sources/AppConsumer/AppConsumer.swift)
+Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/swiftui/Sources/SwiftUIExample/SwiftUIExample.swift)
 
 ### WebSocket transport
 
@@ -91,7 +91,7 @@ let session = TerminalSession(openTransport: { size in
 TerminalView(session)
 ```
 
-The factory opens a shell at the view’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the view hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/app-consumer/Sources/AppConsumer/ShellTab.swift)
+The factory opens a shell at the view’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the view hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/swiftui/Sources/SwiftUIExample/ShellTab.swift)
 
 ## Try the sample apps
 

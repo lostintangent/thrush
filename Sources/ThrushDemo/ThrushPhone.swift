@@ -15,30 +15,30 @@ final class ThrushPhone: UIResponder, UIApplicationDelegate {
 
 @objc(ThrushPhoneScene) private final class PhoneScene: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
-    private let host = PhoneHost()
+    private let controller = PhoneHostingController()
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         guard let scene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: scene)
-        switch host.session.options.customTheme ? .dark : host.session.options.appearance {
+        switch controller.session.options.customTheme ? .dark : controller.session.options.appearance {
         case .dark: window.overrideUserInterfaceStyle = .dark
         case .light: window.overrideUserInterfaceStyle = .light
         case .system: break
         }
-        window.rootViewController = host
+        window.rootViewController = controller
         self.window = window
         window.makeKeyAndVisible()
     }
 
-    func sceneWillEnterForeground(_ scene: UIScene) { host.session.setActive(true) }
+    func sceneWillEnterForeground(_ scene: UIScene) { controller.session.setActive(true) }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
         PhoneCapture.orient(scene)
-        host.focusIfRequested()
+        controller.focusIfRequested()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        host.session.setActive(false)
+        controller.session.setActive(false)
     }
 }
 
@@ -49,7 +49,7 @@ private extension UIColor {
     }
 }
 
-private final class PhoneHost: UIHostingController<DemoSurface> {
+private final class PhoneHostingController: UIHostingController<DemoSurface> {
     let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
@@ -85,15 +85,15 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         if session.options.checksToolbar && session.options.keyboard {
             // The toolbar proof mounts only the public view, so keep asking until its terminal is in the window.
             Task { [weak self] in
-                while let host = self, !host.focusRequested {
-                    host.focusIfRequested()
+                while let controller = self, !controller.focusRequested {
+                    controller.focusIfRequested()
                     do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
                 }
             }
         }
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
         // The trace forwards frame submissions to the capture hook it wraps.
-        layoutTrace = PhoneLayoutTrace(terminal: session.view, host: self)
+        layoutTrace = PhoneLayoutTrace(terminal: session.view, controller: self)
         if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesSessionState {
             stateObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {

@@ -8,7 +8,7 @@ import Thrush
 enum ThrushMac {
     static func main() {
         let app = NSApplication.shared
-        let delegate = MacHost()
+        let delegate = MacAppDelegate()
         app.delegate = delegate
         app.setActivationPolicy(.regular)
         withExtendedLifetime(delegate) { app.run() }
@@ -16,7 +16,7 @@ enum ThrushMac {
 }
 
 @MainActor
-private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation, NSToolbarDelegate {
+private final class MacAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation, NSToolbarDelegate {
     let session = DemoSession(options: DemoOptions())
     private let newShellItem = NSToolbarItem.Identifier("demo.newShell")
     private var window: NSWindow!
