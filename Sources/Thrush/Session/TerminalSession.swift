@@ -26,9 +26,7 @@ import UIKit
     /// The factory receives the measured terminal size. Return a fresh, suspended
     /// task from the app's URLSession with the same client ID on every attachment.
     public convenience init(makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
-        self.init { observer in
-            SessionActor(size: nil, observer: observer, makeSocket: makeSocket)
-        }
+        self.init { observer in SessionActor(observer: observer, makeSocket: makeSocket) }
     }
 
     /// Creates a session on a transport supplied by the app.
@@ -40,18 +38,9 @@ import UIKit
         self.init { observer in SessionActor(observer: observer, openTransport: openTransport) }
     }
 
-    package convenience init(baseURL: URL, clientID: String, size: Terminal.Size? = nil,
-                             palette: Terminal.Palette = .default, onOutput: (@Sendable (Data) -> Void)? = nil,
-                             frameTrace: (any WebSocketFrameTrace)? = nil) throws {
-        try self.init { observer in
-            try SessionActor(baseURL: baseURL, clientID: clientID, size: size, palette: palette,
-                             onOutput: onOutput, frameTrace: frameTrace, observer: observer)
-        }
-    }
-
-    private init(makeActor: (MetadataObserver) throws -> SessionActor) rethrows {
+    private init(makeActor: (MetadataObserver) -> SessionActor) {
         let observer = MetadataObserver()
-        actor = try makeActor(observer)
+        actor = makeActor(observer)
         observer.session = self
     }
 
@@ -71,7 +60,7 @@ import UIKit
     public func close() async throws { try await actor.closeShell() }
 
     /// A transport read can finish after the app releases the session.
-    @MainActor package final class MetadataObserver {
+    @MainActor final class MetadataObserver {
         fileprivate weak var session: TerminalSession?
         private var latestRevision: UInt64 = 0
 
@@ -121,8 +110,8 @@ extension TerminalSession {
 
     func setFocused(_ focused: Bool) async throws { try await actor.setFocused(focused) }
 
-    func send(_ input: Terminal.Input, forShell revision: UInt64, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
-        try await actor.send(input, forShell: revision, onWriteStarted: onWriteStarted)
+    func send(_ input: Terminal.Input, forShell revision: UInt64) async throws {
+        try await actor.send(input, forShell: revision)
     }
 
     func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {

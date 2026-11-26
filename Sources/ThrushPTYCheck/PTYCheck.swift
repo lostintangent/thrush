@@ -134,7 +134,9 @@ struct PTYCheck {
         let directory = URL(filePath: args[4], directoryHint: .isDirectory)
         let capture = WireCapture(), clientID = UUID().uuidString
         let size = Terminal.Size(columns: 80, rows: 24)
-        let live = try SessionActor(baseURL: endpoint, clientID: clientID, size: size, onOutput: capture.receive)
+        let socket = terminalSocket(at: endpoint, clientID: clientID)
+        let live = SessionActor(size: size, makeSocket: socket)
+        await live.trace(with: AppliedFrames(body: capture.receive))
         guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
@@ -155,7 +157,7 @@ struct PTYCheck {
 
         // A fresh observer of the same shell restores the server's serialized grid. Its replay
         // and subsequent frames belong to a separate attachment and never enter the live totals.
-        let restored = try SessionActor(baseURL: endpoint, clientID: clientID, size: size)
+        let restored = SessionActor(size: size, makeSocket: socket)
         guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .replay else {
             throw PTYCheckFailure("Missing replay after the numbered log")
         }

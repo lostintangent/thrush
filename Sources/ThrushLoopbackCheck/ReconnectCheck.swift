@@ -32,6 +32,18 @@ private actor RetryClock {
     }
 }
 
+/// Records each input write as it begins, including one whose delivery a socket loss leaves ambiguous.
+private final class InputWrites: WebSocketFrameTrace {
+    private let writes = Mutex<[String]>([])
+    var all: [String] { writes.withLock { $0 } }
+
+    func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
+                 note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+        guard event == "input-write", case .data(let bytes) = message else { return }
+        writes.withLock { $0.append(String(decoding: bytes, as: UTF8.self)) }
+    }
+}
+
 struct ReconnectCheck {
     typealias Failure = LoopbackCheck.CheckFailure
     let endpoint: URL
@@ -72,47 +84,47 @@ struct ReconnectCheck {
         latest.withLock { $0 }?.cancel(with: .goingAway, reason: nil)
         let (_, interrupted) = try await urlSession.data(from: endpoint.appending(path: "check/interrupted"))
         guard (interrupted as? HTTPURLResponse)?.statusCode == 204 else { throw Failure("Peer did not observe socket loss") }
-        let attemptsOnWire = Mutex<[String]>([])
-        func mark(_ label: String) -> @Sendable () -> Void { { attemptsOnWire.withLock { $0.append(label) } } }
-        let result: Void? = try? await session.send(.text("ambiguous"), onWriteStarted: mark("ambiguous"))
-        guard result == nil, attemptsOnWire.withLock({ $0 }) == ["ambiguous"] else {
+        let writes = InputWrites()
+        await session.trace(with: writes)
+        let result: Void? = try? await session.send(.text("ambiguous"))
+        guard result == nil, writes.all == ["ambiguous"] else {
             throw Failure("Expected an attempted write to fail on the canceled socket")
         }
         try await expect(.reconnecting, from: session)
-        try await session.send(.key(.up), onWriteStarted: mark("up"))
+        try await session.send(.key(.up))
         let emoji = String(repeating: "🪶", count: 16_384)
         try await reject(.paste(emoji + "x"), from: session)
         // One grapheme can exceed the byte budget, even when Control would encode it as no bytes.
         let grapheme = Character("a" + String(repeating: "\u{301}", count: 32_768))
         try await reject(.key(.character(grapheme), modifiers: .control), from: session)
-        try await session.send(.paste("a\nb"), onWriteStarted: mark("paste"))
+        try await session.send(.paste("a\nb"))
         try await waitForResumedReady(session)
         let schedule = [250, 500, 1_000, 2_000, 4_000, 4_000].map { Duration.milliseconds($0) }
         guard await clock.delays == schedule else { throw Failure("Incorrect retry backoff") }
-        try await session.send(.key(.left), onWriteStarted: mark("left"))
-        guard attemptsOnWire.withLock({ $0 }) == ["ambiguous"] else { throw Failure("Held input wrote before replay") }
+        try await session.send(.key(.left))
+        guard writes.all == ["ambiguous"] else { throw Failure("Held input wrote before replay") }
         try await expect(.replay, from: session) // Serialized application arrows and bracketed paste.
         try await expect(.output, from: session) // Peer acknowledged all three re-encoded inputs.
-        let delivered = ["ambiguous", "up", "paste", "left"]
+        let delivered = ["ambiguous", "\u{1B}OA", "\u{1B}[200~a\rb\u{1B}[201~", "\u{1B}OD"]
         let editor = await session.snapshot()
         guard editor.isAlternate, editor.rows[0].text == "ok", editor.modes.applicationCursorKeys,
               editor.modes.bracketedPaste, await session.currentTerminal.title == "Original shell",
-              attemptsOnWire.withLock({ $0 }) == delivered else {
+              writes.all == delivered else {
             throw Failure("Buffered input did not drain exactly once in order")
         }
 
         try await session.send(.text("again"))
         try await expect(.reconnecting, from: session)
         // Exactly 64 KiB of source bytes across two items. Fresh ready must discard both.
-        try await session.send(.text(String(emoji.dropLast())), onWriteStarted: mark("stale text"))
-        try await session.send(.paste("abcd"), onWriteStarted: mark("stale paste"))
+        try await session.send(.text(String(emoji.dropLast())))
+        try await session.send(.paste("abcd"))
         try await reject(.text("x"), from: session)
         try await expect(.replaced, from: session)
         let fresh = await session.snapshot()
         guard await session.state == .active, !fresh.isAlternate, !fresh.modes.applicationCursorKeys,
               !fresh.modes.bracketedPaste, await session.currentTerminal.title.isEmpty,
               fresh.history.map(\.text).filter({ !$0.isEmpty }) == ["saved-main"], fresh.rows.allSatisfy({ $0.text.isEmpty }),
-              await clock.delays == schedule + [.milliseconds(250)], attemptsOnWire.withLock({ $0 }) == delivered else {
+              await clock.delays == schedule + [.milliseconds(250)], writes.all == delivered + ["again"] else {
             throw Failure("Replacement must archive the main screen, reset shell state and discard its held input")
         }
         try await session.send(.text("clean"))

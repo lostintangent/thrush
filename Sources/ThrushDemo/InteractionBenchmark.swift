@@ -47,18 +47,34 @@ final class InteractionBenchmark {
         let anchoredReplay: AnchoredReplay
     }
 
+    /// Hears the moment each input write begins on the session's socket.
+    private struct InputWrites: WebSocketFrameTrace {
+        let started: @Sendable (Double) -> Void
+
+        func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
+                     note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+            if event == "input-write" { started(CACurrentMediaTime()) }
+        }
+    }
+
     private let view: TerminalMetalView
+    private let session: TerminalSession
     private var sentAt: Double?
     private var receipt: (generation: UInt64, time: Double)?
     private var frame: FrameMeasurement?
 
-    init(view: TerminalMetalView) { self.view = view }
+    init(view: TerminalMetalView, session: TerminalSession) {
+        self.view = view
+        self.session = session
+    }
 
-    func writeStarted(at time: Double) { sentAt = time }
     func received(generation: UInt64, at time: Double) { receipt = (generation, time) }
 
     func run(reportURL: URL) async throws {
         guard let size = view.gridSize else { throw RenderBenchmark.Failure("Missing native grid.") }
+        await session.actor.trace(with: InputWrites { [weak self] time in
+            Task { @MainActor in self?.sentAt = time }
+        })
         let previous = view.onFrame
         view.onFrame = { [weak self] frame in
             previous?(frame)

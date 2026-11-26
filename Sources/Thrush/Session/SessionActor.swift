@@ -97,13 +97,12 @@ package actor SessionActor {
         }
     }
 
-    /// Encodes input using the program's current modes. The latency probe runs as the write begins.
-    package func send(_ input: Terminal.Input, forShell revision: UInt64? = nil,
-                      onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
+    /// Encodes input using the program's current modes.
+    package func send(_ input: Terminal.Input, forShell revision: UInt64? = nil) async throws {
         if let revision, revision != shellRevision { return }
         switch transport {
-        case .webSocket(let socket): try await socket.send(input, in: self, notify: onWriteStarted)
-        case .app(let app): try await app.send(input, in: self, notify: onWriteStarted)
+        case .webSocket(let socket): try await socket.send(input, in: self)
+        case .app(let app): try await app.send(input, in: self)
         }
     }
 

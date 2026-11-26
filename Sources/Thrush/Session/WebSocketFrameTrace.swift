@@ -1,11 +1,12 @@
 import Foundation
 
-/// Package-only diagnostics for a disposable native workflow. An observer must return promptly
-/// from receive observations so terminal reads and parser application stay on the same actor.
+/// Package-only diagnostics for checks and the demo's disposable native workflow, installed with
+/// `SessionActor.trace(with:)`. Events include each received message, its acceptance and
+/// application, lifecycle changes and the beginning of each input and control write. An observer
+/// must return promptly because terminal reads and parser application stay on the session actor.
 package protocol WebSocketFrameTrace: Sendable {
     func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
                  note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?)
-    func finish(_ result: String, attachment: Int, received: Int, applied: Int) async
 }
 
 extension WebSocketFrameTrace {

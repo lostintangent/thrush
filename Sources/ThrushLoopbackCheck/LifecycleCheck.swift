@@ -15,8 +15,12 @@ struct LifecycleCheck {
     )
 
     func run() async throws {
-        let tab = try await TerminalSession(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+        // The tab opens the way a view shows a new session: theme and measured grid first.
+        let tab = await TerminalSession(makeSocket: terminalSocket(at: endpoint, clientID: "thrush lifecycle"))
         let first = await tab.actor
+        await first.setPalette(palette, cursor: .white)
+        try await first.sendResize(to: size)
+        guard await first.show() else { throw Failure("The new tab did not open its shell") }
         try await expectReady(first, resumed: false)
         try await expectOutput(first, rows: ["old-only", "old", ""])
         try await expectOutput(first, rows: ["old-only", "old", ""])
@@ -37,7 +41,7 @@ struct LifecycleCheck {
 
         let hostSession = URLSession(configuration: .ephemeral)
         defer { hostSession.invalidateAndCancel() }
-        let second = try open(in: hostSession)
+        let second = open(in: hostSession)
         try await expectReady(second, resumed: true)
         try await expectEditorReplay(second, row: "alt!A")
         try await expectOutput(second, rows: ["alt!A!", "", ""])
@@ -98,7 +102,8 @@ struct LifecycleCheck {
 
         // The previous socket's displacement must leave the host-owned session usable.
         let observed = Mutex(Data())
-        let final = try open(in: hostSession) { bytes in observed.withLock { $0.append(bytes) } }
+        let final = open(in: hostSession)
+        await final.trace(with: AppliedFrames { bytes in observed.withLock { $0.append(bytes) } })
         try await expectReady(final, resumed: false)
         try await expectOutput(final, rows: ["last ", "", ""])
         try await expectOutput(final, rows: ["last bytes", "", ""])
@@ -111,20 +116,8 @@ struct LifecycleCheck {
         try await expectEnded(final)
     }
 
-    private func open(in session: URLSession,
-                      onOutput: (@Sendable (Data) -> Void)? = nil) throws -> SessionActor {
-        SessionActor(size: size, palette: palette, onOutput: onOutput) { grid in
-            let address = endpoint.appending(path: "socket").appending(queryItems: [
-                URLQueryItem(name: "service", value: "terminal"),
-                URLQueryItem(name: "clientId", value: "thrush lifecycle"),
-                URLQueryItem(name: "cols", value: String(grid.columns)),
-                URLQueryItem(name: "rows", value: String(grid.rows)),
-            ])
-            var location = URLComponents(url: address, resolvingAgainstBaseURL: false)
-            location?.scheme = endpoint.scheme == "https" ? "wss" : "ws"
-            guard let socketURL = location?.url else { throw Failure("Invalid test socket URL") }
-            return session.webSocketTask(with: socketURL)
-        }
+    private func open(in session: URLSession) -> SessionActor {
+        SessionActor(size: size, palette: palette, makeSocket: terminalSocket(at: endpoint, clientID: "thrush lifecycle", in: session))
     }
 
     private func expectReady(_ session: SessionActor, resumed: Bool, retaining previous: Terminal.Snapshot? = nil) async throws {

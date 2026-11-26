@@ -10,7 +10,7 @@ final class WorkflowFrameTrace: WebSocketFrameTrace {
 
     init(url: URL) throws { records = try Mutex(Records(url: url)) }
 
-    /// New app sessions start their counters at zero; the workflow trace covers the whole exchange.
+    /// New app sessions start their counters at zero. The workflow trace covers the whole exchange.
     func continuing(after attachments: Int, received: Int, applied: Int) -> any WebSocketFrameTrace {
         SessionTrace(trace: self, attachments: attachments, received: received, applied: applied)
     }
@@ -23,10 +23,6 @@ final class WorkflowFrameTrace: WebSocketFrameTrace {
                      note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
             trace.observe(event, attachment: attachments + attachment, message: message, note: note, stale: stale,
                           closeCode: closeCode, received: received.map { self.received + $0 }, applied: applied.map { self.applied + $0 })
-        }
-
-        func finish(_ result: String, attachment: Int, received: Int, applied: Int) async {
-            await trace.finish(result, attachment: attachments + attachment, received: self.received + received, applied: self.applied + applied)
         }
     }
 
@@ -99,7 +95,8 @@ private struct Records: Sendable {
         }
         payloadBytes += length ?? 0
         if event == "observed" { frames[attachment, default: 0] += 1 }
-        let frame = message != nil && event != "control-write" ? frames[attachment] : nil
+        // Frame numbers count received messages, so a write has none.
+        let frame = message != nil && !event.hasSuffix("-write") ? frames[attachment] : nil
         append(event, attachment: attachment, frame: frame, data: data, text: text, length: length,
                stale: stale, closeCode: closeCode, received: received, applied: applied)
     }

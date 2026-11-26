@@ -57,8 +57,10 @@ import ThrushCore
         try await Task.sleep(for: .milliseconds(10))
     }
     let port = try #require(peer.port)
-    let url = try #require(URL(string: "http://127.0.0.1:\(port)"))
-    let actor = try SessionActor(baseURL: url, clientID: "ordered-output", size: .init(columns: 12, rows: 2))
+    let url = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let actor = SessionActor(size: .init(columns: 12, rows: 2)) { _ in sockets.webSocketTask(with: url) }
     guard case .ready(resumed: false) = try await actor.nextEvent() else {
         Issue.record("Expected a fresh shell")
         return

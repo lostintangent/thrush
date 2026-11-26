@@ -76,6 +76,7 @@ struct DemoOptions {
 final class DemoSession: ObservableObject {
     let view = TerminalMetalView(frame: .zero)
     private(set) var options: DemoOptions
+    private let server: DemoServer?
     @Published private(set) var isActive = false
     @Published var theme: TerminalTheme?
     @Published private(set) var terminalSession: TerminalSession?
@@ -89,7 +90,6 @@ final class DemoSession: ObservableObject {
     var onFirstUsable: (() -> Void)?
     private(set) var hasUsableSession = false
     var onReady: ((Bool) -> Void)?
-    var onOutput: ((UInt64, CFTimeInterval) -> Void)?
     private var nextShellTrace: (any WebSocketFrameTrace)?
     private var interaction: InteractionBenchmark?
     private var benchmarkTask: Task<Void, Never>?
@@ -97,6 +97,8 @@ final class DemoSession: ObservableObject {
 
     init(options: DemoOptions) {
         self.options = options
+        server = DemoServer(endpoint: options.endpoint)
+        if server == nil { endpointError = "Pass an http or ws base address, like http://127.0.0.1:9138." }
         theme = options.customTheme ? Self.customTheme : nil
         if options.benchmarkURL != nil {
             view.theme = theme
@@ -124,26 +126,38 @@ final class DemoSession: ObservableObject {
     /// The app keeps a finished screen until the user chooses New Shell in its toolbar.
     func newShell() {
         guard terminalSession?.hasEnded == true else { return }
-        do { _ = try openShell(trace: nextShellTrace) }
-        catch { endpointError = String(describing: error) }
+        openShell(trace: nextShellTrace)
     }
 
-    private func openShell(trace: (any WebSocketFrameTrace)?) throws -> TerminalSession {
+    @discardableResult
+    private func openShell(trace: (any WebSocketFrameTrace)?) -> TerminalSession? {
+        guard let server else { return nil }
         let id = options.runsWorkflowDriver ? WorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
-        let next = try TerminalSession(baseURL: options.endpoint, clientID: id, frameTrace: trace)
-        endpointError = nil
+        let next = TerminalSession(makeSocket: server.makeSocket(clientID: id))
+        guard let trace else {
+            publish(next)
+            return next
+        }
+        // The view shows the session only once the trace can hear its first attachment open.
+        Task {
+            await next.actor.trace(with: trace)
+            publish(next)
+        }
+        return next
+    }
+
+    private func publish(_ next: TerminalSession) {
         hasUsableSession = false
         terminalSession = next
         onShellEndedChange?()
-        return next
     }
 
     private func prepareSession() {
         do {
             let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
-            let next = try openShell(trace: trace)
+            guard let next = openShell(trace: trace) else { return }
             if options.runsWorkflowDriver {
-                WorkflowDriver.startIfRequested(view: view, session: next, setActive: setActive) { sockets, received, applied, activate in
+                WorkflowDriver.startIfRequested(view: view, session: next, trace: trace, setActive: setActive) { sockets, received, applied, activate in
                     let previous = self.terminalSession
                     self.nextShellTrace = trace?.continuing(after: sockets, received: received, applied: applied)
                     defer { self.nextShellTrace = nil }
@@ -183,16 +197,10 @@ final class DemoSession: ObservableObject {
             guard let self else { return }
             markSessionUsable(session)
             interaction?.received(generation: generation, at: receivedAt)
-            onOutput?(generation, receivedAt)
             let first = onFirstOutput
             onFirstOutput = nil
             first?()
-            startInteractionCheck()
-        }
-        if options.interactionURL != nil {
-            terminalView.onWriteStarted = { [weak self] time in
-                Task { @MainActor in self?.interaction?.writeStarted(at: time) }
-            }
+            startInteractionCheck(session)
         }
         return terminalView.onChange(of: session.hasEnded) {
             guard self.terminalSession === session else { return }
@@ -208,10 +216,10 @@ final class DemoSession: ObservableObject {
         onFirstUsable = nil
     }
 
-    private func startInteractionCheck() {
+    private func startInteractionCheck(_ session: TerminalSession) {
         guard !benchmarkStarted, let url = options.interactionURL else { return }
         benchmarkStarted = true
-        let probe = InteractionBenchmark(view: view)
+        let probe = InteractionBenchmark(view: view, session: session)
         interaction = probe
         benchmarkTask = Task {
             defer { interaction = nil }

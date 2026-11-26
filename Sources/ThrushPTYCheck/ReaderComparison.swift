@@ -52,8 +52,8 @@ enum ReaderComparison {
         var result = Result(reader: reader)
         if reader == "thrush" || reader == "silent" {
             let lastFrame = Mutex(Data())
-            let session = try SessionActor(baseURL: url, clientID: id, size: .init(columns: 80, rows: 24),
-                                           onOutput: { data in lastFrame.withLock { $0 = data } })
+            let session = SessionActor(size: .init(columns: 80, rows: 24), makeSocket: terminalSocket(at: url, clientID: id))
+            await session.trace(with: AppliedFrames { data in lastFrame.withLock { $0 = data } })
             guard try await session.nextEvent() == .ready(resumed: false) else { throw PTYCheckFailure("Expected fresh PTY") }
             if PTYCheck.fixtureCommand != nil {
                 try await PTYCheck.enterFixture(session)
@@ -81,16 +81,8 @@ enum ReaderComparison {
             result.receivedBytes = await session.receivedBytes - result.setupBytes
             result.appliedBytes = await session.appliedBytes - result.setupBytes
         } else {
-            // Match the session’s ephemeral URLSession and endpoint for a transport-only reader.
-            var endpoint = URLComponents(url: url.appending(path: "socket"), resolvingAgainstBaseURL: false)!
-            endpoint.scheme = url.scheme == "https" ? "wss" : "ws"
-            endpoint.queryItems = [
-                URLQueryItem(name: "service", value: "terminal"), URLQueryItem(name: "clientId", value: id),
-                URLQueryItem(name: "cols", value: "80"), URLQueryItem(name: "rows", value: "24")
-            ]
-            let session = URLSession(configuration: .ephemeral)
-            defer { session.invalidateAndCancel() }
-            let socket = session.webSocketTask(with: endpoint.url!)
+            // A transport-only reader opens the same socket as the session's.
+            let socket = try terminalSocket(at: url, clientID: id)(.init(columns: 80, rows: 24))
             socket.resume()
             var attached = false
             var awaitingReplay = false

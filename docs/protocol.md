@@ -49,6 +49,6 @@ The default shell is `/bin/zsh`. It starts in a new working directory with a pri
 swift run ThrushServer --port 0 --shell /bin/bash --data-dir ./shell-run
 ```
 
-The bundled server accepts grids from 2–512 columns and 1–256 rows, up to 16 concurrent shells and client IDs up to 128 UTF-8 bytes. Each incoming input message is bounded to 1 MiB. A serialized replay can be up to 64 MiB. An app that supplies its own `URLSessionWebSocketTask` can set `maximumMessageSize` to that limit for large, heavily styled histories. A replay exceeding the transfer limit ends the attachment with WebSocket code 1009.
+The bundled server accepts grids from 2–512 columns and 1–256 rows, up to 16 concurrent shells and client IDs up to 128 UTF-8 bytes. Each incoming input message is bounded to 1 MiB. A serialized replay can be up to 64 MiB. Thrush raises each socket's `maximumMessageSize` to that limit unless the app's task already allows more. A replay exceeding the transfer limit ends the attachment with WebSocket code 1009.
 
 See the [sample app commands](demo.md), [real PTY checks](../Benchmarks/pty.md) and [native workflow checks](../Benchmarks/live-workflows.md).

@@ -117,11 +117,10 @@ final class AppTransport {
         await session.publishMetadata(title: session.terminal.title)
     }
 
-    func send(_ input: Terminal.Input, in session: isolated SessionActor,
-              notify: (@Sendable () -> Void)?) async throws {
+    func send(_ input: Terminal.Input, in session: isolated SessionActor) async throws {
         guard session.state == .active else { throw SessionActor.TransportError.inactiveTransport }
         let bytes = session.terminal.encode(input)
-        if !bytes.isEmpty { try await write(.bytes(Data(bytes)), in: session, notify: notify) }
+        if !bytes.isEmpty { try await write(.bytes(Data(bytes)), in: session) }
     }
 
     func resize(in session: isolated SessionActor) async throws {
@@ -137,13 +136,11 @@ final class AppTransport {
 
     private enum Write { case bytes(Data), resize(Terminal.Size) }
 
-    private func write(_ operation: Write, in session: isolated SessionActor,
-                       notify: (@Sendable () -> Void)? = nil) async throws {
+    private func write(_ operation: Write, in session: isolated SessionActor) async throws {
         guard let transport else { throw SessionActor.TransportError.inactiveTransport }
         let stamp = session.lifetime
         let next = session.orderWrite { session in
             guard session.lifetime == stamp else { throw CancellationError() }
-            notify?()
             switch operation {
             case .bytes(let data): try await transport.write(data)
             case .resize(let size):

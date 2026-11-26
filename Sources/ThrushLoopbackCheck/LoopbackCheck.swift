@@ -34,7 +34,7 @@ struct LoopbackCheck {
         let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         // A plus and a space round-trip distinctly through the real server's URLSearchParams.
         let clientID = "thrush + check"
-        let session = try SessionActor(baseURL: endpoint, clientID: clientID, size: size)
+        let session = SessionActor(size: size, makeSocket: terminalSocket(at: endpoint, clientID: clientID))
         guard try await session.nextEvent() == .ready(resumed: false) else {
             throw CheckFailure("Expected fresh ready before output")
         }
@@ -57,7 +57,7 @@ struct LoopbackCheck {
         let minimum = Terminal.Size(columns: 1, rows: 2)
         let defaults = Terminal.Palette.default
         let light = Terminal.Palette(foreground: defaults.background, background: defaults.foreground, ansi: defaults.ansi)
-        let next = try SessionActor(baseURL: endpoint, clientID: clientID, size: minimum, palette: light)
+        let next = SessionActor(size: minimum, palette: light, makeSocket: terminalSocket(at: endpoint, clientID: clientID))
         guard try await next.nextEvent() == .ready(resumed: false), await next.text(inRow: 0).isEmpty,
               try await next.nextEvent() == .output, await next.text(inRow: 0) == "AB",
               await next.text(inRow: 1).isEmpty

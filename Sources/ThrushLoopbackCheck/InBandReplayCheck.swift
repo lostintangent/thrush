@@ -14,8 +14,9 @@ struct InBandReplayCheck {
         let defaults = Terminal.Palette.default
         let palette = Terminal.Palette(foreground: defaults.background, background: defaults.foreground, ansi: defaults.ansi)
         let observed = Mutex<[Data]>([])
-        let session = try SessionActor(baseURL: endpoint, clientID: "thrush lifecycle", size: size,
-                                       palette: palette) { bytes in observed.withLock { $0.append(bytes) } }
+        let socket = terminalSocket(at: endpoint, clientID: "thrush lifecycle")
+        let session = SessionActor(size: size, palette: palette, makeSocket: socket)
+        await session.trace(with: AppliedFrames { bytes in observed.withLock { $0.append(bytes) } })
         guard try await session.nextEvent() == .ready(resumed: false),
               try await session.nextEvent() == .output else { throw Failure("Missing output before in-band replay") }
         let old = await session.snapshot()
@@ -73,7 +74,7 @@ struct InBandReplayCheck {
               await session.appliedBytes == bytes else { throw Failure("Dropped or duplicated replay or live bytes") }
 
         for invalid in ["in-band fresh ready", "duplicate ready without a replay"] {
-            let rejected = try SessionActor(baseURL: endpoint, clientID: "thrush lifecycle", size: size)
+            let rejected = SessionActor(size: size, makeSocket: socket)
             guard try await rejected.nextEvent() == .ready(resumed: false), try await rejected.nextEvent() == .output,
                   (try? await rejected.nextEvent()) == nil, await rejected.state == .idle,
                   !(await rejected.awaitingReplay), await rejected.text(inRow: 0) == "kept" else {

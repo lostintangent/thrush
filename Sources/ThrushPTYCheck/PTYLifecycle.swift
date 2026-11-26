@@ -10,7 +10,7 @@ struct PTYLifecycle {
     private let initialSize = Terminal.Size(columns: 80, rows: 24)
 
     func run() async throws {
-        let first = try connect()
+        let first = connect()
         let oldPID = try await freshShell(first)
         try await first.sendResize(to: .init(columns: 61, rows: 25))
         try await first.send(.text("KEEP=acorn; printf '\\r\\nSIZE-'; stty size\r"))
@@ -28,7 +28,7 @@ struct PTYLifecycle {
         try await first.send(.text("printf '\\r\\nLIVE-%s-%d\\n' \"$KEEP\" $$\r"))
         try await row("LIVE-acorn-\(oldPID)", in: first)
 
-        let owner = try connect()
+        let owner = connect()
         guard try await owner.nextEvent() == .ready(resumed: true),
               try await owner.nextEvent() == .replay else { throw PTYCheckFailure("Missing takeover replay") }
         var event = try await first.nextEvent()
@@ -42,7 +42,7 @@ struct PTYLifecycle {
         try await owner.closeShell()
         try await waitForProcessExit(oldPID, within: .seconds(5))
 
-        let orphan = try connect()
+        let orphan = connect()
         let orphanPID = try await freshShell(orphan)
         await orphan.hide()
         let detached = ContinuousClock.now
@@ -67,7 +67,7 @@ struct PTYLifecycle {
               await orphan.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
             throw PTYCheckFailure("Real exit lost its final bytes or reopened the ended session")
         }
-        let successor = try connect()
+        let successor = connect()
         let successorPID = try await freshShell(successor)
         guard successorPID != orphanPID, await successor.snapshot().history.isEmpty else {
             throw PTYCheckFailure("The app-created session inherited earlier history")
@@ -77,8 +77,8 @@ struct PTYLifecycle {
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")
     }
 
-    private func connect() throws -> SessionActor {
-        try SessionActor(baseURL: endpoint, clientID: clientID, size: initialSize)
+    private func connect() -> SessionActor {
+        SessionActor(size: initialSize, makeSocket: terminalSocket(at: endpoint, clientID: clientID))
     }
 
     private func freshShell(_ session: SessionActor) async throws -> Int32 {

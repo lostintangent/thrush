@@ -9,7 +9,8 @@ extension LoopbackCheck {
         let clientID = fixture.events.compactMap(\.lifecycle).first?.clientId ?? "r5-" + name
         var size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         var palette = Terminal.Palette.default
-        var session = try SessionActor(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
+        let socket = terminalSocket(at: endpoint, clientID: clientID)
+        var session = SessionActor(size: size, palette: palette, makeSocket: socket)
         guard try await session.nextEvent() == .ready(resumed: false) else {
             throw CheckFailure("Expected a fresh attachment for \(name)")
         }
@@ -21,7 +22,7 @@ extension LoopbackCheck {
                 case .detach:
                     await session.hide()
                 case .ready:
-                    session = try SessionActor(baseURL: endpoint, clientID: clientID, size: size, palette: palette)
+                    session = SessionActor(size: size, palette: palette, makeSocket: socket)
                     let resumed = lifecycle.resumed == true
                     expectedOutput = resumed ? .replay : .output
                     guard try await session.nextEvent() == .ready(resumed: resumed) else {

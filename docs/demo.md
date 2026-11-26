@@ -29,7 +29,7 @@ open -n .build/demo/mac/Thrush.app --args --endpoint http://127.0.0.1:PORT
 xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --endpoint http://127.0.0.1:PORT
 ```
 
-The same `--endpoint` accepts the base URL of another server implementing the [terminal protocol](protocol.md).
+The same `--endpoint` accepts the http or ws base URL of another server implementing the [terminal protocol](protocol.md). The apps open each shell the way the [README](../README.md) shows, with their own `URLSession` and a socket factory passed to `TerminalSession`.
 
 ## Scenes and appearance
 

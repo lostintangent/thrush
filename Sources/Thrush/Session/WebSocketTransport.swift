@@ -27,12 +27,10 @@ final class WebSocketTransport {
     private struct HeldInput {
         let input: Terminal.Input
         let byteCount: Int
-        let onWriteStarted: (@Sendable () -> Void)?
     }
 
     private let createTask: @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask
-    private let onOutput: (@Sendable (Data) -> Void)?
-    fileprivate let frameTrace: (any WebSocketFrameTrace)?
+    fileprivate var frameTrace: (any WebSocketFrameTrace)?
     private let sleepForRetry: @Sendable (Duration) async throws -> Void
     private var socket: URLSessionWebSocketTask?
     private var attachmentSize = Terminal.Size(columns: 80, rows: 24)
@@ -51,12 +49,9 @@ final class WebSocketTransport {
     private var nextReplay: Replay?
     fileprivate var awaitingReplay: Bool { nextReplay != nil }
 
-    init(onOutput: (@Sendable (Data) -> Void)?, frameTrace: (any WebSocketFrameTrace)?,
-         sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+    init(sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
          makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
         self.createTask = makeSocket
-        self.onOutput = onOutput
-        self.frameTrace = frameTrace
         self.sleepForRetry = sleepForRetry
     }
 
@@ -65,48 +60,12 @@ final class WebSocketTransport {
         socket?.cancel(with: .goingAway, reason: nil)
     }
 
-    /// Only the convenience endpoint owns a URLSession. An app's factory keeps its own.
-    private final class DemoSession: Sendable {
-        let session = URLSession(configuration: .ephemeral)
-        deinit { session.invalidateAndCancel() }
-    }
-
-    convenience init(baseURL: URL, clientID: String, onOutput: (@Sendable (Data) -> Void)?,
-                     frameTrace: (any WebSocketFrameTrace)?) throws {
-        guard var location = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
-              location.host != nil, location.query == nil, location.fragment == nil
-        else { throw URLError(.badURL) }
-        switch location.scheme {
-        case "http", "ws": location.scheme = "ws"
-        case "https", "wss": location.scheme = "wss"
-        default: throw URLError(.badURL)
-        }
-        location.path = baseURL.appending(path: "socket").path
-        let endpoint = location
-        precondition(!clientID.isEmpty, "A shell needs a stable client ID")
-        let owner = DemoSession()
-        self.init(onOutput: onOutput, frameTrace: frameTrace) { size in
-            var location = endpoint
-            location.queryItems = [
-                URLQueryItem(name: "service", value: "terminal"),
-                URLQueryItem(name: "clientId", value: clientID),
-                URLQueryItem(name: "cols", value: String(size.columns)),
-                URLQueryItem(name: "rows", value: String(size.rows)),
-            ]
-            // URLSearchParams on the server decodes an unescaped plus as a space.
-            location.percentEncodedQuery = location.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-            guard let url = location.url else { throw URLError(.badURL) }
-            let task = owner.session.webSocketTask(with: url)
-            // A single repaint can include a thousand rows of colored history.
-            task.maximumMessageSize = 64 * 1024 * 1024
-            return task
-        }
-    }
-
     fileprivate func open(at size: Terminal.Size) -> SessionActor.State {
         socketAttempts += 1
         do {
             let next = try createTask(size)
+            // A replay of a thousand rows of styled history can exceed URLSession's 1 MiB default.
+            next.maximumMessageSize = max(next.maximumMessageSize, 64 * 1024 * 1024)
             socket = next
             attachmentSize = size
             frameTrace?.record("open", attachment: socketAttempts)
@@ -201,7 +160,6 @@ final class WebSocketTransport {
                 // and let a later focus report overtake it.
                 let replyFocus = session.terminal.isFocused
                 frameTrace?.record("applied", attachment: attachment, message: message, received: session.receivedBytes, applied: session.appliedBytes)
-                onOutput?(bytes)
                 do {
                     if !reply.isEmpty && session.state != .closing { try await write(.data(Data(reply)), to: current, in: session) }
                     if session.state == .awaitingReplay { try await activate(current, replyFocus: replyFocus, in: session) }
@@ -274,7 +232,7 @@ final class WebSocketTransport {
         return pendingEvent
     }
 
-    func send(_ input: Terminal.Input, in session: isolated SessionActor, notify: (@Sendable () -> Void)?) async throws {
+    func send(_ input: Terminal.Input, in session: isolated SessionActor) async throws {
         if recovering {
             let count: Int
             switch input {
@@ -287,18 +245,17 @@ final class WebSocketTransport {
                 else { count = 1 }
             }
             guard heldInput.count < 256, count <= 65_536 - heldBytes else { throw TransportError.inputBufferFull }
-            heldInput.append(.init(input: input, byteCount: count, onWriteStarted: notify))
+            heldInput.append(.init(input: input, byteCount: count))
             heldBytes += count
             return
         }
         guard let current = socket, session.state == .active else { throw TransportError.inactiveTransport }
-        try await send(input, on: current, in: session, notify: notify)
+        try await send(input, on: current, in: session)
     }
 
-    private func send(_ input: Terminal.Input, on current: URLSessionWebSocketTask, in session: isolated SessionActor,
-                      notify: (@Sendable () -> Void)?) async throws {
+    private func send(_ input: Terminal.Input, on current: URLSessionWebSocketTask, in session: isolated SessionActor) async throws {
         let bytes = session.terminal.encode(input)
-        if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current, in: session, onWriteStarted: notify) }
+        if !bytes.isEmpty { try await write(.data(Data(bytes)), to: current, in: session, tracedAs: "input-write") }
     }
 
     /// Writes held input once the shell is current. A replayed program that reports focus first hears
@@ -317,14 +274,14 @@ final class WebSocketTransport {
                 try await resizeIfNeeded(current, in: session)
             } else if session.terminal.modes.sendFocus, let heard = heardFocus, heard != focus {
                 heardFocus = focus
-                try await send(.focus(focus), on: current, in: session, notify: nil)
+                try await send(.focus(focus), on: current, in: session)
             } else if session.terminal.modes.reportAppearance, let appearance, appearance != heardAppearance {
                 heardAppearance = appearance
-                try await send(.appearance(appearance), on: current, in: session, notify: nil)
+                try await send(.appearance(appearance), on: current, in: session)
             } else if !heldInput.isEmpty {
                 let next = heldInput.removeFirst()
                 heldBytes -= next.byteCount
-                try await send(next.input, on: current, in: session, notify: next.onWriteStarted)
+                try await send(next.input, on: current, in: session)
             } else {
                 recovering = false
                 session.state = .active
@@ -423,19 +380,17 @@ final class WebSocketTransport {
     private func writeControl(_ control: ClientControl, to current: URLSessionWebSocketTask,
                               in session: isolated SessionActor) async throws {
         let data = try JSONEncoder().encode(control)
-        try await write(.string(String(decoding: data, as: UTF8.self)), to: current, in: session)
+        try await write(.string(String(decoding: data, as: UTF8.self)), to: current, in: session, tracedAs: "control-write")
     }
 
     /// Actor methods can interleave at send and receive. Every queued write and its completion
-    /// belong to the socket captured when the operation began.
+    /// belong to the socket captured when the operation began. A trace hears each input and control
+    /// write as it begins, including one whose delivery a socket loss leaves ambiguous.
     private func write(_ message: URLSessionWebSocketTask.Message, to current: URLSessionWebSocketTask,
-                       in session: isolated SessionActor, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
+                       in session: isolated SessionActor, tracedAs event: String? = nil) async throws {
         let next = session.orderWrite { session in
             guard case .webSocket(let active) = session.transport, active.socket === current else { throw CancellationError() }
-            onWriteStarted?()
-            if let trace = active.frameTrace, case .string = message {
-                trace.record("control-write", attachment: active.socketAttempts, message: message)
-            }
+            if let event { active.frameTrace?.record(event, attachment: active.socketAttempts, message: message) }
             try await current.send(message)
         }
         do {
@@ -449,21 +404,15 @@ final class WebSocketTransport {
 }
 
 extension SessionActor {
-    package init(baseURL: URL, clientID: String, size: Terminal.Size? = nil, palette: Terminal.Palette = .default,
-                 onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any WebSocketFrameTrace)? = nil,
-                 observer: TerminalSession.MetadataObserver? = nil) throws {
-        let socket = try WebSocketTransport(baseURL: baseURL, clientID: clientID, onOutput: onOutput, frameTrace: frameTrace)
-        self.init(socket: socket, size: size, palette: palette, observer: observer)
-    }
-
     package init(size: Terminal.Size?, palette: Terminal.Palette = .default,
-                 onOutput: (@Sendable (Data) -> Void)? = nil, frameTrace: (any WebSocketFrameTrace)? = nil,
-                 observer: TerminalSession.MetadataObserver? = nil,
                  sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
                  makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
-        let socket = WebSocketTransport(onOutput: onOutput, frameTrace: frameTrace,
-                                        sleepForRetry: sleepForRetry, makeSocket: makeSocket)
-        self.init(socket: socket, size: size, palette: palette, observer: observer)
+        let socket = WebSocketTransport(sleepForRetry: sleepForRetry, makeSocket: makeSocket)
+        self.init(socket: socket, size: size, palette: palette, observer: nil)
+    }
+
+    init(observer: TerminalSession.MetadataObserver, makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
+        self.init(socket: WebSocketTransport(makeSocket: makeSocket), size: nil, palette: .default, observer: observer)
     }
 
     private init(socket: WebSocketTransport, size: Terminal.Size?, palette: Terminal.Palette,
@@ -481,8 +430,7 @@ extension SessionActor {
     package var socketAttempts: Int { webSocket?.socketAttempts ?? 0 }
     package var awaitingReplay: Bool { webSocket?.awaitingReplay ?? false }
 
-    package func finishFrameTrace(_ result: String) async {
-        guard let socket = webSocket else { return }
-        await socket.frameTrace?.finish(result, attachment: socket.socketAttempts, received: receivedBytes, applied: appliedBytes)
-    }
+    /// Observes this session's WebSocket from its next event. Install a trace before showing an
+    /// idle session to see its first attachment open.
+    package func trace(with trace: (any WebSocketFrameTrace)?) { webSocket?.frameTrace = trace }
 }

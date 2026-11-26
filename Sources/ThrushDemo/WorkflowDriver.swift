@@ -58,6 +58,7 @@ final class WorkflowDriver {
     private weak var originalSuperview: AnyObject?
     private weak var originalWindow: AnyObject?
     private var session: TerminalSession
+    private let trace: WorkflowFrameTrace?
     private let setActive: (Bool) -> Void
     private let newSession: NewSession
     private var previousReceived = 0
@@ -73,17 +74,18 @@ final class WorkflowDriver {
     private var lastCheckpoint: Recording.Event?
 
     private init(control: URL, output: URL, view: TerminalMetalView, session: TerminalSession,
-                 setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
+                 trace: WorkflowFrameTrace?, setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
         self.control = control
         self.output = output
         self.view = view
         self.session = session
+        self.trace = trace
         self.setActive = setActive
         self.newSession = newSession
     }
 
-    static func startIfRequested(view: TerminalMetalView, session: TerminalSession, setActive: @escaping (Bool) -> Void,
-                                 newSession: @escaping NewSession) {
+    static func startIfRequested(view: TerminalMetalView, session: TerminalSession, trace: WorkflowFrameTrace?,
+                                 setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--workflow-driver"), i + 1 < args.count,
               let j = args.firstIndex(of: "--workflow-output"), j + 1 < args.count else { return }
@@ -96,17 +98,25 @@ final class WorkflowDriver {
                       ["127.0.0.1", "localhost", "[::1]"].contains(url.host ?? "") else {
                     throw Failure("The fixture control listener must use a loopback HTTP address.")
                 }
-                let driver = WorkflowDriver(control: url, output: folder, view: view,
-                                                session: session, setActive: setActive, newSession: newSession)
+                let driver = WorkflowDriver(control: url, output: folder, view: view, session: session,
+                                            trace: trace, setActive: setActive, newSession: newSession)
                 currentDriver = driver
                 try await driver.run()
             } catch {
-                await (currentDriver?.session ?? session).actor.finishFrameTrace("failure")
+                await currentDriver?.finishTrace("failure")
                 let detail = String(describing: error) + "\n"
                 FileHandle.standardError.write(Data(detail.utf8))
                 try? detail.write(to: folder.appending(path: "workflow-error.txt"), atomically: true, encoding: .utf8)
             }
         }
+    }
+
+    /// The footer totals every shell the workflow opened.
+    private func finishTrace(_ result: String) async {
+        guard let trace else { return }
+        await trace.finish(result, attachment: previousAttachments + session.actor.socketAttempts,
+                           received: previousReceived + session.actor.receivedBytes,
+                           applied: previousApplied + session.actor.appliedBytes)
     }
 
     private func request(_ path: String, index: Int? = nil, post: Data? = nil) async throws -> (Int, Data) {
@@ -231,7 +241,7 @@ final class WorkflowDriver {
                 let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
                 guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
                 let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
-                await session.actor.finishFrameTrace("success")
+                await finishTrace("success")
                 try save(report, as: "workflow-report.json")
                 return
             case .focus, .input, .resize, .detach, .resume, .checkpoint:

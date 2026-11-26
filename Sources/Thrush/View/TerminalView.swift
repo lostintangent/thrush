@@ -53,7 +53,6 @@ import ThrushCore
     package var onReady: ((Bool) -> Void)?
     package var onResolvedTheme: ((TerminalTheme) -> Void)?
     package var onCanvasChange: ((ColorScheme) -> Void)?
-    package var onWriteStarted: (@Sendable (CFTimeInterval) -> Void)?
 
     // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
     // The coordinator combines appearance callbacks with actual window and scene visibility.
@@ -274,11 +273,7 @@ import ThrushCore
             if case .pointer = input, phase != .live { return }
             // A queued keystroke belongs to the shell that was on screen when it was typed.
             let revision = shellRevision
-            let onWrite = view?.onWriteStarted
-            perform { session, _ in
-                if let onWrite { try await session.send(input, forShell: revision) { onWrite(CACurrentMediaTime()) } }
-                else { try await session.send(input, forShell: revision) }
-            }
+            perform { session, _ in try await session.send(input, forShell: revision) }
         }
 
         private func reclaim() {

@@ -158,6 +158,33 @@ import Testing
     #expect(await actor.state == .idle)
 }
 
+@Test func everySocketCanReceiveAWholeReplay() {
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let endpoint = URL(string: "ws://127.0.0.1:9/socket")!
+    let made = Mutex<[URLSessionWebSocketTask]>([])
+    // URLSession's default and an app's own higher limit. A sized session opens its socket at once.
+    for limit in [1 << 20, 128 << 20] {
+        _ = SessionActor(size: .init(columns: 80, rows: 24)) { _ in
+            let task = sockets.webSocketTask(with: endpoint)
+            task.maximumMessageSize = limit
+            made.withLock { $0.append(task) }
+            return task
+        }
+    }
+    #expect(made.withLock { $0.map(\.maximumMessageSize) } == [64 << 20, 128 << 20])
+}
+
+/// Hears each binary frame once the session has applied it.
+private struct AppliedFrames: WebSocketFrameTrace {
+    let body: @Sendable (Data) -> Void
+
+    func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
+                 note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+        if event == "applied", case .data(let bytes) = message { body(bytes) }
+    }
+}
+
 @MainActor @Test func programsHearTheCurrentFocusEvenWhenItChangesDuringAReply() async throws {
     let peer = try ShellTestPeer()
     defer { peer.stop() }
@@ -170,15 +197,16 @@ import Testing
     }
     try await waitFor("The loopback peer must be listening.") { peer.port != nil }
     let port = try #require(peer.port)
-    let actor = Mutex<SessionActor?>(nil)
+    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
     let focusDuringReply = Mutex<Bool?>(nil)
     // Changes focus as the output's reply goes out, the moment a racing click or tap would land.
-    let session = try TerminalSession(baseURL: try #require(URL(string: "http://127.0.0.1:\(port)")),
-                                      clientID: "focus", onOutput: { _ in
-        guard let focused = focusDuringReply.withLock({ $0.take() }), let actor = actor.withLock({ $0 }) else { return }
+    await session.actor.trace(with: AppliedFrames { [actor = session.actor] _ in
+        guard let focused = focusDuringReply.withLock({ $0.take() }) else { return }
         actor.assumeIsolated { actor in Task { try? await actor.setFocused(focused) } }
     })
-    actor.withLock { $0 = session.actor }
     let report = "\u{1b}[?1004h"
 
     // A program that asks hears the current focus at once, then each change, even one made while
@@ -221,8 +249,10 @@ import Testing
     }
     try await waitFor("The loopback peer must be listening.") { peer.port != nil }
     let port = try #require(peer.port)
-    let session = try TerminalSession(baseURL: try #require(URL(string: "http://127.0.0.1:\(port)")),
-                                      clientID: "appearance")
+    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
     // Typed input follows any report on the same socket, so it marks where reports would have arrived.
     func expectWrites(_ expected: [String], through marker: String) async throws {
         try await session.actor.send(.text(marker))
