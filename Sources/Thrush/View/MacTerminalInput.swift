@@ -10,7 +10,8 @@ package protocol MacTerminalClipboard {
 
 /// AppKit owns key interpretation and candidate windows. Only committed text leaves this responder.
 @MainActor
-final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemValidation, MacTerminalClipboard {
+final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemValidation, MacTerminalClipboard,
+    NSViewToolTipOwner, @MainActor NSAccessibilityCustomRotorItemSearchDelegate {
     unowned let terminal: TerminalMetalView
     private var marked = NSAttributedString()
     private var insertion = NSRange(location: 0, length: 0)
@@ -31,6 +32,11 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     private var readingCaret: MacAccessibleText.Caret?
     private var previousGeneration: UInt64?
     private var previousOffset: Int?
+    private var accessibleLinks: [MacLinkElement]?
+    /// The link a ⌘-click pressed, which opens if the button comes up over it.
+    private var pressedLink: UInt32?
+    private var modifierMonitor: Any?
+    private var linkToolTips: (layout: LinkToolTipLayout, installed: TimeInterval)?
 
     init(terminal: TerminalMetalView) {
         self.terminal = terminal
@@ -58,6 +64,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     func invalidateAccessibleText() {
         previousGeneration = nil
         accessibilityText = nil
+        accessibleLinks = nil
     }
 
     func refresh() {
@@ -68,6 +75,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         if !terminal.acceptsTerminalInput { discardComposition() }
         if previousGeneration != terminal.snapshot?.generation || previousOffset != terminal.historyOffset {
             accessibilityText = nil
+            accessibleLinks = nil
             previousGeneration = terminal.snapshot?.generation
             previousOffset = terminal.historyOffset
             if window != nil, NSWorkspace.shared.isVoiceOverEnabled {
@@ -82,12 +90,18 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
             if window?.firstResponder === self { inputContext?.invalidateCharacterCoordinates() }
         }
         syncHistory()
+        // Output and scrolling move text under a pointer that holds still.
+        if terminal.engagedLink != nil || modifierMonitor != nil {
+            updateLink(at: pointerLocation, flags: NSEvent.modifierFlags)
+        }
     }
 
     func resetInteraction() {
         discardComposition()
         dragAnchor = nil
         initialSelection = nil
+        pressedLink = nil
+        terminal.engagedLink = nil
         remoteButtons.removeAll()
         wheelRemainder = 0
         refresh()
@@ -337,6 +351,10 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
+        if let link = terminal.link(at: convert(event.locationInWindow, from: nil))?.link {
+            addItems(for: link, to: menu)
+            menu.addItem(.separator())
+        }
         for (title, action) in [("Copy", #selector(copy(_:))), ("Paste", #selector(paste(_:))),
                                 ("Select All", #selector(selectAll(_:)))] {
             menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self
@@ -348,6 +366,13 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     override func mouseDown(with event: NSEvent) {
         cancelDisplacedClick()
+        let point = convert(event.locationInWindow, from: nil)
+        // ⌘ can't reach the program, so a ⌘-click on a link is always the reader's.
+        if event.modifierFlags.contains(.command), let link = terminal.link(at: point) {
+            pressedLink = link.number
+            updateLink(at: point, flags: event.modifierFlags)
+            return
+        }
         if terminal.onDisplacedTap != nil, event.clickCount == 1,
            event.modifierFlags.intersection([.shift, .option, .command, .control]).isEmpty {
             displacedClick = event.timestamp
@@ -376,6 +401,10 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     override func mouseDragged(with event: NSEvent) {
         cancelDisplacedClick()
+        if pressedLink != nil {
+            updateLink(at: convert(event.locationInWindow, from: nil), flags: event.modifierFlags)
+            return
+        }
         if remoteButtons.contains(0) { _ = report(event, .move, .left); return }
         guard let dragAnchor, let hit = terminal.cell(at: convert(event.locationInWindow, from: nil)) else { return }
         if clickCount > 1, let initialSelection {
@@ -398,6 +427,16 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     }
 
     override func mouseUp(with event: NSEvent) {
+        if let pressed = pressedLink {
+            pressedLink = nil
+            let point = convert(event.locationInWindow, from: nil)
+            // A second click of a double-click would open the link twice.
+            if event.clickCount <= 1, let hit = terminal.link(at: point), hit.number == pressed {
+                activate(hit.link, at: point)
+            }
+            updateLink(at: visibleRect.contains(point) ? point : nil, flags: event.modifierFlags)
+            return
+        }
         if let pressed = displacedClick, event.timestamp - pressed <= NSEvent.doubleClickInterval,
            event.modifierFlags.intersection([.shift, .option, .command, .control]).isEmpty,
            bounds.contains(convert(event.locationInWindow, from: nil)) {
@@ -441,11 +480,33 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     override func otherMouseUp(with event: NSEvent) {
         if event.buttonNumber == 2, remoteButtons.remove(2) != nil { _ = report(event, .release, .middle) }
     }
-    override func mouseMoved(with event: NSEvent) { _ = report(event, .move, .none) }
+    override func mouseMoved(with event: NSEvent) {
+        watchModifiers(true)
+        updateLink(at: convert(event.locationInWindow, from: nil), flags: event.modifierFlags)
+        installLinkToolTips(at: event.timestamp)
+        _ = report(event, .move, .none)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        watchModifiers(true)
+        updateLink(at: convert(event.locationInWindow, from: nil), flags: event.modifierFlags)
+        installLinkToolTips(at: event.timestamp)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        watchModifiers(false)
+        updateLink(at: nil, flags: event.modifierFlags)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { watchModifiers(false) }
+    }
 
     override func updateTrackingAreas() {
         for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited,
+                                                              .inVisibleRect],
                                        owner: self, userInfo: nil))
         super.updateTrackingAreas()
     }
@@ -456,6 +517,104 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         guard let hit = terminal.cell(at: convert(event.locationInWindow, from: nil)) else { return false }
         return terminal.reportPointer(action, button: button, row: hit.row, column: hit.column,
                                       modifiers: flags)
+    }
+
+    // MARK: - Links
+
+    /// Where the pointer rests in the key window, like the hover the tracking area reports.
+    private var pointerLocation: CGPoint? {
+        guard let window, window.isKeyWindow else { return nil }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        return visibleRect.contains(point) ? point : nil
+    }
+
+    /// ⌘ over a link engages the whole link and shows the pointing hand. A ⌘-click keeps its link engaged
+    /// until the button comes up, pressed only while the pointer is over it, like a button.
+    private func updateLink(at point: CGPoint?, flags: NSEvent.ModifierFlags) {
+        let hovered = point.flatMap { terminal.link(at: $0)?.number }
+        let engaged: TerminalMetalView.EngagedLink? = if let pressedLink {
+            .init(number: pressedLink, pressed: hovered == pressedLink)
+        } else if flags.contains(.command), let hovered {
+            .init(number: hovered, pressed: false)
+        } else {
+            nil
+        }
+        guard engaged != terminal.engagedLink else { return }
+        if point != nil, (engaged == nil) != (terminal.engagedLink == nil) {
+            (engaged == nil ? NSCursor.iBeam : NSCursor.pointingHand).set()
+        }
+        terminal.engagedLink = engaged
+    }
+
+    /// Pressing ⌘ engages the link under a resting pointer, even while another view has focus.
+    private func watchModifiers(_ watching: Bool) {
+        if watching, modifierMonitor == nil {
+            modifierMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.updateLink(at: self.pointerLocation, flags: event.modifierFlags)
+                }
+                return event
+            }
+        } else if !watching, let monitor = modifierMonitor {
+            NSEvent.removeMonitor(monitor)
+            modifierMonitor = nil
+        }
+    }
+
+    /// A web link opens. Any other link shows its menu below the pointer, titled with where it goes.
+    private func activate(_ link: Terminal.Link, at point: CGPoint) {
+        guard !terminal.openWebLink(link) else { return }
+        let menu = NSMenu()
+        menu.addItem(.sectionHeader(title: link.displayedDestination))
+        addItems(for: link, to: menu)
+        let row = terminal.cell(at: point)?.row ?? 0
+        menu.popUp(positioning: nil, at: CGPoint(x: point.x, y: terminal.cellRect(row: row, column: 0).maxY), in: self)
+    }
+
+    private func addItems(for link: Terminal.Link, to menu: NSMenu) {
+        if let url = link.openableURL {
+            let open = menu.addItem(withTitle: "Open Link", action: #selector(openLink(_:)), keyEquivalent: "")
+            open.target = self
+            open.representedObject = url
+        }
+        let copy = menu.addItem(withTitle: link.copyTitle, action: #selector(copyLink(_:)), keyEquivalent: "")
+        copy.target = self
+        copy.representedObject = link.copiedText
+    }
+
+    @objc private func openLink(_ item: NSMenuItem) {
+        if let url = item.representedObject as? URL { terminal.openURL(url) }
+    }
+
+    @objc private func copyLink(_ item: NSMenuItem) {
+        guard let text = item.representedObject as? String else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private struct LinkToolTipLayout: Equatable {
+        let generation: UInt64?
+        let offset: Int
+        let cell: CGRect
+    }
+
+    /// Every visible link has a standard tooltip that names where it goes. Links move with every frame of
+    /// streaming output, so the tooltip rects follow at most four times a second, and each tooltip reads
+    /// the link under the pointer when it shows.
+    private func installLinkToolTips(at time: TimeInterval) {
+        let layout = LinkToolTipLayout(generation: terminal.snapshot?.generation, offset: terminal.historyOffset,
+                                       cell: terminal.cellRect(row: 0, column: 0))
+        if let linkToolTips, linkToolTips.layout == layout || time - linkToolTips.installed < 0.25 { return }
+        linkToolTips = (layout, time)
+        removeAllToolTips()
+        for run in terminal.linkRuns() { addToolTip(terminal.rect(of: run), owner: self, userData: nil) }
+    }
+
+    func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint,
+              userData data: UnsafeMutableRawPointer?) -> String {
+        guard let link = terminal.link(at: point)?.link else { return "" }
+        return link.openableURL == nil ? link.displayedDestination : "\(link.displayedDestination)\n⌘-click to open"
     }
 
     // MARK: - History
@@ -546,6 +705,60 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         return actions.isEmpty ? nil : actions
     }
 
+    /// Each visible link is a child VoiceOver lists in its Links rotor, and pressing one acts like a ⌘-click.
+    private var linkElements: [MacLinkElement] {
+        if let accessibleLinks { return accessibleLinks }
+        let runs = terminal.linkRuns()
+        var numbers: [UInt32] = []
+        for run in runs where !numbers.contains(run.number) { numbers.append(run.number) }
+        let elements = numbers.compactMap { number -> MacLinkElement? in
+            let own = runs.filter { $0.number == number }
+            guard let first = own.first, let link = terminal.link(row: first.row, column: first.columns.lowerBound)?.link else {
+                return nil
+            }
+            return MacLinkElement(input: self, link: link, runs: own, text: terminal.linkText(own))
+        }
+        accessibleLinks = elements
+        return elements
+    }
+
+    fileprivate func activate(_ link: Terminal.Link, runs: [LinkRun]) -> Bool {
+        guard let run = runs.first else { return false }
+        let rect = terminal.rect(of: run)
+        activate(link, at: CGPoint(x: rect.minX, y: rect.midY))
+        return true
+    }
+
+    fileprivate func screenFrame(of runs: [LinkRun]) -> CGRect {
+        guard let window, let first = runs.first else { return .zero }
+        let rect = runs.dropFirst().reduce(terminal.rect(of: first)) { $0.union(terminal.rect(of: $1)) }
+        return window.convertToScreen(convert(rect, to: nil))
+    }
+
+    override func accessibilityChildren() -> [Any]? { (super.accessibilityChildren() ?? []) + linkElements }
+
+    override func accessibilityCustomRotors() -> [NSAccessibilityCustomRotor] {
+        [NSAccessibilityCustomRotor(rotorType: .link, itemSearchDelegate: self)]
+    }
+
+    func rotor(_ rotor: NSAccessibilityCustomRotor,
+               resultFor search: NSAccessibilityCustomRotor.SearchParameters) -> NSAccessibilityCustomRotor.ItemResult? {
+        let filter = search.filterString
+        let links = linkElements.filter { filter.isEmpty || $0.text.localizedCaseInsensitiveContains(filter) }
+        // Output can rebuild the elements between searches, and a link keeps its number while it's visible.
+        let current = (search.currentItem?.targetElement as? MacLinkElement).flatMap { item in
+            links.firstIndex { $0.number == item.number }
+        }
+        let next = switch search.searchDirection {
+        case .previous: current.map { $0 - 1 } ?? links.count - 1
+        default: current.map { $0 + 1 } ?? 0
+        }
+        guard links.indices.contains(next) else { return nil }
+        let result = NSAccessibilityCustomRotor.ItemResult(targetElement: links[next])
+        result.customLabel = links[next].text
+        return result
+    }
+
     override func accessibilityValue() -> Any? { accessibleText.string }
     override func accessibilityNumberOfCharacters() -> Int { accessibleText.string.length }
     override func accessibilityVisibleCharacterRange() -> NSRange { NSRange(location: 0, length: accessibleText.string.length) }
@@ -611,6 +824,40 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         return window.convertToScreen(convert(rect, to: nil))
     }
 
+}
+
+/// A link as VoiceOver reads it: its text, the link role, and where it goes as the help.
+private final class MacLinkElement: NSAccessibilityElement, NSAccessibilityElementProtocol {
+    unowned let input: MacTerminalInput
+    let link: Terminal.Link
+    let runs: [LinkRun]
+    let text: String
+
+    init(input: MacTerminalInput, link: Terminal.Link, runs: [LinkRun], text: String) {
+        self.input = input
+        self.link = link
+        self.runs = runs
+        self.text = text
+        super.init()
+        setAccessibilityRole(.link)
+        setAccessibilityLabel(text)
+        setAccessibilityHelp(link.displayedDestination)
+        setAccessibilityURL(link.openableURL)
+        setAccessibilityParent(input)
+    }
+
+    var number: UInt32 { runs[0].number }
+
+    override func accessibilityIdentifier() -> String { "link-\(number)" }
+    override func accessibilityFrame() -> NSRect {
+        let (input, runs) = (input, runs)
+        return MainActor.assumeIsolated { input.screenFrame(of: runs) }
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        let (input, link, runs) = (input, link, runs)
+        return MainActor.assumeIsolated { input.activate(link, runs: runs) }
+    }
 }
 
 private final class MacPreeditView: NSTextView {

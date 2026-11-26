@@ -329,4 +329,98 @@ private struct MacInputFixture {
     #expect(sent.count == 2)
     #expect(sent.first?.hasPrefix("\u{1b}[<64;") == true && sent.last?.hasPrefix("\u{1b}[<65;") == true)
 }
+
+/// A ⌘-click opens a web link without reaching a program that tracks the mouse or touching the selection.
+@MainActor
+@Test func appKitCommandClickOpensWebLinksAndOnlyThem() throws {
+    let host = try MacInputFixture()
+    var terminal = Terminal(size: .init(columns: 20, rows: 4))
+    _ = terminal.write("see \u{1b}]8;;https://example.com/docs\u{1b}\\the docs\u{1b}]8;;\u{1b}\\".utf8)
+    _ = terminal.write(" or \u{1b}]8;;file://devbox/tmp/a%20b\u{1b}\\a b\u{1b}]8;;\u{1b}\\\u{1b}[?1000;1006h".utf8)
+    host.view.display(terminal)
+    var opened: [URL] = []
+    host.view.openURL = { opened.append($0) }
+    var writes = [[UInt8]]()
+    host.view.onInput = { writes.append(terminal.encode($0)) }
+    host.view.selection = .init(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 2)
+
+    try host.mouse(.leftMouseDown, row: 0, column: 5, flags: .command)
+    #expect(host.view.engagedLink?.pressed == true)
+    try host.mouse(.leftMouseDragged, row: 0, column: 2, flags: .command)
+    #expect(host.view.engagedLink?.pressed == false)
+    try host.mouse(.leftMouseUp, row: 0, column: 2, flags: .command)
+    #expect(opened.isEmpty)
+
+    try host.mouse(.leftMouseDown, row: 0, column: 11, flags: .command)
+    try host.mouse(.leftMouseUp, row: 0, column: 11, flags: .command)
+    try host.mouse(.leftMouseDown, row: 0, column: 11, clicks: 2, flags: .command)
+    try host.mouse(.leftMouseUp, row: 0, column: 11, clicks: 2, flags: .command)
+    #expect(opened == [try #require(URL(string: "https://example.com/docs"))])
+    #expect(writes.isEmpty)
+    #expect(host.view.selectedText == "see")
+
+    try host.mouse(.leftMouseDown, row: 0, column: 5)
+    try host.mouse(.leftMouseUp, row: 0, column: 5)
+    #expect(opened.count == 1 && writes.count == 2)
+}
+
+/// A link's menu, tooltip and rotor name where it goes, and a file link only copies its path.
+@MainActor
+@Test func appKitLinksExplainThemselvesInMenusTooltipsAndTheRotor() throws {
+    let host = try MacInputFixture()
+    var terminal = Terminal(size: .init(columns: 20, rows: 4))
+    _ = terminal.write("see \u{1b}]8;;https://example.com/docs\u{1b}\\the docs\u{1b}]8;;\u{1b}\\".utf8)
+    _ = terminal.write(" or \u{1b}]8;;file://devbox/tmp/a%20b\u{1b}\\a b\u{1b}]8;;\u{1b}\\".utf8)
+    host.view.display(terminal)
+    var opened: [URL] = []
+    host.view.openURL = { opened.append($0) }
+    func point(_ column: Int) -> CGPoint {
+        let cell = host.view.cellRect(row: 0, column: column)
+        return CGPoint(x: cell.midX, y: cell.midY)
+    }
+    func menu(_ column: Int) throws -> NSMenu {
+        let event = try #require(NSEvent.mouseEvent(with: .rightMouseDown, location: host.input.convert(point(column), to: nil),
+                                                   modifierFlags: [], timestamp: 0, windowNumber: host.window.windowNumber,
+                                                   context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        return try #require(host.input.menu(for: event))
+    }
+
+    let web = try menu(5)
+    #expect(web.items.map(\.title) == ["Open Link", "Copy Link", "", "Copy", "Paste", "Select All"])
+    #expect(web.items[1].representedObject as? String == "https://example.com/docs")
+    web.performActionForItem(at: 0)
+    #expect(opened == [try #require(URL(string: "https://example.com/docs"))])
+    let file = try menu(16)
+    #expect(file.items.map(\.title) == ["Copy Path", "", "Copy", "Paste", "Select All"])
+    #expect(file.items[0].representedObject as? String == "/tmp/a b")
+    #expect(try menu(2).items.map(\.title) == ["Copy", "Paste", "Select All"])
+
+    func tip(_ column: Int) -> String { host.input.view(host.input, stringForToolTip: 0, point: point(column), userData: nil) }
+    #expect(tip(5) == "https://example.com/docs\n⌘-click to open")
+    #expect(tip(16) == "file://devbox/tmp/a%20b")
+    #expect(tip(2) == "")
+
+    let rotor = try #require(host.input.accessibilityCustomRotors().first)
+    #expect(rotor.type == .link)
+    func search(_ direction: NSAccessibilityCustomRotor.SearchDirection, from item: NSAccessibilityCustomRotor.ItemResult?,
+                filter: String = "") -> NSAccessibilityCustomRotor.ItemResult? {
+        let parameters = NSAccessibilityCustomRotor.SearchParameters()
+        parameters.searchDirection = direction
+        parameters.currentItem = item
+        parameters.filterString = filter
+        return host.input.rotor(rotor, resultFor: parameters)
+    }
+    let first = search(.next, from: nil)
+    #expect(first?.customLabel == "the docs")
+    #expect(search(.next, from: first)?.customLabel == "a b")
+    #expect(search(.previous, from: first) == nil)
+    #expect(search(.previous, from: nil)?.customLabel == "a b")
+    #expect(search(.next, from: nil, filter: "DOCS")?.customLabel == "the docs")
+    let element = try #require(first?.targetElement as? NSAccessibilityElement)
+    #expect(element.accessibilityRole() == .link)
+    #expect(element.accessibilityURL() == URL(string: "https://example.com/docs"))
+    #expect(element.accessibilityPerformPress())
+    #expect(opened.count == 2)
+    #expect(host.input.accessibilityChildren()?.contains { ($0 as AnyObject) === element } == true)
+}
 #endif
