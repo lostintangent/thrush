@@ -16,12 +16,14 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 ## Layers
 
 ```
-bytes ─┬─ printable ASCII in ground state ─▶ TextScanner ─▶ Screen.writeASCII
-       ├─ single-byte C0 in ground state ─────────────────▶ Terminal.apply
-       ├─ other ASCII controls ────────────▶ EscapeParser ─▶ Terminal.apply
-       └─ UTF-8 ─▶ TextScanner ─┬─ printable text ────────▶ Screen.writeRun / Screen.write
-                                └─ control or payload ────▶ EscapeParser
+bytes ─┬─ text ─────────────▶ TextScanner ─┬─ printable text ─▶ Screen.writeASCII / writeRun / write
+       │                                   └─ C1 control ─────▶ EscapeParser
+       ├─ lone C0 control ───────────────────────────────────────────▶ Terminal.apply
+       └─ ESC or inside a sequence ─▶ EscapeParser ─┬─ complete SGR ─▶ Style.applySGR
+                                                    └─ other ────────▶ Terminal.apply
 ```
+
+`Terminal.receive(_:)` is a loop that makes this choice from one byte and the parser's state, then reads as far as that kind of input goes.
 
 | Layer | Knows | Doesn't know |
 | --- | --- | --- |
@@ -44,12 +46,12 @@ ESC [ 3 2 m ~ / s r c ESC [ 0 m ␠ $ ␠
 
 Here is how ThrushCore turns them into cells.
 
-1. **The chunk arrives.** The session calls `Terminal.receive(_:)` with a `Span` over the bytes. The first byte is ESC. The parser can read it directly because every ASCII byte is already a complete code point.
+1. **The chunk arrives.** The session calls `Terminal.receive(_:)` with a `Span` over the bytes. Each turn of its loop reads a run of text, a lone control or a sequence. The first byte is ESC, which starts a sequence, so `readSequence` hands the chunk to the parser. The parser can read it directly because every ASCII byte is already a complete code point.
 2. **The parser enters a control sequence.** ESC followed by `[` introduces CSI, the control sequence introducer. The parser clears its previous header. A chunk can end immediately after ESC, after `[`, or between digits. In each case, the parser retains what it needs for the next read.
-3. **The parser finds the final byte.** It scans past the ASCII digits `3` and `2` to `m`. The whole unprefixed command is present, so the parser returns to ground and identifies the range containing `32` in this chunk. If the read ended between the digits, it would retain the first digit in `ControlParameters` and continue on the next read.
-4. **The style reads the operands.** The parser lends the digit range only for the graphic rendition command, SGR. `receive` passes those two bytes straight to `style.applySGR`. For a command split across reads, the parser dispatches `.control(.graphicRendition)` with the operands it retained.
+3. **The parser finds the final byte.** It scans past the ASCII digits `3` and `2` to `m`. The whole unprefixed command is present, so the parser returns to ground and lends the range containing `32` in this chunk instead of storing the digits. If the read ended between the digits, it would retain the first digit in `ControlParameters` and continue on the next read.
+4. **The style reads the operands.** The parser doesn't know what `m` means. `readSequence` sees the graphic rendition command, SGR, and passes those two bytes straight to `style.applySGR`. Any other command, such as cursor position, stores the lent bytes in `ControlParameters` and goes to `apply`. For a command split across reads, the parser dispatches `.control(.graphicRendition)` with the operands it retained.
 5. **The foreground changes.** In either case the style reads 32 and selects palette color 2, green. The change affects future cells, so the frame generation stays the same.
-6. **Text takes the fast path.** Back in `receive`, `~` is printable ASCII, the parser is in the ground state and no scalar is half decoded. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
+6. **Text takes the fast path.** Back in `receive`, the parser is in the ground state and `~` is printable, so `printText` reads a run. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
 7. **The rest repeats the pattern.** `ESC [ 0 m` resets the style through the same steps, and ` $ ` is one more run in the default style.
 
 When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `apply` would append `ESC [ 1 ; 9 R` to the replies, which `receive` returns for the session to send to the shell.
@@ -65,10 +67,11 @@ Most output is text, so text never enters the state machine.
 - **Text runs skip the parser.** In the ground state, the scanner checks 16 bytes at a time and reads where printable ASCII ends straight from the block that holds the end. For non-ASCII text it decodes a run into a fixed buffer of 64 glyphs, each a scalar with a flag for its width, and branches on the lead byte so a complete sequence decodes from one four-byte read. With autowrap enabled, insert mode off and the ASCII character set active, printable scalars go straight to the screen as a run. When a run starts where the cursor appends cells, printable ASCII continues it, so mixed text stays in one run. A stretch shorter than a 16-byte block joins in one widening store, and a longer one ends the run and takes the vector path. ASCII that follows a lone byte order mark, or that comes in a run that started over existing cells, takes the vector path too. The scanner skips a byte order mark and discards malformed input before the screen opens a row for writing. An encoded C1 control ends the run and goes to the parser. A partial scalar stays in the scanner for the next chunk.
 - **Printing fills cells in bulk.** The screen writes an ASCII run one row at a time. For non-ASCII text it stores the decoded glyphs that fit at or past the end of the current row's cells in use in one loop, along with continuation cells for double-width characters. The ordinary scalar writer handles overwrites, combining marks and right-margin wraps. A run advances the screen and terminal generations once per scalar, just as individual writes do.
 - **Unicode widths take two lookups.** The high bits of a scalar select a 256-scalar page. The low bits select its two-bit width within that page. The generated Unicode 11 table shares identical pages across the code space. Its 4,352 one-byte page indices and 99 distinct 64-byte pages occupy 10,688 bytes.
-- **Single-byte controls have a direct path.** When both the parser and UTF-8 decoder are idle, a C0 function such as carriage return or line feed goes straight to its named handler. Inside a control sequence or after an incomplete scalar, the parser and decoder handle the byte in context.
+- **A lone control has a direct path.** In the ground state, a C0 function such as carriage return or line feed goes straight to its named handler. Like any ASCII byte, it first abandons a scalar left half decoded. Inside a control sequence, the parser handles the byte in context.
 - **The state machine is data.** [The transition table](../Sources/ThrushCore/EscapeParser+Transitions.swift) gives the next state and action for a state and byte in one load. When one scalar both ends a string and executes another control, `EscapeParser.PendingAction` holds the second action until the parser delivers the first.
-- **SGR reads one operand at a time.** For a complete `ESC [ … m` containing only digits, colons and semicolons in one span, the parser lends the parameter bytes to the style handler. The handler converts the digits as it applies the attributes in order. A cancelled header never reaches the style handler.
-- **Dispatch carries an identifier.** For other headers the parser keeps the decoded parameters in fixed storage. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
+- **A complete header lends its parameters.** When one span holds a whole `ESC [ … final` with only digits, colons and semicolons, the parser returns the identifier with the range of the parameter bytes and stores nothing. SGR reads one operand at a time from those bytes, converting the digits as it applies the attributes in order. Reading them from stored parameters instead took 46% more instructions on the SGR workload and 24% more on Codex. Every other function stores the lent bytes first, the same work as a header that arrives in pieces. A cancelled header never reaches the style handler.
+- **Dispatch carries an identifier.** Functions other than a lent SGR read their parameters from fixed storage. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
+- **A sequence costs one call.** Text and lone controls stay in `receive`'s loop, and each sequence makes one call to `readSequence`, which inlines the parser's framing loop. Inlining `readSequence` into `receive` made plain text up to 5% slower.
 
 ## Storage
 
@@ -95,7 +98,7 @@ When a reader resumes, `Terminal.ReplayWriter` writes VT bytes that redraw the s
 
 - **Swift 6 language mode with strict concurrency.** The core has no isolation of its own. It's a `Sendable` value owned by the session’s internal actor. The public `TerminalSession` is a `@MainActor @Observable` class, like SwiftUI's `WebPage`, and publishes state such as `title` only when it changes.
 - **`Span` and `MutableSpan` in hot loops.** `receive(_:)` and the scanner read a `Span<UInt8>`, and printing writes rows through a `MutableSpan`. That keeps zero-copy access with compile-time lifetime safety.
-- **`InlineArray` for parameters.** CSI accepts up to 32 semicolon fields and 32 colon fields shared across the whole header. The incremental parser stores both in fixed arrays. SGR enforces the same limits on borrowed input and keeps at most five components of the current colon group, enough for an RGB color with a color-space identifier. An empty colon field stays distinct from zero.
+- **`InlineArray` for parameters.** CSI accepts up to 32 semicolon fields and 32 colon fields shared across the whole header. The incremental parser stores both in fixed arrays. SGR enforces the same limits on the bytes the parser lends and keeps at most five components of the current colon group, enough for an RGB color with a color-space identifier. An empty colon field stays distinct from zero.
 - **Named values instead of raw integers.** Handlers receive enums such as `EraseRange` and `Mode`, never bare `Int` mode numbers. Raw numbers appear only at the boundary where a sequence is decoded.
 - **Dictionary-style defaults.** `parameters[0, default: 1]` applies the rule that zero or omitted means the default, mirroring `Dictionary`'s `subscript(_:default:)`.
 - **Names that follow the API Design Guidelines.** Functions are named by meaning, such as `.insertCharacters`, with the mnemonic and sequence form in the doc comment (`ICH, CSI Ps @`) so a search for either finds it.

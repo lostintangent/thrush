@@ -135,44 +135,22 @@ public struct Terminal: Sendable {
     }
 
     /// Apply a borrowed network or replay buffer synchronously without copying it.
+    ///
+    /// Each step reads a run of text, a lone control or as much of a sequence as the chunk holds.
     package mutating func receive(_ bytes: Span<UInt8>) -> [UInt8] {
         var replies: [UInt8] = []
         var index = 0
         while index < bytes.count {
             let byte = bytes[index]
-            if TextScanner.isPrintableASCII(byte), parser.isGround, scanner.isComplete, printsInRuns {
-                let start = index
-                index = TextScanner.endOfASCII(in: bytes, from: start)
-                screen.writeASCII(bytes.extracting(start..<index), style: style)
-                followsText = true
-                generation &+= 1
-            } else if byte == EscapeParser.escape, scanner.isComplete {
-                // Test ESC before C0 so each escape sequence skips a second control lookup.
-                var borrowedParameters: Range<Int>?
-                let action = parser.consumeEscape(
-                    in: bytes, index: &index, borrowingParametersFor: TerminalControlFunction.CSI.graphicRendition.rawValue,
-                    borrowedParameters: &borrowedParameters
-                )
-                if let borrowedParameters {
-                    style.applySGR(bytes.extracting(borrowedParameters))
-                    followsText = false
-                } else {
-                    dispatch(action, replies: &replies)
-                }
-            } else if byte >= 0x80, parser.isGround, printsInRuns {
-                writeNonASCII(in: bytes, index: &index, replies: &replies)
-            } else if let control = TerminalControlFunction.C0(rawValue: byte), parser.isGround, scanner.isComplete {
-                // A single-byte C0 in ground state leaves the parser in ground state.
-                followsText = false
-                apply(.execute(control), replies: &replies)
+            // An ASCII byte ends any UTF-8 character left incomplete before it.
+            if byte < 0x80, !scanner.isComplete { scanner = TextScanner() }
+            if byte == EscapeParser.escape || !parser.isGround {
+                readSequence(in: bytes, index: &index, replies: &replies)
+            } else if byte < 0x20 {
+                executeControl(byte, replies: &replies)
                 index += 1
-            } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isCollecting {
-                let start = index
-                index = TextScanner.endOfASCII(in: bytes, from: start)
-                if stringHandler.isCollecting { stringHandler.appendASCII(bytes.extracting(start..<index)) }
             } else {
-                consume(byte, replies: &replies)
-                index += 1
+                printText(in: bytes, index: &index, replies: &replies)
             }
         }
         return replies
@@ -204,6 +182,23 @@ public struct Terminal: Sendable {
     /// disabled autowrap and a character set other than ASCII print one character at a time.
     private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
 
+    /// Prints the text that starts at `index`, up to the next control or the end of the chunk.
+    private mutating func printText(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
+        let byte = bytes[index]
+        if !printsInRuns || byte == EscapeParser.delete {
+            consume(byte, replies: &replies)
+            index += 1
+        } else if byte < 0x80 {
+            let start = index
+            index = TextScanner.endOfASCII(in: bytes, from: start)
+            screen.writeASCII(bytes.extracting(start..<index), style: style)
+            followsText = true
+            generation &+= 1
+        } else {
+            writeNonASCII(in: bytes, index: &index, replies: &replies)
+        }
+    }
+
     private mutating func writeNonASCII(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
         // Printable ASCII continues text that appends cells, so mixed text stays in one run.
         // Overwriting cells, the text ends at ASCII instead, which takes the vector path.
@@ -218,7 +213,48 @@ public struct Terminal: Sendable {
         }
     }
 
-    @inline(__always)
+    /// A C0 control outside a sequence goes straight to its function. Any of them ends the text run.
+    private mutating func executeControl(_ byte: UInt8, replies: inout [UInt8]) {
+        followsText = false
+        if let control = TerminalControlFunction.C0(rawValue: byte) { apply(.execute(control), replies: &replies) }
+    }
+
+    /// Reads a sequence from `index`: at most one action, or the ASCII payload of a string.
+    ///
+    /// Each sequence costs this one call, which inlines the parser's framing loop. Inlined into
+    /// `receive` instead, it made plain text up to 5% slower.
+    @inline(never)
+    private mutating func readSequence(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
+        let byte = bytes[index]
+        if byte >= 0x80 {
+            consume(byte, replies: &replies)
+            index += 1
+        } else if TextScanner.isPrintableASCII(byte), parser.discardsASCII || stringHandler.isCollecting {
+            let start = index
+            index = TextScanner.endOfASCII(in: bytes, from: start)
+            if stringHandler.isCollecting { stringHandler.appendASCII(bytes.extracting(start..<index)) }
+        } else {
+            var parameterBytes: Range<Int>?
+            let action = parser.consume(bytes, from: &index, parameterBytes: &parameterBytes)
+            if let parameterBytes {
+                let parameters = bytes.extracting(parameterBytes)
+                // SGR applies its operands as it reads them from the chunk. Reading them from
+                // stored parameters instead took 46% more instructions on SGR-heavy output.
+                if case .csi(Self.selectGraphicRendition)? = action {
+                    style.applySGR(parameters)
+                    followsText = false
+                    return
+                }
+                parser.storeParameters(parameters)
+            }
+            dispatch(action, replies: &replies)
+        }
+    }
+
+    private static let selectGraphicRendition = ControlIdentifier(UInt8(TerminalControlFunction.CSI.graphicRendition.rawValue))
+
+    /// Reads one byte the general way. The run and sequence paths above must match it, and `receive`
+    /// falls back to it for text that prints one character at a time and for C1 bytes inside a control.
     private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
         if byte < 0x80, !parser.isGround || !TextScanner.isPrintableASCII(byte) {
             // An ASCII control also terminates any incomplete UTF-8 character.

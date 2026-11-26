@@ -21,6 +21,7 @@ struct ControlIdentifier: Hashable, Sendable {
 /// String payloads are forwarded as they arrive.
 struct EscapeParser: Sendable {
     static let escape: UInt8 = 0x1b
+    static let delete: UInt8 = 0x7f
 
     enum Action {
         case printable, execute(UInt8)
@@ -69,27 +70,29 @@ struct EscapeParser: Sendable {
         }
     }
 
-    /// Starting at ESC, consume ASCII until one action is ready or ordinary input can resume.
-    mutating func consumeEscape(in bytes: Span<UInt8>, index: inout Int, borrowingParametersFor final: UInt32,
-                                borrowedParameters: inout Range<Int>?) -> Action? {
-        // The 7-bit CSI introducer enters the same header state as its C1 form.
-        if isGround, bytes.count - index >= 2, bytes[index + 1] == UInt8(ascii: "[") {
+    /// Consumes ASCII from ESC, or from anywhere inside a control, until one action is ready or text can resume.
+    ///
+    /// A CSI that arrives whole, with only digits, colons and semicolons before its final byte, lends its
+    /// parameters instead of storing them. `parameterBytes` gives their range in `bytes`, and `parameters`
+    /// stays empty unless the caller passes them to `storeParameters(_:)`.
+    // Inlined into its one caller, Terminal's readSequence, so each sequence costs a single call.
+    @inline(__always)
+    mutating func consume(_ bytes: Span<UInt8>, from index: inout Int, parameterBytes: inout Range<Int>?) -> Action? {
+        if isGround, bytes.count - index >= 2, bytes[index] == Self.escape, bytes[index + 1] == UInt8(ascii: "[") {
             state = Tag(.csiEntry)
             beginHeader()
             index += 2
-            // A complete, unprefixed header can lend its parameters to a streaming consumer.
-            // Other headers use the same fixed storage as a CSI continued in a later chunk.
             let start = index
-            while index < bytes.count, (UInt8(ascii: "0")...UInt8(ascii: ";")).contains(bytes[index]) {
-                index += 1
-            }
-            if index < bytes.count, UInt32(bytes[index]) == final {
-                borrowedParameters = start..<index
+            while index < bytes.count, Self.isParameter(bytes[index]) { index += 1 }
+            if index < bytes.count, Self.isFinal(bytes[index]) {
+                parameterBytes = start..<index
                 let identifier = ControlIdentifier(bytes[index])
                 index += 1
                 state = Tag(.ground)
                 return .csi(identifier)
             }
+            // The rest of the header arrives later or has a prefix or intermediate, so it uses the same
+            // stored parameters as a header split across reads.
             if start < index {
                 state = Tag(.csiParameters)
                 for position in start..<index { parameters.append(bytes[position]) }
@@ -106,7 +109,7 @@ struct EscapeParser: Sendable {
                 repeat {
                     parameters.append(bytes[index])
                     index += 1
-                } while index < bytes.count && (UInt8(ascii: "0")...UInt8(ascii: ";")).contains(bytes[index])
+                } while index < bytes.count && Self.isParameter(bytes[index])
             } else {
                 index += 1
                 if let action = advance(transition, code: code) { return action }
@@ -115,6 +118,17 @@ struct EscapeParser: Sendable {
         }
         return nil
     }
+
+    /// Stores the parameters a complete CSI lent, for a function that reads them by position.
+    mutating func storeParameters(_ bytes: Span<UInt8>) {
+        for index in bytes.indices { parameters.append(bytes[index]) }
+    }
+
+    /// Digits, colons and semicolons.
+    private static func isParameter(_ byte: UInt8) -> Bool { (0x30...0x3B).contains(byte) }
+
+    /// The final byte of a CSI or escape sequence, from `@` to `~`.
+    private static func isFinal(_ byte: UInt8) -> Bool { (0x40...0x7E).contains(byte) }
 
     private mutating func beginHeader() {
         collected = 0
