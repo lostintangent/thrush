@@ -24,6 +24,7 @@ ORACLE = ROOT / "scripts/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
+PANE_CHECKER = ROOT / ".build/demo/check-pane-capture"
 
 
 def run(*command, timeout=90, check=True):
@@ -441,7 +442,7 @@ class Phone:
             checks[scene].update(proof["compare"](wait_image, waiting, live_image, live, options.appearance))
             if toolbar:
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["check"](
-                    wait_image, waiting, options.appearance, scene, self.scratch)
+                    wait_image, waiting, options.appearance, scene, PANE_CHECKER)
             save_json(self.out / "cursor-spinners.json", checks)
             print(f"{scene}: {checks[scene]}", flush=True)
 
@@ -527,6 +528,10 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
+    if args.scene in {"toolbar-proof", "program-colors"}:
+        # A booted simulator has starved a hosted runner past two minutes for this compile, so it comes first.
+        PANE_CHECKER.parent.mkdir(parents=True, exist_ok=True)
+        run("xcrun", "swiftc", "scripts/check-pane-capture.swift", "-o", PANE_CHECKER, timeout=300)
     spin = args.scene in SPINNER_SCENES or args.scene in {"cursor-spinners", "toolbar-proof"}
     with peer(out, cursor=spin or args.scene == "reconnect-typing") as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
@@ -540,7 +545,7 @@ def main():
             elif args.scene == "text-blink":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/text-blink.py"))["capture"](phone, sim, wait_for, save_json)
             elif args.scene == "program-colors":
-                runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, sim)
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, sim, PANE_CHECKER)
             elif args.scene == "under-bars":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/under-bars.py"))["capture"](phone, args, sim)
             elif spin:

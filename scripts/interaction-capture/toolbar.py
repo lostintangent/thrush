@@ -22,7 +22,7 @@ def check_copy(image, rect, state, checker, labels):
                    check=True, timeout=60)
 
 
-def check(image, state, appearance, scene, scratch):
+def check(image, state, appearance, scene, checker):
     toolbar = state.get("toolbar")
     if not toolbar:
         raise ValueError("Missing mounted navigation bar or canvas geometry.")
@@ -43,9 +43,6 @@ def check(image, state, appearance, scene, scratch):
     if (first[1] + epsilon < max(bar[3], safe[1]) or first[0] + epsilon < grid[0] or
             first[3] <= first[1] or first[2] <= first[0]):
         raise ValueError(f"Row one overlaps toolbar chrome or falls outside the grid: {first}, {bar}, {grid}")
-    checker = scratch / "check-pane-capture"
-    if not checker.exists():
-        subprocess.run(["xcrun", "swiftc", ROOT / "scripts/check-pane-capture.swift", "-o", checker], check=True, timeout=120)
     check_copy(image, toolbar["navigationBarFrame"], state, checker, ["Terminal", "Close"])
     pixels = runpy.run_path(str(ROOT / "scripts/check-demo-capture.py"))["Capture"](image, appearance)
     if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale),
