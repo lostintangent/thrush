@@ -252,7 +252,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                        "--appearance", appearance, *trace,
                        "--keyboard" if device else "--hide-keyboard"]
             if device:
-                command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
+                command = ["xcrun", "simctl", "launch", "--console", "--terminate-running-process", device, pane.BUNDLE_ID]
             else:
                 command = [app_executable, "-NSAppSleepDisabled", "YES"]
             with ExitStack() as processes:
@@ -291,15 +291,12 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                     raise
                 finally:
                     if device and host is not None and host.poll() is None:
-                        # simctl --console is the console reader. Explicitly release our app
-                        # before the next workflow uses this reserved device.
-                        already_failed = sys.exc_info()[0] is not None
+                        # simctl --console is the console reader. Release our app before the next
+                        # workflow, which also replaces it if a loaded runner's simctl hangs here.
                         try:
                             subprocess.run(["xcrun", "simctl", "terminate", device, pane.BUNDLE_ID],
                                            timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         except subprocess.TimeoutExpired as error:
-                            if not already_failed:
-                                raise
                             print(f"Simulator termination: {error}", file=sys.stderr)
         finally:
             if device:
