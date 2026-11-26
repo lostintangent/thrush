@@ -8,9 +8,9 @@ import UIKit
 
 /// When program output draws. A program often writes one change in several pieces a fraction of
 /// a millisecond apart, and a frame drawn between them would show part of the change for a whole
-/// refresh. So output draws once per refresh, after its writes pause and as late as still makes
-/// that refresh: by the display's next refresh less the time a frame has recently needed. Echo
-/// takes the same path and reaches the screen on the refresh an immediate draw would have made.
+/// refresh. So output draws once its writes pause for a millisecond, and at most once per
+/// refresh: output that keeps arriving draws by the display's next refresh less the time a frame
+/// has recently needed. The pause is the only wait, so echo costs a millisecond on any display.
 ///
 /// The pacer runs the view's one display link only while something needs its ticks. Output needs
 /// them until the first refresh after it arrives, which keeps the schedule current, and blinking
@@ -59,7 +59,10 @@ final class FramePacer {
         lastOutput = CACurrentMediaTime()
         awaitingTick = true
         updateLink()
-        if pending != nil { return true }
+        if let pending {
+            arm(schedule.drawTime(for: pending, output: lastOutput))
+            return true
+        }
         guard let refresh = schedule.refresh(after: lastOutput, past: drawn) else { return false }
         pending = refresh
         arm(schedule.drawTime(for: refresh, output: lastOutput))
@@ -115,7 +118,7 @@ final class FramePacer {
     private func fire() {
         guard let pending else { return }
         let time = schedule.drawTime(for: pending, output: lastOutput)
-        // More output arrived since the timer was set, so wait for it to pause.
+        // Output arrived after the timer fired and before this ran, so wait for it to pause.
         if time > CACurrentMediaTime() + 0.0001 { return arm(time) }
         due = time
         drawOutput()
@@ -174,7 +177,7 @@ extension FramePacer {
     /// ticks and frame costs.
     struct Schedule {
         /// How long output must pause before its frame draws, so the pieces of one change share it.
-        static let quiet = 0.0005
+        static let quiet = 0.001
         /// Room for the timer's wakeup and for the compositor to pick up a finished frame.
         static let slack = 0.001
 
@@ -190,8 +193,6 @@ extension FramePacer {
 
         /// How long before a refresh its frame must start. It never takes more than three quarters of a refresh.
         var margin: Double { min(cost + Self.slack, interval * 0.75) }
-        /// How early before that a frame can draw once output pauses. Later output waits for the next refresh.
-        var hold: Double { min(0.002, interval / 4) }
 
         /// Follows a display link tick. A new refresh rate or a beat off the measured cadence starts a
         /// new measurement.
@@ -222,10 +223,10 @@ extension FramePacer {
         }
 
         /// When the frame for `refresh` draws, given the latest output arrived at `output`: once
-        /// output pauses, but no earlier than `hold` before the frame must start and no later.
+        /// output pauses, but not before the previous refresh's deadline and not after its own.
         func drawTime(for refresh: Double, output: Double) -> Double {
             let deadline = refresh - margin
-            return min(max(deadline - hold, output + Self.quiet), deadline)
+            return min(max(deadline - interval, output + Self.quiet), deadline)
         }
 
         /// Follows a frame's cost. A frame slower than a refresh couldn't make one at any margin.

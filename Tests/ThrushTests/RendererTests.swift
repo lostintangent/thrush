@@ -460,15 +460,16 @@ func onlyVisibleBlinkingInkAsksForBlinkFrames() async throws {
     let next = 100 + 2 * interval, margin = schedule.margin, deadline = next - margin
     func near(_ value: Double?, _ expected: Double) -> Bool { value.map { abs($0 - expected) < 1e-9 } ?? false }
 
-    // Output early in a refresh draws for the next one, at the start of the hold before its deadline.
+    // Output draws for the next refresh once its writes pause, but never past the deadline.
     #expect(near(schedule.refresh(after: 100 + interval + 0.002, past: nil), next))
-    #expect(near(schedule.drawTime(for: next, output: 100 + interval + 0.002), deadline - schedule.hold))
-    // Later output waits for its writes to pause, but never past the deadline.
-    #expect(near(schedule.drawTime(for: next, output: deadline - 0.001), deadline - 0.001 + FramePacer.Schedule.quiet))
+    #expect(near(schedule.drawTime(for: next, output: 100 + interval + 0.002), 100 + interval + 0.002 + FramePacer.Schedule.quiet))
     #expect(near(schedule.drawTime(for: next, output: deadline - 0.0001), deadline))
-    // Output past the deadline, or for a refresh that already has a frame, waits for the following refresh.
+    // Output past the deadline waits for the following refresh.
     #expect(near(schedule.refresh(after: deadline + 0.0001, past: nil), next + interval))
+    // So does output for a refresh that already has a frame, which draws no earlier than that
+    // refresh's deadline, so it can't share it.
     #expect(near(schedule.refresh(after: 100 + interval + 0.002, past: next), next + interval))
+    #expect(near(schedule.drawTime(for: next + interval, output: 100 + interval + 0.002), deadline))
 }
 
 @Test func scheduleKeepsTheDisplayCadenceWhileTheLinkPauses() {
