@@ -83,6 +83,46 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     #expect(held == host.visibleRows())
 }
 
+/// With the keyboard down, rows run on into the home indicator's strip, while Latest stays inside the safe area.
+@MainActor @Test func keyboardDownRowsRunUnderTheHomeIndicator() throws {
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
+    let root = UIViewController()
+    root.additionalSafeAreaInsets.bottom = 34
+    window.rootViewController = root
+    let terminal = TerminalMetalView(frame: .zero)
+    let canvas = CanvasView(terminal: terminal)
+    canvas.frame = root.view.bounds
+    root.view.addSubview(canvas)
+    window.isHidden = false
+    window.layoutIfNeeded()
+    let safeBottom = canvas.safeAreaLayoutGuide.layoutFrame.maxY
+    #expect(safeBottom <= canvas.bounds.maxY - 34 && !canvas.guideShowsKeyboard)
+    let viewport = try #require(terminal.superview)
+    #expect(viewport.frame.maxY == canvas.bounds.maxY)
+    let metrics = try #require(terminal.metrics)
+    let size = try #require(terminal.gridSize)
+    let safe = metrics.size(in: CGSize(width: viewport.bounds.width, height: safeBottom - viewport.frame.minY))
+    #expect(size == metrics.size(in: viewport.bounds.size) && size.rows > safe.rows)
+    #expect(terminal.convert(terminal.cellRect(row: size.rows - 1, column: 0), to: canvas).maxY > safeBottom)
+
+    var shell = Terminal(size: size)
+    _ = shell.receive((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
+    terminal.display(shell)
+    terminal.setHistoryOffset(4)
+    window.layoutIfNeeded()
+    func buttons(in view: UIView) -> [UIButton] { view.subviews.flatMap { ($0 as? UIButton).map { [$0] } ?? buttons(in: $0) } }
+    let latest = try #require(buttons(in: terminal).first { $0.accessibilityIdentifier == "terminal.latest" })
+    #expect(!latest.isHidden && abs(latest.convert(latest.bounds, to: canvas).maxY - (safeBottom - 8)) < 0.5)
+
+    // At the latest row the scroll indicator rests at the end of its track, still above the home indicator.
+    terminal.setHistoryOffset(0)
+    let scroll = try #require(latest.superview?.subviews.first { $0 is UIScrollView } as? UIScrollView)
+    scroll.flashScrollIndicators()
+    scroll.layoutIfNeeded()
+    let indicator = try #require(scroll.subviews.first { "\(type(of: $0))".contains("ScrollIndicator") && $0.frame.height > $0.frame.width })
+    #expect(indicator.convert(indicator.bounds, to: canvas).maxY <= safeBottom)
+}
+
 @MainActor @Test func rotatingLiveCanvasKeepsTheHeldCursorInsideTheKeyboardViewport() throws {
     let host = RotationHost()
     let terminal = host.terminal

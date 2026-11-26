@@ -10,14 +10,16 @@ typealias PlatformView = UIView
 #endif
 
 /// The terminal view's canvas. Its background reaches under every bar and safe area, while it keeps the
-/// Metal view's grid inside the window's safe area and above the iPhone keyboard.
+/// Metal view's grid inside the window's safe area and above the iPhone keyboard. With the iPhone keyboard
+/// down, the grid runs on into the home indicator's strip.
 @MainActor final class CanvasView: PlatformView {
     let terminal: TerminalMetalView
     var onVisibility: (() -> Void)?
     #if os(macOS)
     private weak var closingWindow: NSWindow?
     #else
-    // Clips the Metal view to where the viewport shows, inside the safe area and above the keyboard.
+    // Clips the Metal view to where the viewport shows: inside the safe area at the sides and top, and down to
+    // the keyboard, or the canvas's bottom edge while the keyboard is down.
     private let viewport = UIView()
     private var gridConstraints: [NSLayoutConstraint] = []
     private var holdConstraints: [NSLayoutConstraint] = []
@@ -88,6 +90,8 @@ typealias PlatformView = UIView
         insetCover.isUserInteractionEnabled = false
         insetCover.isHidden = true
         for view in [terminal, insetCover] { view.translatesAutoresizingMaskIntoConstraints = false }
+        // With the keyboard down, lines run on into the home indicator's strip.
+        keyboardLayoutGuide.usesBottomSafeArea = false
         keyboardEdge = viewport.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         pinnedHeight = viewport.heightAnchor.constraint(equalToConstant: 0)
         insetHeight = insetCover.heightAnchor.constraint(equalToConstant: 0)
@@ -96,11 +100,11 @@ typealias PlatformView = UIView
             terminal.heightAnchor.constraint(equalTo: viewport.heightAnchor),
         ]
         // Before UIKit supplies a keyboard frame, its top anchor can be unconstrained.
-        // Prefer the safe bottom until the keyboard guide determines the viewport height.
-        let safeBottom = viewport.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor)
-        safeBottom.priority = .defaultLow
+        // Prefer the canvas's bottom until the keyboard guide determines the viewport height.
+        let bottom = viewport.bottomAnchor.constraint(equalTo: bottomAnchor)
+        bottom.priority = .defaultLow
         NSLayoutConstraint.activate(gridConstraints + [
-            safeBottom,
+            bottom,
             viewport.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
             viewport.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             viewport.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),

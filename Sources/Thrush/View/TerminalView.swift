@@ -6,7 +6,8 @@ import ThrushCore
 /// Keep the session in a model that outlives the view's SwiftUI updates.
 ///
 /// Like a SwiftUI background, the view's canvas extends under any bar, toolbar or safe area its frame meets,
-/// while its grid stays inside the safe area and above the iPhone keyboard.
+/// while its grid stays inside the safe area and above the iPhone keyboard. With the keyboard down, iPhone rows
+/// run on under the home indicator.
 @MainActor public struct TerminalView: View {
     private let session: TerminalSession
     private let isActive: Bool

@@ -76,9 +76,8 @@ import UIKit
         // UIKit's guide already follows a floating keyboard, which never moves the edge.
         guard abs(inWindow.width - window.bounds.width) <= 1 else { return finishKeyboardMove() }
         keyboardTarget = end
-        let bottom = canvas.safeAreaLayoutGuide.layoutFrame.maxY
         let covered = canvas.bounds.intersection(canvas.convert(inWindow, from: window))
-        canvas.pinLowerEdge(at: covered.isEmpty ? bottom : min(covered.minY, bottom))
+        canvas.pinLowerEdge(at: covered.isEmpty ? canvas.bounds.maxY : covered.minY)
         canvas.layoutIfNeeded()
         finishKeyboardMove(after: duration + Self.keyboardWait)
     }
@@ -194,7 +193,7 @@ import UIKit
         let expected = canvas.bounds.intersection(canvas.convert(inWindow, from: window))
         let guide = canvas.keyboardLayoutGuide.layoutFrame
         if expected.isEmpty {
-            return inWindow.minY >= window.bounds.maxY - 1 && abs(guide.minY - canvas.safeAreaLayoutGuide.layoutFrame.maxY) <= 1
+            return inWindow.minY >= window.bounds.maxY - 1 && abs(guide.minY - canvas.bounds.maxY) <= 1
         }
         return abs(guide.minX - expected.minX) <= 1 && abs(guide.maxX - expected.maxX) <= 1
             && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
@@ -203,7 +202,7 @@ import UIKit
     /// After the window turns, UIKit moves the keyboard guide from the source orientation's
     /// keyboard to the destination's. The keyboard can confirm that frame only after the
     /// rotation ends, and in Dark it first reports a keyboard without keycaps. When the key
-    /// row changes height with the turn, the guide first passes through the bare safe area.
+    /// row changes height with the turn, the guide first passes through the canvas's bottom edge.
     private func guideFollowsTurn() -> Bool {
         guard let sourceWidth else { return false }
         return abs(canvas.bounds.width - sourceWidth) > 1 && guideSpansCanvas && canvas.guideShowsKeyboard

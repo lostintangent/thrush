@@ -89,7 +89,10 @@ def check(image, state, appearance, toolbar, checker):
     else:
         # The frame reaches the physical edges. Sample just above the grid, below the status bar.
         band(window[0] + 24, grid[1] - 5, window[2] - 24, grid[1] - 1, "above the grid")
-    band(window[0] + 24, grid[3] + 1, window[2] - 24, min(grid[3] + 5, window[3] - 12), "below the grid")
+    # With the keyboard down, the grid runs on under the home indicator, and the root's keyboard guide
+    # spans the strip beneath the safe area.
+    band(window[0] + 24, window[3] - state["keyboardHeight"] + 1, window[2] - 24, window[3] - 16,
+         "beside the home indicator")
 
 
 def capture(phone, options, sim, checker):

@@ -9,7 +9,8 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     unowned let terminal: TerminalMetalView
     private let scroll = UIScrollView()
     private let latest = UIButton(type: .system)
-    private lazy var latestBottom = latest.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8)
+    // Latest stays inside the safe area while the rows run on under the home indicator.
+    private lazy var latestBottom = latest.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8)
     private lazy var selectionControls = PhoneSelectionControls(scrollView: self)
     private var syncing = false
     private var rowHeight: CGFloat = 18
@@ -109,6 +110,13 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     required init?(coder: NSCoder) { nil }
 
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        // Like Latest, the scroll indicator ends above the home indicator.
+        scroll.verticalScrollIndicatorInsets.bottom = safeAreaInsets.bottom
+        layoutLatest()
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard let native = super.hitTest(point, with: event) else { return nil }
         if native === latest || native.isDescendant(of: latest) { return native }
@@ -193,7 +201,8 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         guard !latest.isHidden else { return }
         let protected = selectionControls.protectedRects
         let width = latest.bounds.width, height = latest.bounds.height
-        let left = CGRect(x: 12, y: bounds.maxY + latestBottom.constant - height, width: width, height: height)
+        let bottom = safeAreaLayoutGuide.layoutFrame.maxY + latestBottom.constant
+        let left = CGRect(x: 12, y: bottom - height, width: width, height: height)
         let right = left.offsetBy(dx: bounds.width - 24 - width, dy: 0)
         let trailing = effectiveUserInterfaceLayoutDirection == .leftToRight ? right : left
         let leading = trailing == right ? left : right

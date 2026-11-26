@@ -58,6 +58,7 @@ final class PhoneInteractionProof: XCTestCase {
         try captureKeyboard(appearance: appearance, keeping: wrapped)
         if !rotationOnly {
             try captureTranscript(appearance: appearance, wrapped: wrapped)
+            try captureLastLine(appearance: appearance)
         }
     }
 
@@ -179,6 +180,34 @@ final class PhoneInteractionProof: XCTestCase {
         let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '1030  compile'")).firstMatch
         XCTAssertTrue(live.exists)
         try finishClip("history-\(appearance)", since: history)
+    }
+
+    /// With the keyboard down, the last row runs on under the home indicator, and a long press there still selects.
+    private func captureLastLine(appearance: String) throws {
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists {
+            app.buttons["Hide Keyboard"].tap()
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 6), .completed)
+        }
+        Thread.sleep(forTimeInterval: 0.75)
+        // Terminal lines span the grid's width. The log fills the grid down to its prompt.
+        let lines = app.staticTexts.allElementsBoundByIndex.filter { $0.frame.width > app.frame.width * 0.8 }
+        let last = try XCTUnwrap(lines.max { $0.frame.maxY < $1.frame.maxY }, app.debugDescription)
+        // Within a row of the grid's 8-point bottom inset, below the home indicator's safe area.
+        XCTAssertGreaterThanOrEqual(app.frame.maxY - last.frame.maxY, 7.5, last.label)
+        XCTAssertLessThan(app.frame.maxY - last.frame.maxY, 8 + last.frame.height, last.label)
+        let label = last.label
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: last.frame.minX + 8, dy: last.frame.midY)).press(forDuration: 0.65)
+        let selected = app.staticTexts["Selected text"]
+        let word = NSPredicate { element, _ in
+            guard let value = (element as? XCUIElement)?.value as? String else { return false }
+            return !value.isEmpty && label.contains(value)
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: word, object: selected)], timeout: 6),
+                       .completed, "\(selected.value ?? "nothing") isn't from the last line, \(label)")
+        try screenshot("line-\(appearance)-last")
     }
 
     private func launch(scene: String) throws {

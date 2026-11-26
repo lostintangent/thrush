@@ -21,7 +21,8 @@ RUNNER = "PhoneInteractionProof"
 BUNDLE_ID = "app.thrush.review.interactions"
 APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "control-{}-shift", "control-{}-option", "control-{}-landscape",
-        "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu", "line-{}-selected", "history-{}-latest")
+        "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu", "line-{}-selected", "history-{}-latest",
+        "line-{}-last")
 CLIPS = ("control", "rotate", "keyboard", "select", "history")
 SWIPES = ("less", "vim", "history", "settings")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.

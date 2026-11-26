@@ -1,7 +1,7 @@
 """Check the public pane under an inline navigation bar on the iPhone, in both appearances, in portrait
 and landscape, with the keyboard hidden and shown. The canvas must reach every edge of the window
-while the grid stays inside the safe area and above the keyboard, and a host's own
-`.ignoresSafeArea()` must change nothing, down to the pixel."""
+while the grid stays inside the safe area and above the keyboard, or runs on under the home indicator
+while the keyboard is down, and a host's own `.ignoresSafeArea()` must change nothing, down to the pixel."""
 import json
 from pathlib import Path
 import runpy
@@ -32,14 +32,21 @@ def check(image, state, appearance):
     bar = edges(toolbar["navigationBarFrame"])
     grid = edges(state["gridFrame"])
     first = edges(toolbar["firstCellFrame"])
-    keyboard_top = window[3] - state["keyboardHeight"]
+    shown = state["keyboardHeight"] >= 90
     if any(abs(canvas[i] - window[i]) > epsilon for i in range(4)):
         raise ValueError(f"The canvas doesn't reach every edge of the window: {canvas}, {window}")
-    usable = (safe[0], safe[1], safe[2], keyboard_top)
+    usable = (safe[0], safe[1], safe[2], window[3] - state["keyboardHeight"] if shown else window[3])
     if any(abs(grid[i] - usable[i]) > epsilon for i in range(4)):
-        raise ValueError(f"The grid doesn't fill the safe area above the keyboard: {grid}, {usable}")
+        raise ValueError(f"The grid doesn't fill the safe area {'above the keyboard' if shown else 'and the strip below'}: "
+                         f"{grid}, {usable}")
     if abs(safe[1] - bar[3]) > epsilon or first[1] + epsilon < bar[3]:
         raise ValueError(f"Row one doesn't start below the navigation bar: {first}, {bar}, {safe}")
+    if not shown:
+        # Rows run on under the home indicator. The last ends within a row of the grid's bottom inset.
+        row, inset = first[3] - first[1], first[1] - grid[1]
+        last = first[1] + state["rows"] * row
+        if not grid[3] - inset - row - epsilon < last <= grid[3] - inset + epsilon:
+            raise ValueError(f"The last row doesn't reach within a row of the grid's bottom inset: {last}, {grid}")
 
     pixels = Capture(image, appearance)
     if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
@@ -57,9 +64,9 @@ def check(image, state, appearance):
     # Leading of the centered title and trailing Close button, the bar shows the pane's canvas.
     width, middle = bar[2] - bar[0], (bar[1] + bar[3]) / 2
     canvas(bar[0] + 0.14 * width, middle - 1, bar[0] + 0.28 * width, middle + 1, "beneath the navigation bar")
-    if state["keyboardHeight"] < 90:
-        canvas(max(window[0] + 24, grid[0]), grid[3] + 1, min(window[2] - 24, grid[2]),
-               min(grid[3] + 5, window[3] - 12), "beside the home indicator")
+    if not shown:
+        canvas(max(window[0] + 24, grid[0]), safe[3] + 1, min(window[2] - 24, grid[2]), window[3] - 16,
+               "beside the home indicator")
     if state["orientation"] == "landscape":
         # Just below the bar, clear of the display's rounded corners and the Dynamic Island.
         for left, right, side in ((window[0], grid[0], "leading"), (grid[2], window[2], "trailing")):
