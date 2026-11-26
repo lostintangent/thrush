@@ -1,22 +1,25 @@
-// Maps a parser state and an input byte to a next state and a framing operation.
-// The state diagram by Paul Williams describes DEC parser transitions.
+// Maps a parser state and an input byte to a next state and an operation. The state diagram by
+// Paul Williams describes DEC parser transitions, and each row here reads as one line of it.
 // https://vt100.net/emu/dec_ansi_parser
 
 extension Parser {
+    /// The diagram's states, with its `osc_string` split three ways: `oscIdentifier` reads the number
+    /// that names an OSC, `oscPayload` its text, and `invalidOSC` swallows an OSC without a number.
+    /// `ignoredString` is the diagram's `sos_pm_apc_string`.
     enum State: UInt8, CaseIterable {
         case ground, escape, escapeIntermediate
         case csiEntry, csiParameters, csiIntermediate, csiIgnore
         case dcsEntry, dcsParameters, dcsIntermediate, dcsIgnore
         case oscIdentifier, oscPayload, invalidOSC, dcsPayload, ignoredString
-        case discardedOSC, discardedDCS
     }
 
+    /// The diagram's actions. Text never enters the state machine, so there is no `print`. `cancel`
+    /// ends a string without performing it, and `cancelAndClear` also starts the sequence that
+    /// interrupted it, so each step is one table load.
     enum Operation: UInt8 {
-        case ignore, print, execute, beginEscape, beginHeader, collect, parameter
-        case escapeFinal, controlFinal, startDCS
-        case beginOSC, oscDigit, startOSC, put
-        case finish, cancel, finishEmptyOSC, cancelEmptyOSC
-        case cancelAndExecute, cancelAndBeginHeader, cancelAndBeginOSC
+        case ignore, execute, collect, parameter, clear
+        case escapeFinal, controlFinal, startDCS, startOSC, oscDigit
+        case put, finish, cancel, cancelAndClear
     }
 
     struct Transition {
@@ -49,17 +52,15 @@ extension Parser {
             switch state {
             case .ground:
                 set(0...0x1F, .ground, .execute)
-                set(0x20...0x7E, .ground, .print)
-                set(0xA0, .ground, .print)
             case .escape, .escapeIntermediate:
                 set(0...0x1F, state, .execute)
                 set(0x20...0x2F, .escapeIntermediate, .collect)
                 set(0x30...0x7E, .ground, .escapeFinal)
                 set(0x7F, state)
                 if state == .escape {
-                    set(0x50, .dcsEntry, .beginHeader)
-                    set(0x5B, .csiEntry, .beginHeader)
-                    set(0x5D, .oscIdentifier, .beginOSC)
+                    set(0x50, .dcsEntry, .clear)
+                    set(0x5B, .csiEntry, .clear)
+                    set(0x5D, .oscIdentifier, .clear)
                     for byte in [0x58, 0x5E, 0x5F] { set(byte, .ignoredString) }
                 }
             case .csiEntry, .csiParameters, .csiIntermediate, .dcsEntry, .dcsParameters, .dcsIntermediate:
@@ -86,36 +87,36 @@ extension Parser {
                 set(0x20...0xA0, .invalidOSC)
                 set(0x30...0x39, state, .oscDigit)
                 set(0x3B, .oscPayload, .startOSC)
-            case .oscPayload, .discardedOSC:
+            case .oscPayload:
                 set(0...0x1F, state)
-                set(0x20...0xA0, state, state == .oscPayload ? .put : .ignore)
+                set(0x20...0xA0, state, .put)
             case .invalidOSC:
                 set(0...0xA0, state)
-            case .dcsPayload, .discardedDCS:
-                set(0...0xA0, state, state == .dcsPayload ? .put : .ignore)
+            case .dcsPayload:
+                set(0...0xA0, state, .put)
                 set(0x7F, state)
             case .ignoredString:
                 set(0...0x7F, state)
             }
 
-            // C1 introducers can replace a string before its terminator.
+            // A C1 control interrupts a string, and its introducers start a sequence from anywhere.
             let streaming = state == .oscPayload || state == .dcsPayload
-            set(0x80...0x9F, .ground, streaming ? .cancelAndExecute : .execute)
-            set(0x90, .dcsEntry, streaming ? .cancelAndBeginHeader : .beginHeader)
-            set(0x9B, .csiEntry, streaming ? .cancelAndBeginHeader : .beginHeader)
-            set(0x9D, .oscIdentifier, streaming ? .cancelAndBeginOSC : .beginOSC)
+            set(0x80...0x9F, .ground, .execute)
+            set(0x90, .dcsEntry, streaming ? .cancelAndClear : .clear)
+            set(0x9B, .csiEntry, streaming ? .cancelAndClear : .clear)
+            set(0x9D, .oscIdentifier, streaming ? .cancelAndClear : .clear)
             for byte in [0x98, 0x9E, 0x9F] { set(byte, .ignoredString, streaming ? .cancel : .ignore) }
 
-            let finish: Operation
-            let cancel: Operation
-            switch state {
-            case .oscIdentifier: (finish, cancel) = (.finishEmptyOSC, .cancelEmptyOSC)
-            case .invalidOSC, .discardedOSC, .discardedDCS: (finish, cancel) = (.ignore, .ignore)
-            default: (finish, cancel) = streaming ? (.finish, .cancel) : (.ignore, .execute)
+            // ST, ESC, BEL, CAN and SUB end a string, performing it or not. An OSC without a number
+            // swallows them silently, and outside a string CAN and SUB execute.
+            let (finish, cancel): (Operation, Operation) = switch state {
+            case .oscIdentifier, .oscPayload, .dcsPayload: (.finish, .cancel)
+            case .invalidOSC: (.ignore, .ignore)
+            default: (.ignore, .execute)
             }
             set(0x9C, .ground, finish) // ST
-            set(0x1B, .escape, finish == .ignore ? .beginEscape : finish)
-            if state == .oscIdentifier || state == .oscPayload || state == .discardedOSC || state == .invalidOSC {
+            set(0x1B, .escape, finish == .ignore ? .clear : finish)
+            if state == .oscIdentifier || state == .oscPayload || state == .invalidOSC {
                 set(0x07, .ground, finish) // BEL terminates only OSC.
             }
             set(0x18, .ground, cancel) // CAN

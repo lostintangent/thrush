@@ -1,168 +1,183 @@
-// Frames control sequences across input chunks. The terminal can act on each complete
-// identifier or consume a string as it arrives, even when one read ends halfway through it.
+// Turns shell output into text and named control functions, across reads that can end anywhere,
+// even inside a character or a sequence. It's the only code that knows the wire grammar, and it
+// knows nothing about what a function does.
 
-/// A control's private prefix, intermediate bytes and final byte packed in wire order.
-struct ControlIdentifier: Hashable, Sendable {
-    let rawValue: UInt32
-
-    init(_ final: UInt8, prefix: UInt8? = nil, intermediate: UInt8? = nil, secondIntermediate: UInt8? = nil) {
-        var collected = UInt32(prefix ?? 0)
-        if let intermediate { collected = collected << 8 | UInt32(intermediate) }
-        if let secondIntermediate { collected = collected << 8 | UInt32(secondIntermediate) }
-        self.init(collected: collected, final: final)
-    }
-
-    fileprivate init(collected: UInt32, final: UInt8) {
-        rawValue = collected << 8 | UInt32(final)
-    }
-}
-
-/// Frames ASCII bytes and decoded Unicode scalars into VT controls.
-/// String payloads are forwarded as they arrive.
+/// Reads bytes as text to print and control functions to perform.
 struct Parser: Sendable {
-    static let escape: UInt8 = 0x1b
-    static let delete: UInt8 = 0x7f
-
-    enum Action {
-        case printable, execute(UInt8)
-        case esc(ControlIdentifier), csi(ControlIdentifier)
-        case oscStart(Int), dcsStart(ControlIdentifier)
-        case stringPut(Unicode.Scalar), stringEnd(success: Bool)
+    /// What the parser read: text to print or a function to perform.
+    enum Token {
+        case text(Text)
+        case function(ControlFunction)
     }
 
-    private enum PendingAction { case stringEnd(Bool), execute(UInt8) }
+    /// Printable text, either a run of ASCII in the chunk or glyphs decoded into ``glyphs``.
+    enum Text {
+        case ascii(Range<Int>)
+        case glyphs(count: Int)
+    }
+
+    private static let escape: UInt8 = 0x1b
+    private static let delete: UInt8 = 0x7f
+
+    /// The last control sequence's parameters. Its readers are mutating, so reading one never copies them.
+    var parameters = Parameters()
+    /// The last control string's payload.
+    private(set) var payload = Payload()
+    /// The glyphs behind the last `.glyphs(count:)`, each a scalar with the flag for its width.
+    private(set) var glyphs = InlineArray<64, UInt32>(repeating: 0)
 
     // Reading the lazy static calls out to `swift_once` for tens of milliseconds after its first use.
     let transitions = Self.transitions
-
     private(set) var state = State.ground
+    /// A character the last read ended partway through.
+    private(set) var scanner = TextScanner()
+    /// The sequence's private marker and intermediates, packed in wire order.
     private(set) var collected: UInt32 = 0
-    /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
-    var parameters = Parameters()
+    /// The number naming the OSC being read, or -1 before its first digit.
     private(set) var oscIdentifier = -1
-    private var pending: PendingAction?
-    var isGround: Bool { state == .ground }
+    /// The string being read, or `.unsupported` when Thrush doesn't perform it.
+    private(set) var string = ControlFunction.unsupported
 
-    /// Printable ASCII has no effect inside these strings. Controls still need framing.
-    var discardsASCII: Bool {
-        switch state {
-        case .discardedOSC, .discardedDCS, .ignoredString, .invalidOSC: true
-        default: false
-        }
-    }
-
-    /// A scalar can finish an empty OSC or interrupt a string and execute a C1
-    /// control. Drain the second notification after an OSC start or string end.
-    mutating func takePendingAction() -> Action? {
-        defer { pending = nil }
-        switch pending {
-        case .stringEnd(let success): return .stringEnd(success: success)
-        case .execute(let byte): return .execute(byte)
-        case nil: return nil
-        }
-    }
-
-    /// Suppress payload delivery after dispatch declines a string command.
-    mutating func discardStringPayload() {
-        switch state {
-        case .oscPayload: state = .discardedOSC
-        case .dcsPayload: state = .discardedDCS
-        default:
-            // An OSC without a payload separator starts and ends on the same scalar.
-            if case .stringEnd = pending { pending = nil }
-        }
-    }
-
-    /// Consumes ASCII from ESC, or from anywhere inside a control, until one action is ready or text can resume.
-    ///
-    /// A CSI that arrives whole, with only digits, colons and semicolons before its final byte, is read in one pass.
-    // Inlined into its one caller, Terminal's readSequence, so each sequence costs a single call.
+    /// Reads from `index` to the next piece of text or the next complete function, and returns nil
+    /// once the chunk is used up. Bytes that make neither, such as half a sequence, a string's text,
+    /// DEL or an ignored sequence, are consumed on the way.
     @inline(__always)
-    mutating func consume(_ bytes: Span<UInt8>, from index: inout Int, lent: inout Range<Int>?) -> Action? {
-        if isGround, bytes.count - index >= 2, bytes[index] == Self.escape, bytes[index + 1] == UInt8(ascii: "[") {
-            state = .csiEntry
-            beginHeader()
-            index += 2
-            let start = index
-            while index < bytes.count, Self.isParameter(bytes[index]) { index += 1 }
-            if index < bytes.count, Self.isFinal(bytes[index]) {
-                lent = start..<index
-                let identifier = ControlIdentifier(bytes[index])
-                index += 1
-                state = .ground
-                return .csi(identifier)
-            }
-            if start < index {
-                parameters.append(start..<index, of: bytes)
-                state = .csiParameters
-            }
-        }
+    mutating func next(in bytes: Span<UInt8>, from index: inout Int) -> Token? {
         while index < bytes.count {
             let byte = bytes[index]
-            guard byte < 0x80 else { break }
-            let code = UInt32(byte)
-            let transition = transition(from: state, scalar: code)
-            if transition.operation == .parameter {
-                state = transition.nextState
-                // All parameter bytes continue in the same CSI or DCS parameter state.
-                let start = index
-                repeat { index += 1 } while index < bytes.count && Self.isParameter(bytes[index])
-                parameters.append(start..<index, of: bytes)
-            } else {
-                index += 1
-                if let action = advance(transition, code: code) { return action }
+            // An ASCII byte ends any character left incomplete before it.
+            if byte < 0x80, !scanner.isComplete { scanner = TextScanner() }
+            if state == .ground {
+                if TextScanner.isPrintableASCII(byte) {
+                    let start = index
+                    index = TextScanner.endOfASCII(in: bytes, from: start)
+                    return .text(.ascii(start..<index))
+                }
+                if byte < 0x20, byte != Self.escape {
+                    index += 1
+                    return .function(ControlFunction(executing: byte))
+                }
+                if byte == Self.delete {
+                    index += 1
+                    continue
+                }
+                if byte >= 0x80 {
+                    let (count, control) = scanner.decodeText(in: bytes, index: &index, into: &glyphs)
+                    if count > 0 { return .text(.glyphs(count: count)) }
+                    if let control, let function = read(control) { return .function(function) }
+                    continue
+                }
+                if let function = readWholeSequence(in: bytes, from: &index) { return .function(function) }
             }
-            if isGround || discardsASCII { break }
+            if let function = readSequence(in: bytes, from: &index) { return .function(function) }
         }
         return nil
     }
 
+    /// Reads a C1 control that came between pieces of text.
+    private mutating func read(_ control: Unicode.Scalar) -> ControlFunction? {
+        advance(transition(from: state, scalar: control.value), code: control.value)
+    }
+
+    /// Reads a sequence from `index` until it completes a function, ends without one or the chunk runs out.
+    private mutating func readSequence(in bytes: Span<UInt8>, from index: inout Int) -> ControlFunction? {
+        while index < bytes.count {
+            let byte = bytes[index]
+            var code = UInt32(byte)
+            index += 1
+            if byte < 0x80 {
+                if !scanner.isComplete { scanner = TextScanner() }
+                if TextScanner.isPrintableASCII(byte) {
+                    switch state {
+                    case .oscPayload, .dcsPayload, .invalidOSC, .ignoredString:
+                        // A string's printable text is read as a run, and kept only for a payload Thrush performs.
+                        let start = index - 1
+                        index = TextScanner.endOfASCII(in: bytes, from: index)
+                        if state == .oscPayload || state == .dcsPayload { payload.append(bytes.extracting(start..<index)) }
+                        continue
+                    default: break
+                    }
+                }
+            } else {
+                // Inside a sequence other bytes decode to scalars, and every scalar past the C1 controls reads alike.
+                guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { continue }
+                code = scalar.value
+            }
+            let transition = transition(from: state, scalar: code)
+            if transition.operation == .parameter {
+                // Digits, colons and semicolons are read as a run.
+                state = transition.nextState
+                let start = index - 1
+                index = Self.endOfParameters(in: bytes, from: index)
+                parameters.append(start..<index, of: bytes)
+                continue
+            }
+            if let function = advance(transition, code: code) { return function }
+            if state == .ground { return nil }
+        }
+        return nil
+    }
+
+    /// Reads a control sequence that arrived whole, with only digits, colons and semicolons before its final
+    /// byte, in one pass. A whole SGR's parameters are lent from the chunk rather than copied. Any other
+    /// sequence is left started for the state machine to finish.
+    @inline(__always)
+    private mutating func readWholeSequence(in bytes: Span<UInt8>, from index: inout Int) -> ControlFunction? {
+        guard bytes.count - index >= 2, bytes[index] == Self.escape, bytes[index + 1] == UInt8(ascii: "[") else { return nil }
+        clear()
+        let start = index + 2
+        index = Self.endOfParameters(in: bytes, from: start)
+        if index < bytes.count, Self.isFinal(bytes[index]) {
+            let final = bytes[index]
+            let header = start..<index
+            index += 1
+            if final == Self.graphicRendition {
+                parameters.lend(header)
+                return .csi(.graphicRendition)
+            }
+            parameters.append(header, of: bytes)
+            return ControlFunction(csi: UInt32(final))
+        }
+        state = .csiEntry
+        if start < index {
+            parameters.append(start..<index, of: bytes)
+            state = .csiParameters
+        }
+        return nil
+    }
+
+    private static let graphicRendition = UInt8(ControlFunction.CSI.graphicRendition.rawValue)
+
     /// Digits, colons and semicolons.
     private static func isParameter(_ byte: UInt8) -> Bool { (0x30...0x3B).contains(byte) }
+
+    /// The index after the run of parameter bytes that starts at `start`.
+    @inline(never)
+    private static func endOfParameters(in bytes: Span<UInt8>, from start: Int) -> Int {
+        var end = start
+        while end < bytes.count, isParameter(bytes[end]) { end += 1 }
+        return end
+    }
 
     /// The final byte of a CSI or escape sequence, from `@` to `~`.
     private static func isFinal(_ byte: UInt8) -> Bool { (0x40...0x7E).contains(byte) }
 
-    private mutating func beginHeader() {
-        collected = 0
-        parameters.removeAll()
-    }
-
+    /// Takes one step of the state machine, and returns the function the step completes, if any.
     @inline(__always)
-    mutating func consume(ascii byte: UInt8) -> Action? {
-        let code = UInt32(byte)
-        return advance(transition(from: state, scalar: code), code: code)
-    }
-
-    @inline(__always)
-    mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
-        advance(transition(from: state, scalar: scalar.value), code: scalar.value)
-    }
-
-    @inline(__always)
-    private mutating func advance(_ transition: Transition, code: UInt32) -> Action? {
+    private mutating func advance(_ transition: Transition, code: UInt32) -> ControlFunction? {
+        let previous = state
         state = transition.nextState
-        // Operations that use a byte are reachable only for single-byte code points.
+        // Operations that read a byte are reachable only for single-byte code points.
         let byte = UInt8(truncatingIfNeeded: code)
         switch transition.operation {
-        case .ignore: return nil
-        case .print: return .printable
-        case .execute: return .execute(byte)
-        case .beginEscape:
-            collected = 0
-        case .beginHeader, .cancelAndBeginHeader:
-            beginHeader()
-            if transition.operation == .cancelAndBeginHeader { return .stringEnd(success: false) }
-        case .collect:
-            collected = collected << 8 | code
-        case .parameter:
-            parameters.append(byte)
-        case .escapeFinal: return .esc(ControlIdentifier(collected: collected, final: byte))
-        case .controlFinal: return .csi(ControlIdentifier(collected: collected, final: byte))
-        case .startDCS: return .dcsStart(ControlIdentifier(collected: collected, final: byte))
-        case .beginOSC, .cancelAndBeginOSC:
-            oscIdentifier = -1
-            if transition.operation == .cancelAndBeginOSC { return .stringEnd(success: false) }
+        case .ignore: break
+        case .execute: return ControlFunction(executing: byte)
+        case .clear: clear()
+        case .collect: collected = collected << 8 | code
+        case .parameter: parameters.append(byte)
+        case .escapeFinal: return ControlFunction(escape: collected << 8 | code)
+        case .controlFinal: return ControlFunction(csi: collected << 8 | code)
+        case .startDCS: startString(ControlFunction.DCS(rawValue: collected << 8 | code).map(ControlFunction.dcs))
         case .oscDigit:
             let digit = Int(code - 0x30)
             if oscIdentifier <= (Int.max - digit) / 10 {
@@ -170,19 +185,31 @@ struct Parser: Sendable {
             } else {
                 state = .invalidOSC
             }
-        case .startOSC: return .oscStart(oscIdentifier)
-        case .put: return .stringPut(Unicode.Scalar(code)!)
-        case .finish, .cancel:
-            collected = 0
-            return .stringEnd(success: transition.operation == .finish)
-        case .finishEmptyOSC, .cancelEmptyOSC:
-            collected = 0
-            pending = .stringEnd(transition.operation == .finishEmptyOSC)
-            return .oscStart(oscIdentifier)
-        case .cancelAndExecute:
-            pending = .execute(byte)
-            return .stringEnd(success: false)
+        case .startOSC: startString(ControlFunction.OSC(rawValue: oscIdentifier).map(ControlFunction.osc))
+        case .put: payload.append(code)
+        case .finish:
+            // An OSC can end right after its number, with an empty payload.
+            if previous == .oscIdentifier { startString(ControlFunction.OSC(rawValue: oscIdentifier).map(ControlFunction.osc)) }
+            clear()
+            return payload.isKept ? string : .unsupported
+        case .cancel: return .unsupported
+        case .cancelAndClear:
+            clear()
+            return .unsupported
         }
         return nil
+    }
+
+    /// Forgets the last sequence's header, as each new sequence starts.
+    private mutating func clear() {
+        collected = 0
+        oscIdentifier = -1
+        parameters.removeAll()
+    }
+
+    /// Starts a string's payload, which keeps its text only for a function Thrush performs.
+    private mutating func startString(_ function: ControlFunction?) {
+        string = function ?? .unsupported
+        payload.start(keeping: function != nil)
     }
 }

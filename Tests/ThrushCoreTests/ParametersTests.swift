@@ -83,7 +83,8 @@ private func parameters(_ pieces: some Sequence<ArraySlice<UInt8>>, byteAtATime:
 private func sgrStyle(_ parameters: Parameters) -> Terminal.Style {
     var parameters = parameters
     var style = Terminal.Style()
-    style.applySGR(&parameters)
+    let chunk: [UInt8] = []
+    style.applySGR(&parameters, in: chunk.span)
     return style
 }
 

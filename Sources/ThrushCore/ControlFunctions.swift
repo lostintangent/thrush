@@ -1,6 +1,6 @@
-/// Names the wire identifiers for supported terminal functions. Dispatch uses those names
-/// to connect each control sequence to its effect on the screen, modes or replies.
-enum ControlFunction {
+/// A control function by name, in the five families the standards define. Each family pairs every
+/// function Thrush performs with its wire bytes, and the parser names a function by looking those up.
+enum ControlFunction: Equatable {
     enum C0: UInt8 {
         /// BS, 0x08.
         case backspace = 0x08
@@ -197,56 +197,51 @@ enum ControlFunction {
         case requestCapabilities = 0x2b71
     }
 
-    /// A control string the terminal acts on once its payload is complete.
-    enum ControlString: Equatable, Sendable {
-        case osc(OSC), dcs(DCS)
-    }
-
     case c0(C0)
+    /// An escape function, including IND, NEL and HTS sent as C1 controls.
     case escape(Escape)
     /// SCS, ESC I F. The intermediate names the slot and the final names the set.
     case designate(Terminal.CharacterSet, slot: Int)
+    /// Reads the parser's parameters.
     case csi(CSI)
-    case command(ControlString)
-    case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
+    /// Reads the parser's payload.
+    case osc(OSC)
+    /// Reads the parser's payload.
+    case dcs(DCS)
+    /// Performs nothing, and still ends the text run.
+    case unsupported
 
-    init?(_ action: Parser.Action) {
-        switch action {
-        case .execute(let byte):
-            if let function = C0(rawValue: byte) {
-                self = .c0(function)
-            } else if let function = Escape(c1: byte) {
-                self = .escape(function)
-            } else {
-                return nil
-            }
-        case .esc(let id):
-            if let function = Escape(rawValue: id.rawValue) {
-                self = .escape(function)
-            } else if let slot = Self.designatedSlot(id), let set = Terminal.CharacterSet(final: UInt8(truncatingIfNeeded: id.rawValue)) {
-                self = .designate(set, slot: slot)
-            } else {
-                return nil
-            }
-        case .csi(let id):
-            guard let function = CSI(rawValue: id.rawValue) else { return nil }
-            self = .csi(function)
-        case .oscStart(let id):
-            self = OSC(rawValue: id).map { .command(.osc($0)) } ?? .ignoredString
-        case .dcsStart(let id):
-            self = DCS(rawValue: id.rawValue).map { .command(.dcs($0)) } ?? .ignoredString
-        case .stringPut(let scalar):
-            self = .stringPut(scalar)
-        case .stringEnd(let success):
-            self = .stringEnd(success: success)
-        case .printable:
-            return nil
+    /// A C0 control, or one of the three C1 controls the reference executes, named as its escape form.
+    init(executing byte: UInt8) {
+        if let function = C0(rawValue: byte) {
+            self = .c0(function)
+        } else if let function = Escape(c1: byte) {
+            self = .escape(function)
+        } else {
+            self = .unsupported
         }
     }
 
+    /// An escape function or a designation, from its intermediates and final byte packed in wire order.
+    init(escape identifier: UInt32) {
+        if let function = Escape(rawValue: identifier) {
+            self = .escape(function)
+        } else if let slot = Self.designatedSlot(identifier >> 8),
+                  let set = Terminal.CharacterSet(final: UInt8(truncatingIfNeeded: identifier)) {
+            self = .designate(set, slot: slot)
+        } else {
+            self = .unsupported
+        }
+    }
+
+    /// A control sequence, from its private marker, intermediates and final byte packed in wire order.
+    init(csi identifier: UInt32) {
+        self = CSI(rawValue: identifier).map(Self.csi) ?? .unsupported
+    }
+
     /// The slot an SCS intermediate designates into. The reference ignores `/`, which names a 96-character G3.
-    private static func designatedSlot(_ id: ControlIdentifier) -> Int? {
-        switch id.rawValue >> 8 {
+    private static func designatedSlot(_ intermediates: UInt32) -> Int? {
+        switch intermediates {
         case 0x28: 0  // (
         case 0x29, 0x2d: 1  // ) and -
         case 0x2a, 0x2e: 2  // * and .

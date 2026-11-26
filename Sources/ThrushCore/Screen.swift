@@ -602,9 +602,6 @@ extension Terminal {
             active.column += max(1, width)
         }
 
-        /// Whether text at the cursor appends cells past those its row uses.
-        var appendsAtCursor: Bool { column >= active.rows[active.index(of: row)].length }
-
         /// Writes glyphs that carry their widths, with autowrap on and insert mode off. Returns how many it wrote.
         mutating func writeRun(_ glyphs: Span<UInt32>, style: Style, joinsPrevious: inout Bool) -> UInt64 {
             var next = 0

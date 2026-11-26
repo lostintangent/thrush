@@ -10,6 +10,8 @@ struct Parameters: Sendable, CustomStringConvertible {
 
     private var storage = Storage(repeating: 0)
     private var length = 0
+    /// A whole SGR header, left in the chunk it arrived in rather than copied.
+    private var lent: Range<Int>?
 
     /// The number of parameters, counting the empty one after a trailing semicolon.
     var count: Int {
@@ -46,6 +48,13 @@ struct Parameters: Sendable, CustomStringConvertible {
         body(storage.span.extracting(0..<length))
     }
 
+    /// Lends the header from the chunk it arrived in, when it was lent, and only receive's SGR reads it.
+    @inline(__always)
+    mutating func withBytes<Result>(in chunk: Span<UInt8>, _ body: (Span<UInt8>) -> Result) -> Result {
+        if let lent { return body(chunk.extracting(lent)) }
+        return withBytes(body)
+    }
+
     /// Reads the number at `index`, saturating at `Int32.max`. An omitted number is nil.
     @inline(__always)
     static func number(in bytes: Span<UInt8>, at index: inout Int) -> Int? {
@@ -65,7 +74,13 @@ struct Parameters: Sendable, CustomStringConvertible {
         return copy.withBytes { bytes in String(decoding: bytes.indices.map { bytes[$0] }, as: UTF8.self) }
     }
 
-    mutating func removeAll() { length = 0 }
+    mutating func removeAll() {
+        length = 0
+        lent = nil
+    }
+
+    /// Leaves a whole header in the chunk it arrived in, for a reader that comes before the chunk changes.
+    mutating func lend(_ range: Range<Int>) { lent = range }
 
     /// Accepts the parameter bytes 0x30–0x3B after the parser has consumed any prefix.
     @inline(__always)

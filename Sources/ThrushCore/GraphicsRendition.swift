@@ -73,11 +73,11 @@ extension Terminal.Style {
     /// applies each as it's read. The final byte is already known, so an interrupted control can never
     /// change the style.
     @inline(__always)
-    mutating func applySGR(_ parameters: inout Parameters) {
-        parameters.withBytes { applySGR($0) }
+    mutating func applySGR(_ parameters: inout Parameters, in chunk: Span<UInt8>) {
+        parameters.withBytes(in: chunk) { applySGR($0) }
     }
 
-    @inline(__always)
+    @inline(never)
     mutating func applySGR(_ bytes: Span<UInt8>) {
         var index = 0
         var remainingOperands = Parameters.limit

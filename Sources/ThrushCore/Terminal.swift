@@ -78,23 +78,19 @@ public struct Terminal: Sendable {
     /// so a theme change or a resume never changes them.
     package private(set) var programColors = ProgramColors()
     package private(set) var modes = Modes()
-    private(set) var scanner = TextScanner()
     private(set) var parser = Parser()
     /// The completed window title. An empty title asks the app to use its default.
     package private(set) var title = ""
     /// Text the program copied with OSC 52 that the app hasn't put on the pasteboard yet. Each copy
     /// replaces the one before, so the app takes it after applying output.
     package var copiedText: String?
-    private(set) var stringHandler = ControlStringHandler()
     private(set) var screen: Screen
     private(set) var style = Style()
     private(set) var characterSets = CharacterSets()
     private var generation: UInt64 = 0
-    // Printed text runs up to the cursor until a control function runs. Until then a combining mark
-    // joins the last character and REP repeats it. A sequence that is incomplete or ignored keeps the run.
+    // Printed text runs up to the cursor until a control function is performed. Until then a combining
+    // mark joins the last character and REP repeats it. A sequence that is incomplete or ignored keeps the run.
     private(set) var followsText = false
-    /// Where each run of non-ASCII text decodes before it's written. Keeping it saves clearing a new one.
-    private var glyphs = InlineArray<64, UInt32>(repeating: 0)
 
     /// Creates a terminal with a blank normal screen and the colors of the app's theme.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
@@ -132,28 +128,25 @@ public struct Terminal: Sendable {
     /// this chunk produced no reply. Forward nonempty results in arrival order.
     package mutating func receive(_ bytes: some Sequence<UInt8>) -> [UInt8] {
         if let replies = bytes.withContiguousStorageIfAvailable({ receive($0.span) }) { return replies }
-        var replies: [UInt8] = []
-        for byte in bytes { consume(byte, replies: &replies) }
-        return replies
+        let copy = Array(bytes)
+        return receive(copy.span)
     }
 
     /// Apply a borrowed network or replay buffer synchronously without copying it.
     ///
-    /// Each step reads a run of text, a lone control or as much of a sequence as the chunk holds.
+    /// The parser reads the chunk as text to print and functions to perform.
     package mutating func receive(_ bytes: Span<UInt8>) -> [UInt8] {
         var replies: [UInt8] = []
         var index = 0
-        while index < bytes.count {
-            let byte = bytes[index]
-            // An ASCII byte ends any UTF-8 character left incomplete before it.
-            if byte < 0x80, !scanner.isComplete { scanner = TextScanner() }
-            if byte == Parser.escape || !parser.isGround {
-                readSequence(in: bytes, index: &index, replies: &replies)
-            } else if byte < 0x20 {
-                executeControl(byte, replies: &replies)
-                index += 1
-            } else {
-                printText(in: bytes, index: &index, replies: &replies)
+        while let token = parser.next(in: bytes, from: &index) {
+            switch token {
+            case .text(let text): print(text, from: bytes)
+            case .function(.csi(.graphicRendition)):
+                // SGR never touches the screen. It only changes the pen the next text prints with,
+                // and reads a whole header straight from the chunk.
+                style.applySGR(&parser.parameters, in: bytes)
+                followsText = false
+            case .function(let function): perform(function, replies: &replies)
             }
         }
         return replies
@@ -185,181 +178,145 @@ public struct Terminal: Sendable {
     /// disabled autowrap and a character set other than ASCII print one character at a time.
     private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
 
-    /// Prints the text that starts at `index`, up to the next control or the end of the chunk.
-    private mutating func printText(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
-        let byte = bytes[index]
-        if !printsInRuns || byte == Parser.delete {
-            consume(byte, replies: &replies)
-            index += 1
-        } else if byte < 0x80 {
-            let start = index
-            index = TextScanner.endOfASCII(in: bytes, from: start)
-            screen.writeASCII(bytes.extracting(start..<index), style: style)
+    /// Prints a run of ASCII from the chunk or the glyphs the parser decoded.
+    @inline(__always)
+    private mutating func print(_ text: Parser.Text, from bytes: Span<UInt8>) {
+        guard printsInRuns else { return printEach(text, from: bytes) }
+        switch text {
+        case .ascii(let run):
+            screen.writeASCII(bytes.extracting(run), style: style)
             followsText = true
             generation &+= 1
-        } else {
-            writeNonASCII(in: bytes, index: &index, replies: &replies)
+        case .glyphs(let count):
+            generation &+= screen.writeRun(parser.glyphs.span.extracting(..<count), style: style, joinsPrevious: &followsText)
         }
     }
 
-    private mutating func writeNonASCII(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
-        // Printable ASCII continues text that appends cells, so mixed text stays in one run.
-        // Overwriting cells, the text ends at ASCII instead, which takes the vector path.
-        let (count, control) = scanner.decodeText(in: bytes, index: &index, continuingASCII: screen.appendsAtCursor,
-                                                  into: &glyphs)
-        if count > 0 {
-            generation &+= screen.writeRun(glyphs.span.extracting(..<count), style: style, joinsPrevious: &followsText)
-        }
-        if let control {
-            let action = parser.consume(control)
-            dispatch(action, replies: &replies)
-        }
-    }
-
-    /// A C0 control outside a sequence goes straight to its function. Any of them ends the text run.
-    private mutating func executeControl(_ byte: UInt8, replies: inout [UInt8]) {
-        followsText = false
-        if let control = ControlFunction.C0(rawValue: byte) { perform(.c0(control), replies: &replies) }
-    }
-
-    /// Reads a sequence from `index`: at most one action, or the ASCII payload of a string.
-    private mutating func readSequence(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
-        let byte = bytes[index]
-        if byte >= 0x80 {
-            consume(byte, replies: &replies)
-            index += 1
-        } else if TextScanner.isPrintableASCII(byte), parser.discardsASCII || stringHandler.isCollecting {
-            let start = index
-            index = TextScanner.endOfASCII(in: bytes, from: start)
-            if stringHandler.isCollecting { stringHandler.appendASCII(bytes.extracting(start..<index)) }
-        } else {
-            var lent: Range<Int>?
-            let action = parser.consume(bytes, from: &index, lent: &lent)
-            if let lent {
-                // SGR applies its operands as it reads them from the chunk. Copying them into
-                // parameters first took 3% more instructions on SGR-heavy output.
-                if case .csi(Self.selectGraphicRendition)? = action {
-                    style.applySGR(bytes.extracting(lent))
-                    followsText = false
-                    return
-                }
-                parser.parameters.append(lent, of: bytes)
-            }
-            dispatch(action, replies: &replies)
-        }
-    }
-
-    private static let selectGraphicRendition = ControlIdentifier(UInt8(ControlFunction.CSI.graphicRendition.rawValue))
-
-    /// Reads one byte the general way. The run and sequence paths above must match it, and `receive`
-    /// falls back to it for text that prints one character at a time and for C1 bytes inside a control.
-    private mutating func consume(_ byte: UInt8, replies: inout [UInt8]) {
-        if byte < 0x80, !parser.isGround || !TextScanner.isPrintableASCII(byte) {
-            // An ASCII control also terminates any incomplete UTF-8 character.
-            if !scanner.isComplete { scanner = TextScanner() }
-            let action = parser.consume(ascii: byte)
-            dispatch(action, replies: &replies)
-            return
-        }
-        guard let scalar = scanner.decode(byte), scalar != TextScanner.byteOrderMark else { return }
-        if parser.isGround, TextScanner.isPrintable(scalar) {
+    /// Prints one character at a time through the active character set, in insert mode or with autowrap off.
+    private mutating func printEach(_ text: Parser.Text, from bytes: Span<UInt8>) {
+        func print(_ scalar: Unicode.Scalar) {
             let scalar = characterSets.active.translate(scalar)
             let width = ColumnWidth.of(scalar)
-            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert, joinsPrevious: followsText)
+            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert,
+                         joinsPrevious: followsText)
             followsText = width > 0 || followsText
             generation &+= 1
-            return
         }
-        let action = parser.consume(scalar)
-        dispatch(action, replies: &replies)
-    }
-
-    private mutating func dispatch(_ action: Parser.Action?, replies: inout [UInt8]) {
-        if let action {
-            if let function = ControlFunction(action) { perform(function, replies: &replies) }
-            followsText = false
-        }
-        if let pending = parser.takePendingAction(), let function = ControlFunction(pending) {
-            perform(function, replies: &replies)
+        switch text {
+        case .ascii(let run):
+            for index in run { print(Unicode.Scalar(bytes[index])) }
+        case .glyphs(let count):
+            for index in 0..<count {
+                if let scalar = Unicode.Scalar(StoredCell(glyph: parser.glyphs[index]).scalar) { print(scalar) }
+            }
         }
     }
 
-    /// Applies one named VT function. Screen operations advance the frame generation together below.
+    /// Performs one named function, which ends the text run.
+    @inline(__always)
     private mutating func perform(_ function: ControlFunction, replies: inout [UInt8]) {
         switch function {
-        case .c0(.backspace): screen.backspace(reverseWraparound: modes.reverseWraparound)
-        case .c0(.horizontalTab): screen.horizontalTab()
-        case .c0(.lineFeed), .c0(.verticalTab), .c0(.formFeed):
+        case .c0(let function): perform(function)
+        case .escape(let function): perform(function)
+        case .designate(let set, let slot): characterSets.designate(set, slot: slot)
+        case .csi(let function): perform(function, replies: &replies)
+        case .osc(let function): perform(function, replies: &replies)
+        case .dcs(let function): perform(function, replies: &replies)
+        case .unsupported: break
+        }
+        followsText = false
+    }
+
+    // Each family's functions that change the screen advance the frame generation together at the end.
+
+    private mutating func perform(_ function: ControlFunction.C0) {
+        switch function {
+        case .backspace: screen.backspace(reverseWraparound: modes.reverseWraparound)
+        case .horizontalTab: screen.horizontalTab()
+        case .lineFeed, .verticalTab, .formFeed:
             if modes.newLine { screen.carriageReturn() }
             screen.lineFeed(style: style)
-        case .c0(.carriageReturn): screen.carriageReturn()
-        case .c0(.shiftIn):
+        case .carriageReturn: screen.carriageReturn()
+        case .shiftIn:
             characterSets.invoke(0)
             return
-        case .c0(.shiftOut), .escape(.lockingShift1Right):
+        case .shiftOut:
             characterSets.invoke(1)
             return
-        case .escape(.lockingShift2), .escape(.lockingShift2Right):
+        }
+        generation &+= 1
+    }
+
+    private mutating func perform(_ function: ControlFunction.Escape) {
+        switch function {
+        case .lockingShift1Right:
+            characterSets.invoke(1)
+            return
+        case .lockingShift2, .lockingShift2Right:
             characterSets.invoke(2)
             return
-        case .escape(.lockingShift3), .escape(.lockingShift3Right):
+        case .lockingShift3, .lockingShift3Right:
             characterSets.invoke(3)
             return
-        case .escape(.selectDefaultCharacterSet), .escape(.selectUTF8):
+        case .selectDefaultCharacterSet, .selectUTF8:
             characterSets.invoke(0)
             characterSets.designate(.ascii, slot: 0)
             return
-        case .designate(let set, let slot):
-            characterSets.designate(set, slot: slot)
-            return
-        case .escape(.saveCursor):
+        case .saveCursor:
             saveCursor()
             return
-        case .escape(.restoreCursor): restoreCursor()
-        case .escape(.applicationKeypad):
+        case .restoreCursor: restoreCursor()
+        case .applicationKeypad:
             modes.applicationKeypad = true
             return
-        case .escape(.numericKeypad):
+        case .numericKeypad:
             modes.applicationKeypad = false
             return
-        case .escape(.index): screen.index(style: style)
-        case .escape(.nextLine):
+        case .index: screen.index(style: style)
+        case .nextLine:
             screen.carriageReturn()
             screen.index(style: style)
-        case .escape(.tabSet):
+        case .tabSet:
             screen.setTabStop()
             return
-        case .escape(.reverseIndex): screen.reverseIndex(style: style)
-        case .escape(.screenAlignmentPattern):
+        case .reverseIndex: screen.reverseIndex(style: style)
+        case .screenAlignmentPattern:
             // As DEC specifies, DECALN fills the whole screen and resets the margins before homing.
             screen.fillWithAlignmentPattern(style: style.alignmentStyle)
             screen.resetScrollRegion()
             position(row: 0, column: 0)
-        case .escape(.fullReset): fullReset()
-        case .csi(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
-        case .csi(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
-        case .csi(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
-        case .csi(.cursorForward), .csi(.columnRelative): screen.cursorForward(parser.parameters[0, default: 1])
-        case .csi(.cursorBackward): screen.cursorBackward(parser.parameters[0, default: 1])
-        case .csi(.cursorNextLine): screen.cursorNextLine(parser.parameters[0, default: 1])
-        case .csi(.cursorPrecedingLine): screen.cursorPrecedingLine(parser.parameters[0, default: 1])
-        case .csi(.cursorColumn), .csi(.columnAbsolute):
+        case .fullReset: fullReset()
+        }
+        generation &+= 1
+    }
+
+    /// Reads the parser's parameters.
+    private mutating func perform(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
+        switch function {
+        case .insertCharacters: screen.insertBlanks(parser.parameters[0, default: 1], style: style)
+        case .cursorUp: screen.cursorUp(parser.parameters[0, default: 1])
+        case .cursorDown: screen.cursorDown(parser.parameters[0, default: 1])
+        case .cursorForward, .columnRelative: screen.cursorForward(parser.parameters[0, default: 1])
+        case .cursorBackward: screen.cursorBackward(parser.parameters[0, default: 1])
+        case .cursorNextLine: screen.cursorNextLine(parser.parameters[0, default: 1])
+        case .cursorPrecedingLine: screen.cursorPrecedingLine(parser.parameters[0, default: 1])
+        case .cursorColumn, .columnAbsolute:
             screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
-        case .csi(.repeatPrecedingCharacter):
+        case .repeatPrecedingCharacter:
             // REP repeats a character only when it was printed right before the sequence.
             guard followsText else { return }
             screen.repeatPrecedingCharacter(parser.parameters[0, default: 1], style: style,
                                             wraparound: modes.wraparound, insert: modes.insert)
-        case .csi(.rowAbsolute):
+        case .rowAbsolute:
             position(row: parser.parameters[0, default: 1] - 1, column: screen.column)
-        case .csi(.rowRelative):
+        case .rowRelative:
             // Unlike CUD, VPR passes the bottom margin, unless origin mode keeps the cursor within it.
             position(row: screen.row - originTop + parser.parameters[0, default: 1], column: screen.column)
-        case .csi(.cursorPosition), .csi(.horizontalVerticalPosition):
+        case .cursorPosition, .horizontalVerticalPosition:
             position(row: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
-        case .csi(.forwardTab): screen.horizontalTab(parser.parameters[0, default: 1])
-        case .csi(.backwardTab): screen.backwardTab(parser.parameters[0, default: 1])
-        case .csi(.tabClear):
+        case .forwardTab: screen.horizontalTab(parser.parameters[0, default: 1])
+        case .backwardTab: screen.backwardTab(parser.parameters[0, default: 1])
+        case .tabClear:
             // TBC 0 clears the stop at the cursor and TBC 3 clears every stop.
             switch parser.parameters[0] {
             case 0: screen.clearTabStop()
@@ -367,48 +324,48 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .csi(.eraseInDisplay), .csi(.selectiveEraseInDisplay):
+        case .eraseInDisplay, .selectiveEraseInDisplay:
             if parser.parameters[0] == 3 {
                 screen.eraseHistory()
             } else if let range = EraseRange(rawValue: parser.parameters[0]) {
                 screen.eraseDisplay(range, style: style)
             }
-        case .csi(.eraseInLine), .csi(.selectiveEraseInLine):
+        case .eraseInLine, .selectiveEraseInLine:
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
-        case .csi(.insertLines): screen.insertLines(parser.parameters[0, default: 1], style: style)
-        case .csi(.deleteLines): screen.deleteLines(parser.parameters[0, default: 1], style: style)
-        case .csi(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
-        case .csi(.scrollUp): screen.scrollUp(parser.parameters[0, default: 1], style: style)
-        case .csi(.scrollDown): screen.scrollDown(parser.parameters[0, default: 1])
-        case .csi(.eraseCharacters): screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
-        case .csi(.insertColumns):
+        case .insertLines: screen.insertLines(parser.parameters[0, default: 1], style: style)
+        case .deleteLines: screen.deleteLines(parser.parameters[0, default: 1], style: style)
+        case .deleteCharacters: screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
+        case .scrollUp: screen.scrollUp(parser.parameters[0, default: 1], style: style)
+        case .scrollDown: screen.scrollDown(parser.parameters[0, default: 1])
+        case .eraseCharacters: screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
+        case .insertColumns:
             screen.editColumns(.insert, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .csi(.deleteColumns):
+        case .deleteColumns:
             screen.editColumns(.delete, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .csi(.scrollLeft): screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
-        case .csi(.scrollRight): screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
-        case .csi(.primaryDeviceAttributes):
+        case .scrollLeft: screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
+        case .scrollRight: screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
+        case .primaryDeviceAttributes:
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
-        case .csi(.secondaryDeviceAttributes):
+        case .secondaryDeviceAttributes:
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
             return
-        case .csi(.setMode):
+        case .setMode:
             setModes(enabled: true)
             return
-        case .csi(.resetMode):
+        case .resetMode:
             setModes(enabled: false)
             return
-        case .csi(.setPrivateMode):
+        case .setPrivateMode:
             setPrivateModes(enabled: true, replies: &replies)
             return
-        case .csi(.resetPrivateMode):
+        case .resetPrivateMode:
             setPrivateModes(enabled: false, replies: &replies)
             return
-        case .csi(.graphicRendition):
-            style.applySGR(&parser.parameters)
+        case .graphicRendition:
+            // Receive gives SGR to the pen.
             return
-        case .csi(.deviceStatusReport):
+        case .deviceStatusReport:
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
             switch parser.parameters[0] {
             case 5: replies.append(contentsOf: Reply.operatingStatus.utf8)
@@ -416,7 +373,7 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .csi(.privateDeviceStatusReport):
+        case .privateDeviceStatusReport:
             // DECDSR 6 asks for the cursor position, and 996 asks whether the theme is dark or light.
             switch parser.parameters[0] {
             case 6: replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
@@ -424,63 +381,61 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .csi(.requestMode):
+        case .requestMode:
             let mode = parser.parameters[0]
             replies.append(contentsOf: Reply.modeReport(mode, modeState(mode), isPrivate: false).utf8)
             return
-        case .csi(.requestPrivateMode):
+        case .requestPrivateMode:
             let mode = parser.parameters[0]
             replies.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
             return
-        case .csi(.cursorStyle): setCursorStyle(parser.parameters[0])
-        case .csi(.softReset): softReset()
-        case .csi(.scrollMargins):
+        case .cursorStyle: setCursorStyle(parser.parameters[0])
+        case .softReset: softReset()
+        case .scrollMargins:
             let top = parser.parameters[0, default: 1]
             let bottom = min(parser.parameters[1, default: size.rows], size.rows)
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
             position(row: 0, column: 0)
-        case .csi(.saveCursor):
+        case .saveCursor:
             saveCursor()
             return
-        case .csi(.restoreCursor): restoreCursor()
-        case .command(let command):
-            stringHandler.start(command)
-            return
-        case .ignoredString:
-            parser.discardStringPayload()
-            stringHandler.start(nil)
-            return
-        case .stringPut(let scalar):
-            stringHandler.put(scalar)
-            return
-        case .stringEnd(let success):
-            guard let string = stringHandler.finish(success: success) else { return }
-            switch string.command {
-            case .osc(.setIconAndWindowTitle), .osc(.setWindowTitle): title = string.payload
-            case .osc(.hyperlink):
-                switch Link.command(string.payload) {
-                case .open(let link): style.link = screen.number(for: link, pen: style)
-                case .close: style.link = 0
-                case nil: break
-                }
-            case .osc(.clipboard):
-                if let text = Self.clipboardText(string.payload) { copiedText = text }
-            case .osc(let command):
-                if programColors.apply(command, payload: string.payload, palette: palette,
-                                       cursor: cursorColor, replies: &replies) {
-                    generation &+= 1
-                }
-            case .dcs(.requestStatusString):
-                let cursorStyle = CursorStyleParameter(modes.cursorShape,
-                                                       blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
-                replies += Reply.statusString(string.payload, style: style, cursorStyle: cursorStyle,
-                                              scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
-            case .dcs(.requestCapabilities): replies += Reply.capabilities(string.payload).utf8
-            }
-            return
+        case .restoreCursor: restoreCursor()
         }
         generation &+= 1
+    }
+
+    /// Reads the parser's payload. Only program colors change what the screen shows.
+    private mutating func perform(_ function: ControlFunction.OSC, replies: inout [UInt8]) {
+        switch function {
+        case .setIconAndWindowTitle, .setWindowTitle: title = parser.payload.text
+        case .hyperlink:
+            switch Link.command(parser.payload.text) {
+            case .open(let link): style.link = screen.number(for: link, pen: style)
+            case .close: style.link = 0
+            case nil: break
+            }
+        case .clipboard:
+            if let text = Self.clipboardText(parser.payload.text) { copiedText = text }
+        default:
+            if programColors.apply(function, payload: parser.payload.text, palette: palette,
+                                   cursor: cursorColor, replies: &replies) {
+                generation &+= 1
+            }
+        }
+    }
+
+    /// Reads the parser's payload, and only replies.
+    private mutating func perform(_ function: ControlFunction.DCS, replies: inout [UInt8]) {
+        switch function {
+        case .requestStatusString:
+            let cursorStyle = CursorStyleParameter(modes.cursorShape,
+                                                   blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
+            replies += Reply.statusString(parser.payload.text, style: style, cursorStyle: cursorStyle,
+                                          scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
+        case .requestCapabilities:
+            replies += Reply.capabilities(parser.payload.text).utf8
+        }
     }
 
     /// The rows CUP and VPA count from. Origin mode counts from the top margin.

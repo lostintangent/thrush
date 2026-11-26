@@ -1,51 +1,53 @@
 import Testing
 @testable import ThrushCore
 
-private enum Frame: Equatable {
-    case print(Unicode.Scalar), execute(UInt8), esc(ControlIdentifier)
-    case csi(ControlIdentifier, String)
-    case osc(Int), dcs(ControlIdentifier, String)
-    case put(Unicode.Scalar), end(Bool)
-
-    init(_ action: Parser.Action, scalar: Unicode.Scalar, parameters: borrowing Parameters) {
-        switch action {
-        case .printable: self = .print(scalar)
-        case .execute(let byte): self = .execute(byte)
-        case .esc(let id): self = .esc(id)
-        case .csi(let id): self = .csi(id, parameters.description)
-        case .oscStart(let id): self = .osc(id)
-        case .dcsStart(let id): self = .dcs(id, parameters.description)
-        case .stringPut(let value): self = .put(value)
-        case .stringEnd(let success): self = .end(success)
-        }
-    }
+/// What the parser reads, with the parameters or payload a function reads.
+private enum Read: Equatable {
+    case text(String)
+    case function(ControlFunction)
+    case csi(ControlFunction.CSI, String)
+    case osc(ControlFunction.OSC, String)
+    case dcs(ControlFunction.DCS, String)
 }
 
-private func frames(_ chunks: String..., discardingPayloads: Bool = false) -> [Frame] {
+/// Reads each chunk as one read, so sequences split where the chunks do.
+private func reads(_ chunks: String...) -> [Read] { reads(bytes: chunks.map { Array($0.utf8) }) }
+
+private func reads(bytes chunks: [[UInt8]]) -> [Read] {
     var parser = Parser()
-    var result: [Frame] = []
-    for chunk in chunks {
-        for scalar in chunk.unicodeScalars {
-            if let action = parser.consume(scalar) {
-                result.append(Frame(action, scalar: scalar, parameters: parser.parameters))
-                if discardingPayloads {
-                    switch action {
-                    case .oscStart, .dcsStart: parser.discardStringPayload()
-                    default: break
-                    }
+    var result: [Read] = []
+    for bytes in chunks {
+        let span = bytes.span
+        var index = 0
+        while let token = parser.next(in: span, from: &index) {
+            switch token {
+            case .text(.ascii(let run)):
+                result.append(.text(String(decoding: bytes[run], as: UTF8.self)))
+            case .text(.glyphs(let count)):
+                let scalars = (0..<count).map { Unicode.Scalar(Terminal.StoredCell(glyph: parser.glyphs[$0]).scalar)! }
+                result.append(.text(String(String.UnicodeScalarView(scalars))))
+            case .function(.csi(let function)):
+                let parameters = parser.parameters.withBytes(in: span) { header in
+                    String(decoding: header.indices.map { header[$0] }, as: UTF8.self)
                 }
+                result.append(.csi(function, parameters))
+            case .function(.osc(let function)): result.append(.osc(function, parser.payload.text))
+            case .function(.dcs(let function)): result.append(.dcs(function, parser.payload.text))
+            case .function(let function): result.append(.function(function))
             }
-            if let pending = parser.takePendingAction() { result.append(Frame(pending, scalar: scalar, parameters: parser.parameters)) }
         }
     }
     return result
 }
 
-@Test func controlIdentifiersAndParametersSurviveSplitHeaders() {
-    let trace = frames("\u{1B}", "[?1:0:", ":3;2", " ", "$", "p", "\u{1B}", "(", "B")
-    #expect(trace == [
-        .csi(.init(0x70, prefix: 0x3F, intermediate: 0x20, secondIntermediate: 0x24), "1:0::3;2"),
-        .esc(.init(0x42, intermediate: 0x28)),
+@Test func functionsAndParametersSurviveSplitHeaders() {
+    #expect(reads("\u{1B}", "[?1:0:", ":3;2", "$", "p", "\u{1B}", "(", "B") == [
+        .csi(.requestPrivateMode, "1:0::3;2"),
+        .function(.designate(.ascii, slot: 0)),
+    ])
+    // A whole SGR's header is read from the chunk it arrived in.
+    #expect(reads("A\u{1B}[1;31mB\u{1B}[m") == [
+        .text("A"), .csi(.graphicRendition, "1;31"), .text("B"), .csi(.graphicRendition, ""),
     ])
 }
 
@@ -58,9 +60,9 @@ private func frames(_ chunks: String..., discardingPayloads: Bool = false) -> [F
     #expect(parameters[99, default: 7] == 7)
 
     let fields = (1...35).map(String.init).joined(separator: ";")
-    #expect(frames("\u{9B}" + fields + "m", "\u{9B}7;2m") == [
-        .csi(.init(0x6D), fields),
-        .csi(.init(0x6D), "7;2"),
+    #expect(reads("\u{9B}" + fields + "m", "\u{9B}7;2m") == [
+        .csi(.graphicRendition, fields),
+        .csi(.graphicRendition, "7;2"),
     ])
     var long = Parameters()
     for byte in fields.utf8 { long.append(byte) }
@@ -68,37 +70,44 @@ private func frames(_ chunks: String..., discardingPayloads: Bool = false) -> [F
     #expect((0..<34).map { long[$0] } == Array(1...32) + [0, 0])
 }
 
-@Test func oscStreamsAndEndsOnEscapeBeforeTheSecondSTByte() {
-    #expect(frames("\u{1B}]10", ";", "?", "\u{1B}", "\\", "\u{9D}11\u{07}", "\u{9D}4;1;?", "\u{18}", "Z") == [
-        .osc(10), .put("?"), .end(true), .esc(.init(0x5C)),
-        .osc(11), .end(true),
-        .osc(4), .put("1"), .put(";"), .put("?"), .end(false), .print("Z"),
+@Test func textEndsAtEachControl() {
+    // A character split across reads, a C1 control, DEL and a byte order mark.
+    #expect(reads(bytes: [Array("é\u{85}é\u{7F}e\u{FEFF}é".utf8), [0xC3], [0xA9, 0x0D]]) == [
+        .text("é"), .function(.escape(.nextLine)), .text("é"), .text("e"), .text("é"), .text("é"),
+        .function(.c0(.carriageReturn)),
     ])
-    #expect(frames("\u{9D}invalid;?\u{07}X", "\u{9D}10;?\u{85}Y") == [
-        .print("X"), .osc(10), .put("?"), .end(false), .execute(0x85), .print("Y"),
+}
+
+@Test func oscStreamsAndEndsOnEscapeBeforeTheSecondSTByte() {
+    #expect(reads("\u{1B}]10", ";", "?", "\u{1B}", "\\", "\u{9D}11\u{07}", "\u{9D}4;1;?", "\u{18}", "Z") == [
+        .osc(.foregroundColor, "?"), .function(.unsupported),
+        .osc(.backgroundColor, ""),
+        .function(.unsupported), .text("Z"),
+    ])
+    #expect(reads("\u{9D}invalid;?\u{07}X", "\u{9D}10;?\u{85}Y") == [
+        .text("X"), .function(.escape(.nextLine)), .text("Y"),
     ])
 }
 
 @Test func dcsPayloadStreamsC0AndUnicodeUntilTerminatedOrCancelled() {
-    #expect(frames("\u{1B}P>2:", ":0;4+", "q", "A", "\u{07}", "界", "\u{7F}", "\u{9C}", "Z") == [
-        .dcs(.init(0x71, prefix: 0x3E, intermediate: 0x2B), "2::0;4"),
-        .put("A"), .put("\u{07}"), .put("界"), .end(true), .print("Z"),
+    #expect(reads("\u{1B}P2:", ":0;4+", "q", "A", "\u{07}", "界", "\u{7F}", "\u{9C}", "Z") == [
+        .dcs(.requestCapabilities, "A\u{07}界"), .text("Z"),
     ])
-    #expect(frames("\u{1B}[1?2aQ", "\u{1B}[1\u{08}2D", "\u{90}\u{08}4!qX\u{1A}") == [
-        .print("Q"), .execute(0x08), .csi(.init(0x44), "12"),
-        .dcs(.init(0x71, intermediate: 0x21), "4"), .put("X"), .end(false),
+    #expect(reads("\u{1B}[1?2aQ", "\u{1B}[1\u{08}2D", "\u{90}\u{08}4!qX\u{1A}") == [
+        .text("Q"), .function(.c0(.backspace)), .csi(.cursorBackward, "12"),
+        .function(.unsupported),
     ])
 }
 
-@Test func unhandledStringsDiscardTextAndRetainTheirTerminators() {
-    #expect(frames("\u{9D}777;ignored界", "\u{07}A", "\u{1B}P+qpayload\u{07}", "\u{1B}", "\\B",
-                   "\u{9D}999;partial\u{9B}2m", "\u{9D}777;x\u{18}C", "\u{90}qz\u{1A}D",
-                   "\u{9D}777;x\u{85}E", "\u{9D}777;x\u{9C}F", "\u{9D}777\u{07}G",
-                   discardingPayloads: true) == [
-        .osc(777), .print("A"),
-        .dcs(.init(0x71, intermediate: 0x2B), ""), .esc(.init(0x5C)), .print("B"),
-        .osc(999), .csi(.init(0x6D), "2"),
-        .osc(777), .print("C"), .dcs(.init(0x71), ""), .print("D"),
-        .osc(777), .execute(0x85), .print("E"), .osc(777), .print("F"), .osc(777), .print("G"),
+@Test func unsupportedStringsDiscardTextAndEndAtTheirTerminators() {
+    #expect(reads("\u{9D}777;ignored界", "\u{07}A", "\u{1B}Pzpayload\u{07}", "\u{1B}", "\\B",
+                  "\u{9D}999;partial\u{9B}2m", "\u{9D}777;x\u{18}C", "\u{90}qz\u{1A}D",
+                  "\u{9D}777;x\u{85}E", "\u{9D}777;x\u{9C}F", "\u{9D}777\u{07}G") == [
+        .function(.unsupported), .text("A"),
+        .function(.unsupported), .function(.unsupported), .text("B"),
+        .function(.unsupported), .csi(.graphicRendition, "2"),
+        .function(.unsupported), .text("C"), .function(.unsupported), .text("D"),
+        .function(.escape(.nextLine)), .text("E"), .function(.unsupported), .text("F"),
+        .function(.unsupported), .text("G"),
     ])
 }

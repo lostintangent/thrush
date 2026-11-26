@@ -45,7 +45,7 @@ extension Terminal {
             // An ignored SGR preserves the current style and pending wrap while ending the run of text.
             writer.output += "\u{1b}[999m"
         }
-        return Array((writer.output + parser.replayPrefix(string: stringHandler)).utf8) + scanner.replayPrefix
+        return Array((writer.output + parser.replayPrefix).utf8) + parser.scanner.replayPrefix
     }
 
     private struct ReplayWriter {
@@ -257,8 +257,8 @@ extension Terminal {
 // A socket can detach in the middle of a control or scalar. End the repaint with an
 // equivalent unfinished prefix so the next live PTY byte completes the same operation.
 private extension Parser {
-    func replayPrefix(string: ControlStringHandler) -> String {
-        if isGround { return "" }
+    var replayPrefix: String {
+        if state == .ground { return "" }
         let esc = "\u{1b}"
         let bytes = [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: collected >> $0) }.filter { $0 != 0 }
         let prefix = String(decoding: bytes.filter { $0 >= 0x3c }, as: UTF8.self)
@@ -274,16 +274,14 @@ private extension Parser {
         case .dcsIgnore: return esc + "P1?"
         case .oscIdentifier: return esc + "]" + (oscIdentifier < 0 ? "" : String(oscIdentifier))
         case .oscPayload:
-            guard let payload = string.payload else { return esc + "]999;" }
-            return esc + "]" + String(oscIdentifier) + ";" + payload
+            guard payload.isKept else { return esc + "]999;" }
+            return esc + "]" + String(oscIdentifier) + ";" + payload.text
         case .invalidOSC: return esc + "]!"
-        case .discardedOSC: return esc + "]999;"
         case .dcsPayload:
-            // The command's intermediate and final byte start the payload collected so far.
-            guard let payload = string.payload, case .dcs(let command)? = string.command else { return esc + "Pq" }
-            let function = [8, 0].map { UInt8(truncatingIfNeeded: command.rawValue >> $0) }
-            return esc + "P" + String(decoding: function, as: UTF8.self) + payload
-        case .discardedDCS: return esc + "Pq"
+            // The function's intermediate and final byte start the payload read so far.
+            guard payload.isKept, case .dcs(let function) = string else { return esc + "Pq" }
+            let bytes = [8, 0].map { UInt8(truncatingIfNeeded: function.rawValue >> $0) }
+            return esc + "P" + String(decoding: bytes, as: UTF8.self) + payload.text
         case .ignoredString: return esc + "_"
         default: return ""
         }

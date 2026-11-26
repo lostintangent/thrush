@@ -3,16 +3,10 @@
 /// with a one-megabyte ASCII stream delivered in 4 KiB chunks.
 struct TextScanner: Sendable {
     static let byteOrderMark: Unicode.Scalar = "\u{feff}"
-    static let delete: Unicode.Scalar = "\u{7f}"
 
     /// Space through tilde occupy exactly 95 consecutive ASCII positions.
     static func isPrintableASCII(_ value: some FixedWidthInteger & UnsignedInteger) -> Bool {
         value &- 0x20 < 95
-    }
-
-    static func isPrintable(_ scalar: Unicode.Scalar) -> Bool {
-        // Above the C1 controls, even a zero-width scalar belongs to the text stream.
-        scalar.value >= 0xa0 || isPrintableASCII(scalar.value)
     }
 
     /// The first non-printable or non-ASCII byte, or the end of the input.
@@ -54,9 +48,9 @@ struct TextScanner: Sendable {
 
     /// Decodes printable text from `index` into `buffer`, each a scalar with the flag for its width,
     /// until a control, the end of this chunk or a full buffer. Printable ASCII continues the text
-    /// only when `continuingASCII` and a glyph came before it, so ASCII after a lone byte order mark
-    /// takes the vector path. Returns how many glyphs it decoded and any C1 control that ended them.
-    mutating func decodeText<let capacity: Int>(in bytes: Span<UInt8>, index: inout Int, continuingASCII: Bool,
+    /// only after a glyph, so ASCII after a lone byte order mark takes the vector path. Returns how
+    /// many glyphs it decoded, or the C1 control that came before any.
+    mutating func decodeText<let capacity: Int>(in bytes: Span<UInt8>, index: inout Int,
                                                 into buffer: inout InlineArray<capacity, UInt32>)
         -> (count: Int, control: Unicode.Scalar?) {
         var glyphs = buffer.mutableSpan
@@ -65,7 +59,7 @@ struct TextScanner: Sendable {
         while count < glyphs.count, index < bytes.count {
             let byte = bytes[index]
             if byte < 0x80 {
-                guard continuingASCII, count > 0, isComplete, Self.isPrintableASCII(byte) else { break }
+                guard count > 0, isComplete, Self.isPrintableASCII(byte) else { break }
                 if bytes.count &- index >= 16, glyphs.count &- count >= 16 {
                     // A stretch of printable ASCII shorter than a block joins the text at once. A longer
                     // one ends it, since the vector path writes that faster.
@@ -101,7 +95,9 @@ struct TextScanner: Sendable {
                 index += 1
                 guard let decoded = decode(byte) else { continue }
                 if decoded.value < 0xa0 {
-                    control = decoded
+                    // A C1 control after glyphs is read again on its own. Its two bytes are both in this chunk,
+                    // since the glyphs before them are.
+                    if count > 0 { index -= 2 } else { control = decoded }
                     break
                 }
                 scalar = decoded
