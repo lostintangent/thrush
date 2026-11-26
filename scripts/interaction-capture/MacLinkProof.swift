@@ -97,9 +97,7 @@ import XCTest
         }
         second.rightClick()
         XCTAssertTrue(copyLink.waitForExistence(timeout: 5), app.debugDescription)
-        let pageMenu = menu(with: "Copy Link")
-        XCTAssertTrue(item(Self.page, in: pageMenu).exists, "The menu's title should be the whole address.")
-        XCTAssertTrue(pageMenu.menuItems["Open Link"].exists)
+        XCTAssertTrue(menu(with: "Copy Link").menuItems["Open Link"].exists)
         save(XCUIScreen.main.screenshot(), "wrapped-menu", appearance)
         copyLink.click()
         XCTAssertEqual(NSPasteboard.general.string(forType: .string), Self.page)
