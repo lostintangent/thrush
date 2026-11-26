@@ -119,7 +119,14 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     var found: [LinkFinder.Found]?
     /// The link the renderer draws engaged. Input sets it while ⌘ is held over a link or one is pressed.
     var engagedLink: EngagedLink? {
-        didSet { if engagedLink != oldValue { invalidateFrame() } }
+        didSet {
+            guard engagedLink != oldValue else { return }
+            #if os(iOS)
+            // A lifted link's cells come back in the transaction that takes its copy away.
+            if oldValue?.lifted == true { nextFramePresentsWithTransaction = true }
+            #endif
+            invalidateFrame()
+        }
     }
     /// Reports a new row and column count after layout. Apply the size to the terminal and its PTY.
     package var onGridSizeChange: ((Terminal.Size) -> Void)?
@@ -167,7 +174,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
             if !holdsGridGeometry {
                 heldRowsAround = 0
                 // The new bounds and the first frame drawn for them commit together.
-                presentsWithLayout = true
+                nextFramePresentsWithTransaction = true
                 updateGeometry()
             }
         }
@@ -200,7 +207,9 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         onGridSizeChange?(next)
         return true
     }
-    private var presentsWithLayout = false
+    /// Whether the next frame presents in the Core Animation transaction that changed the layout or took a
+    /// lifted link's copy away, so the two show together.
+    private var nextFramePresentsWithTransaction = false
     #endif
 
     /// The terminal font size in points, from 6 through 96. A nil value uses 14 on Mac or 13 on iPhone.
@@ -935,8 +944,8 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         takingOutput = false
         updateGeometry()
         #if os(iOS)
-        if presentsWithTransaction != presentsWithLayout { presentsWithTransaction = presentsWithLayout }
-        presentsWithLayout = false
+        if presentsWithTransaction != nextFramePresentsWithTransaction { presentsWithTransaction = nextFramePresentsWithTransaction }
+        nextFramePresentsWithTransaction = false
         #endif
         prepareRenderer()
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
@@ -1013,16 +1022,14 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
                                   height: CGFloat(metrics.y(size?.rows ?? 0) - metrics.y(0)))
                 onFrameSubmitted(submitted, size, grid)
             }
-            #if os(iOS)
             if presentsWithTransaction {
                 frame.buffer.commit()
                 frame.buffer.waitUntilScheduled()
                 drawable.present()
-                return
+            } else {
+                frame.buffer.present(drawable)
+                frame.buffer.commit()
             }
-            #endif
-            frame.buffer.present(drawable)
-            frame.buffer.commit()
             showsBlinkingText = frame.blinks
             textBlink.frameDrawn(blinking: frame.blinks && !reducesMotion)
         } catch {

@@ -511,11 +511,15 @@ func linksCarryAQuietMarkUntilEngagedOrPressed() async throws {
     #expect(Set(line(engaged, 0..<4)) == [ink] && Set(line(engaged, 0..<4, row: 1)) == [ink])
     #expect(line(engaged, 5..<8) == line(resting, 5..<8))
 
-    let pressed = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8], engaged: [5..<8], pressed: true)])
+    let pressed = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8], engaged: [5..<8], engagedMark: .pressed)])
     let wash = pressed[Probe.edges[5] + 1, Probe.top + 2]
     #expect(wash != paper && pressed[Probe.edges[4] + 1, Probe.top + 2] == paper)
     #expect(Set(line(pressed, 5..<8)) == [ink] && pressed.colors(in: 5..<6).contains(ink))
     #expect(line(pressed, 0..<4) == mark)
+
+    // While a copy is lifted into its menu, the link leaves its cells empty.
+    let lifted = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8], engaged: [5..<8], engagedMark: .lifted)])
+    #expect(lifted.colors(in: 5..<8) == [paper] && line(lifted, 0..<4) == mark)
 }
 
 @MainActor

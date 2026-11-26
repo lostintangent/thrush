@@ -40,8 +40,10 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var touchedLink: UInt32?
     /// The link a ⌘-click pressed with a trackpad or mouse.
     private var clickedLink: UInt32?
-    /// The link whose context menu is up, which stays pressed until the menu has closed.
+    /// The link whose context menu is up, which stays out of the grid until the menu has closed.
     private var menuLink: UInt32?
+    /// The copy of a link lifted into its menu, which returns to the link's cells as the menu closes.
+    private var liftedLink: (number: UInt32, preview: UITargetedPreview)?
     /// The link the Links rotor last moved to. A rotor result holds its element weakly.
     private var rotorLink: PhoneLinkElement?
     /// Where a tap on a link that doesn't open directly shows the link's menu. It sits behind the scroll
@@ -438,7 +440,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     }
 
     @objc private func hovered(_ gesture: UIHoverGestureRecognizer) {
-        if clickedLink == nil, touchedLink == nil {
+        if clickedLink == nil, touchedLink == nil, menuLink == nil {
             let hovering = gesture.state == .began || gesture.state == .changed
             let number = hovering && gesture.modifierFlags.contains(.command)
                 ? terminal.link(at: gesture.location(in: self))?.number : nil
@@ -554,7 +556,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
             touchedLink = hit.number
             terminal.engagedLink = .init(number: hit.number, pressed: true)
         case .changed:
-            guard let number = touchedLink else { return }
+            guard let number = touchedLink, menuLink == nil else { return }
             terminal.engagedLink = terminal.link(at: point)?.number == number ? .init(number: number, pressed: true) : nil
         default:
             guard touchedLink != nil else { return }
@@ -601,7 +603,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
                                 animator: (any UIContextMenuInteractionAnimating)?) {
         guard let number = (configuration.identifier as? NSNumber)?.uint32Value else { return }
         menuLink = number
-        terminal.engagedLink = .init(number: number, pressed: true)
+        terminal.engagedLink = .init(number: number, pressed: true, lifted: true)
     }
 
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willEndFor configuration: UIContextMenuConfiguration,
@@ -609,6 +611,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         let close = { [weak self] in
             guard let self, menuLink != nil else { return }
             menuLink = nil
+            liftedLink = nil
             if touchedLink == nil { terminal.engagedLink = nil }
         }
         if let animator { animator.addCompletion(close) } else { close() }
@@ -616,20 +619,34 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
                                 highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-        (identifier as? NSNumber).flatMap { linkPreview($0.uint32Value) }
+        guard let number = (identifier as? NSNumber)?.uint32Value, let preview = linkPreview(number) else { return nil }
+        liftedLink = (number, preview)
+        return preview
     }
 
+    /// The lifted copy goes back to the link's cells, which stay empty until the menu has closed. If output
+    /// has reshaped the link or moved it out of view meanwhile, UIKit fades the copy instead.
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
                                 dismissalPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-        (identifier as? NSNumber).flatMap { linkPreview($0.uint32Value) }
+        guard let lifted = liftedLink, lifted.number == (identifier as? NSNumber)?.uint32Value,
+              let bounds = linkCells(lifted.number)?.bounds, bounds.size == lifted.preview.view.bounds.size else { return nil }
+        return lifted.preview.retargetedPreview(with: UIPreviewTarget(container: terminal, center: CGPoint(x: bounds.midX, y: bounds.midY)))
+    }
+
+    /// The rect of each of a link's visible runs, and their union.
+    private func linkCells(_ number: UInt32) -> (runs: [CGRect], bounds: CGRect)? {
+        let rects = terminal.linkRuns(of: number).map { terminal.rect(of: $0) }
+        guard let first = rects.first else { return nil }
+        return (rects, rects.dropFirst().reduce(first) { $0.union($1) })
     }
 
     /// The link lifts from the grid as its own preview, row by row. The preview holds only the link's
-    /// cells on the canvas color, so the platter's margin never shows part of a neighboring glyph.
+    /// cells on the canvas color, so the platter's margin never shows part of a neighboring glyph. The
+    /// grid leaves the link's cells empty while its menu is up, so where UIKit shrinks or moves a wide copy
+    /// to fit beside the menu, the original doesn't show around it.
     private func linkPreview(_ number: UInt32) -> UITargetedPreview? {
-        let rects = terminal.linkRuns(of: number).map { terminal.rect(of: $0) }
-        guard let first = rects.first else { return nil }
-        let bounds = rects.dropFirst().reduce(first) { $0.union($1) }
+        guard let found = linkCells(number) else { return nil }
+        let (rects, bounds) = found
         let background = UIColor(terminalColor: terminal.color(.background))
         let preview = UIView(frame: CGRect(origin: .zero, size: bounds.size))
         preview.backgroundColor = background

@@ -77,6 +77,10 @@ extension TerminalMetalView {
         let number: UInt32
         /// Whether a finger or a ⌘-click holds the link down.
         let pressed: Bool
+        /// Whether a copy of the link is lifted into its menu, which leaves the link's cells empty.
+        var lifted = false
+
+        var mark: LinkMark { lifted ? .lifted : pressed ? .pressed : .engaged }
     }
 
     /// The link whose text is under `point`. Unlike ``cell(at:)``, the point must be inside a cell of
@@ -142,7 +146,7 @@ extension TerminalMetalView {
                 }
             }
         }
-        for y in links.indices where !links[y].engaged.isEmpty { links[y].pressed = engaged.pressed }
+        for y in links.indices where !links[y].engaged.isEmpty { links[y].engagedMark = engaged.mark }
         return links
     }
 

@@ -40,6 +40,9 @@ enum LinkMark {
     case engaged
     /// Engaged, with a wash over the cell while a finger or click holds the link down.
     case pressed
+    /// Out of the grid while a copy of the link is lifted into its menu. Like concealed text, the cell
+    /// keeps its background, selection and cursor.
+    case lifted
 }
 
 /// The links on one row that its cells' styles don't name: the addresses found in its text, and the
@@ -47,10 +50,11 @@ enum LinkMark {
 struct RowLinks: Hashable {
     var found: [Range<Int>] = []
     var engaged: [Range<Int>] = []
-    var pressed = false
+    /// How the engaged link's columns show.
+    var engagedMark = LinkMark.engaged
 
     func mark(at column: Int, inProgramLink: Bool) -> LinkMark {
-        if engaged.contains(where: { $0.contains(column) }) { return pressed ? .pressed : .engaged }
+        if engaged.contains(where: { $0.contains(column) }) { return engagedMark }
         return inProgramLink || found.contains(where: { $0.contains(column) }) ? .resting : .none
     }
 }
@@ -102,7 +106,7 @@ struct RowBuilder {
         }
         if link == .pressed { fill(x: x, y: 0, width: width, height: height, color: Paint.foreground, effects: Effect.press) }
         // Concealed text keeps its background, selection and cursor. Copy still includes it.
-        guard !style.invisible else { return }
+        guard !style.invisible, link != .lifted else { return }
         // The cell being edited stays legible, so the cursor holds its glyph steady.
         let effects = (style.dim ? Effect.dim : 0) | (style.blink && !underCursor ? Effect.blink : 0)
         if !cell.text.isEmpty, cell.text != " " {
