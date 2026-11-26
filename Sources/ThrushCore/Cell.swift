@@ -462,13 +462,15 @@ extension Terminal {
             clearWideLead(before: start, style: style)
             switch edit {
             case .insert:
-                move(start..<(storageColumns - count), to: start + count)
+                // The cells pushed past the row's end come around to the start of the edit and are blanked there.
+                rotate(start..<storageColumns, by: count)
                 fillWithBlanks(start..<(start + count), style: style)
                 if stored(at: storageColumns - 1).width == 2 {
                     fillWithBlanks((storageColumns - 1)..<storageColumns, style: style)
                 }
             case .delete:
-                move((start + count)..<storageColumns, to: start)
+                // The deleted cells come around to the row's end and are blanked there.
+                rotate(start..<storageColumns, by: -count)
                 fillWithBlanks((storageColumns - count)..<storageColumns, style: style)
                 // An orphaned continuation is empty. A standalone combining mark also has width zero.
                 if stored(at: start).glyph == StoredCell.continuation {
@@ -477,18 +479,17 @@ extension Terminal {
             }
         }
 
-        /// Moves cells and their clusters along this row. The cells keep their style positions.
-        private mutating func move(_ range: Range<Int>, to start: Int) {
-            guard !range.isEmpty else { return }
-            extend(to: max(range.upperBound, start + range.count))
-            cells.withUnsafeMutableBufferPointer { cells in
-                // Like memmove, this copies back to front when the cells move right over themselves.
-                (cells.baseAddress! + start).update(from: cells.baseAddress! + range.lowerBound, count: range.count)
-            }
+        /// Rotates the cells in `range` and their clusters toward the row's end by `offset`, or toward
+        /// its start when it's negative. The cells keep their style positions.
+        private mutating func rotate(_ range: Range<Int>, by offset: Int) {
+            extend(to: range.upperBound)
+            cells.rotate(range, by: offset)
             guard !clusters.isEmpty else { return }
-            let moved = clusters.filter { range.contains($0.key) }
-            discardClusters(in: start..<(start + range.count))
-            for (index, text) in moved { clusters[start + index - range.lowerBound] = text }
+            let count = range.count
+            clusters = Dictionary(uniqueKeysWithValues: clusters.map { column, text in
+                guard range.contains(column) else { return (column, text) }
+                return (range.lowerBound + (column - range.lowerBound + offset % count + count) % count, text)
+            })
         }
 
         /// Copies cells and their clusters from another row as reflow rewraps a line.
