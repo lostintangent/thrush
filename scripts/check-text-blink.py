@@ -103,7 +103,10 @@ def check(blinking, steady, theme):
             "The blinking burst changed size")
     shown_frames = [i for i, band in enumerate(bands) if band == reference]
     others = [band for band in bands if band != reference]
-    require(len(shown_frames) >= 2, f"Only {len(shown_frames)} blinking frames matched the steady text")
+    if len(shown_frames) < 2:
+        closest = min(frames, key=lambda image: len(grid.changed_rows(image, shown)))
+        require(False, f"Only {len(shown_frames)} blinking frames matched the steady text. The closest "
+                f"changed rows {sorted(grid.changed_rows(closest, shown))}, pixels x={grid.changed_span(closest, shown)}")
     require(others, "Blinking text never changed")
     hidden_band = max(set(others), key=others.count)
     hidden_frames = [i for i, band in enumerate(bands) if band == hidden_band]
@@ -128,7 +131,14 @@ def check_bursts(bursts, out):
     summary = {}
     for appearance in ("dark", "light"):
         blinking, steady = bursts[appearance, "blinking"], bursts[appearance, "steady"]
-        result = check(blinking, steady, appearance)
+        try:
+            result = check(blinking, steady, appearance)
+        except ValueError:
+            # Keep the bursts beside the logs so a failure can be read from the uploaded captures.
+            for label, paths in (("blinking", blinking), ("steady", steady)):
+                for path in paths:
+                    shutil.copyfile(path, Path(out) / f"text-blink-{appearance}-{label}-{Path(path).stem}.png")
+            raise
         stills = dict(shown=result["shown"][0], hidden=result["hidden"][0], reduceMotion=steady[0])
         if result["fading"]:
             stills["fading"] = result["fading"][0]
