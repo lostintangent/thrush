@@ -14,6 +14,9 @@ import UIKit
     private var settleDuration: TimeInterval = 0
     private var settleTask: Task<Void, Never>?
     private var releaseTask: Task<Void, Never>?
+    private var keyboardMoving = false
+    private var keyboardTarget: CGRect?
+    private var keyboardTask: Task<Void, Never>?
 
     init(_ pane: TerminalPaneContainer) {
         self.pane = pane
@@ -27,9 +30,10 @@ import UIKit
     override func viewDidLoad() {
         super.viewDidLoad()
         pane.terminal.beforeViewportResize = { [weak self] source in self?.keyboardLayoutBegan(source: source) }
+        pane.terminal.beforeKeyboardMove = { [weak self] in self?.keyboardMoveBegan() }
         pane.terminal.onHeldGridReady = { [weak self] in
             // A frame requested before another turn began must not end the new hold.
-            if self?.releaseTask != nil { self?.releaseRotation() }
+            if self?.releaseTask != nil { self?.releaseHold() }
         }
         for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)), name: name, object: nil)
@@ -47,12 +51,65 @@ import UIKit
         sourceWidth = nil
         lastBounds = nil
         settleDuration = max(UIView.inheritedAnimationDuration, CATransaction.animationDuration())
-        pane.beginRotation(sourceHeight: source.height)
+        pane.beginHold(sourceHeight: source.height)
         checkGeometry()
+    }
+
+    // UIKit moves the keyboard guide in steps around the keyboard's own animation. On the way up
+    // it first leaves out the key row, and on the way down it waits at the key row's height. So
+    // the pane pins its lower edge and moves it once, inside the keyboard's animation, to where
+    // the keyboard will stop, holding the grid until the keyboard is there.
+    private func keyboardMoveBegan() {
+        guard pane.window != nil, pane.terminal.gridSize != nil, !releasing else { return }
+        if !keyboardMoving {
+            guard !pane.terminal.holdsGridGeometry else { return }
+            keyboardMoving = true
+            pane.pinLowerEdge()
+            pane.beginHold()
+        }
+        finishKeyboardMove(after: Self.keyboardWait)
+    }
+
+    private func moveWithKeyboard(to end: CGRect, duration: TimeInterval) {
+        guard let window = pane.window, let screen = window.windowScene?.screen else { return }
+        let inWindow = window.convert(end, from: screen.coordinateSpace)
+        // UIKit's guide already follows a floating keyboard, which never moves the edge.
+        guard abs(inWindow.width - window.bounds.width) <= 1 else { return finishKeyboardMove() }
+        keyboardTarget = end
+        let bottom = pane.safeAreaLayoutGuide.layoutFrame.maxY
+        let covered = pane.bounds.intersection(pane.convert(inWindow, from: window))
+        pane.pinLowerEdge(at: covered.isEmpty ? bottom : min(covered.minY, bottom))
+        pane.layoutIfNeeded()
+        finishKeyboardMove(after: duration + Self.keyboardWait)
+    }
+
+    private func finishKeyboardMove(after interval: TimeInterval) {
+        keyboardTask?.cancel()
+        keyboardTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(interval)) } catch { return }
+            self?.finishKeyboardMove()
+        }
+    }
+
+    private func finishKeyboardMove() {
+        guard keyboardMoving else { return }
+        stopFollowingKeyboard()
+        finishHold()
+    }
+
+    private func stopFollowingKeyboard() {
+        keyboardTask?.cancel()
+        keyboardTask = nil
+        keyboardTarget = nil
+        guard keyboardMoving else { return }
+        keyboardMoving = false
+        pane.unpinLowerEdge()
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
         if !coordinator.targetTransform.isIdentity, pane.terminal.gridSize != nil {
+            // The turn takes over a keyboard move's hold.
+            stopFollowingKeyboard()
             settleTask?.cancel()
             releaseTask?.cancel()
             releaseTask = nil
@@ -63,7 +120,7 @@ import UIKit
             sourceWidth = pane.bounds.width
             lastBounds = nil
             settleDuration = coordinator.transitionDuration
-            pane.beginRotation()
+            pane.beginHold()
             let registered = coordinator.animate(alongsideTransition: nil) { [weak self, weak coordinator] _ in
                 guard let self, let coordinator, rotation === coordinator else { return }
                 coordinatorFinished = true
@@ -88,19 +145,28 @@ import UIKit
               (note.object as? UIScreen).map({ $0 === screen }) != false,
               let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
         keyboardEnd = frame.cgRectValue
+        if keyboardMoving {
+            if note.name == UIResponder.keyboardWillChangeFrameNotification {
+                let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval
+                moveWithKeyboard(to: frame.cgRectValue, duration: duration ?? 0)
+            } else if keyboardTarget == frame.cgRectValue {
+                finishKeyboardMove()
+            }
+            return
+        }
         checkGeometry()
     }
 
     private func checkGeometry() {
-        guard pane.terminal.holdsGridGeometry, releaseTask == nil else { return }
+        guard pane.terminal.holdsGridGeometry, !keyboardMoving, releaseTask == nil else { return }
         // The keyboard may reach its destination before UIKit completes the rotation.
         if keyboardWasVisible && (keyboardMatchesGuide() || guideFollowsTurn()) {
-            finishRotation()
+            finishHold()
             return
         }
         guard coordinatorFinished else { return }
         if !keyboardWasVisible {
-            finishRotation()
+            finishHold()
             return
         }
         // The keyboard can deliver its layout after the orientation coordinator finishes.
@@ -115,7 +181,7 @@ import UIKit
         let interval = guideSpansPane ? max(settleDuration, UIView.inheritedAnimationDuration) : Self.staleGuideWait
         settleTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
-            self?.finishRotation()
+            self?.finishHold()
         }
     }
 
@@ -145,7 +211,7 @@ import UIKit
 
     private var guideSpansPane: Bool { abs(pane.keyboardLayoutGuide.layoutFrame.width - pane.bounds.width) <= 1 }
 
-    func finishRotation() {
+    func finishHold() {
         settleTask?.cancel()
         settleTask = nil
         rotation = nil
@@ -154,10 +220,10 @@ import UIKit
         // Keep the anchored source frame until the terminal delivers a frame at the
         // destination size, then commit the new layout together with that frame.
         pane.layoutIfNeeded()
-        guard pane.terminal.publishHeldGrid(for: pane.viewportSize) else { return releaseRotation() }
+        guard pane.terminal.publishHeldGrid(for: pane.viewportSize) else { return releaseHold() }
         releaseTask = Task { [weak self] in
             do { try await Task.sleep(for: Self.frameWait) } catch { return }
-            self?.releaseRotation()
+            self?.releaseHold()
         }
     }
 
@@ -166,9 +232,12 @@ import UIKit
     static let frameWait = Duration.seconds(1)
     /// A loaded system can keep the keyboard in the source orientation for well over a second.
     static let staleGuideWait: TimeInterval = 3
+    /// The keyboard can take a while to answer a first responder change on a loaded system.
+    static let keyboardWait: TimeInterval = 1
 
     /// Ends any hold now, as when SwiftUI removes the pane.
-    func releaseRotation() {
+    func releaseHold() {
+        stopFollowingKeyboard()
         settleTask?.cancel()
         settleTask = nil
         releaseTask?.cancel()
@@ -177,7 +246,7 @@ import UIKit
         coordinatorFinished = false
         sourceWidth = nil
         releasing = true
-        pane.endRotation()
+        pane.endHold()
         releasing = false
     }
 }

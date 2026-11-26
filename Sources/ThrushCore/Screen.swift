@@ -105,6 +105,21 @@ extension Terminal {
             result.cursorVisible = cursorVisible && result.cursorRow < rows.count
             return result
         }
+
+        /// Adds `count` rows above and below a viewport, as a taller grid can bring them into view,
+        /// so a view can draw them before the program answers the resize. Blank rows stand in for
+        /// rows the transcript doesn't have yet. The size stays the program's.
+        package func viewport(rowsFromBottom offset: Int, extendedBy count: Int) -> Self {
+            let first = history.count - min(max(0, offset), history.count) - count
+            let lines = 0..<(history.count + rows.count)
+            var result = self
+            result.rows = (first..<(first + rows.count + 2 * count)).map { index in
+                lines.contains(index) ? row(atAbsoluteIndex: index) : Row(columns: size.columns, generation: 0)
+            }
+            result.cursorRow += history.count - first
+            result.cursorVisible = cursorVisible && result.cursorRow < result.rows.count
+            return result
+        }
     }
 
     /// What DECSC and its equivalents save, and DECRC restores. Each buffer keeps its own.

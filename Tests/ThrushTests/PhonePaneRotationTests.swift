@@ -35,6 +35,52 @@ import UIKit
     func cellInWindow(row: Int, column: Int = 0) -> CGRect {
         terminal.convert(terminal.cellRect(row: row, column: column), to: window)
     }
+
+    /// Each row the terminal draws whole in the viewport, below the grid's top inset.
+    func visibleRows() -> [String] {
+        let viewport = try! #require(terminal.superview)
+        let frame = viewport.convert(viewport.bounds, to: window)
+        let top = frame.minY + terminal.cellRect(row: 0, column: 0).minY
+        let around = terminal.heldRowsAround
+        let rows = terminal.drawnContent.0?.rows ?? []
+        return rows.indices.compactMap { index in
+            let cell = cellInWindow(row: index - around)
+            guard cell.minY >= top - 0.5, cell.maxY <= frame.maxY + 0.5 else { return nil }
+            return "\(Int(cell.minY.rounded())) \(rows[index].text)"
+        }
+    }
+}
+
+/// While the keyboard moves the pane's lower edge, every row the viewport shows waits where the
+/// resized grid will draw it, including rows that come into view above or below the held grid.
+@MainActor @Test(arguments: [0, 4, 30], [false, true])
+func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lowering: Bool) throws {
+    let host = RotationPane()
+    let terminal = host.terminal
+    let bottom = host.pane.safeAreaLayoutGuide.layoutFrame.maxY
+    let keyboard = bottom - 200
+    if lowering {
+        host.pane.pinLowerEdge(at: keyboard)
+        host.pane.layoutIfNeeded()
+    }
+    var shell = Terminal(size: try #require(terminal.gridSize))
+    _ = shell.receive((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
+    terminal.display(shell)
+    terminal.setHistoryOffset(offset)
+
+    host.pane.pinLowerEdge()
+    host.pane.beginHold()
+    host.pane.pinLowerEdge(at: lowering ? bottom : keyboard)
+    host.pane.layoutIfNeeded()
+    let held = host.visibleRows()
+
+    host.pane.endHold()
+    host.pane.layoutIfNeeded()
+    let resized = try #require(terminal.gridSize)
+    shell.resize(to: resized)
+    terminal.display(shell)
+    #expect(held.count == resized.rows)
+    #expect(held == host.visibleRows())
 }
 
 @MainActor @Test func rotatingLivePaneKeepsTheHeldCursorInsideTheKeyboardViewport() throws {
@@ -54,7 +100,7 @@ import UIKit
     #expect(host.usableRect.contains(terminal.convert(sourceCursor, to: host.window)))
     #expect(sourceCursor.maxY > host.landscape.height)
 
-    host.pane.beginRotation()
+    host.pane.beginHold()
     host.resize(to: host.landscape)
     #expect(host.pane.viewportSize == host.usableRect.size)
     #expect(host.usableRect.height < portraitViewport.height)
@@ -66,7 +112,7 @@ import UIKit
     #expect(host.usableRect.contains(heldCursor))
     #expect(host.usableRect.contains(host.cellInWindow(row: cursor - 1)))
 
-    host.pane.endRotation()
+    host.pane.endHold()
     host.pane.layoutIfNeeded()
     let settled = try #require(terminal.gridSize)
     #expect(settled.rows < portraitGrid.rows && settled.columns > portraitGrid.columns)
@@ -90,12 +136,12 @@ import UIKit
     #expect(shell.snapshot().currentShellHistoryCount == 3)
     #expect(terminal.historyCount > shell.snapshot().currentShellHistoryCount)
 
-    host.pane.beginRotation()
+    host.pane.beginHold()
     host.resize(to: host.portrait)
     let held = terminal.convert(terminal.cursorRect, to: host.window)
     #expect(terminal.publishHeldGrid(for: host.pane.viewportSize))
     let destination = try #require(terminal.gridSize)
-    terminal.onHeldGridReady = { host.pane.endRotation() }
+    terminal.onHeldGridReady = { host.pane.endHold() }
     shell.resize(to: destination)
     terminal.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil)
     #expect(!terminal.holdsGridGeometry)
@@ -119,12 +165,12 @@ import UIKit
         terminal.display(shell)
         #expect(terminal.snapshot?.cursorRow == landscapeGrid.rows - 1)
 
-        host.pane.beginRotation()
+        host.pane.beginHold()
         host.resize(to: host.portrait)
         let held = terminal.convert(terminal.cursorRect, to: host.window)
         #expect(host.usableRect.contains(held))
 
-        host.pane.endRotation()
+        host.pane.endHold()
         host.pane.layoutIfNeeded()
         shell.resize(to: try #require(terminal.gridSize))
         terminal.display(shell)
@@ -147,7 +193,7 @@ import UIKit
     let firstCell = host.cellInWindow(row: 0)
     #expect(!firstCell.isEmpty)
 
-    host.pane.beginRotation()
+    host.pane.beginHold()
     host.resize(to: host.landscape)
     #expect(host.pane.viewportSize == host.usableRect.size)
     #expect(terminal.gridSize == portraitGrid)
@@ -157,7 +203,7 @@ import UIKit
     #expect(host.usableRect.contains(firstCell))
     #expect(host.usableRect.contains(host.cellInWindow(row: 2)))
 
-    host.pane.endRotation()
+    host.pane.endHold()
     host.pane.layoutIfNeeded()
     #expect(terminal.bounds.size == host.usableRect.size)
 }
@@ -177,10 +223,10 @@ import UIKit
     var ready = 0
     terminal.onHeldGridReady = {
         ready += 1
-        host.pane.endRotation()
+        host.pane.endHold()
     }
 
-    host.pane.beginRotation()
+    host.pane.beginHold()
     host.resize(to: host.landscape)
     let heldBounds = terminal.bounds
     let heldCursor = terminal.convert(terminal.cursorRect, to: host.window)
@@ -217,7 +263,7 @@ import UIKit
     func presentedHeight() -> CGFloat { viewport.layer.presentation()?.bounds.height ?? viewport.bounds.height }
 
     let start = viewport.bounds.height
-    host.pane.beginRotation()
+    host.pane.beginHold()
     // UIKit lists a later transaction's animations first, so the keyboard's comes after the turn.
     for (key, from, to) in [("bounds.size", NSValue(cgSize: CGSize(width: 0, height: -20)), NSValue(cgSize: .zero)),
                             ("position", NSValue(cgPoint: CGPoint(x: 0, y: -10)), NSValue(cgPoint: .zero))] {
@@ -245,7 +291,7 @@ import UIKit
     }
     #expect(lowest >= before - 1, "presented \(lowest) after \(before)")
     #expect(topDrift <= 1)
-    host.pane.endRotation()
+    host.pane.endHold()
 }
 
 @MainActor @Test func heldPaneReleasesWhenTheConnectionSendsNoResizedFrame() async throws {
@@ -254,9 +300,9 @@ import UIKit
     controller.loadViewIfNeeded()
     let terminal = host.terminal
     terminal.display(Terminal(size: try #require(terminal.gridSize)))
-    host.pane.beginRotation()
+    host.pane.beginHold()
     host.resize(to: host.landscape)
-    controller.finishRotation()
+    controller.finishHold()
     #expect(terminal.holdsGridGeometry)
     try await Task.sleep(for: PhonePaneController.frameWait * 2)
     #expect(!terminal.holdsGridGeometry)
@@ -287,7 +333,7 @@ import UIKit
             intercepted = true
             #expect(previous == source)
             #expect(view.gridSize == grid)
-            host.pane.beginRotation(sourceHeight: previous.height)
+            host.pane.beginHold(sourceHeight: previous.height)
         }
         host.resize(to: early)
         #expect(intercepted)
@@ -295,14 +341,14 @@ import UIKit
         #expect(view.gridSize == grid && view.drawableSize == drawable)
         #expect(emitted.isEmpty)
         // This is the later start signal used by the rotation coordinator.
-        host.pane.beginRotation()
+        host.pane.beginHold()
         host.resize(to: destination)
         #expect(host.pane.viewportSize == destination)
         #expect(view.bounds.height == source.height)
         #expect(view.gridSize == grid && view.drawableSize == drawable)
         #expect(emitted.isEmpty)
 
-        host.pane.endRotation()
+        host.pane.endHold()
         host.pane.layoutIfNeeded()
         #expect(view.gridSize == settled)
         #expect(emitted == [settled])

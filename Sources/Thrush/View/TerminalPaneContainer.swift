@@ -18,8 +18,13 @@ typealias PaneNativeView = UIView
     #else
     private let viewport = UIView()
     private var gridConstraints: [NSLayoutConstraint] = []
-    private var rotationConstraints: [NSLayoutConstraint] = []
-    private var heldCursor: (top: NSLayoutConstraint, row: Int, rows: Int, history: Int, keyboard: Bool)?
+    private var holdConstraints: [NSLayoutConstraint] = []
+    private var held: (top: NSLayoutConstraint, cursor: Int, rows: Int, history: Int, offset: Int, keyboard: Bool)?
+    // A hold can slide rows under the grid's top inset, which the resized grid leaves blank.
+    private let insetCover = UIView()
+    private var insetHeight: NSLayoutConstraint!
+    private var keyboardEdge: NSLayoutConstraint!
+    private var pinnedHeight: NSLayoutConstraint!
     var viewportSize: CGSize { viewport.bounds.size }
     var guideShowsKeyboard: Bool { keyboardLayoutGuide.layoutFrame.height > safeAreaInsets.bottom + 1 }
 
@@ -67,7 +72,13 @@ typealias PaneNativeView = UIView
         viewport.clipsToBounds = true
         viewport.translatesAutoresizingMaskIntoConstraints = false
         viewport.addSubview(terminal)
-        terminal.translatesAutoresizingMaskIntoConstraints = false
+        viewport.addSubview(insetCover)
+        insetCover.isUserInteractionEnabled = false
+        insetCover.isHidden = true
+        for view in [terminal, insetCover] { view.translatesAutoresizingMaskIntoConstraints = false }
+        keyboardEdge = viewport.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+        pinnedHeight = viewport.heightAnchor.constraint(equalToConstant: 0)
+        insetHeight = insetCover.heightAnchor.constraint(equalToConstant: 0)
         gridConstraints = [
             terminal.topAnchor.constraint(equalTo: viewport.topAnchor),
             terminal.heightAnchor.constraint(equalTo: viewport.heightAnchor),
@@ -81,9 +92,13 @@ typealias PaneNativeView = UIView
             viewport.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
             viewport.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             viewport.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
-            viewport.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor),
+            keyboardEdge,
             terminal.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
             terminal.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
+            insetCover.topAnchor.constraint(equalTo: viewport.topAnchor),
+            insetCover.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
+            insetCover.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
+            insetHeight,
         ])
         #endif
         terminal.onBackgroundChange = { [weak self] in self?.updateBacking() }
@@ -186,29 +201,48 @@ typealias PaneNativeView = UIView
         onVisibility?()
     }
 
-    // Keep the source drawable at its native height while the keyboard clips its viewport.
-    // A reader in history keeps the top row. At the live edge the cursor waits on the row the
-    // resized grid will give it, so the first resized frame draws the prompt where it already is.
-    func beginRotation(sourceHeight: CGFloat? = nil) {
-        guard rotationConstraints.isEmpty else { return }
+    // Keep the source drawable at its native height while a turn or the keyboard moves the
+    // viewport around it. Every row waits where the resized grid will draw it, so its first frame
+    // changes nothing. Rows under the grid's top inset stay covered, as the resized grid leaves it.
+    func beginHold(sourceHeight: CGFloat? = nil) {
+        guard holdConstraints.isEmpty else { return }
         terminal.holdsGridGeometry = true
         let top = terminal.topAnchor.constraint(equalTo: viewport.topAnchor)
-        rotationConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), top]
-        if terminal.historyOffset == 0, let snapshot = terminal.snapshot {
-            heldCursor = (top, snapshot.cursorRow, snapshot.size.rows, snapshot.currentShellHistoryCount, guideShowsKeyboard)
+        holdConstraints = [terminal.heightAnchor.constraint(equalToConstant: sourceHeight ?? terminal.bounds.height), top]
+        if let snapshot = terminal.snapshot {
+            let offset = terminal.historyOffset
+            // A pinned edge doesn't follow the keyboard guide, so it has nothing to wait for.
+            held = (top, snapshot.cursorRow - offset, snapshot.size.rows, snapshot.currentShellHistoryCount,
+                    offset, guideShowsKeyboard && keyboardEdge.isActive)
         }
+        insetHeight.constant = max(0, terminal.cellRect(row: 0, column: 0).minY)
+        insetCover.isHidden = false
         NSLayoutConstraint.deactivate(gridConstraints)
-        NSLayoutConstraint.activate(rotationConstraints)
+        NSLayoutConstraint.activate(holdConstraints)
     }
 
-    func endRotation() {
-        guard !rotationConstraints.isEmpty else { return }
-        NSLayoutConstraint.deactivate(rotationConstraints)
-        rotationConstraints.removeAll()
-        heldCursor = nil
+    func endHold() {
+        guard !holdConstraints.isEmpty else { return }
+        NSLayoutConstraint.deactivate(holdConstraints)
+        holdConstraints.removeAll()
+        held = nil
+        insetCover.isHidden = true
         NSLayoutConstraint.activate(gridConstraints)
         layoutIfNeeded()
         terminal.holdsGridGeometry = false
+    }
+
+    /// Holds the viewport's lower edge at a height in this pane, where it is now by default, so
+    /// the pane can follow the keyboard's own frame in one motion instead of its layout guide.
+    func pinLowerEdge(at y: CGFloat? = nil) {
+        pinnedHeight.constant = max(0, (y ?? viewport.frame.maxY) - safeAreaLayoutGuide.layoutFrame.minY)
+        keyboardEdge.isActive = false
+        pinnedHeight.isActive = true
+    }
+
+    func unpinLowerEdge() {
+        pinnedHeight.isActive = false
+        keyboardEdge.isActive = true
     }
 
     override func layoutSubviews() {
@@ -218,12 +252,12 @@ typealias PaneNativeView = UIView
            UIView.inheritedAnimationDuration == 0 {
             easeViewportIntoTurn(from: turning.frame, presented: presented)
         }
-        alignHeldCursor()
+        alignHeldGrid()
         updateSchemes()
     }
 
     private var turnMovesViewport: Bool {
-        !rotationConstraints.isEmpty || viewport.layer.animation(forKey: "turn bounds.size.height") != nil
+        !holdConstraints.isEmpty || viewport.layer.animation(forKey: "turn bounds.size.height") != nil
     }
 
     // UIKit turns the pane with additive animations, so a keyboard guide that moves the viewport
@@ -255,18 +289,22 @@ typealias PaneNativeView = UIView
         }
     }
 
-    // Follows the emulator's resize: a shorter grid scrolls the cursor into view, and a taller
-    // one pulls history back above a cursor on the bottom row. When the key row changes height
-    // with a turn, the keyboard guide briefly shows no keyboard outside the turn's animation,
-    // so a hold that began over the keyboard waits for the keyboard's own frame.
-    private func alignHeldCursor() {
-        guard let held = heldCursor, let metrics = terminal.metrics, guideShowsKeyboard || !held.keyboard else { return }
+    // Follows the emulator's resize. A shorter grid scrolls the cursor into view, and a taller one
+    // pulls history back above a cursor on the bottom row. A reader keeps the top row while
+    // enough rows remain below it. The terminal draws the rows that come into view above or
+    // below the held grid. When the key row changes height with a turn, the keyboard guide
+    // briefly shows no keyboard outside the turn's animation, so a hold that began over the
+    // keyboard waits for the keyboard's own frame.
+    private func alignHeldGrid() {
+        guard let held, let metrics = terminal.metrics, guideShowsKeyboard || !held.keyboard else { return }
         let rows = metrics.size(in: viewport.bounds.size).rows
-        let row = if rows < held.rows { min(held.row, rows - 1) }
-            else if held.row == held.rows - 1 { held.row + min(held.history, rows - held.rows) }
-            else { held.row }
-        let constant = CGFloat((row - held.row) * metrics.rowHeightPixels) / metrics.scale
+        let pulled = rows > held.rows && held.cursor == held.rows - 1 ? min(held.history, rows - held.rows) : 0
+        let lowered = if held.offset > 0 { max(0, pulled - held.offset) }
+            else if rows < held.rows { min(held.cursor, rows - 1) - held.cursor }
+            else { pulled }
+        let constant = CGFloat(lowered * metrics.rowHeightPixels) / metrics.scale
         if held.top.constant != constant { held.top.constant = constant }
+        terminal.heldRowsAround = max(terminal.heldRowsAround, lowered, rows - held.rows - lowered)
     }
 
     // During willDeactivate / willEnterForeground the scene can still report the old state.
@@ -304,6 +342,7 @@ typealias PaneNativeView = UIView
         toolbarCover.layer?.backgroundColor = terminal.resolvedTheme.palette.background.paneCGColor
         #else
         backgroundColor = UIColor(cgColor: background)
+        insetCover.backgroundColor = backgroundColor
         #endif
         updateSchemes()
     }

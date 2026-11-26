@@ -439,7 +439,7 @@ extension NativePane: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: PhonePaneController, context: Context) { owner.apply(pane) }
     static func dismantleUIViewController(_ controller: PhonePaneController, coordinator: TerminalPane.Coordinator) {
         coordinator.dismantle(controller.view)
-        controller.releaseRotation()
+        controller.releaseHold()
     }
 }
 #endif

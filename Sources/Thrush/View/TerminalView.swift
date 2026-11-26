@@ -138,6 +138,8 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     }
     #else
     var beforeViewportResize: ((CGSize) -> Void)?
+    /// Called just before this terminal's input asks UIKit to show or hide the keyboard.
+    var beforeKeyboardMove: (() -> Void)?
 
     // The pane coordinates the size change with UIKit's keyboard and orientation transitions.
     var holdsGridGeometry = false {
@@ -145,10 +147,24 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             guard oldValue != holdsGridGeometry else { return }
             heldGrid = nil
             if !holdsGridGeometry {
+                heldRowsAround = 0
                 // The new bounds and the first frame drawn for them commit together.
                 presentsWithLayout = true
                 updateGeometry()
             }
+        }
+    }
+    /// Rows drawn above and below the held grid while a taller viewport brings them into view,
+    /// so they're already there before the program answers the resize. The drawable stays
+    /// centered on the held rows and keeps its leading edge as a turn widens the view.
+    var heldRowsAround = 0 {
+        didSet {
+            guard oldValue != heldRowsAround, let metrics else { return }
+            contentMode = heldRowsAround > 0 ? .left : .topLeft
+            let size = CGSize(width: lastViewport.width,
+                              height: lastViewport.height + CGFloat(2 * heldRowsAround * metrics.rowHeightPixels))
+            if drawableSize != size { drawableSize = size }
+            invalidateFrame()
         }
     }
     /// Called when the terminal delivers its first frame at the grid published while holding.
@@ -833,6 +849,20 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     /// Schedules a new frame when MetalKit changes the drawable size.
     package func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { invalidateFrame() }
 
+    /// The rows and selection the next frame draws, including any rows held around the grid.
+    var drawnContent: (Terminal.Snapshot?, Selection?) {
+        #if os(iOS)
+        let around = heldRowsAround
+        if around > 0, let source = transcript.source {
+            return (source.viewport(rowsFromBottom: transcript.offset, extendedBy: around), selection.map {
+                Selection(anchorRow: $0.anchorRow + around, anchorColumn: $0.anchorColumn,
+                          headRow: $0.headRow + around, headColumn: $0.headColumn)
+            })
+        }
+        #endif
+        return (snapshot, selection)
+    }
+
     /// Submits the pending terminal frame when MetalKit asks the view to draw.
     package func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
@@ -845,9 +875,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
         let started = CACurrentMediaTime()
+        let (drawn, drawnSelection) = drawnContent
         do {
-            let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, selection: selection, showsCursor: acceptsTerminalInput && cursorSpinner == nil,
+            let frame = try renderer.encode(snapshot: drawn, metrics: metrics, theme: resolvedTheme,
+                                            pass: pass, selection: drawnSelection, showsCursor: acceptsTerminalInput && cursorSpinner == nil,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent

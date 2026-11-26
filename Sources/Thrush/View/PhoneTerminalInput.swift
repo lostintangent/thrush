@@ -175,6 +175,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     override func becomeFirstResponder() -> Bool {
+        if !isFirstResponder, canBecomeFirstResponder { terminalView?.beforeKeyboardMove?() }
         guard super.becomeFirstResponder() else { return false }
         terminalView?.inputFocusDidChange()
         return true
@@ -182,6 +183,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
 
     override func resignFirstResponder() -> Bool {
         cancelPendingInput()
+        if isFirstResponder { terminalView?.beforeKeyboardMove?() }
         guard super.resignFirstResponder() else { return false }
         terminalView?.inputFocusDidChange()
         return true

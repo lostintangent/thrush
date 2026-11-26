@@ -251,3 +251,22 @@ import ThrushFixtures
     #expect(snapshot.history.map(\.text) == Array(glyphs.dropLast().suffix(Terminal.History.limit)))
     #expect(snapshot.history.allSatisfy { $0.isWrapped && $0[0].width == 2 && $0[1].width == 0 })
 }
+
+@Test func extendedViewportHoldsTheRowsATallerGridBringsIntoView() {
+    var terminal = Terminal(size: .init(columns: 8, rows: 3))
+    _ = terminal.receive("one\r\ntwo\r\nthree\r\nfour\r\n$ ".utf8)
+    let held = terminal.snapshot()
+    terminal.resize(to: .init(columns: 8, rows: 5))
+    let taller = terminal.snapshot()
+
+    // At the live edge, the rows above are the history the taller grid pulls back.
+    let live = held.viewport(rowsFromBottom: 0, extendedBy: 2)
+    #expect(live.rows.map(\.text) == ["one", "two", "three", "four", "$ ", "", ""])
+    #expect(live.rows.prefix(5).map(\.text) == taller.rows.map(\.text))
+    #expect(live.cursorRow == taller.cursorRow && live.size == held.size)
+
+    // A reader keeps the top row, and the rows below it come into view.
+    let reading = held.viewport(rowsFromBottom: 1, extendedBy: 1)
+    #expect(reading.rows.map(\.text) == ["one", "two", "three", "four", "$ "])
+    #expect(reading.cursorRow == 4 && reading.cursorVisible)
+}
