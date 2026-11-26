@@ -1,6 +1,6 @@
 # Terminal pane lifecycle
 
-A `TerminalSession` owns a terminal and its scrollback. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
+A `TerminalSession` owns a terminal and its history. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
 
 ## Opening and reconnecting
 
@@ -14,7 +14,7 @@ When another WebSocket attachment takes ownership, keep the last screen and stop
 
 ## The server starts a replacement shell
 
-A fresh ready on reattach means the old shell expired. Keep its main screen in scrollback, with the earlier history, and leave the alternate screen behind. Start the replacement at row one with fresh modes and title. Discard held input intended for the old shell. The same session immediately accepts input and `hasEnded` stays false. Announce “New shell” once.
+A fresh ready on reattach means the old shell expired. Move its main screen into history after the earlier rows, and leave the alternate screen behind. Start the replacement at row one with fresh modes and title. Discard held input intended for the old shell. The same session immediately accepts input and `hasEnded` stays false. Announce “New shell” once.
 
 ## The shell ends
 

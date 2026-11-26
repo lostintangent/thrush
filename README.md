@@ -17,7 +17,7 @@ Add the package and link the `Thrush` product to your app target. Thrush needs m
 .package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
 ```
 
-Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. The session owns the terminal and its scrollback. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
+Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. The session owns the terminal and its history. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to the pane.
 
 ```swift
 import Thrush
