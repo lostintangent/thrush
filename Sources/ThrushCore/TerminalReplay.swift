@@ -228,7 +228,9 @@ extension Terminal {
             style.link = currentStyle.link
             guard currentStyle != style else { return }
             currentStyle = style
-            output += csi + style.renditionParameters + "m"
+            output += csi
+            output += style.renditionParameters
+            output += "m"
         }
 
         mutating func setModes(_ modes: Modes) {

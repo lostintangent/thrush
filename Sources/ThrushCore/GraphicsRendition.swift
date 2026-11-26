@@ -162,23 +162,30 @@ extension Terminal.Style {
     /// The SGR parameters that select this style, starting from the default with 0. The link is not
     /// a rendition, so OSC 8 sets it separately.
     var renditionParameters: String {
-        var parameters = ["0"]
-        let underlineCode = switch underline {
-        case .none: ""
-        case .single: "4"
-        default: "4:\(underline.rawValue)"
+        var parameters = "0"
+        if bold { parameters += ";1" }
+        if dim { parameters += ";2" }
+        if italic { parameters += ";3" }
+        switch underline {
+        case .none: break
+        case .single: parameters += ";4"
+        default: parameters += ";4:" + String(underline.rawValue)
         }
-        for (set, code) in [(bold, "1"), (dim, "2"), (italic, "3"), (!underlineCode.isEmpty, underlineCode), (blink, "5"),
-                            (inverse, "7"), (invisible, "8"), (strikethrough, "9"), (overline, "53")] where set {
-            parameters.append(code)
-        }
-        for (color, prefix) in [(foreground, "38"), (background, "48"), (underlineColor, "58")] {
+        if blink { parameters += ";5" }
+        if inverse { parameters += ";7" }
+        if invisible { parameters += ";8" }
+        if strikethrough { parameters += ";9" }
+        if overline { parameters += ";53" }
+        func add(_ color: Terminal.Color, _ prefix: String) {
             switch color {
             case .default: break
-            case .indexed(let index): parameters.append("\(prefix);5;\(index)")
-            case .rgb(let r, let g, let b): parameters.append("\(prefix);2;\(r);\(g);\(b)")
+            case .indexed(let index): parameters += prefix + ";5;" + String(index)
+            case .rgb(let r, let g, let b): parameters += prefix + ";2;" + String(r) + ";" + String(g) + ";" + String(b)
             }
         }
-        return parameters.joined(separator: ";")
+        add(foreground, ";38")
+        add(background, ";48")
+        add(underlineColor, ";58")
+        return parameters
     }
 }

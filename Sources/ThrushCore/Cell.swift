@@ -215,7 +215,7 @@ extension Terminal {
         package subscript(column: Int) -> Cell {
             precondition((0..<columns).contains(column))
             let cell = stored(at: column)
-            let text = clusters[column] ?? (cell.scalar == 0 ? "" : String(Unicode.Scalar(cell.scalar)!))
+            let text = cell.scalar == 0 ? "" : clusters[column] ?? String(Unicode.Scalar(cell.scalar)!)
             return Cell(text: text, width: cell.width, style: style(of: cell))
         }
 
