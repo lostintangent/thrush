@@ -85,19 +85,35 @@ struct TextScanner: Sendable {
                 position += 1
                 continue
             }
-            var sequence: (scalar: Unicode.Scalar?, length: Int) = (nil, 0)
+            var sequence: (value: UInt32?, length: Int) = (nil, 0)
             if decoder.isComplete, bytes.count &- position >= 4 {
                 // A branch for each length lets the next read start before this sequence's bytes arrive.
                 switch byte {
+                case 0xe0...0xef:
+                    // CJK text comes in runs of three-byte sequences, so four decode at once when they can.
+                    // It's all four or none, so the position advances by a fixed amount and the next read
+                    // doesn't wait on these values.
+                    if bytes.count &- position >= 16, glyphs.count &- count >= 4,
+                       let values = Self.fourThreeByteSequences(in: bytes, at: position) {
+                        var four = values
+                        for lane in 0..<4 {
+                            four[lane] = Terminal.StoredCell.glyph(values[lane], width: ColumnWidth.of(values[lane]))
+                        }
+                        var output = glyphs.mutableBytes
+                        output.storeBytes(of: four, toByteOffset: count &* 4, as: SIMD4<UInt32>.self)
+                        count &+= 4
+                        position &+= 12
+                        continue
+                    }
+                    sequence = (Self.sequence(in: bytes, at: position, length: 3), 3)
                 case 0xc2...0xdf: sequence = (Self.sequence(in: bytes, at: position, length: 2), 2)
-                case 0xe0...0xef: sequence = (Self.sequence(in: bytes, at: position, length: 3), 3)
                 case 0xf0...0xf4: sequence = (Self.sequence(in: bytes, at: position, length: 4), 4)
                 default: break
                 }
             }
-            let scalar: Unicode.Scalar
-            if let decoded = sequence.scalar {
-                scalar = decoded
+            let value: UInt32
+            if let decoded = sequence.value {
+                value = decoded
                 position &+= sequence.length
             } else {
                 position += 1
@@ -106,10 +122,10 @@ struct TextScanner: Sendable {
                     control = decoded
                     break
                 }
-                scalar = decoded
+                value = decoded.value
             }
-            if scalar == Self.byteOrderMark { continue }
-            glyphs[count] = Terminal.StoredCell.glyph(scalar, width: ColumnWidth.of(scalar))
+            if value == Self.byteOrderMark.value { continue }
+            glyphs[count] = Terminal.StoredCell.glyph(value, width: ColumnWidth.of(value))
             count += 1
         }
         self = decoder
@@ -117,23 +133,46 @@ struct TextScanner: Sendable {
         return (count, control)
     }
 
-    /// The smallest value a sequence of each length encodes. A smaller one is an overlong form,
-    /// and two-byte values below 0xa0 are C1 controls.
-    private static let smallestValues: InlineArray<5, UInt32> = [0, 0, 0xa0, 0x800, 0x1_0000]
-
     /// Decodes a complete, valid, printable sequence of `length` bytes at `start`, from the four bytes
     /// there. Returns nil for a C1 control or an invalid sequence, which the byte-at-a-time decoder
     /// handles instead.
     @inline(__always)
-    private static func sequence(in bytes: Span<UInt8>, at start: Int, length: Int) -> Unicode.Scalar? {
+    private static func sequence(in bytes: Span<UInt8>, at start: Int, length: Int) -> UInt32? {
         let word = UInt32(bigEndian: bytes.bytes.load(fromByteOffset: start, as: UInt32.self))
         // Each byte after the lead starts with 10.
         let following = 0x00c0_c0c0 & ~(UInt32.max >> (8 * length))
         guard word & following == 0x0080_8080 & following else { return nil }
         let bits = (word >> 24 & 0x7f >> length) << 18 | (word >> 16 & 0x3f) << 12 | (word >> 8 & 0x3f) << 6 | word & 0x3f
         let value = bits >> (6 * (4 - length))
-        guard value >= smallestValues[length] else { return nil }
-        return Unicode.Scalar(value)
+        // A value a shorter sequence could encode is overlong, and two-byte values below 0xa0 are C1 controls.
+        // Three bytes can also encode a UTF-16 surrogate, and four a value past the last scalar.
+        switch length {
+        case 2: guard value >= 0xa0 else { return nil }
+        case 3: guard value >= 0x800, value & 0xf800 != 0xd800 else { return nil }
+        default: guard value >= 0x1_0000, value <= 0x10_ffff else { return nil }
+        }
+        return value
+    }
+
+    /// Decodes four three-byte sequences in a row from the 16 bytes at `start`. Returns nil unless
+    /// all four are valid and none is a byte order mark.
+    @inline(__always)
+    private static func fourThreeByteSequences(in bytes: Span<UInt8>, at start: Int) -> SIMD4<UInt32>? {
+        let block = bytes.bytes.load(fromByteOffset: start, as: SIMD16<UInt8>.self)
+        // Leads of 1110 at bytes 0, 3, 6 and 9, and bytes starting with 10 between them.
+        let pattern = (unsafeBitCast(block, to: SIMD2<UInt64>.self) & SIMD2(0xc0f0_c0c0_f0c0_c0f0, 0xc0c0_f0c0))
+            ^ SIMD2(0x80e0_8080_e080_80e0, 0x8080_e080)
+        guard pattern[0] | pattern[1] == 0 else { return nil }
+        // Each sequence's bytes, last first, make one little-endian lane.
+        let b = block
+        let lanes = unsafeBitCast(SIMD16(b[2], b[1], b[0], 0, b[5], b[4], b[3], 0, b[8], b[7], b[6], 0, b[11], b[10], b[9], 0),
+                                  to: SIMD4<UInt32>.self)
+        let values = lanes & 0x3f | lanes &>> 2 & 0xfc0 | lanes &>> 4 & 0xf000
+        // A lane's top bit marks a value below 0x800, a UTF-16 surrogate or a byte order mark.
+        let marks = (values &- 0x800) | ((values & 0xf800 ^ 0xd800) &- 1) | ((values ^ Self.byteOrderMark.value) &- 1)
+        let halves = unsafeBitCast(marks, to: SIMD2<UInt64>.self)
+        guard (halves[0] | halves[1]) & 0x8000_0000_8000_0000 == 0 else { return nil }
+        return values
     }
 
     private(set) var value: UInt32 = 0

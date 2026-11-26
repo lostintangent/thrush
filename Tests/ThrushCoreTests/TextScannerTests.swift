@@ -28,13 +28,33 @@ func scannerStopsAtTheFirstNonPrintableByte(length: Int) {
     for length in 0...17 {
         stream += [0xc3, 0xa9] + Array(repeating: UInt8(ascii: "x"), count: length) + [0xe7, 0x95, 0x8c, 0x0d, 0x0a]
     }
-    var whole = Terminal(size: .init(columns: 12, rows: sequences.count * sequences.count + 37))
+    // Runs of three-byte scalars, which decode four at a time, then each sequence above in every
+    // place of a run of them.
+    let wide: [UInt8] = [0xe7, 0x95, 0x8c]
+    for length in 1...9 {
+        stream += Array(repeating: wide, count: length).joined() + Array("\r\n".utf8)
+    }
+    for sequence in sequences {
+        for place in 0..<4 {
+            stream += Array(repeating: wide, count: place).joined() + sequence
+                + Array(repeating: wide, count: 4).joined() + Array("\r\n".utf8)
+        }
+    }
+    // Every line fits in two rows, so nothing scrolls away.
+    let lines = stream.count { $0 == 0x0a }
+    var whole = Terminal(size: .init(columns: 12, rows: 2 * lines + 1))
     var single = whole
+    var chunked = whole
     _ = whole.receive(stream.span)
     for byte in stream { _ = single.receive([byte].span) }
+    // Odd-sized chunks end inside runs and sequences at every offset.
+    for start in stride(from: 0, to: stream.count, by: 17) {
+        _ = chunked.receive(Array(stream[start..<min(start + 17, stream.count)]).span)
+    }
 
     let cells = { (snapshot: Terminal.Snapshot) in
         snapshot.rows.map { row in (0..<12).map { "\(row[$0].text)/\(row[$0].width)" } }
     }
     #expect(cells(whole.snapshot()) == cells(single.snapshot()))
+    #expect(cells(chunked.snapshot()) == cells(single.snapshot()))
 }

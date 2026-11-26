@@ -87,9 +87,9 @@ extension Terminal {
         /// Zero is the default style. Any other value `n` is `styles[n - 1]` in the cell's row.
         var stylePosition: UInt32 = 0
 
-        /// A scalar with the flag for its width.
-        static func glyph(_ scalar: Unicode.Scalar, width: Int) -> UInt32 {
-            scalar.value | (width == 2 ? wide : (width == 0 ? zeroWidth : 0))
+        /// A scalar's value with the flag for its width.
+        static func glyph(_ value: UInt32, width: Int) -> UInt32 {
+            value | (width == 2 ? wide : (width == 0 ? zeroWidth : 0))
         }
 
         var scalar: UInt32 { glyph & 0x1f_ffff }
@@ -329,7 +329,7 @@ extension Terminal {
             clearWideEdges(column..<end, style: style)
             discardClusters(in: column..<end)
             prepareToWrite(column..<end)
-            cells[column] = StoredCell(glyph: StoredCell.glyph(scalar, width: width), stylePosition: style)
+            cells[column] = StoredCell(glyph: StoredCell.glyph(scalar.value, width: width), stylePosition: style)
             if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style) }
         }
 
@@ -350,9 +350,9 @@ extension Terminal {
                 let glyph = glyphs[next]
                 let width = 1 &+ Int(glyph >> 21 & 1)
                 guard glyph & StoredCell.zeroWidth == 0, end &+ width <= limit else { break }
-                // Every glyph writes a continuation after it, so the loop doesn't branch on width.
-                // A narrow glyph's lands where the next glyph goes, or past the cells in use.
-                target[min(end &+ 1, limit &- 1)] = StoredCell(glyph: StoredCell.continuation, stylePosition: style)
+                // Every glyph writes a continuation in its last column, so the loop doesn't branch
+                // on width. A narrow glyph then overwrites its own.
+                target[end &+ width &- 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style)
                 target[end] = StoredCell(glyph: glyph, stylePosition: style)
                 end &+= width
                 next &+= 1
