@@ -29,6 +29,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var programCell: (row: Int, column: Int)?
     private var flick: Flick?
     private weak var caughtTouch: UITouch?
+    private var pageSentToProgram: (generation: UInt64, deadline: CFTimeInterval)?
     private let reading = PhoneAccessibleText()
 
     /// A released swipe keeps scrolling the program and slows the way UIScrollView does.
@@ -158,6 +159,10 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         selectionControls.update()
         layoutLatest()
         reading.invalidate()
+        if let page = pageSentToProgram, terminal.snapshot?.generation != page.generation {
+            pageSentToProgram = nil
+            if CACurrentMediaTime() < page.deadline { readPage(firstLine) }
+        }
     }
 
     private func styleLatest() {
@@ -477,19 +482,29 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     }
 
     override func accessibilityScroll(_ direction: UIAccessibilityScrollDirection) -> Bool {
-        let step = max(1, (terminal.snapshot?.size.rows ?? 1) - 1)
-        let target: Int
-        switch direction {
-        case .down: target = max(0, terminal.historyOffset - step)
-        case .up: target = min(terminal.historyCount, terminal.historyOffset + step)
-        default: return false
+        guard direction == .up || direction == .down, let size = terminal.snapshot?.size else { return false }
+        let page = max(1, size.rows - 1)
+        // A full-screen program gets the page instead, and VoiceOver reads it once the program redraws.
+        if terminal.programTakesScrolling {
+            terminal.scrollProgram(rows: direction == .up ? page : -page, row: size.rows / 2, column: size.columns / 2)
+            pageSentToProgram = (terminal.snapshot?.generation ?? 0, CACurrentMediaTime() + 2)
+            return true
         }
+        let target = direction == .up ? min(terminal.historyCount, terminal.historyOffset + page)
+            : max(0, terminal.historyOffset - page)
         guard target != terminal.historyOffset else { return false }
         terminal.setHistoryOffset(target)
-        let first = terminal.snapshot?.rows.firstIndex { !$0.text.isEmpty }
-        let announcement = target == 0 ? "Latest output" : first.map { terminal.spokenLineText(row: $0) }
-        UIAccessibility.post(notification: .pageScrolled, argument: announcement)
+        readPage(target == 0 ? "Latest output" : firstLine)
         return true
+    }
+
+    private var firstLine: String? {
+        terminal.snapshot?.rows.firstIndex { !$0.text.isEmpty }.map { terminal.spokenLineText(row: $0) }
+    }
+
+    private func readPage(_ text: String?) {
+        UIAccessibility.post(notification: .pageScrolled, argument: text)
+        if let text { terminal.onAccessibilityAnnouncement?(text) }
     }
 }
 

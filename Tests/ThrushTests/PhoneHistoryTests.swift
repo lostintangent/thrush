@@ -109,7 +109,9 @@ import UIKit
 
     _ = terminal.receive("\u{1b}[?1049h".utf8)
     view.display(terminal)
-    #expect(!history.accessibilityScroll(.up))
+    // The page goes to the full-screen program, so history stays where it is.
+    #expect(history.accessibilityScroll(.up))
+    #expect(view.historyOffset == 0)
     #expect(latest.isHidden)
 }
 
@@ -254,5 +256,36 @@ import UIKit
     history.coast(to: 31)
     #expect(sent.count == caught && !history.isCoasting)
     #expect(history.gestureRecognizer(tap, shouldReceive: UITouch()))
+}
+
+/// VoiceOver's three-finger scroll pages a full-screen program and reads the page once the program redraws it.
+@MainActor
+@Test func voiceOverPagesFullScreenProgramsAndReadsTheirRedraw() throws {
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    view.layoutIfNeeded()
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
+    var terminal = Terminal(size: .init(columns: 24, rows: 6))
+    _ = terminal.receive("\u{1b}[?1049h\u{1b}[2;1Hpage one".utf8)
+    view.display(terminal)
+    var sent: [String] = []
+    var read: [String] = []
+    view.onInput = { sent.append(String(decoding: terminal.encode($0), as: UTF8.self)) }
+    view.onAccessibilityAnnouncement = { read.append($0) }
+
+    #expect(history.accessibilityScroll(.down))
+    #expect(sent == Array(repeating: "\u{1b}[B", count: 5))
+    #expect(read.isEmpty)
+    _ = terminal.receive("\u{1b}[H\u{1b}[2Jpage two".utf8)
+    view.display(terminal)
+    #expect(read == ["page two"])
+
+    sent = []
+    _ = terminal.receive("\u{1b}[?1000;1006h".utf8)
+    view.display(terminal)
+    #expect(history.accessibilityScroll(.up))
+    #expect(sent == Array(repeating: "\u{1b}[<64;13;4M", count: 5))
+    #expect(read == ["page two"] && view.historyOffset == 0)
 }
 #endif

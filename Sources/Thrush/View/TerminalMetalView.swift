@@ -652,6 +652,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
+    /// Observes everything the view asks VoiceOver to speak.
     var onAccessibilityAnnouncement: ((String) -> Void)?
 
     /// Queue speech without redirecting accessibility focus away from the viewport.
