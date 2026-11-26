@@ -140,7 +140,8 @@ def peer(out, cursor=False):
                     raise RuntimeError("Demo peer exited: " + log.read_text())
                 match = re.search(r"^Thrush demo peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
                 return match.group(1) if match else None
-            address = wait_for("the loopback peer", endpoint, 90)
+            # Bun has taken 80 seconds to listen while a hosted runner pages the newly booted simulator in.
+            address = wait_for("the loopback peer", endpoint, 180)
             print(f"Loopback peer ready at {address}", flush=True)
             yield address
         finally:

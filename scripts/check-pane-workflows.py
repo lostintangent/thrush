@@ -23,6 +23,8 @@ CAPTURES = {
     "codex": {"Codex ready", "First three songbirds streamed", "Received Codex answer", "Earlier transcript page", "Returned to shell"},
 }
 BUNDLE_ID = "app.thrush.demo"
+# Longer than the native driver's 150 seconds without a new controller phase.
+DRIVER_PATIENCE = 180
 
 
 def arguments():
@@ -188,13 +190,13 @@ def verify_recorded_vim_replay(platform, driver, output, fixture_sha):
 
 def await_report(name, app, peer, driver, output, platform, target, *, verify_fixture=True):
     completed_captures = set()
-    deadline = time.monotonic() + 90
+    deadline = time.monotonic() + DRIVER_PATIENCE
     trace_size = -1
     while True:
         trace = driver / "workflow-events.log"
         if trace.exists() and (size := trace.stat().st_size) != trace_size:
             trace_size = size
-            deadline = time.monotonic() + 90
+            deadline = time.monotonic() + DRIVER_PATIENCE
         failure = driver / "workflow-error.txt"
         if failure.exists():
             raise RuntimeError(failure.read_text(errors="replace").strip() or str(failure))
@@ -202,7 +204,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             if marker not in completed_captures:
                 collect_capture(marker, output, platform, target, require_keyboard=platform == "simulator" and name in WORKFLOWS)
                 completed_captures.add(marker)
-                deadline = time.monotonic() + 90
+                deadline = time.monotonic() + DRIVER_PATIENCE
         report = driver / "workflow-report.json"
         if report.exists():
             result = json.loads(report.read_bytes())

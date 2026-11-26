@@ -248,7 +248,9 @@ export class LiveRun {
         if (closing) this.flushClose(link, closing.code, closing.reason);
     }
 
-    async until(test: () => boolean, description: string, timeoutMs = 40_000, forward = true) {
+    // A hosted runner that has just booted a simulator pages its memory in from disk for minutes,
+    // so a real program can take most of this budget to start. Thrush's own checks don't depend on it.
+    async until(test: () => boolean, description: string, timeoutMs = 120_000, forward = true) {
         const deadline = performance.now() + timeoutMs;
         while (true) {
             if (this.failure) throw this.failure;

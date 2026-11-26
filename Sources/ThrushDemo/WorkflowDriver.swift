@@ -187,7 +187,9 @@ final class WorkflowDriver {
         var resizeCount = 0
         var checkKeyboardAfterShellAction = false
         var previous: (Phase, Int)?
-        var deadline = ContinuousClock.now.advanced(by: .seconds(45))
+        // The controller can wait 120 seconds for a real program to start, so outlast it.
+        let patience = Duration.seconds(150)
+        var deadline = ContinuousClock.now.advanced(by: patience)
         while true {
             try Task.checkCancellation()
             let state = try JSONDecoder().decode(State.self, from: await get("state"))
@@ -203,7 +205,7 @@ final class WorkflowDriver {
             if state.phase != .playing {
                 try log.write(contentsOf: Data("\(state.phase.rawValue) \(state.eventIndex) \(state.name)\n".utf8))
             }
-            deadline = .now.advanced(by: .seconds(45))
+            deadline = .now.advanced(by: patience)
             switch state.phase {
             case .attaching, .playing:
                 break
