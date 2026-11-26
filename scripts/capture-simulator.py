@@ -39,6 +39,10 @@ def sim(*args, **kwargs):
     return run("xcrun", "simctl", *args, **kwargs)
 
 
+# A foldable iPhone has two built-in displays, and the app opens on the primary one.
+SCREEN = "--display=primary"
+
+
 def wait_for(description, condition, timeout):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
@@ -53,7 +57,7 @@ def wait_for(description, condition, timeout):
 def record_screen(device, movie):
     log = movie.parent / "recording.log"
     with log.open("w") as output:
-        process = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", "--codec=h264",
+        process = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", SCREEN, "--codec=h264",
                                     "--mask=black", "--force", str(movie)],
                                    stdout=output, stderr=subprocess.STDOUT)
         try:
@@ -267,6 +271,9 @@ class Phone:
         except FileNotFoundError:
             return {}
 
+    def screenshot(self, path, timeout=90, check=True):
+        sim("io", self.device, "screenshot", SCREEN, "--mask=black", str(path), timeout=timeout, check=check)
+
     def oriented_image(self, raw, orientation):
         # simctl may return a portrait-mounted framebuffer even after UIKit rotated the
         # window scene left. Preserve that raw capture alongside its upright presentation.
@@ -331,7 +338,7 @@ class Phone:
             for attempt in (1, 2):
                 candidate.unlink(missing_ok=True)
                 try:
-                    sim("io", self.device, "screenshot", "--mask=black", str(candidate), timeout=75)
+                    self.screenshot(candidate, timeout=75)
                     break
                 except (RuntimeError, subprocess.TimeoutExpired) as error:
                     print(f"{name} screenshot attempt {attempt}: {error}", file=sys.stderr, flush=True)
@@ -376,8 +383,7 @@ class Phone:
                 candidate.replace(self.out / (name + "-failed.png"))
             elif not layout_only and observed is None:
                 try:
-                    sim("io", self.device, "screenshot", "--mask=black", str(self.out / (name + "-failed.png")),
-                        timeout=15, check=False)
+                    self.screenshot(self.out / (name + "-failed.png"), timeout=15, check=False)
                 except subprocess.TimeoutExpired:
                     pass
             raise RuntimeError(f"{name}: {last_error}") from error
@@ -545,7 +551,7 @@ def main():
             elif args.scene == "text-blink":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/text-blink.py"))["capture"](phone, sim, wait_for, save_json)
             elif args.scene == "program-colors":
-                runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, sim, PANE_CHECKER)
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, PANE_CHECKER)
             elif args.scene == "under-bars":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/under-bars.py"))["capture"](phone, args, sim)
             elif spin:

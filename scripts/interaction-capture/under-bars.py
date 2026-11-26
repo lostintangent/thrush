@@ -118,7 +118,7 @@ def capture(phone, options, sim):
                                        extra_arguments=("--toolbar-proof", *extra))
                     state = phone.frame("prompt", appearance, orientation, keyboard, pid, None, layout_only=True)
                     image = phone.out / (label + ".png")
-                    sim("io", phone.device, "screenshot", "--mask=black", str(image), timeout=90)
+                    phone.screenshot(image)
                     if state != phone.state():
                         raise ValueError("Native geometry changed during the framebuffer capture.")
                     image = phone.oriented_image(image, orientation)

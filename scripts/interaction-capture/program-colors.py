@@ -95,7 +95,7 @@ def check(image, state, appearance, toolbar, checker):
          "beside the home indicator")
 
 
-def capture(phone, options, sim, checker):
+def capture(phone, options, checker):
     failures = {}
     for appearance in ("dark", "light"):
         for toolbar in (False, True):
@@ -110,7 +110,7 @@ def capture(phone, options, sim, checker):
                     raise ValueError("Missing mounted navigation bar geometry.")
                 settles = time.monotonic() + 20
                 while True:
-                    sim("io", phone.device, "screenshot", "--mask=black", str(image), timeout=90)
+                    phone.screenshot(image)
                     if state != phone.state():
                         raise ValueError("Native geometry changed during the framebuffer capture.")
                     try:

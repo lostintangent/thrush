@@ -20,6 +20,6 @@ case "${1:-}" in
         exec xcrun swift "$(dirname "$0")/capture-window.swift" "$2" "$3" ;;
     simulator)
         [[ $# == 3 ]] || { echo 'Usage: capture-demo.sh simulator UDID OUTPUT.png' >&2; exit 2; }
-        xcrun simctl io "$2" screenshot --mask=black "$3" ;;
+        xcrun simctl io "$2" screenshot --display=primary --mask=black "$3" ;;
     *) echo 'Usage: capture-demo.sh mac PID OUTPUT.png | simulator UDID OUTPUT.png' >&2; exit 2 ;;
 esac

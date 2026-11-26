@@ -17,12 +17,12 @@ def set_reduce_motion(phone, sim, enabled):
     sim("spawn", phone.device, "notifyutil", "-p", "com.apple.accessibility.reduce.motion.status", check=False)
 
 
-def burst(phone, sim, folder, count):
+def burst(phone, folder, count):
     folder.mkdir(parents=True)
     frames = []
     for index in range(count):
         path = folder / f"{index:02}.png"
-        sim("io", phone.device, "screenshot", "--mask=black", str(path), timeout=90)
+        phone.screenshot(path)
         frames.append(path)
         time.sleep(random.uniform(0.03, 0.29))
     return frames
@@ -46,7 +46,7 @@ def capture(phone, sim, wait_for, save_json):
             time.sleep(0.7)
             label = "steady" if reduced else "blinking"
             save_json(phone.out / f"text-blink-{appearance}-{label}.json", state)
-            bursts[appearance, label] = burst(phone, sim, phone.scratch / f"{appearance}-{label}",
+            bursts[appearance, label] = burst(phone, phone.scratch / f"{appearance}-{label}",
                                               STEADY_FRAMES if reduced else BLINKING_FRAMES)
             if phone.state().get("pid") != pid:
                 raise RuntimeError(f"The styles scene exited during the {appearance} burst.")
