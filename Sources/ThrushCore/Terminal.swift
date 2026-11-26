@@ -178,7 +178,7 @@ public struct Terminal: Sendable {
     /// The top row is zero. The index must be less than `size.rows` and nonnegative.
     package func text(inRow row: Int) -> String {
         precondition((0..<size.rows).contains(row), "Row must be inside the visible grid")
-        return screen.text(inRow: row)
+        return screen[row: row].text
     }
 
     /// A single, read-only generation for drawing, selection and accessibility.
@@ -196,11 +196,11 @@ public struct Terminal: Sendable {
         guard printsInRuns else { return printEach(text, from: bytes) }
         switch text {
         case .ascii(let run):
-            screen.writeASCII(bytes.extracting(run), style: style)
+            screen.print(bytes.extracting(run), style: style)
             followsText = true
             generation &+= 1
         case .glyphs(let count):
-            generation &+= screen.writeRun(parser.glyphs.span.extracting(..<count), style: style, joinsPrevious: &followsText)
+            generation &+= screen.print(parser.glyphs.span.extracting(..<count), style: style, joinsPrevious: &followsText)
         }
     }
 
@@ -209,7 +209,7 @@ public struct Terminal: Sendable {
         func print(_ scalar: Unicode.Scalar) {
             let scalar = characterSets.active.translate(scalar)
             let width = ColumnWidth.of(scalar)
-            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert,
+            screen.print(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert,
                          joinsPrevious: followsText)
             followsText = width > 0 || followsText
             generation &+= 1
@@ -243,12 +243,12 @@ public struct Terminal: Sendable {
 
     private mutating func perform(_ function: ControlFunction.C0) {
         switch function {
-        case .backspace: screen.backspace(reverseWraparound: modes.reverseWraparound)
-        case .horizontalTab: screen.horizontalTab()
+        case .backspace: backspace()
+        case .horizontalTab: tab(1, forward: true)
         case .lineFeed, .verticalTab, .formFeed:
-            if modes.newLine { screen.carriageReturn() }
-            screen.lineFeed(style: style)
-        case .carriageReturn: screen.carriageReturn()
+            if modes.newLine { screen.move(toColumn: 0) }
+            lineFeed()
+        case .carriageReturn: screen.move(toColumn: 0)
         case .shiftIn:
             characterSets.invoke(0)
             return
@@ -284,18 +284,27 @@ public struct Terminal: Sendable {
         case .numericKeypad:
             modes.applicationKeypad = false
             return
-        case .index: screen.index(style: style)
+        case .index:
+            restrict()
+            index()
         case .nextLine:
-            screen.carriageReturn()
-            screen.index(style: style)
+            screen.move(toColumn: 0)
+            index()
         case .tabSet:
-            screen.setTabStop()
+            screen.tabs.set(screen.column)
             return
-        case .reverseIndex: screen.reverseIndex(style: style)
+        case .reverseIndex:
+            // RI moves up a row, or scrolls the region down at its top margin.
+            restrict()
+            if screen.row == screen.scrollRegion.lowerBound {
+                screen.scroll(screen.scrollRegion, down: 1, style: style.eraseStyle)
+            } else {
+                screen.move(toRow: screen.row - 1)
+            }
         case .screenAlignmentPattern:
-            // As DEC specifies, DECALN fills the whole screen and resets the margins before homing.
-            screen.fillWithAlignmentPattern(style: style.alignmentStyle)
-            screen.resetScrollRegion()
+            // As DEC specifies, DECALN fills the whole screen with E and resets the margins before homing.
+            screen.erase(rows: 0..<size.rows, style: style.alignmentStyle, filling: "E")
+            screen.scrollRegion = 0...(size.rows - 1)
             position(row: 0, column: 0)
         case .fullReset: fullReset()
         }
@@ -305,20 +314,25 @@ public struct Terminal: Sendable {
     /// Reads the parser's parameters.
     private mutating func perform(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
         switch function {
-        case .insertCharacters: screen.insertBlanks(parser.parameters[0, default: 1], style: style)
-        case .cursorUp: screen.cursorUp(parser.parameters[0, default: 1])
-        case .cursorDown: screen.cursorDown(parser.parameters[0, default: 1])
-        case .cursorForward, .columnRelative: screen.cursorForward(parser.parameters[0, default: 1])
-        case .cursorBackward: screen.cursorBackward(parser.parameters[0, default: 1])
-        case .cursorNextLine: screen.cursorNextLine(parser.parameters[0, default: 1])
-        case .cursorPrecedingLine: screen.cursorPrecedingLine(parser.parameters[0, default: 1])
+        case .insertCharacters:
+            restrict()
+            screen.shift(screen.row...screen.row, at: screen.column, right: parser.parameters[0, default: 1],
+                         style: style.eraseStyle)
+        case .cursorUp: screen.move(toRow: row(above: parser.parameters[0, default: 1]), column: screen.column)
+        case .cursorDown: screen.move(toRow: row(below: parser.parameters[0, default: 1]), column: screen.column)
+        case .cursorForward, .columnRelative:
+            screen.move(toRow: screen.row, column: screen.column + parser.parameters[0, default: 1])
+        case .cursorBackward:
+            // A pending wrap still measures CUB from the last column.
+            screen.move(toRow: screen.row, column: min(screen.column, size.columns - 1) - parser.parameters[0, default: 1])
+        case .cursorNextLine: screen.move(toRow: row(below: parser.parameters[0, default: 1]), column: 0)
+        case .cursorPrecedingLine: screen.move(toRow: row(above: parser.parameters[0, default: 1]), column: 0)
         case .cursorColumn, .columnAbsolute:
             screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
         case .repeatPrecedingCharacter:
             // REP repeats a character only when it was printed right before the sequence.
             guard followsText else { return }
-            screen.repeatPrecedingCharacter(parser.parameters[0, default: 1], style: style,
-                                            wraparound: modes.wraparound, insert: modes.insert)
+            repeatPrecedingCharacter(parser.parameters[0, default: 1])
         case .rowAbsolute:
             position(row: parser.parameters[0, default: 1] - 1, column: screen.column)
         case .rowRelative:
@@ -326,13 +340,13 @@ public struct Terminal: Sendable {
             position(row: screen.row - originTop + parser.parameters[0, default: 1], column: screen.column)
         case .cursorPosition, .horizontalVerticalPosition:
             position(row: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
-        case .forwardTab: screen.horizontalTab(parser.parameters[0, default: 1])
-        case .backwardTab: screen.backwardTab(parser.parameters[0, default: 1])
+        case .forwardTab: tab(parser.parameters[0, default: 1], forward: true)
+        case .backwardTab: tab(parser.parameters[0, default: 1], forward: false)
         case .tabClear:
             // TBC 0 clears the stop at the cursor and TBC 3 clears every stop.
             switch parser.parameters[0] {
-            case 0: screen.clearTabStop()
-            case 3: screen.clearAllTabStops()
+            case 0: screen.tabs.set(screen.column, false)
+            case 3: screen.tabs.removeAll()
             default: break
             }
             return
@@ -340,22 +354,42 @@ public struct Terminal: Sendable {
             if parser.parameters[0] == 3 {
                 screen.eraseHistory()
             } else if let range = EraseRange(rawValue: parser.parameters[0]) {
-                screen.eraseDisplay(range, style: style)
+                eraseDisplay(range)
             }
         case .eraseInLine, .selectiveEraseInLine:
-            if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
-        case .insertLines: screen.insertLines(parser.parameters[0, default: 1], style: style)
-        case .deleteLines: screen.deleteLines(parser.parameters[0, default: 1], style: style)
-        case .deleteCharacters: screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
-        case .scrollUp: screen.scrollUp(parser.parameters[0, default: 1], style: style)
-        case .scrollDown: screen.scrollDown(parser.parameters[0, default: 1])
-        case .eraseCharacters: screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
-        case .insertColumns:
-            screen.editColumns(.insert, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .deleteColumns:
-            screen.editColumns(.delete, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .scrollLeft: screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
-        case .scrollRight: screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
+            if let range = EraseRange(rawValue: parser.parameters[0]) { eraseLine(range) }
+        case .insertLines:
+            // IL and DL act only inside the scroll region, and return to the first column there.
+            restrict()
+            if screen.scrollRegion.contains(screen.row) {
+                screen.scroll(screen.row...screen.scrollRegion.upperBound, down: parser.parameters[0, default: 1],
+                              style: style.eraseStyle)
+                screen.move(toColumn: 0)
+            }
+        case .deleteLines:
+            restrict()
+            if screen.scrollRegion.contains(screen.row) {
+                screen.scroll(screen.row...screen.scrollRegion.upperBound, up: parser.parameters[0, default: 1],
+                              style: style.eraseStyle)
+                screen.move(toColumn: 0)
+            }
+        case .deleteCharacters:
+            restrict()
+            screen.shift(screen.row...screen.row, at: screen.column, left: parser.parameters[0, default: 1],
+                         style: style.eraseStyle)
+        case .scrollUp:
+            // SU never moves rows into history.
+            screen.scroll(screen.scrollRegion, up: parser.parameters[0, default: 1], style: style.eraseStyle)
+        case .scrollDown:
+            // SD opens rows in the default background, as the reference does.
+            screen.scroll(screen.scrollRegion, down: parser.parameters[0, default: 1], style: Style())
+        case .eraseCharacters:
+            // ECH blanks cells from the cursor without moving it or the cells after them.
+            restrict()
+            screen.erase(screen.column..<(screen.column + parser.parameters[0, default: 1]), inRow: screen.row,
+                         style: style.eraseStyle)
+        case .insertColumns, .deleteColumns, .scrollLeft, .scrollRight:
+            shiftColumns(function, by: parser.parameters[0, default: 1])
         case .primaryDeviceAttributes:
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
@@ -407,7 +441,7 @@ public struct Terminal: Sendable {
             let top = parser.parameters[0, default: 1]
             let bottom = min(parser.parameters[1, default: size.rows], size.rows)
             guard top < bottom else { return }
-            screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
+            screen.scrollRegion = (top - 1)...(bottom - 1)
             position(row: 0, column: 0)
         case .saveCursor:
             saveCursor()
@@ -447,32 +481,179 @@ public struct Terminal: Sendable {
             let cursorStyle = CursorStyleParameter(modes.cursorShape,
                                                    blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
             replies += Reply.statusString(parser.payload.text, style: style, cursorStyle: cursorStyle,
-                                          scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
+                                          scrollRegion: screen.scrollRegion).utf8
         case .requestCapabilities:
             replies += Reply.capabilities(parser.payload.bytes)
         }
     }
 
-    /// The rows CUP and VPA count from. Origin mode counts from the top margin.
-    private var originTop: Int { modes.origin ? screen.scrollTop : 0 }
+    // The functions longer than a line, each written in the screen's five operations.
 
-    /// Places the cursor for the controls that address a row, which origin mode keeps within the region.
+    /// The rows CUP and VPA count from. Origin mode counts from the top margin.
+    private var originTop: Int { modes.origin ? screen.scrollRegion.lowerBound : 0 }
+
+    /// Origin mode keeps the cursor's row within the scroll region.
+    private func confined(_ row: Int) -> Int {
+        guard modes.origin else { return row }
+        return min(max(row, screen.scrollRegion.lowerBound), screen.scrollRegion.upperBound)
+    }
+
+    /// Places the cursor for the controls that address a row, counting rows from the origin.
     private mutating func position(row: Int, column: Int) {
-        screen.move(toRow: modes.origin ? min(screen.scrollTop + row, screen.scrollBottom) : row, column: column)
+        screen.move(toRow: confined(originTop + row), column: column)
+    }
+
+    /// Brings a cursor past the right margin back to the last column, as the reference does before most
+    /// functions that act at the cursor.
+    private mutating func restrict() { screen.move(toRow: screen.row, column: screen.column) }
+
+    // CUU and CUD stop at the scroll margin when they start inside the region, and at the screen's edge otherwise.
+    private func row(above count: Int) -> Int {
+        let top = screen.scrollRegion.lowerBound
+        return max(screen.row >= top ? top : 0, screen.row - count)
+    }
+
+    private func row(below count: Int) -> Int {
+        let bottom = screen.scrollRegion.upperBound
+        return min(screen.row <= bottom ? bottom : size.rows - 1, screen.row + count)
+    }
+
+    /// IND moves down a row, or scrolls the region up at its bottom margin, and a region at the top of
+    /// the screen sends its top row to history. Below the region, the cursor stops at the last row.
+    private mutating func index() {
+        let region = screen.scrollRegion
+        if screen.row == region.upperBound {
+            screen.scroll(region, up: 1, style: style.eraseStyle, intoHistory: true)
+        } else {
+            screen.move(toRow: screen.row + 1)
+        }
+    }
+
+    /// LF, VT and FF move down as IND does, and the row they move to starts a new line. Past the right
+    /// margin they step back one column, as the reference does, so one beyond a pending wrap stays a pending wrap.
+    private mutating func lineFeed() {
+        if screen.column >= size.columns { screen.move(toColumn: screen.column - 1) }
+        let row = screen.row
+        index()
+        if screen.row != row { screen.startLine(at: screen.row) }
+    }
+
+    /// BS moves one column left, measuring from the last column at a pending wrap. With reverse
+    /// wraparound, a pending wrap or beyond goes to the last column, and the start of a continued row
+    /// inside the region goes to the end of the row above, so the row no longer continues it.
+    private mutating func backspace() {
+        let last = size.columns - 1
+        let region = screen.scrollRegion
+        if modes.reverseWraparound, screen.column >= size.columns {
+            screen.move(toColumn: last)
+        } else if modes.reverseWraparound, screen.column == 0, screen.row > region.lowerBound,
+                  screen.row <= region.upperBound, screen[row: screen.row].isWrapped {
+            screen.startLine(at: screen.row)
+            // An empty last cell is the blank a wide character leaves when it wraps early.
+            let end = screen[row: screen.row - 1][last]
+            screen.move(toRow: screen.row - 1, column: end.width == 1 && end.text.isEmpty ? last - 1 : last)
+        } else {
+            screen.move(toColumn: min(screen.column, last) - 1)
+        }
+    }
+
+    /// HT, CHT and CBT move from stop to stop, and keep a pending wrap until the next print.
+    // Out of line, so the C0 switch stays small enough to inline into `receive`, where CR and LF need it.
+    @inline(never)
+    private mutating func tab(_ count: Int, forward: Bool) {
+        guard screen.column < size.columns else { return }
+        for _ in 0..<min(count, size.columns) {
+            screen.move(toColumn: forward ? screen.tabs.next(after: screen.column, columns: size.columns)
+                                          : screen.tabs.previous(before: screen.column, columns: size.columns))
+        }
+    }
+
+    /// REP prints the character left of the cursor again, with its combining marks, in the current style
+    /// and without the character set. It prints at most 65,535 scalars, so a hostile count or cluster
+    /// can't stall the reader.
+    private mutating func repeatPrecedingCharacter(_ count: Int) {
+        var source = min(screen.column, size.columns) - 1
+        guard source >= 0 else { return }
+        let row = screen[row: screen.row]
+        if source > 0, row[source].width == 0, row[source].text.isEmpty { source -= 1 }
+        let scalars = Array(row[source].text.unicodeScalars)
+        guard !scalars.isEmpty else { return }
+        for _ in 0..<min(count, 65_535 / scalars.count) {
+            for scalar in scalars {
+                screen.print(scalar, width: ColumnWidth.of(scalar), style: style, wraparound: modes.wraparound,
+                             insert: modes.insert)
+            }
+        }
+    }
+
+    /// EL first brings a cursor beyond a pending wrap back to it, as the reference does.
+    private mutating func eraseLine(_ range: EraseRange) {
+        screen.move(toColumn: screen.column)
+        let row = screen.row, column = screen.column
+        switch range {
+        case .toEnd:
+            screen.erase(column..<size.columns, inRow: row, style: style.eraseStyle)
+            if column == 0 { screen.startLine(at: row) }
+        case .toCursor:
+            // A pending wrap includes the first hidden column of a narrowed alternate row.
+            screen.erase(0..<(column + 1), inRow: row, style: style.eraseStyle)
+        case .entire:
+            screen.erase(0..<size.columns, inRow: row, style: style.eraseStyle)
+            screen.startLine(at: row)
+        }
+    }
+
+    /// ED erases the cursor's row as EL does and every row after or before it, or the whole screen.
+    private mutating func eraseDisplay(_ range: EraseRange) {
+        screen.move(toColumn: screen.column)
+        let row = screen.row
+        switch range {
+        case .toEnd:
+            eraseLine(.toEnd)
+            screen.erase(rows: (row + 1)..<size.rows, style: style.eraseStyle)
+        case .toCursor:
+            eraseLine(.toCursor)
+            screen.startLine(at: row)
+            // An erased right margin ends the next row's continuation.
+            if screen.column + 1 >= size.columns, row + 1 < size.rows { screen.startLine(at: row + 1) }
+            screen.erase(rows: 0..<row, style: style.eraseStyle)
+        case .entire:
+            screen.erase(rows: 0..<size.rows, style: style.eraseStyle)
+        }
+    }
+
+    /// DECIC and DECDC shift every row in the region from the cursor's column, and SR and SL from the
+    /// first. They act only while the cursor is inside the region, and each of its rows then starts a new line.
+    private mutating func shiftColumns(_ function: ControlFunction.CSI, by count: Int) {
+        let region = screen.scrollRegion
+        guard region.contains(screen.row) else { return }
+        let column = function == .insertColumns || function == .deleteColumns ? screen.column : 0
+        if function == .insertColumns || function == .scrollRight {
+            screen.shift(region, at: column, right: count, style: style.eraseStyle)
+        } else {
+            screen.shift(region, at: column, left: count, style: style.eraseStyle)
+        }
+        for row in region { screen.startLine(at: row) }
     }
 
     /// DECSC saves the position, the style and the character set. It leaves out origin mode, as the
-    /// reference does, since no workflow needs it.
-    private mutating func saveCursor() { screen.saveCursor(style: style, characterSet: characterSets.active) }
+    /// reference does, since no workflow needs it. A restore keeps the open link, so the saved style
+    /// leaves it out.
+    private mutating func saveCursor() {
+        var pen = style
+        pen.link = 0
+        screen.saved = SavedCursor(row: screen.row, column: screen.column, style: pen,
+                                   characterSet: characterSets.active)
+    }
 
     /// The link stays open across a restore, as it does across SGR 0, since it isn't a rendition.
     private mutating func restoreCursor() {
-        let saved = screen.restoreCursor()
+        let saved = screen.saved
+        screen.move(toRow: confined(saved.row), column: saved.column)
         let link = style.link
         style = saved.style
         style.link = link
         characterSets.active = saved.characterSet
-        if modes.origin { screen.moveIntoScrollRegion() }
     }
 
     /// The kitty keyboard protocol's query answers with the active screen's flags, and its push, pop
@@ -495,8 +676,8 @@ public struct Terminal: Sendable {
         modes.mouseTracking = kept.tracking
         modes.mouseSGR = kept.sgr
         modes.reportAppearance = kept.appearance
-        screen.resetScrollRegion()
-        screen.resetSavedCursor()
+        screen.scrollRegion = 0...(size.rows - 1)
+        screen.saved = SavedCursor()
     }
 
     /// RIS also resets mouse reporting and starts both screens over, without history. It keeps the title
@@ -630,9 +811,10 @@ public struct Terminal: Sendable {
             if !enabled { restoreCursor() }
             generation &+= 1
         case .alternateScreenOnly, .alternateScreenClearing:
-            // Each screen keeps its own region, and the cursor moves into the new one in origin mode.
+            // Each screen keeps its own region, and origin mode moves the cursor into the new one,
+            // keeping a pending wrap.
             screen.setAlternate(enabled, style: style)
-            if modes.origin { screen.moveIntoScrollRegion() }
+            screen.move(toRow: confined(screen.row))
             generation &+= 1
         case .bracketedPaste: modes.bracketedPaste = enabled
         case .synchronizedOutput:

@@ -25,7 +25,7 @@ extension Terminal {
         writer.draw(screen.active)
         let buffer = screen.active
         // Origin mode homes the cursor, so it comes before the cursor is placed.
-        if modes.origin { writer.setOrigin(top: buffer.scrollTop) }
+        if modes.origin { writer.setOrigin(top: buffer.scrollRegion.lowerBound) }
         let restoredSet = characterSets.active != characterSets.slots[characterSets.invoked]
         if restoredSet {
             // DECRC can restore a translation different from the invoked slot's designation.
@@ -119,8 +119,9 @@ extension Terminal {
                 }
                 previous = row
             }
-            if buffer.scrollTop != 0 || buffer.scrollBottom != buffer.size.rows - 1 {
-                output += csi + "\(buffer.scrollTop + 1);\(buffer.scrollBottom + 1)r"
+            let region = buffer.scrollRegion
+            if region != 0...(buffer.size.rows - 1) {
+                output += csi + "\(region.lowerBound + 1);\(region.upperBound + 1)r"
             }
             let columns = buffer.size.columns
             if (0..<columns).contains(where: { buffer.tabs[$0] != $0.isMultiple(of: 8) }) {

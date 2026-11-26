@@ -298,13 +298,13 @@ extension Terminal {
         /// DECRPSS answers DECRQSS with the control function that restores the setting the payload names,
         /// or with 0 when it names none the terminal reports.
         static func statusString(_ payload: String, style: Style, cursorStyle: CursorStyleParameter,
-                                 scrollTop: Int, scrollBottom: Int) -> String {
+                                 scrollRegion: ClosedRange<Int>) -> String {
             let setting: String? = switch payload {
             // No cell is protected from selective erase.
             case "\"q": "0\"q"
             // A VT100-level terminal that sends 7-bit controls, matching DA1.
             case "\"p": "61;1\"p"
-            case "r": "\(scrollTop + 1);\(scrollBottom + 1)r"
+            case "r": "\(scrollRegion.lowerBound + 1);\(scrollRegion.upperBound + 1)r"
             case "m": "\(style.renditionParameters)m"
             case " q": "\(cursorStyle.rawValue) q"
             default: nil

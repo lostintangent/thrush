@@ -115,8 +115,7 @@ extension Terminal.Buffer {
         rows = Array(lines[historyEnd...])
         head = 0
         size = newSize
-        scrollTop = 0
-        scrollBottom = newSize.rows - 1
+        scrollRegion = 0...(newSize.rows - 1)
         tabs.resize(to: newSize.columns)
     }
 
