@@ -1,5 +1,5 @@
 import Thrush
-import ThrushReplay
+import ThrushRecordings
 
 /// Checks a paused workflow against the recorded checkpoint and the running view.
 package enum WorkflowCheckpoint {
@@ -11,7 +11,7 @@ package enum WorkflowCheckpoint {
     /// a synchronized repaint, while the previous coherent frame may still be in flight.
     /// The rendered generation comes from the successful completion of that frame's Metal command buffer.
     package static func verify(
-        _ event: ReplayFixture.Event,
+        _ event: Recording.Event,
         snapshot: Terminal.Snapshot,
         nativePalette: Terminal.Palette,
         accepted: Terminal.Snapshot?,

@@ -3,7 +3,7 @@ import Foundation
 import ThrushCore
 
 /// Development-only playback data and independent expected screens for the recorded workflows.
-package struct ReplayFixture: Sendable {
+package struct Recording: Sendable {
     package static let names = ["shell-log", "vim-edit", "shell-edges", "prompt-bom", "vim-swift-dark", "vim-swift-light",
                                 "hardware-keys", "pointer-input", "shell-workflow", "vim-resume", "codex-session", "zsh-clear"]
 
@@ -198,7 +198,7 @@ package struct ReplayFixture: Sendable {
         let checkpoint: Checkpoint?
     }
 
-    private struct Recording: Decodable {
+    private struct RawRecording: Decodable {
         let name: String
         let version: Int
         let columns: Int
@@ -325,8 +325,8 @@ package struct ReplayFixture: Sendable {
     package let sha256: String
 
     package static func decode(_ data: Data) throws -> Self {
-        let recording = try JSONDecoder().decode(Recording.self, from: data)
-        guard recording.version == 1 else { throw Failure("Unsupported replay version \(recording.version)") }
+        let recording = try JSONDecoder().decode(RawRecording.self, from: data)
+        guard recording.version == 1 else { throw Failure("Unsupported recording version \(recording.version)") }
         guard recording.columns > 0, recording.rows > 0, !recording.cells.isEmpty else {
             throw Failure("Missing terminal grid or reference cells")
         }

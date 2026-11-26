@@ -1,10 +1,10 @@
 import Foundation
-import ThrushReplay
+import ThrushRecordings
 
-package typealias ReplayFixture = ThrushReplay.ReplayFixture
+package typealias Recording = ThrushRecordings.Recording
 
-extension ReplayFixture {
-    package static func load(named name: String, subdirectory: String? = "replays") throws -> Self {
+extension Recording {
+    package static func load(named name: String, subdirectory: String? = "recordings") throws -> Self {
         guard let url = Bundle.module.url(forResource: name, withExtension: "json", subdirectory: subdirectory) else {
             throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: name])
         }

@@ -3,7 +3,7 @@
 Each workload is about 1 MiB and is written once, so all cores parse identical bytes.
 Synthetic workloads use a fixed-seed generator and only control functions every
 measured core implements, so no core is credited for skipping work. Recorded
-workloads repeat the program output captured in Fixtures/replays, without resizes.
+workloads repeat the program output captured in Fixtures/recordings, without resizes.
 """
 
 import base64
@@ -158,10 +158,10 @@ def scroll_region():
 
 
 def recorded(names):
-    replays = Path(__file__).resolve().parents[2] / "Fixtures" / "replays"
+    recordings = Path(__file__).resolve().parents[2] / "Fixtures" / "recordings"
     output = b""
     for name in names:
-        events = json.loads((replays / f"{name}.json").read_text())["events"]
+        events = json.loads((recordings / f"{name}.json").read_text())["events"]
         output += b"".join(base64.b64decode(event["bytes"]) for event in events if "bytes" in event)
     repeats = -(-TARGET_BYTES // len(output))
     return output * repeats

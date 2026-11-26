@@ -50,7 +50,7 @@ const cases = [
   await observation('Server replay restores a nonempty title', [osc(0, 'stale'), titledReplay]),
 ];
 
-const canonical = await readFile(new URL('../replays/codex-session.json', import.meta.url));
+const canonical = await readFile(new URL('../recordings/codex-session.json', import.meta.url));
 const recording = JSON.parse(canonical);
 const t = terminal(recording.columns, recording.rows);
 const checkpoints = [];
@@ -73,7 +73,7 @@ assert(Buffer.from(recording.events[clear.eventIndex].bytes, 'base64').includes(
 t.dispose();
 
 const doc = {reference, cases, codex:{fixtureSHA256:digest(canonical), checkpoints}};
-const output = new URL('../replays/metadata/window-title.json', import.meta.url);
+const output = new URL('../recordings/metadata/window-title.json', import.meta.url);
 const data = JSON.stringify(doc, null, 2) + '\n';
 if (values.check) {
   assert.equal(data, await readFile(output, 'utf8'), 'Generated window-title oracle differs from the checked-in JSON.');

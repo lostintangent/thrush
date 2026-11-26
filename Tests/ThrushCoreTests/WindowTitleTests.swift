@@ -20,7 +20,7 @@ import ThrushFixtures
 
 @Test(arguments: [1, Int.max])
 func titlesInCompleteCodexRecording(chunkLimit: Int) throws {
-    let fixture = try ReplayFixture.load(named: "codex-session")
+    let fixture = try Recording.load(named: "codex-session")
     let oracle = try WindowTitleFixture.load().codex
     let indices = oracle.checkpoints.map(\.eventIndex)
     try #require(fixture.sha256 == oracle.fixtureSHA256)

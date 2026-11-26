@@ -25,7 +25,7 @@ package struct WindowTitleFixture: Decodable, Sendable {
 
     package static func load() throws -> Self {
         guard let url = Bundle.module.url(forResource: "window-title", withExtension: "json",
-                                          subdirectory: "replays/metadata") else {
+                                          subdirectory: "recordings/metadata") else {
             throw CocoaError(.fileNoSuchFile)
         }
         return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))

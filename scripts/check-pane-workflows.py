@@ -167,7 +167,7 @@ def collect_capture(marker, output, platform, target, *, require_keyboard=False)
 
 
 def verify_recorded_vim_replay(platform, driver, output, fixture_sha):
-    root = Path("Fixtures/reference/m4/phone" if platform == "simulator" else "Fixtures/replays")
+    root = Path("Fixtures/reference/m4/phone" if platform == "simulator" else "Fixtures/recordings")
     data = (root / "vim-resume.json").read_bytes()
     if hashlib.sha256(data).hexdigest() != fixture_sha:
         raise ValueError("Native Vim run and recorded fixture hashes differ")
@@ -219,7 +219,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             if verify_fixture and name == "codex" and any(capture["appearance"] != "dark" for capture in captures):
                 raise ValueError("Codex recorded its colors on a dark terminal; expected Slate Dark in the captured pane")
             if verify_fixture and platform == "simulator":
-                fixture_root = Path("Fixtures/replays") if name == "shell" else Path("Fixtures/reference/m4/phone")
+                fixture_root = Path("Fixtures/recordings") if name == "shell" else Path("Fixtures/reference/m4/phone")
                 fixture = json.loads((fixture_root / (WORKFLOWS[name] + ".json")).read_bytes())
                 expected = {}
                 grid = (47, 24)

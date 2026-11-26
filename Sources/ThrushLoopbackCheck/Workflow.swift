@@ -5,7 +5,7 @@ import ThrushFixtures
 extension LoopbackCheck {
     /// Exercise the same socket and parser as the native hosts against an input-gated recorded PTY.
     static func runWorkflow(named name: String, at endpoint: URL) async throws {
-        let fixture = try ReplayFixture.load(named: name)
+        let fixture = try Recording.load(named: name)
         let clientID = fixture.events.compactMap(\.lifecycle).first?.clientId ?? "r5-" + name
         var size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         var palette = Terminal.Palette.default

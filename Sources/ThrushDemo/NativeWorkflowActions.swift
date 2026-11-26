@@ -1,5 +1,5 @@
 import Thrush
-import ThrushReplay
+import ThrushRecordings
 
 #if os(macOS)
 import AppKit
@@ -132,7 +132,7 @@ enum NativeWorkflowActions {
         #endif
     }
 
-    static func copy(_ copy: ReplayFixture.Copy, view: TerminalMetalView) throws -> String {
+    static func copy(_ copy: Recording.Copy, view: TerminalMetalView) throws -> String {
         // Recorded row/column endpoints belong to the recording grid. The accessible
         // logical line identifies the same user-visible selection after native reflow.
         let probe = try NativeInteractionProbe(view: view)

@@ -98,68 +98,73 @@ root = Path(__file__).resolve().parents[1]
 path = Path(sys.argv[1]) if len(sys.argv) == 2 else root / ".build/benchmarks/headless.json"
 report = json.loads(path.read_bytes())
 archived = path.resolve() == root / "Benchmarks/headless.json"
-replays = report["recordings"]
-available = {p.stem: p.read_bytes() for p in (root / "Fixtures/replays").glob("*.json")}
+recordings = report["recordings"]
+available = {p.stem: p.read_bytes() for p in (root / "Fixtures/recordings").glob("*.json")}
 if archived:
     # Preserve the checked-in workload set in source archives and shallow checkouts.
     # A changed or removed fixture needs its original bytes from the measured commit.
     revision = report["environment"]["commit"]
     assert re.fullmatch(r"[0-9a-f]{40}", revision) and not report["environment"]["worktreeDirty"]
     fixtures = {}
-    for replay in replays:
-        name = replay["name"]
+    for recording in recordings:
+        name = recording["name"]
         assert re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name) and name not in fixtures
         data = available.get(name)
-        if data is None or hashlib.sha256(data).hexdigest() != replay["fixtureSHA256"]:
-            try:
-                data = subprocess.check_output(["git", "-C", str(root), "show",
-                                                f"{revision}:Fixtures/replays/{name}.json"], stderr=subprocess.PIPE)
-            except (OSError, subprocess.CalledProcessError) as error:
-                sys.exit(f"Archived fixture {name} needs its original bytes from {revision}: {error}")
+        if data is None or hashlib.sha256(data).hexdigest() != recording["fixtureSHA256"]:
+            # Revisions before the rename kept the recordings in Fixtures/replays.
+            for directory in ("recordings", "replays"):
+                try:
+                    data = subprocess.check_output(["git", "-C", str(root), "show",
+                                                    f"{revision}:Fixtures/{directory}/{name}.json"], stderr=subprocess.PIPE)
+                    break
+                except (OSError, subprocess.CalledProcessError) as error:
+                    failure = error
+            else:
+                sys.exit(f"Archived fixture {name} needs its original bytes from {revision}: {failure}")
         fixtures[name] = data
 else:
     fixtures = available
-assert len(replays) == len(fixtures) and {r["name"] for r in replays} == fixtures.keys()
+assert len(recordings) == len(fixtures) and {r["name"] for r in recordings} == fixtures.keys()
 # Check the styled Vim pair as checked in. An archived report's older bytes passed at their own commit.
 check_swift_pair(available)
 
-for replay in replays:
-    data = fixtures[replay["name"]]
+for recording in recordings:
+    data = fixtures[recording["name"]]
     fixture = json.loads(data)
     events = fixture["events"]
-    passes = replay["measuredReplays"]
-    assert passes > 0 and hashlib.sha256(data).hexdigest() == replay["fixtureSHA256"], replay["name"]
+    passes = recording["measuredReplays"]
+    assert passes > 0 and hashlib.sha256(data).hexdigest() == recording["fixtureSHA256"], recording["name"]
 
     def sizes(field):
         return [len(base64.b64decode(event.get(field, ""))) for event in events]
 
     output = sizes("bytes")
-    assert replay["receivedBytes"] == replay["appliedBytes"] == passes * sum(output), replay["name"]
-    assert replay["replyBytes"] == passes * sum(sizes("reply")), replay["name"]
+    assert recording["receivedBytes"] == recording["appliedBytes"] == passes * sum(output), recording["name"]
+    assert recording["replyBytes"] == passes * sum(sizes("reply")), recording["name"]
     semantic = sum(n for event, n in zip(events, sizes("input")) if "action" in event)
-    assert replay["encodedInputBytes"] == passes * semantic, replay["name"]
-    assert replay["referenceCheckpointsPerReplay"] == sum("checkpoint" in e for e in events), replay["name"]
+    assert recording["encodedInputBytes"] == passes * semantic, recording["name"]
+    assert recording["referenceCheckpointsPerReplay"] == sum("checkpoint" in e for e in events), recording["name"]
     palette_changes = sum("palette" in e for e in events)
-    assert replay["paletteChangesPerReplay"] == palette_changes
-    assert (replay.get("paletteChangeTime") is not None) == (palette_changes > 0)
-    assert replay["queuedBytesAfterDrain"] == 0, replay["name"]
-    assert 0 < replay["maximumQueuedBytes"] <= min(replay["queueByteLimit"], sum(output)), replay["name"]
-    assert 0 < replay["maximumQueuedSlots"] <= replay["queueSlotLimit"], replay["name"]
+    assert recording["paletteChangesPerReplay"] == palette_changes
+    assert (recording.get("paletteChangeTime") is not None) == (palette_changes > 0)
+    assert recording["queuedBytesAfterDrain"] == 0, recording["name"]
+    assert 0 < recording["maximumQueuedBytes"] <= min(recording["queueByteLimit"], sum(output)), recording["name"]
+    assert 0 < recording["maximumQueuedSlots"] <= recording["queueSlotLimit"], recording["name"]
 
     times = [e["offsetMicroseconds"] for e in events]
-    assert times == sorted(times), replay["name"]
+    assert times == sorted(times), recording["name"]
     prefix = [0, *accumulate(output)]
     peak = max(prefix[i + 1] - prefix[bisect_right(times, t - 1_000_000)] for i, t in enumerate(times))
-    assert replay["fixturePeakBytesInOneSecond"] == peak, replay["name"]
-    multiple = replay["receiveMiBPerSecond"] * 1_048_576 / peak
-    assert math.isclose(replay["fixturePeakMultiple"], multiple), replay["name"]
-    assert replay["meetsTwiceRecordedPeak"] == (multiple >= 2), replay["name"]
+    assert recording["fixturePeakBytesInOneSecond"] == peak, recording["name"]
+    multiple = recording["receiveMiBPerSecond"] * 1_048_576 / peak
+    assert math.isclose(recording["fixturePeakMultiple"], multiple), recording["name"]
+    assert recording["meetsTwiceRecordedPeak"] == (multiple >= 2), recording["name"]
     # Each receive-rate sample applies at least 8 KiB, so no timed span is close to a clock tick.
-    assert replay["receiveSamples"] > 0, replay["name"]
-    assert replay["receiveReplaysPerSample"] == -(-8192 // sum(output)), replay["name"]
+    assert recording["receiveSamples"] > 0, recording["name"]
+    assert recording["receiveReplaysPerSample"] == -(-8192 // sum(output)), recording["name"]
     expected = [e for e in events if "resize" in e]
-    assert len(replay["resizes"]) == len(expected), replay["name"]
-    for resize, event in zip(replay["resizes"], expected):
+    assert len(recording["resizes"]) == len(expected), recording["name"]
+    for resize, event in zip(recording["resizes"], expected):
         checkpoint = event["checkpoint"]
         assert resize["requested"] == event["resize"], event["name"]
         assert resize["to"] == {k: checkpoint[k] for k in ("columns", "rows")}, event["name"]
@@ -167,7 +172,7 @@ for replay in replays:
         assert resize["historyRowsBefore"] == event["historyRowsBefore"], event["name"]
         assert resize["normalHistoryRowsBefore"] == event["normalHistoryRowsBefore"], event["name"]
 
-    if replay["name"] == "shell-log":
+    if recording["name"] == "shell-log":
         full = [e for e in events if "full" in e["name"].lower() and "history" in e["name"].lower()
                 and "checkpoint" in e]
         assert full and all(not e["checkpoint"]["isAlternate"] and len(e["checkpoint"]["history"]) == 1_000
@@ -179,8 +184,8 @@ for replay in replays:
         first_alternate = next(e for e in expected if e["checkpoint"]["isAlternate"])
         assert first_alternate["historyRowsBefore"] == 0 and first_alternate["normalHistoryRowsBefore"] == 1_000
 
-assert any(r["maximumQueuedSlots"] == r["queueSlotLimit"] for r in replays)
-assert any(r["maximumQueuedBytes"] == r["queueByteLimit"] for r in replays)
+assert any(r["maximumQueuedSlots"] == r["queueSlotLimit"] for r in recordings)
+assert any(r["maximumQueuedBytes"] == r["queueByteLimit"] for r in recordings)
 assert {(b["grid"]["columns"], b["grid"]["rows"]) for b in report["bulk"]} == {(80, 24), (40, 32), (80, 14)}
 bulk = ((b"abcdefghij" * 8)[:78] + b"\r\n") * 13_108
 for sample in report["bulk"]:
@@ -197,4 +202,4 @@ if not archived:
         assert (sample["historyRowsBefore"], sample["historyRowsAfter"]) == (before, after), name
         assert 0 < sample["timing"]["p50Nanoseconds"] <= sample["timing"]["p95Nanoseconds"], name
 
-print(f"Verified {len(replays)} recording hashes and byte counts, both queue bounds, and all bulk grids.")
+print(f"Verified {len(recordings)} recording hashes and byte counts, both queue bounds, and all bulk grids.")

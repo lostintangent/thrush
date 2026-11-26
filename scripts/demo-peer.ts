@@ -1,8 +1,8 @@
 // Standalone development peer. Only the endpoint changes when the host points at a PTY.
 import type { ServerWebSocket } from "bun";
 import { serveWorkflow } from "./workflow-peer";
-import shellFixture from "../Fixtures/replays/shell-log.json";
-import vimFixture from "../Fixtures/replays/vim-edit.json";
+import shellFixture from "../Fixtures/recordings/shell-log.json";
+import vimFixture from "../Fixtures/recordings/vim-edit.json";
 
 const esc = "\x1b[";
 const reset = esc + "0m";
@@ -77,7 +77,7 @@ function recordGrid(event: string, { scene, cols, rows }: Session) {
 
 function recording(until: string, events: { name: string; bytes?: string }[]) {
     const stop = events.findIndex(event => event.name === until);
-    if (stop < 0) throw Error("Missing replay checkpoint " + until);
+    if (stop < 0) throw Error("Missing recording checkpoint " + until);
     return events.slice(0, stop).flatMap(event => event.bytes ? [Buffer.from(event.bytes, "base64")] : []);
 }
 const log = recording("Full normal history", shellFixture.events);
@@ -131,7 +131,7 @@ async function editorFrames(columns: number, rows: number, appearance: Appearanc
         Math.abs(b.columns - columns) - Math.abs(b.rows - rows) * 2)[0];
     let file = recordings.get(appearance);
     if (!file) {
-        file = Bun.file(new URL(`../Fixtures/replays/vim-swift-${appearance}.json`, import.meta.url)).json();
+        file = Bun.file(new URL(`../Fixtures/recordings/vim-swift-${appearance}.json`, import.meta.url)).json();
         recordings.set(appearance, file);
     }
     const { events } = await file;

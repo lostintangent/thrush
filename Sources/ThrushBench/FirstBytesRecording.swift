@@ -19,7 +19,7 @@ struct Operation: Encodable {
     let timing: Timing
 }
 
-struct Replay: Encodable {
+struct FirstBytesRecording: Encodable {
     let warmupReplays: Int
     let measuredReplays: Int
     let receivedBytes: Int
@@ -35,7 +35,7 @@ struct Replay: Encodable {
     let burstDrain: Timing
     let operations: [Operation]
 
-    static func measure(_ fixture: FirstBytesFixture) throws -> Replay {
+    static func measure(_ fixture: FirstBytesFixture) throws -> FirstBytesRecording {
         let warmup = 100
         let measured = 2_000
         let events = fixture.events
@@ -130,7 +130,7 @@ struct Replay: Encodable {
         operations.append(Operation(name: "Complete cursor query", bytesPerCall: cursorQuery.count,
                                     timing: Timing(querySamples)))
         let receive = ReceiveRate(size: size, spans: [.init(chunks: events.map { $0.bytes[...] })])
-        return Replay(
+        return FirstBytesRecording(
             warmupReplays: warmup, measuredReplays: measured,
             receivedBytes: received, appliedBytes: applied, replyBytes: replies, keyBytes: keys,
             receiveMiBPerSecond: receive.mebibytesPerSecond, receiveReplaysPerSample: receive.replaysPerSample,

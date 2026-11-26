@@ -19,7 +19,7 @@ struct ShellTransitions: Encodable {
 
     static func measure() throws -> Self {
         let grid = BenchmarkGrid.desktop
-        let fixture = try ReplayFixture.load(named: "shell-workflow")
+        let fixture = try Recording.load(named: "shell-workflow")
         guard let prompt = fixture.events.first, prompt.name == "Shell prompt" else {
             throw BenchmarkError("Missing shell-workflow PTY prompt.")
         }
@@ -67,7 +67,7 @@ struct ShellTransitions: Encodable {
     }
 
     private static func verifyFreshShell(_ terminal: inout Terminal, history: ArraySlice<String>,
-                                         prompt: ReplayFixture.Event) throws {
+                                         prompt: Recording.Event) throws {
         let fresh = terminal.snapshot()
         guard fresh.history.lazy.map(\.text).elementsEqual(history) else {
             throw BenchmarkError("Expected \(history.count) archived rows in their original order.")

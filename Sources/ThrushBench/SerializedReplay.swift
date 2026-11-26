@@ -6,7 +6,7 @@ import ThrushFixtures
 /// to the independent reference runner, which opens a fresh terminal for each checkpoint.
 func serializeCheckpoints(arguments: [String]) throws {
     guard arguments.count == 3 else { throw BenchmarkError("Usage: ThrushBench --serialize-replay FIXTURE OUTPUT") }
-    let fixture = try ReplayFixture.decode(Data(contentsOf: URL(filePath: arguments[1])))
+    let fixture = try Recording.decode(Data(contentsOf: URL(filePath: arguments[1])))
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
     struct Sample: Encodable { let event: Int; let nanoseconds: UInt64; let bytes: Data }
     var results: [Sample] = []

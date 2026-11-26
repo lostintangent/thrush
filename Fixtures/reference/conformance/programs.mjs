@@ -1,6 +1,6 @@
 // Real programs, as recorded from disposable PTYs: every read in order, with the window changes between them.
 //
-// Captures come from the replay fixtures (shell, Vim, Codex, Clang) and from `programs/`, which
+// Captures come from the recordings (shell, Vim, Codex, Clang) and from `programs/`, which
 // `capture-programs.py` records for pagers, editors, multiplexers and system monitors. Only output and
 // resizes matter here. Input events are the keys that produced the output and replay through the PTY echo.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';

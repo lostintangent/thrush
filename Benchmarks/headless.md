@@ -1,4 +1,4 @@
-# Headless replay measurements
+# Headless recording measurements
 
 Thrush sustained **1,188.13 MiB/s** at 80 × 24 and resized a grid with 1,000 history rows in **0.801 ms at p95** in the slowest full-history case. The benchmark exercises the emulator directly, from incoming bytes to updated cells and generated replies. [Complete measurements](headless.json)
 
@@ -36,7 +36,7 @@ Resizing the normal screen can reflow its history even while Vim’s alternate s
 
 ## Recorded interaction measurements
 
-Each recording first passes an independent reference check for cells, attributes, wraps, cursor, history and modes. The runner then drains 25 replays through the same queue, checking reply bytes and encoded input. All **134 reference checkpoints** passed. Every recording sustained more than twice its largest recorded one-second output volume. [Recording fixtures](../Fixtures/replays)
+Each recording first passes an independent reference check for cells, attributes, wraps, cursor, history and modes. The runner then drains 25 replays through the same queue, checking reply bytes and encoded input. All **134 reference checkpoints** passed. Every recording sustained more than twice its largest recorded one-second output volume. [Recording fixtures](../Fixtures/recordings)
 
 | Recording | Output bytes per replay | Checkpoints | Receive (MiB/s) | Burst drain p95 (µs) |
 | --- | ---: | ---: | ---: | ---: |

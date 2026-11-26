@@ -14,7 +14,7 @@ MODEL = "gpt-6.1-sol"
 
 
 def published_answer():
-    fixture = json.loads((Path(__file__).resolve().parents[2] / "replays/codex-session.json").read_text())
+    fixture = json.loads((Path(__file__).resolve().parents[2] / "recordings/codex-session.json").read_text())
     entries = {}
     for event in fixture["events"]:
         if event["name"] not in ("Earlier transcript page", "Later transcript page") or "checkpoint" not in event:

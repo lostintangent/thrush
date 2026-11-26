@@ -83,7 +83,7 @@ jobs:
         run: scripts/check-loopback.sh
       - name: Verify recorded shell, Vim and Codex workflows over WebSocket
         run: scripts/check-workflows.sh
-      - name: Verify the Release replay
+      - name: Verify the Release benchmarks
         run: |
           swift run -c release ThrushBench
           swift run -c release ThrushBench --app-transport

@@ -10,8 +10,8 @@ import { headless } from './headless.mjs';
 const binary = process.argv[2];
 assert(binary, 'Usage: bun Fixtures/reference/check-serialization.mjs PATH_TO_THRUSHBENCH');
 const root = resolve(import.meta.dir, '../..');
-const paths = (await readdir(join(root, 'Fixtures/replays'))).filter(name => name.endsWith('.json'))
-    .map(name => join(root, 'Fixtures/replays', name));
+const paths = (await readdir(join(root, 'Fixtures/recordings'))).filter(name => name.endsWith('.json'))
+    .map(name => join(root, 'Fixtures/recordings', name));
 for (const name of ['vim-resume', 'codex-session']) paths.push(join(root, 'Fixtures/reference/m4/phone', name + '.json'));
 
 // A reflow can leave the first half of a wide glyph in the last column. At this size

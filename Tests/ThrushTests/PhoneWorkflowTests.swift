@@ -8,7 +8,7 @@ import UIKit
 @MainActor
 @Test(arguments: ["shell-workflow", "vim-resume", "codex-session"])
 func phoneReplaysRecordedWorkflows(_ name: String) throws {
-    let fixture = try ReplayFixture.load(named: name)
+    let fixture = try Recording.load(named: name)
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
     let window = mountTestView(view)

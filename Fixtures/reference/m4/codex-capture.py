@@ -238,7 +238,7 @@ def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
                         access="ChatGPT login through the Codex CLI", model=MODEL),
                         prompt=QUESTION, columns=columns, rows=rows, sanitization=sanitization)
         if local_url:
-            metadata["provider"] = dict(kind="local-recorded-response", source="Fixtures/replays/codex-session.json",
+            metadata["provider"] = dict(kind="local-recorded-response", source="Fixtures/recordings/codex-session.json",
                                         model=MODEL, transport="loopback Responses SSE", authentication="none")
         compact = lambda obj: json.dumps(obj, ensure_ascii=False, separators=(",",":"))
         text = compact(metadata)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, session.events)) + '\n]}\n'

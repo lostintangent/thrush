@@ -10,19 +10,19 @@ let package = Package(
     targets: [
         .target(name: "ThrushCore"),
         .target(name: "Thrush", dependencies: ["ThrushCore"]),
-        .executableTarget(name: "ThrushDemo", dependencies: ["Thrush", "ThrushReplay"]),
+        .executableTarget(name: "ThrushDemo", dependencies: ["Thrush", "ThrushRecordings"]),
         .testTarget(name: "ThrushDemoTests", dependencies: ["ThrushDemo", "Thrush", "ThrushCore"]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
         .target(name: "ThrushPTY"),
         .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore", "ThrushPTY"]),
         .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush"]),
-        .target(name: "ThrushReplay", dependencies: ["ThrushCore"]),
+        .target(name: "ThrushRecordings", dependencies: ["ThrushCore"]),
         .target(
             name: "ThrushFixtures",
-            dependencies: ["ThrushCore", "ThrushReplay"],
+            dependencies: ["ThrushCore", "ThrushRecordings"],
             path: "Fixtures",
             exclude: ["reference"],
-            resources: [.copy("first-bytes.json"), .copy("replays"), .copy("reference/m4/phone/vim-resume.json")]
+            resources: [.copy("first-bytes.json"), .copy("recordings"), .copy("reference/m4/phone/vim-resume.json")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"]),
         .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore"]),

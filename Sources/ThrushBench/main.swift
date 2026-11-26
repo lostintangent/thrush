@@ -10,7 +10,7 @@ struct Report: Encodable {
     let columns: Int
     let rows: Int
     let environment: Environment
-    let replay: Replay
+    let replay: FirstBytesRecording
 }
 
 func outputURL(arguments: [String]) throws -> URL {
@@ -92,7 +92,7 @@ func run() throws {
     let environment = try Environment.read()
     let report = try Report(fixtureSHA256: fixture.sha256, recordedAt: Date(),
                             columns: fixture.columns, rows: fixture.rows,
-                            environment: environment, replay: Replay.measure(fixture))
+                            environment: environment, replay: FirstBytesRecording.measure(fixture))
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

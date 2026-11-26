@@ -1,4 +1,4 @@
-# Shell and Vim replay references
+# Shell and Vim recording references
 
 The `*.capture.json` files contain real reads, writes and window changes from disposable PTYs. Each read retains its byte boundary and its monotonic microsecond offset from session startup. The shell-log and Vim recordings use `/bin/bash --noprofile --norc -i` with `TERM=xterm-256color`, a temporary home, no history file, a fixed `thrush$ ` prompt and the `en_US.UTF-8` locale. The editor is the system Vim 9.1, patches 1–1752. Its complete configuration and initial scratch-file contents are in `capture.py`. Vim uses its ordinary xterm-256color probe sequences. The pinned server emulator processes each PTY read. Its parsed color requests use the pinned browser terminal’s color handler and ThemeService, and the recorder writes all automatic replies back to Vim in order. The shell-log and Vim captures record the Vim and Clang compiler versions.
 
@@ -11,7 +11,7 @@ The reference generator checks that all three normal-screen resizes start with 1
 
 At startup, each recorded Vim issues two cursor reports and a secondary device-attributes query. The live reference sends `ESC [ 2 ; 2 R`, `ESC [ 3 ; 1 R` and `ESC [ > 0 ; 276 ; 0 c` in sequence. Vim then requests the cursor-blink setting with `CSI ? 12 $ p` and receives `CSI ? 12 ; 2 $ y`. On the same startup read, OSC 11 and OSC 10 receive the default black background and white foreground, respectively. The pinned browser handler formats these as `rgb:0000/0000/0000` and `rgb:ffff/ffff/ffff`, terminated with ST. The server-only headless package omits color replies. The DCS termcap probes produced zero reply bytes. Vim saved the scratch file and returned to the prompt with these exchanges.
 
-The small shell replay also checks erasing from the beginning of a line or display through the cursor. It records each visible cell, including the erase background and the text after the cursor.
+The small shell recording also checks erasing from the beginning of a line or display through the cursor. It records each visible cell, including the erase background and the text after the cursor.
 
 ## Bash line edits and formatted output
 
@@ -24,7 +24,7 @@ The last part of `shell-edges` replays `bash-display.capture.json`. It was recor
 | Literal tab stop | `name`, `09`, `value` | `name    value` | (6, 13) |
 | Erased progress line | `progress...`, `0D 1B 5B 32 4B`, `Done` | `Done` | (12, 4) |
 
-Bash runs `printf 'name\tvalue'` and `printf 'progress...\r\033[2KDone'`. After each command, a silent `read -rsn1` waits for one input byte so xterm can record the line and cursor before Bash prints the next prompt. The replay’s `captureSHA256` identifies this raw Bash recording. Regenerate the four checkpoints offline from the committed bytes with the command below. Run the Python command first only to collect a new live recording.
+Bash runs `printf 'name\tvalue'` and `printf 'progress...\r\033[2KDone'`. After each command, a silent `read -rsn1` waits for one input byte so xterm can record the line and cursor before Bash prints the next prompt. The recording’s `captureSHA256` identifies this raw Bash recording. Regenerate the four checkpoints offline from the committed bytes with the command below. Run the Python command first only to collect a new live recording.
 
 ```sh
 python3 Fixtures/reference/m2/capture-display.py --bash /opt/homebrew/bin/bash
@@ -37,7 +37,7 @@ With the [pinned reference](../README.md) installed, run the generator against t
 
 ```sh
 bun Fixtures/reference/m2/generate.mjs
-shasum -a 256 Fixtures/replays/*.json
+shasum -a 256 Fixtures/recordings/*.json
 ```
 
 The generator feeds the output bytes into a reference terminal in recorded order. It obtains replies via `onData`, encodes special keys with the browser package's keyboard evaluator, and uses its paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. The recorded programs never heard a focus report, so that check leaves focus reports out. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes.
@@ -53,9 +53,9 @@ The `shell-edges` checkpoints “Erase the line through the cursor” and “Era
 
 The focused row-editing tests check these two cases separately from ordinary ED1 and EL1, including a complete erase in the alternate screen and a partial erase of a wide character. [Shell row-editing tests](../../../Tests/ThrushCoreTests/ShellRowEditingTests.swift)
 
-## Replay format
+## Recording format
 
-Each version-1 JSON file contains its initial grid, ordered events, and two tables of reference cells and rows. An event can supply a grid size, base64 PTY output, semantic input with its expected wire bytes, replies, or a checkpoint. Apply a resize, consume the PTY output and compare any reply before inspecting the checkpoint. Key and paste events go to the encoder. The captured PTY supplies the echo. A nonempty `observedReply` in a capture is the exact automatic reply the live reference wrote to the PTY, with its own `replyOffsetMicroseconds`. The regenerated `reply` is checked against that observation. Each generated real replay records the SHA-256 of its capture file.
+Each version-1 JSON file contains its initial grid, ordered events, and two tables of reference cells and rows. An event can supply a grid size, base64 PTY output, semantic input with its expected wire bytes, replies, or a checkpoint. Apply a resize, consume the PTY output and compare any reply before inspecting the checkpoint. Key and paste events go to the encoder. The captured PTY supplies the echo. A nonempty `observedReply` in a capture is the exact automatic reply the live reference wrote to the PTY, with its own `replyOffsetMicroseconds`. The regenerated `reply` is checked against that observation. Each generated real recording records the SHA-256 of its capture file.
 
 `normalHistoryRowsBefore` and `historyRowsBefore` record the normal-buffer and active-buffer counts immediately before each resize.
 

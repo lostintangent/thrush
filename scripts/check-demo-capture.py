@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 
-# Independent reference from the approved Slate specifications and the Vim replay.
+# Independent reference from the approved Slate specifications and the Vim recording.
 COLORS = {
     "dark": dict(background="131D27", ink="E3EAF0", cursor="FD9A01", cursor_ink="131D27",
                  selection="466B85", selected_ink="F8FBFE", stage="A9CFFF", passed="93CBA2",

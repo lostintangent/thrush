@@ -2,16 +2,16 @@ import Testing
 import ThrushCore
 import ThrushFixtures
 
-@Test(arguments: ReplayFixture.names)
+@Test(arguments: Recording.names)
 func serializedCheckpointsRestoreTheRecordedScreen(_ name: String) throws {
-    try checkSerialization(ReplayFixture.load(named: name))
+    try checkSerialization(Recording.load(named: name))
 }
 
 @Test func serializedHandsetVimRestoresBothBuffers() throws {
-    try checkSerialization(ReplayFixture.load(named: "vim-resume", subdirectory: nil))
+    try checkSerialization(Recording.load(named: "vim-resume", subdirectory: nil))
 }
 
-private func checkSerialization(_ fixture: ReplayFixture) throws {
+private func checkSerialization(_ fixture: Recording) throws {
     var original = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
     var resumed = original
     for (index, event) in fixture.events.enumerated() {

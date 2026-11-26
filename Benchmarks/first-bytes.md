@@ -21,4 +21,4 @@ For the burst measurement, the runner offers all 75 fixture bytes at once and ti
 
 ## Run the benchmark
 
-Run `swift run -c release ThrushBench` from the package root. It prints the operation timings and writes `.build/benchmarks/first-bytes.json` together with the headless replay report. To measure variation, run `python3 scripts/measure-first-bytes.py CHECKOUT OUTPUT` with a clean checkout and a fresh output directory. The script builds once and collects five consecutive runs that meet the quiet-machine checks. [Five-run measurement script](../scripts/measure-first-bytes.py)
+Run `swift run -c release ThrushBench` from the package root. It prints the operation timings and writes `.build/benchmarks/first-bytes.json` together with the headless recording report. To measure variation, run `python3 scripts/measure-first-bytes.py CHECKOUT OUTPUT` with a clean checkout and a fresh output directory. The script builds once and collects five consecutive runs that meet the quiet-machine checks. [Five-run measurement script](../scripts/measure-first-bytes.py)

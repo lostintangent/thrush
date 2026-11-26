@@ -232,7 +232,7 @@ async function generate(name) {
   if (name === 'shell-log') assert.equal(fullHistory.size, 0, 'Missing full-history checkpoint');
   if (name.startsWith('vim-swift-')) await verifyStyledPaints(recording, events, cells, lines);
   t.dispose();
-  // The Vim resume checkpoints come from the reference like every other replay. Only its reattachment
+  // The Vim resume checkpoints come from the reference like every other recording. Only its reattachment
   // frame comes from a server's serializer, which ../m4/README.md records.
   const overlay = recording.overlay;
   const vimReplay = name === 'vim-resume' ? {sourceCaptureSHA256:overlay.sourceCaptureSHA256,
@@ -245,7 +245,7 @@ async function generate(name) {
   const data = JSON.stringify(header).slice(0,-1)
     + ',\n"cells":[\n' + linesOf(cellList) + '\n],\n"lines":[\n' + linesOf(rowList)
     + '\n],\n"events":[\n' + linesOf(eventList) + '\n]}\n';
-  const outputDirectory = phone ? '../m4/phone/' : '../../replays/';
+  const outputDirectory = phone ? '../m4/phone/' : '../../recordings/';
   await writeFile(new URL(outputDirectory+name+'.json',import.meta.url),data);
   console.log(name, events.length, sha256(data));
 }
@@ -255,7 +255,7 @@ const phone = process.argv[2] === '--phone';
 const available = phone ? ['vim-resume', 'codex-session'] : all;
 const requested = process.argv.slice(phone ? 3 : 2);
 for (const name of requested.length ? requested : available) {
-  assert(available.includes(name), 'Unknown replay: ' + name);
+  assert(available.includes(name), 'Unknown recording: ' + name);
   await generate(name);
 }
 

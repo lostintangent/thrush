@@ -53,7 +53,7 @@ bun Fixtures/reference/m4/vim-resume.mjs
 
 ## Native pointer input
 
-The Codex transcript pager enables X11 button, drag and all-motion tracking and requests SGR coordinates. The pointer replay exercises those modes through the reference's mouse service at 240 × 8, including legacy binary coordinates above ASCII, the 223-column limit, SGR release and wheel events, modifiers and the return to local selection. Its expected frames come from the reference terminal's binary and text streams. Regenerate from the repository root.
+The Codex transcript pager enables X11 button, drag and all-motion tracking and requests SGR coordinates. The pointer recording exercises those modes through the reference's mouse service at 240 × 8, including legacy binary coordinates above ASCII, the 223-column limit, SGR release and wheel events, modifiers and the return to local selection. Its expected frames come from the reference terminal's binary and text streams. Regenerate from the repository root.
 
 ```sh
 bun Fixtures/reference/m2/generate.mjs pointer-input

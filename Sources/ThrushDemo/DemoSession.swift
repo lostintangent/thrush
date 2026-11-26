@@ -70,7 +70,7 @@ struct DemoOptions {
     }
 }
 
-/// State specific to the demo: replay selection, appearance and optional measurements.
+/// State specific to the demo: scene selection, appearance and optional measurements.
 /// TerminalView owns the socket lifecycle and native interactions in each connected scene.
 @MainActor
 final class DemoSession: ObservableObject {

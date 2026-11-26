@@ -1,7 +1,7 @@
 import Foundation
 import QuartzCore
 import Thrush
-import ThrushReplay
+import ThrushRecordings
 
 /// This development-only driver observes the tab's session and drives its native
 /// responder. The terminal protocol stays on the existing socket. A separate loopback HTTP
@@ -70,7 +70,7 @@ final class WorkflowDriver {
     private var lastTimedSubmission = -Double.infinity
     private var firstSubmission = -Double.infinity
     private var entries: [Entry] = []
-    private var lastCheckpoint: ReplayFixture.Event?
+    private var lastCheckpoint: Recording.Event?
 
     private init(control: URL, output: URL, view: TerminalMetalView, session: TerminalSession,
                  setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
@@ -173,7 +173,7 @@ final class WorkflowDriver {
             http.invalidateAndCancel()
         }
 
-        var fixture = try ReplayFixture.decode(await get("fixture"))
+        var fixture = try Recording.decode(await get("fixture"))
         var resizeCount = 0
         var checkKeyboardAfterShellAction = false
         var previous: (Phase, Int)?
@@ -203,7 +203,7 @@ final class WorkflowDriver {
                 originalSuperview = view.superview
                 originalWindow = view.window
                 // The peer can select a source recorded at the settled handset geometry.
-                fixture = try ReplayFixture.decode(await get("fixture"))
+                fixture = try Recording.decode(await get("fixture"))
             case .reclaim:
                 let until = ContinuousClock.now.advanced(by: .seconds(10))
                 while !view.tapDisplacedGrid() {
@@ -260,7 +260,7 @@ final class WorkflowDriver {
                     firstSubmission = CACurrentMediaTime()
                     setActive(true)
                 case .checkpoint:
-                    let projected = try ReplayFixture.decode(await get("checkpoint", index: state.eventIndex))
+                    let projected = try Recording.decode(await get("checkpoint", index: state.eventIndex))
                     guard projected.events.count == 1, let expected = projected.events.first, expected.name == event.name else {
                         throw Failure("The reference omitted \(event.name).")
                     }
@@ -303,7 +303,7 @@ final class WorkflowDriver {
         throw Failure("The view and its WebSocket did not settle on the same grid at event \(eventIndex).")
     }
 
-    private func inspect(_ expected: ReplayFixture.Event, state: State, lifecycle: Bool) async throws -> Entry {
+    private func inspect(_ expected: Recording.Event, state: State, lifecycle: Bool) async throws -> Entry {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         var redrawAfter = ContinuousClock.now.advanced(by: .seconds(1))
         var detail = "Waiting for the recorded output"

@@ -5,7 +5,7 @@ Thrush is a general-purpose Swift terminal for macOS and iOS apps. [docs/plan.md
 ## Principles
 
 - The `ThrushCore` target uses only the Swift standard library. No Foundation, Darwin or third-party code.
-- Add terminal behavior only when a named workflow or its recorded replay needs it.
+- Add terminal behavior only when a named workflow or its recording needs it.
 - Every new operation lands with its correctness checkpoint and its `ThrushBench` workload in the same change.
 - ThrushCore is fast, correct and simple, and none of them is traded for another. The simplest, clearest design is the goal, and code that plain is also code people can learn from. Get speed from structure a reader would recognize, such as text runs, flat rows, a ring buffer and a table-driven parser, never from awkward or surprising code. Keep the few low-level techniques in the files [the emulator design](docs/emulator.md) names, explained where they live.
 - A change that slows any ThrushBench workload doesn't land without the lead's agreement.

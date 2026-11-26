@@ -406,7 +406,7 @@ export async function serveWorkflow(workflow: string, options: { port?: number; 
     if (options.driverPort !== undefined && !options.view) throw Error("Driver mode requires --view");
     const name = recordings[workflow as keyof typeof recordings];
     const directory = options.driverPort !== undefined && process.env.THRUSH_WORKFLOW_GEOMETRY === "iphone"
-        && (workflow === "codex" || workflow === "vim") ? "../Fixtures/reference/m4/phone/" : "../Fixtures/replays/";
+        && (workflow === "codex" || workflow === "vim") ? "../Fixtures/reference/m4/phone/" : "../Fixtures/recordings/";
     const fixtureFile = Bun.file(new URL(directory + name + ".json", import.meta.url));
     const fixture: Recording = await fixtureFile.json();
     const completed = Promise.withResolvers<Completion>();

@@ -13,7 +13,7 @@ struct ResizeTiming: Encodable {
     let withinDisplayInterval: Bool
 }
 
-struct HeadlessReplay: Encodable {
+struct HeadlessRecording: Encodable {
     static let displayIntervalNanoseconds: UInt64 = 1_000_000_000 / 120
 
     let name: String
@@ -44,13 +44,13 @@ struct HeadlessReplay: Encodable {
     let paletteChangeTime: Timing?
     let input: [Operation]
 
-    static func measure(_ fixture: ReplayFixture, named name: String) throws -> HeadlessReplay {
+    static func measure(_ fixture: Recording, named name: String) throws -> HeadlessRecording {
         let measured = 25
         let bytesPerReplay = fixture.events.reduce(0) { $0 + $1.bytes.count }
         let repliesPerReplay = fixture.events.reduce(0) { $0 + $1.reply.count }
         let paletteChanges = fixture.events.filter { $0.palette != nil }.count
         let checkpoints = fixture.events.filter { $0.checkpoint != nil }.count
-        guard bytesPerReplay > 0, checkpoints > 0 else { throw BenchmarkError("Empty replay \(name).") }
+        guard bytesPerReplay > 0, checkpoints > 0 else { throw BenchmarkError("Empty recording \(name).") }
 
         // Use the same bounded feeder for reference verification and timings. Full-grid
         // comparisons run once before measurement and can walk 1,000 rows of history.
@@ -83,7 +83,7 @@ struct HeadlessReplay: Encodable {
         let rate = receive.mebibytesPerSecond
         let peak = peakBytesInOneSecond(fixture.events.map { ($0.offsetMicroseconds, $0.bytes.count) })
         let multiple = rate * 1_048_576 / Double(peak)
-        return HeadlessReplay(
+        return HeadlessRecording(
             name: name, fixtureSHA256: fixture.sha256,
             requestedGrid: .init(columns: fixture.columns, rows: fixture.rows), initialGrid: reference.initialGrid,
             measuredReplays: measured,
@@ -114,7 +114,7 @@ struct HeadlessReplay: Encodable {
         var keys: [(name: String, bytes: Int, duration: UInt64)] = []
     }
 
-    private static func run(_ fixture: ReplayFixture, checkReference: Bool) throws -> Pass {
+    private static func run(_ fixture: Recording, checkReference: Bool) throws -> Pass {
         var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
         let titleFixture = checkReference && fixture.name == "codex-session" ? try WindowTitleFixture.load() : nil
         if let recording = titleFixture?.codex {
@@ -204,7 +204,7 @@ struct HeadlessReplay: Encodable {
     }
 
     /// The queue's chunks, split wherever a session restart, palette change or resize changes the terminal.
-    private static func spans(of fixture: ReplayFixture) -> [ReceiveRate.Span] {
+    private static func spans(of fixture: Recording) -> [ReceiveRate.Span] {
         var spans = [ReceiveRate.Span()]
         var queue = BurstQueue()
         while queue.fill(from: fixture.events) {
@@ -238,7 +238,7 @@ private struct BurstQueue {
     private var eventIndex = 0
     private var offset = 0
 
-    mutating func fill(from events: [ReplayFixture.Event]) -> Bool {
+    mutating func fill(from events: [Recording.Event]) -> Bool {
         items.removeAll(keepingCapacity: true)
         bytes = 0
         while eventIndex < events.count, items.count < Self.slotLimit, bytes < Self.byteLimit {

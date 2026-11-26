@@ -53,7 +53,7 @@ A separate pass for ThrushCore and libghostty-vt runs with `scripts/comparison/a
 
 ## Workloads
 
-Each workload is about 1 MiB, generated deterministically by `scripts/comparison/workloads.py`. The recorded workloads repeat the program output of committed fixtures in `Fixtures/replays`, without their resizes, until they reach 1 MiB.
+Each workload is about 1 MiB, generated deterministically by `scripts/comparison/workloads.py`. The recorded workloads repeat the program output of committed fixtures in `Fixtures/recordings`, without their resizes, until they reach 1 MiB.
 
 | Workload | What it holds | Bytes | SHA-256 prefix |
 | --- | --- | ---: | --- |

@@ -111,7 +111,7 @@ scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
 
 ## Benchmarks
 
-`swift run -c release ThrushBench` checks every recorded replay against an independent reference emulator, then writes its measurements to `.build/benchmarks`.
+`swift run -c release ThrushBench` checks every recording against an independent reference emulator, then writes its measurements to `.build/benchmarks`.
 
 | Measure | Result | Report |
 | --- | --- | --- |

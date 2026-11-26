@@ -24,7 +24,7 @@ assert((await stat(work)).isDirectory(), "The disposable working directory must 
 const life = workflow === "lifecycle" ? await import("./lifecycle.ts") : undefined;
 const recovery = workflow === "recovery" ? await import("./recovery.ts") : undefined;
 const name = names[workflow === "lifecycle" || workflow === "recovery" ? "shell" : workflow];
-const recorded: Recording = JSON.parse(await readFile(new URL("../../Fixtures/replays/" + name + ".json", import.meta.url), "utf8"));
+const recorded: Recording = JSON.parse(await readFile(new URL("../../Fixtures/recordings/" + name + ".json", import.meta.url), "utf8"));
 const fixture = life ? life.lifecycleFixture(recorded) : recovery ? recovery.recoveryFixture(recorded) : liveFixture(recorded);
 assert(!values["trace-lifecycle-frames"] || workflow === "lifecycle", "Frame tracing requires the scripted lifecycle");
 const run = new LiveRun(fixture, upstream, work, values["trace-lifecycle-frames"], values["bootstrap-shell"]);
