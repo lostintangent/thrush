@@ -22,6 +22,8 @@ enum PhoneCapture {
         var windowPoints, gridFrame: CGRect
         let displayScale: CGFloat
         var keyboardHeight, accessoryHeight: CGFloat
+        /// The key row's controls, left to right, in `windowPoints` coordinates.
+        var keys: [CGRect] = []
         let selection: [Int]?
         var cursorSpinner: CGRect?
         var cursorSpinnerLabel: String?
@@ -104,7 +106,8 @@ enum PhoneCapture {
                 columns: view.gridSize?.columns ?? 0, rows: view.gridSize?.rows ?? 0,
                 windowPoints: root.bounds, gridFrame: view.convert(view.bounds, to: root),
                 displayScale: view.traitCollection.displayScale, keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
-                accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0, selection: selection)
+                accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0,
+                keys: keyFrames(of: accessory, in: root), selection: selection)
             if session.options.scene.capturesSessionState {
                 state.cursorSpinner = view.cursorSpinnerFrameInWindow
                 state.cursorSpinnerLabel = view.subviews.first {
@@ -151,6 +154,17 @@ enum PhoneCapture {
             writeLatest()
         }
         return writeLatest
+    }
+
+    /// The accessory lives in the keyboard's window, so its controls convert through the scene.
+    static func keyFrames(of accessory: UIView?, in root: UIView) -> [CGRect] {
+        guard let accessory, accessory.window != nil, let scene = root.window?.windowScene?.coordinateSpace else { return [] }
+        func buttons(in view: UIView) -> [UIButton] {
+            view.subviews.flatMap { ($0 as? UIButton).map { [$0] } ?? buttons(in: $0) }
+        }
+        return buttons(in: accessory).filter { !$0.isHidden }
+            .map { root.convert($0.convert($0.bounds, to: scene), from: scene) }
+            .sorted { $0.minX < $1.minX }
     }
 
     static func orient(_ scene: UIScene) {

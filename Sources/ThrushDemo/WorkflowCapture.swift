@@ -14,6 +14,7 @@ struct WorkflowCapture: Encodable {
     struct Keyboard: Encodable {
         let windowPoints, gridFrame: CGRect
         let displayScale, keyboardHeight, accessoryHeight: CGFloat
+        let keys: [CGRect]
         let orientation: String
     }
 
@@ -47,6 +48,7 @@ struct WorkflowCapture: Encodable {
                                 displayScale: view.traitCollection.displayScale,
                                 keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
                                 accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0,
+                                keys: PhoneCapture.keyFrames(of: accessory, in: root),
                                 orientation: scene.effectiveGeometry.interfaceOrientation.isLandscape ? "landscape" : "portrait")
             #endif
         }

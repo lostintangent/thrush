@@ -198,19 +198,28 @@ def keyboard(image, state):
     top = round(height - guide)
     require(0 <= left < right <= width and 0 <= top < height, "Keyboard is outside the window")
 
-    # Sample point centres. The safe-area width also sets the widths of the seven
-    # equal accessory buttons, including when the home indicator moves in landscape.
-    def luma(x, y):
-        px = int((x + 0.5) * scale)
-        py = int((y + 0.5) * scale)
-        r, g, b = image.rgb(image.pixels[py * image.width + px])
+    def sample(x, y):
+        r, g, b = image.rgb(image.pixels[int(y * scale) * image.width + int(x * scale)])
         return (54 * r + 183 * g + 19 * b) // 256
 
-    for button in range(7):
-        x0 = round(left + (button + 0.20) * (right - left) / 7)
-        x1 = round(left + (button + 0.80) * (right - left) / 7)
-        ink = sum(abs(luma(x, y) - luma(x, top + 3)) >= 70 for x in range(x0, x1)
-                  for y in range(top + 11, top + 33))
+    def luma(x, y):
+        return sample(x + 0.5, y + 0.5)
+
+    # The key row floats as a capsule of eight equal controls, which the app reports in window points.
+    keys = state.get("keys") or []
+    require(len(keys) == 8, f"Expected the key row's eight controls, found {len(keys)}")
+    widths = [w for _, (w, _) in keys]
+    require(min(widths) >= 44 and max(widths) - min(widths) <= 0.5,
+            f"Key row controls must share one width of at least 44 points, measured {widths}")
+    for button, ((kx, ky), (kw, kh)) in enumerate(keys):
+        x, y = kx - wx, ky - wy
+        require(0 <= x and x + kw <= width and top <= y and y + kh <= top + accessory + 0.5,
+                f"Keyboard accessory control {button + 1} lies outside the accessory")
+        # Stay clear of the dividers at the edges. A label or arrow stands out from the glass behind it.
+        samples = [sample(x + kw * (0.2 + 0.6 * i / 23), y + kh * (0.2 + 0.6 * j / 15))
+                   for i in range(24) for j in range(16)]
+        glass = sorted(samples)[len(samples) // 2]
+        ink = sum(abs(v - glass) >= 70 for v in samples)
         require(ink >= 10, f"Keyboard accessory control {button + 1} has no visible label or arrow")
 
     # Native keycaps are brighter than the gutters in both system appearances.
