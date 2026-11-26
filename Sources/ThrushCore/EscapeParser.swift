@@ -38,7 +38,7 @@ struct EscapeParser: Sendable {
     private(set) var state = State.ground
     private(set) var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
-    private(set) var parameters = ControlParameters()
+    var parameters = Parameters()
     private(set) var oscIdentifier = -1
     private var pending: PendingAction?
     var isGround: Bool { state == .ground }
@@ -75,12 +75,10 @@ struct EscapeParser: Sendable {
 
     /// Consumes ASCII from ESC, or from anywhere inside a control, until one action is ready or text can resume.
     ///
-    /// A CSI that arrives whole, with only digits, colons and semicolons before its final byte, lends its
-    /// parameters instead of storing them. `parameterBytes` gives their range in `bytes`, and `parameters`
-    /// stays empty unless the caller passes them to `storeParameters(_:)`.
+    /// A CSI that arrives whole, with only digits, colons and semicolons before its final byte, is read in one pass.
     // Inlined into its one caller, Terminal's readSequence, so each sequence costs a single call.
     @inline(__always)
-    mutating func consume(_ bytes: Span<UInt8>, from index: inout Int, parameterBytes: inout Range<Int>?) -> Action? {
+    mutating func consume(_ bytes: Span<UInt8>, from index: inout Int, lent: inout Range<Int>?) -> Action? {
         if isGround, bytes.count - index >= 2, bytes[index] == Self.escape, bytes[index + 1] == UInt8(ascii: "[") {
             state = .csiEntry
             beginHeader()
@@ -88,18 +86,14 @@ struct EscapeParser: Sendable {
             let start = index
             while index < bytes.count, Self.isParameter(bytes[index]) { index += 1 }
             if index < bytes.count, Self.isFinal(bytes[index]) {
-                parameterBytes = start..<index
+                lent = start..<index
                 let identifier = ControlIdentifier(bytes[index])
                 index += 1
                 state = .ground
                 return .csi(identifier)
             }
-            // The rest of the header arrives later or has a prefix or intermediate, so it uses the same
-            // stored parameters as a header split across reads.
-            if start < index {
-                state = .csiParameters
-                for position in start..<index { parameters.append(bytes[position]) }
-            }
+            parameters.append(start..<index, of: bytes)
+            if start < index { state = .csiParameters }
         }
         while index < bytes.count {
             let byte = bytes[index]
@@ -109,10 +103,9 @@ struct EscapeParser: Sendable {
             if transition.operation == .parameter {
                 state = transition.nextState
                 // All parameter bytes continue in the same CSI or DCS parameter state.
-                repeat {
-                    parameters.append(bytes[index])
-                    index += 1
-                } while index < bytes.count && Self.isParameter(bytes[index])
+                let start = index
+                repeat { index += 1 } while index < bytes.count && Self.isParameter(bytes[index])
+                parameters.append(start..<index, of: bytes)
             } else {
                 index += 1
                 if let action = advance(transition, code: code) { return action }
@@ -120,11 +113,6 @@ struct EscapeParser: Sendable {
             if isGround || discardsASCII { break }
         }
         return nil
-    }
-
-    /// Stores the parameters a complete CSI lent, for a function that reads them by position.
-    mutating func storeParameters(_ bytes: Span<UInt8>) {
-        for index in bytes.indices { parameters.append(bytes[index]) }
     }
 
     /// Digits, colons and semicolons.
@@ -135,7 +123,7 @@ struct EscapeParser: Sendable {
 
     private mutating func beginHeader() {
         collected = 0
-        parameters.reset()
+        parameters.removeAll()
     }
 
     @inline(__always)

@@ -269,7 +269,7 @@ private extension EscapeParser {
         case .dcsEntry: return esc + "P"
         case .csiParameters, .csiIntermediate, .dcsParameters, .dcsIntermediate:
             let introducer = state == .csiParameters || state == .csiIntermediate ? "[" : "P"
-            return esc + introducer + prefix + parameters.replayFields + intermediates
+            return esc + introducer + prefix + parameters.description + intermediates
         case .csiIgnore: return esc + "[1?"
         case .dcsIgnore: return esc + "P1?"
         case .oscIdentifier: return esc + "]" + (oscIdentifier < 0 ? "" : String(oscIdentifier))
@@ -287,24 +287,6 @@ private extension EscapeParser {
         case .ignoredString: return esc + "_"
         default: return ""
         }
-    }
-}
-
-private extension ControlParameters {
-    var replayFields: String {
-        var fields = (0..<count).map { i in
-            var field = String(self[i])
-            for j in 0..<subparameterCount(at: i) {
-                field += ":" + (self[parameter: i, subparameter: j].map(String.init) ?? "")
-            }
-            return field
-        }.joined(separator: ";")
-        switch destination {
-        case .discardRemainder: fields += ";"
-        case .discardSubparameters: fields += ":"
-        default: break
-        }
-        return fields
     }
 }
 

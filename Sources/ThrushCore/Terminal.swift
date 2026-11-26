@@ -233,18 +233,17 @@ public struct Terminal: Sendable {
             index = TextScanner.endOfASCII(in: bytes, from: start)
             if stringHandler.isCollecting { stringHandler.appendASCII(bytes.extracting(start..<index)) }
         } else {
-            var parameterBytes: Range<Int>?
-            let action = parser.consume(bytes, from: &index, parameterBytes: &parameterBytes)
-            if let parameterBytes {
-                let parameters = bytes.extracting(parameterBytes)
-                // SGR applies its operands as it reads them from the chunk. Reading them from
-                // stored parameters instead took 46% more instructions on SGR-heavy output.
+            var lent: Range<Int>?
+            let action = parser.consume(bytes, from: &index, lent: &lent)
+            if let lent {
+                // SGR applies its operands as it reads them from the chunk. Copying them into
+                // parameters first took 3% more instructions on SGR-heavy output.
                 if case .csi(Self.selectGraphicRendition)? = action {
-                    style.applySGR(parameters)
+                    style.applySGR(bytes.extracting(lent))
                     followsText = false
                     return
                 }
-                parser.storeParameters(parameters)
+                parser.parameters.append(lent, of: bytes)
             }
             dispatch(action, replies: &replies)
         }
@@ -407,7 +406,7 @@ public struct Terminal: Sendable {
             setPrivateModes(enabled: false, replies: &replies)
             return
         case .control(.graphicRendition):
-            style.applySGR(parser.parameters)
+            style.applySGR(&parser.parameters)
             return
         case .control(.deviceStatusReport):
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.

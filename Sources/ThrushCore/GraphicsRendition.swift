@@ -69,47 +69,35 @@ extension Terminal.Style {
         }
     }
 
-    mutating func applySGR(_ parameters: ControlParameters) {
-        var index = 0
-        applyRenditions {
-            guard index < parameters.count else { return nil }
-            defer { index += 1 }
-            var operand = Operand(parameters[index])
-            let count = parameters.subparameterCount(at: index)
-            if count > 0 {
-                var components = InlineArray<5, Int32>(repeating: -1)
-                for ordinal in 0..<min(count, components.count) {
-                    components[ordinal] = Int32(parameters[parameter: index, subparameter: ordinal] ?? -1)
-                }
-                operand.components = components
-            }
-            return operand
-        }
+    /// Reads one semicolon operand at a time, including the colon components belonging to it, and
+    /// applies each as it's read. The final byte is already known, so an interrupted control can never
+    /// change the style.
+    @inline(__always)
+    mutating func applySGR(_ parameters: inout Parameters) {
+        parameters.withBytes { applySGR($0) }
     }
 
-    /// Read one semicolon operand at a time, including the colon components belonging to it.
-    /// The final byte is already known, so an interrupted control can never change the style.
     @inline(__always)
     mutating func applySGR(_ bytes: Span<UInt8>) {
         var index = 0
-        var remainingOperands = ControlParameters.limit
-        var remainingComponents = ControlParameters.limit
+        var remainingOperands = Parameters.limit
+        var remainingComponents = Parameters.limit
         applyRenditions {
             guard remainingOperands > 0 else { return nil }
             remainingOperands -= 1
-            var operand = Operand(Self.decimal(in: bytes, at: &index) ?? 0)
-            if index < bytes.count, bytes[index] == UInt8(ascii: ":") {
+            var operand = Operand(Parameters.number(in: bytes, at: &index) ?? 0)
+            if index < bytes.count, bytes[index] == Parameters.colon {
                 var components = InlineArray<5, Int32>(repeating: -1)
                 var count = 0
                 repeat {
                     index += 1
-                    let value = Self.decimal(in: bytes, at: &index)
+                    let value = Parameters.number(in: bytes, at: &index)
                     if remainingComponents > 0 {
                         remainingComponents -= 1
                         if count < components.count { components[count] = Int32(value ?? -1) }
                         count += 1
                     }
-                } while index < bytes.count && bytes[index] == UInt8(ascii: ":")
+                } while index < bytes.count && bytes[index] == Parameters.colon
                 if count > 0 { operand.components = components }
             }
             if index < bytes.count {
@@ -119,19 +107,6 @@ extension Terminal.Style {
             }
             return operand
         }
-    }
-
-    /// The parser has already restricted this span to digits, colons and semicolons.
-    @inline(__always)
-    private static func decimal(in bytes: Span<UInt8>, at index: inout Int) -> Int? {
-        guard index < bytes.count, bytes[index] <= UInt8(ascii: "9") else { return nil }
-        var value = 0
-        repeat {
-            // Clamping at every digit keeps the value far from overflow.
-            value = min(Int(Int32.max), value &* 10 &+ Int(bytes[index] &- UInt8(ascii: "0")))
-            index += 1
-        } while index < bytes.count && bytes[index] <= UInt8(ascii: "9")
-        return value
     }
 
     /// Each operand changes one attribute or supplies components to the preceding color.
