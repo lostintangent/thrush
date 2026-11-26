@@ -28,7 +28,7 @@ struct TextScanner: Sendable {
         // Adding 33 sets the high bit from 95 up, and anything past 127 has it already, so
         // the high bits mark the lanes that end the run.
         let offset = block &- 0x20
-        let marks = unsafeBitCast((offset | (offset &+ 33)) & 0x80, to: SIMD2<UInt64>.self)
+        let marks = bitCast((offset | (offset &+ 33)) & 0x80, to: SIMD2<UInt64>.self)
         // Each half read as a little-endian word puts its first lane in the lowest byte.
         let first = UInt64(littleEndian: marks[0]), second = UInt64(littleEndian: marks[1])
         if first != 0 { return first.trailingZeroBitCount / 8 }
