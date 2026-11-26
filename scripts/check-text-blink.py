@@ -54,6 +54,11 @@ class Grid:
     def band(self, image):
         return image.pixels[self.y(0) * image.width:self.y(PROMPT + 1) * image.width].tobytes()
 
+    def changed_span(self, image, other):
+        xs = [i % image.width for i in range(self.y(0) * image.width, self.y(PROMPT + 1) * image.width)
+              if image.pixels[i] != other.pixels[i]]
+        return f"{min(xs)}…{max(xs)}" if xs else "none"
+
     def changed_rows(self, image, other):
         width = image.width
         return {(y - self.top) // self.row for y in range(self.y(0), self.y(PROMPT + 1))
@@ -70,8 +75,9 @@ def check(blinking, steady, theme):
     grid = Grid(shown)
     reference = grid.band(shown)
     for path, image in zip(steady, steady_images):
-        require((image.width, image.height) == (shown.width, shown.height) and grid.band(image) == reference,
-                f"{Path(path).name} changed under Reduce Motion")
+        require((image.width, image.height) == (shown.width, shown.height), f"{Path(path).name} changed size")
+        require(grid.band(image) == reference, f"{Path(path).name} changed under Reduce Motion: "
+                f"rows {sorted(grid.changed_rows(image, shown))}, pixels x={grid.changed_span(image, shown)}")
 
     # Concealed text leaves 14 blank cells between its brackets. The label padding on
     # an ordinary row stays well short of that.
