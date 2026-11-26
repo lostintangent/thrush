@@ -24,9 +24,12 @@ typealias PlatformView = UIView
     private var gridConstraints: [NSLayoutConstraint] = []
     private var holdConstraints: [NSLayoutConstraint] = []
     private var held: (top: NSLayoutConstraint, cursor: Int, rows: Int, history: Int, offset: Int, keyboard: Bool)?
-    // A hold can slide rows under the grid's top inset, which the resized grid leaves blank.
+    // A hold can slide rows under the grid's top inset or below the resized grid's last row,
+    // where the resized grid leaves the canvas blank.
     private let insetCover = UIView()
+    private let bottomCover = UIView()
     private var insetHeight: NSLayoutConstraint!
+    private var gridBottom: NSLayoutConstraint!
     private var keyboardEdge: NSLayoutConstraint!
     private var pinnedHeight: NSLayoutConstraint!
     var viewportSize: CGSize { viewport.bounds.size }
@@ -86,15 +89,18 @@ typealias PlatformView = UIView
         viewport.clipsToBounds = true
         viewport.translatesAutoresizingMaskIntoConstraints = false
         viewport.addSubview(terminal)
-        viewport.addSubview(insetCover)
-        insetCover.isUserInteractionEnabled = false
-        insetCover.isHidden = true
-        for view in [terminal, insetCover] { view.translatesAutoresizingMaskIntoConstraints = false }
+        for cover in [insetCover, bottomCover] {
+            viewport.addSubview(cover)
+            cover.isUserInteractionEnabled = false
+            cover.isHidden = true
+        }
+        for view in [terminal, insetCover, bottomCover] { view.translatesAutoresizingMaskIntoConstraints = false }
         // With the keyboard down, lines run on into the home indicator's strip.
         keyboardLayoutGuide.usesBottomSafeArea = false
         keyboardEdge = viewport.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         pinnedHeight = viewport.heightAnchor.constraint(equalToConstant: 0)
         insetHeight = insetCover.heightAnchor.constraint(equalToConstant: 0)
+        gridBottom = bottomCover.topAnchor.constraint(equalTo: viewport.topAnchor)
         gridConstraints = [
             terminal.topAnchor.constraint(equalTo: viewport.topAnchor),
             terminal.heightAnchor.constraint(equalTo: viewport.heightAnchor),
@@ -115,6 +121,10 @@ typealias PlatformView = UIView
             insetCover.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
             insetCover.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
             insetHeight,
+            gridBottom,
+            bottomCover.leadingAnchor.constraint(equalTo: viewport.leadingAnchor),
+            bottomCover.trailingAnchor.constraint(equalTo: viewport.trailingAnchor),
+            bottomCover.heightAnchor.constraint(equalTo: viewport.heightAnchor),
         ])
         #endif
         terminal.onBackgroundChange = { [weak self] in self?.updateBacking() }
@@ -220,7 +230,8 @@ typealias PlatformView = UIView
 
     // Keep the source drawable at its native height while a turn or the keyboard moves the
     // viewport around it. Every row waits where the resized grid will draw it, so its first frame
-    // changes nothing. Rows under the grid's top inset stay covered, as the resized grid leaves it.
+    // changes nothing. Rows under the grid's top inset or below its last row stay covered, as the
+    // resized grid leaves them.
     func beginHold(sourceHeight: CGFloat? = nil) {
         guard holdConstraints.isEmpty else { return }
         terminal.holdsGridGeometry = true
@@ -233,7 +244,12 @@ typealias PlatformView = UIView
                     offset, guideShowsKeyboard && keyboardEdge.isActive)
         }
         insetHeight.constant = max(0, terminal.cellRect(row: 0, column: 0).minY)
-        insetCover.isHidden = false
+        gridBottom.constant = terminal.cellRect(row: terminal.gridSize?.rows ?? 0, column: 0).minY
+        // The lower cover starts where the grid ends now, not where an earlier hold left it.
+        UIView.performWithoutAnimation {
+            bottomCover.frame = CGRect(x: 0, y: gridBottom.constant, width: viewport.bounds.width, height: viewport.bounds.height)
+        }
+        for cover in [insetCover, bottomCover] { cover.isHidden = false }
         NSLayoutConstraint.deactivate(gridConstraints)
         NSLayoutConstraint.activate(holdConstraints)
     }
@@ -243,7 +259,7 @@ typealias PlatformView = UIView
         NSLayoutConstraint.deactivate(holdConstraints)
         holdConstraints.removeAll()
         held = nil
-        insetCover.isHidden = true
+        for cover in [insetCover, bottomCover] { cover.isHidden = true }
         NSLayoutConstraint.activate(gridConstraints)
         layoutIfNeeded()
         terminal.holdsGridGeometry = false
@@ -321,6 +337,8 @@ typealias PlatformView = UIView
             else { pulled }
         let constant = CGFloat(lowered * metrics.rowHeightPixels) / metrics.scale
         if held.top.constant != constant { held.top.constant = constant }
+        let bottom = CGFloat(metrics.y(rows)) / metrics.scale
+        if gridBottom.constant != bottom { gridBottom.constant = bottom }
         terminal.heldRowsAround = max(terminal.heldRowsAround, lowered, rows - held.rows - lowered)
     }
 
@@ -358,7 +376,7 @@ typealias PlatformView = UIView
         layer?.backgroundColor = background
         #else
         backgroundColor = UIColor(cgColor: background)
-        insetCover.backgroundColor = backgroundColor
+        for cover in [insetCover, bottomCover] { cover.backgroundColor = backgroundColor }
         #endif
         updateSchemes()
     }

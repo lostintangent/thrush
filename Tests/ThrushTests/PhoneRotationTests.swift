@@ -36,16 +36,18 @@ import UIKit
         terminal.convert(terminal.cellRect(row: row, column: column), to: window)
     }
 
-    /// Each row the terminal draws whole in the viewport, below the grid's top inset.
+    /// Each row the terminal draws whole in the viewport, clear of the covers a hold raises over it.
     func visibleRows() -> [String] {
         let viewport = try! #require(terminal.superview)
         let frame = viewport.convert(viewport.bounds, to: window)
-        let top = frame.minY + terminal.cellRect(row: 0, column: 0).minY
+        let covers = viewport.subviews.filter { $0 !== terminal && !$0.isHidden }
+            .map { viewport.convert($0.frame, to: window).insetBy(dx: 0, dy: 0.5) }
         let around = terminal.heldRowsAround
         let rows = terminal.drawnContent.0?.rows ?? []
         return rows.indices.compactMap { index in
             let cell = cellInWindow(row: index - around)
-            guard cell.minY >= top - 0.5, cell.maxY <= frame.maxY + 0.5 else { return nil }
+            guard cell.minY >= frame.minY - 0.5, cell.maxY <= frame.maxY + 0.5,
+                  !covers.contains(where: { $0.intersects(cell) }) else { return nil }
             return "\(Int(cell.minY.rounded())) \(rows[index].text)"
         }
     }
@@ -106,7 +108,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     #expect(terminal.convert(terminal.cellRect(row: size.rows - 1, column: 0), to: canvas).maxY > safeBottom)
 
     var shell = Terminal(size: size)
-    _ = shell.receive((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
+    _ = shell.write((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
     terminal.display(shell)
     terminal.setHistoryOffset(4)
     window.layoutIfNeeded()
