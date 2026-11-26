@@ -24,22 +24,13 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private let doubleClick = UITapGestureRecognizer()
     private var lastPointerCell: (row: Int, column: Int)?
     private weak var wheelGesture: UIPanGestureRecognizer?
-    private weak var swipeGesture: UIPanGestureRecognizer?
+    /// Where the endless scroll view rests while a program takes scrolling, or nil while it holds history.
+    private var programOffset: CGFloat?
     private var programRemainder: CGFloat = 0
     private var programCell: (row: Int, column: Int)?
-    private var fingerMoved: CFTimeInterval = 0
-    private var flick: Flick?
-    private weak var caughtTouch: UITouch?
+    private var programModifiers: Terminal.Input.Modifiers = []
     private var pageSentToProgram: (generation: UInt64, deadline: CFTimeInterval)?
     private let reading = PhoneAccessibleText()
-
-    /// A released swipe keeps scrolling the program and slows the way UIScrollView does.
-    private struct Flick {
-        let velocity: CGFloat
-        let start: CFTimeInterval
-        let link: CADisplayLink?
-        var travel: CGFloat = 0
-    }
 
     init(terminal: TerminalMetalView) {
         self.terminal = terminal
@@ -69,14 +60,6 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
             scroll.addGestureRecognizer(recognizer)
         }
         tap.require(toFail: press)
-        // A program that takes scrolling gets the swipe. Otherwise the scroll view reads history.
-        let swipe = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
-        swipe.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-        swipe.maximumNumberOfTouches = 1
-        swipe.delegate = self
-        swipeGesture = swipe
-        scroll.addGestureRecognizer(swipe)
-        scroll.panGestureRecognizer.require(toFail: swipe)
 
         let mouse = TerminalPointerGesture(target: self, action: #selector(pointer(_:)))
         mouse.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
@@ -142,13 +125,28 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         defer { syncing = false }
 
         rowHeight = max(1, terminal.cellRect(row: 0, column: 0).height)
-        let count = terminal.historyCount
-        let extent = CGSize(width: bounds.width, height: bounds.height + CGFloat(count) * rowHeight)
-        if scroll.contentSize != extent { scroll.contentSize = extent }
-        let target = count - terminal.historyOffset
-        if Int((scroll.contentOffset.y / rowHeight).rounded()) != target {
-            scroll.contentOffset = CGPoint(x: 0, y: CGFloat(target) * rowHeight)
+        if terminal.programTakesScrolling {
+            // The program takes the scroll view's own pan and glide, so a flick there goes as far as one through history.
+            let extent = CGSize(width: bounds.width, height: bounds.height + 2 * Self.endless)
+            if scroll.contentSize != extent { scroll.contentSize = extent }
+            let resting = !scroll.isTracking && !scroll.isDecelerating
+            if programOffset == nil || resting && programOffset != Self.endless {
+                programOffset = Self.endless
+                scroll.setContentOffset(CGPoint(x: 0, y: Self.endless), animated: false)
+            }
+        } else {
+            let count = terminal.historyCount
+            let extent = CGSize(width: bounds.width, height: bounds.height + CGFloat(count) * rowHeight)
+            if scroll.contentSize != extent { scroll.contentSize = extent }
+            let target = CGPoint(x: 0, y: CGFloat(count - terminal.historyOffset) * rowHeight)
+            if programOffset != nil {
+                programOffset = nil
+                scroll.setContentOffset(target, animated: false)
+            } else if Int((scroll.contentOffset.y / rowHeight).rounded()) != count - terminal.historyOffset {
+                scroll.contentOffset = target
+            }
         }
+        scroll.showsVerticalScrollIndicator = programOffset == nil
         latest.isHidden = terminal.historyOffset == 0 || terminal.snapshot?.isAlternate == true
         if lastTheme != terminal.resolvedTheme || reducedTransparency != UIAccessibility.isReduceTransparencyEnabled {
             lastTheme = terminal.resolvedTheme
@@ -221,10 +219,23 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
                                              y: destination.minY - trailing.minY)
     }
 
+    /// A program scrolls where the pan began, as a wheel would there, from a whole row of travel.
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        programRemainder = 0
+        programCell = terminal.cell(at: scrollView.panGestureRecognizer.location(in: self)) ?? programCell
+        programModifiers = terminalModifiers(scrollView.panGestureRecognizer.modifierFlags)
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // UIKit also adjusts contentOffset when the viewport or keyboard changes size.
-        // Only a person's pan or its deceleration changes the terminal's reading position.
-        guard !syncing, scrollView.isDragging || scrollView.isDecelerating else { return }
+        // Only a person's pan or its deceleration changes the terminal's reading position or scrolls the program.
+        let byPerson = !syncing && (scrollView.isDragging || scrollView.isDecelerating)
+        if let resting = programOffset {
+            programOffset = scrollView.contentOffset.y
+            if byPerson { scrollProgram(by: resting - scrollView.contentOffset.y, modifiers: programModifiers) }
+            return
+        }
+        guard byPerson else { return }
         let first = Int((scrollView.contentOffset.y / rowHeight).rounded())
         let offset = min(terminal.historyCount, max(0, terminal.historyCount - first))
         if terminal.historyOffset != offset {
@@ -382,101 +393,40 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         if gestureRecognizer === wheelGesture {
             return terminal.programTakesScrolling && !gestureRecognizer.modifierFlags.contains(.shift)
         }
-        if gestureRecognizer === swipeGesture { return terminal.programTakesScrolling }
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 
-    /// A touch that stops a flick only stops it, as in a native list, so it neither clicks nor selects.
+    /// A touch that stops a glide only stops it, as in a native list, so it neither clicks nor selects.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        // A swipe that never sees the touch doesn't hold up the scroll view's own pan through history.
-        if gestureRecognizer === swipeGesture { return terminal.programTakesScrolling }
         guard gestureRecognizer is UITapGestureRecognizer || gestureRecognizer is UILongPressGestureRecognizer,
               touch.type != .indirectPointer else { return true }
-        if flick != nil {
-            stopFlick()
-            caughtTouch = touch
-        }
-        return touch !== caughtTouch
+        return !scroll.isDecelerating
     }
 
     @objc private func wheeled(_ gesture: UIPanGestureRecognizer) {
-        if gesture.state == .began { stopFlick(); programRemainder = 0 }
+        if gesture.state == .began {
+            // Two fingers on the trackpad stop a glide, as they do in a list.
+            if scroll.isDecelerating { scroll.setContentOffset(scroll.contentOffset, animated: false) }
+            programRemainder = 0
+        }
         programCell = terminal.cell(at: gesture.location(in: self)) ?? programCell
         scrollProgram(by: gesture.translation(in: self).y, modifiers: terminalModifiers(gesture.modifierFlags))
         gesture.setTranslation(.zero, in: self)
     }
 
-    @objc private func swiped(_ gesture: UIPanGestureRecognizer) {
-        swipe(gesture.state, by: gesture.translation(in: self).y, at: gesture.location(in: self),
-              velocity: gesture.velocity(in: self).y)
-        gesture.setTranslation(.zero, in: self)
-    }
-
-    /// Follows one finger over the program in the natural direction, then lets it coast from the release velocity.
-    func swipe(_ phase: UIGestureRecognizer.State, by points: CGFloat, at point: CGPoint, velocity: CGFloat,
-               time: CFTimeInterval = CACurrentMediaTime()) {
-        if phase == .began { stopFlick(); programRemainder = 0 }
-        if phase == .began || points != 0 { fingerMoved = time }
-        programCell = terminal.cell(at: point) ?? programCell
-        // Like a scroll view, the program moves from where the pan began, not from where the finger landed.
-        scrollProgram(by: phase == .began ? 0 : points)
-        // As in a native list, a finger that rested before lifting has already stopped the program.
-        guard phase == .ended, time - fingerMoved < Self.restingTime,
-              canReachRow(travelling: Self.coastingDistance(velocity)) else { return }
-        let link = window?.windowScene?.displayLink(target: self, selector: #selector(coastToFrame(_:)))
-        link?.add(to: .main, forMode: .common)
-        flick = Flick(velocity: velocity, start: time, link: link)
-    }
-
-    @objc private func coastToFrame(_ link: CADisplayLink) { coast(to: link.targetTimestamp) }
-
-    /// Moves a released swipe to where UIScrollView's normal deceleration would have it at `time`.
-    func coast(to time: CFTimeInterval) {
-        guard var flick else { return }
-        guard terminal.programTakesScrolling else { return stopFlick() }
-        let total = Self.coastingDistance(flick.velocity)
-        let remaining = Self.coastingDistance(flick.velocity * pow(Self.deceleration, max(0, time - flick.start) * 1000))
-        let travel = total - remaining
-        scrollProgram(by: travel - flick.travel)
-        flick.travel = travel
-        self.flick = flick
-        if !canReachRow(travelling: remaining) { stopFlick() }
-    }
-
-    var isCoasting: Bool { flick != nil }
-
-    /// A finger still for this long before it lifts has rested rather than flicked.
-    private static let restingTime: CFTimeInterval = 0.05
-
-    /// UIScrollView's normal deceleration keeps this fraction of a flick's velocity each millisecond.
-    private static let deceleration = Double(UIScrollView.DecelerationRate.normal.rawValue)
-
-    /// UIScrollView ends a deceleration once it slows below about this many points per second.
-    private static let stoppingSpeed: CGFloat = 15
-
-    /// The distance a flick at this velocity in points per second covers before UIScrollView would stop it.
-    private static func coastingDistance(_ velocity: CGFloat) -> CGFloat {
-        copysign(max(0, abs(velocity) - stoppingSpeed), velocity) / 1000 / -log(deceleration)
-    }
-
-    private func canReachRow(travelling distance: CGFloat) -> Bool { abs(programRemainder + distance) >= rowHeight }
-
-    private func stopFlick() {
-        flick?.link?.invalidate()
-        flick = nil
-    }
-
-    override func willMove(toWindow newWindow: UIWindow?) {
-        if newWindow == nil { stopFlick() }
-        super.willMove(toWindow: newWindow)
-    }
+    /// How far the scroll view reaches each way from where it rests while a program takes scrolling.
+    private static let endless: CGFloat = 1_000_000
 
     /// Counts whole rows of travel, toward earlier output as the finger or trackpad moves down.
-    private func scrollProgram(by points: CGFloat, modifiers: Terminal.Input.Modifiers = []) {
+    /// Shift reaches history instead, as on the Mac, and then the scroll view holds history again.
+    private func scrollProgram(by points: CGFloat, modifiers: Terminal.Input.Modifiers) {
         programRemainder += points
         let rows = Int(programRemainder / rowHeight)
         programRemainder -= CGFloat(rows) * rowHeight
         guard rows != 0, let cell = programCell else { return }
+        guard !modifiers.contains(.shift) else {
+            return terminal.setHistoryOffset(min(terminal.historyCount, max(0, terminal.historyOffset + rows)))
+        }
         terminal.scrollProgram(rows: rows, row: cell.row, column: cell.column, modifiers: modifiers)
     }
 

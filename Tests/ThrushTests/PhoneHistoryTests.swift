@@ -191,89 +191,41 @@ import UIKit
     #expect(view.snapshot?.rows.first?.text == first)
 }
 
-/// A program that takes scrolling gets a one-finger swipe as rows, and a flick coasts until UIScrollView
-/// would stop it or a touch does without clicking. A finger that rests before lifting doesn't coast.
+/// A program that takes scrolling gets the scroll view's own pan and glide through an endless extent, so only a
+/// person's swipe reaches it, and history comes back where the reader left it.
 @MainActor
-@Test func swipesScrollFullScreenProgramsAndFlicksCoast() throws {
+@Test func fullScreenProgramsTakeTheScrollViewsOwnPanAndGlide() throws {
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     view.layoutIfNeeded()
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     let scroll = try #require(history.subviews.compactMap { $0 as? UIScrollView }.first)
-    let direct = NSNumber(value: UITouch.TouchType.direct.rawValue)
-    let recognizers = scroll.gestureRecognizers ?? []
-    let swipe = try #require(recognizers.first { $0 is UIPanGestureRecognizer && $0 !== scroll.panGestureRecognizer
-        && $0.allowedTouchTypes.contains(direct) })
-    let tap = try #require(recognizers.first { $0 is UITapGestureRecognizer && $0.allowedTouchTypes.contains(direct) })
     var terminal = Terminal(size: .init(columns: 24, rows: 6))
     _ = terminal.receive((1...12).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
     var sent: [String] = []
     view.onInput = { sent.append(String(decoding: terminal.encode($0), as: UTF8.self)) }
     let row = view.cellRect(row: 0, column: 0).height
-    let cell = view.cellRect(row: 2, column: 4)
-    let point = CGPoint(x: cell.midX, y: cell.midY)
+    let reading = (scroll.contentSize, scroll.contentOffset)
+    #expect(reading.1.y == CGFloat(view.historyCount) * row && scroll.showsVerticalScrollIndicator)
 
-    // The shell's history keeps the swipe.
-    #expect(!history.gestureRecognizer(swipe, shouldReceive: UITouch()))
-    history.swipe(.began, by: 12, at: point, velocity: 0)
-    history.swipe(.changed, by: row * 3, at: point, velocity: 0)
-    #expect(sent.isEmpty)
-
-    // Moving the finger down reaches earlier lines, as in a list. The pan's starting slop moves nothing.
     _ = terminal.receive("\u{1b}[?1049h".utf8)
     view.display(terminal)
-    #expect(history.gestureRecognizer(swipe, shouldReceive: UITouch()))
-    history.swipe(.began, by: 12, at: point, velocity: 0)
-    history.swipe(.changed, by: row * 2.5, at: point, velocity: 0)
-    history.swipe(.changed, by: -row * 4, at: point, velocity: 0)
-    #expect(sent == ["\u{1b}[A", "\u{1b}[A", "\u{1b}[B", "\u{1b}[B", "\u{1b}[B"])
+    let rest = scroll.contentOffset.y
+    #expect(rest >= 100_000 && scroll.contentSize.height - scroll.bounds.height - rest >= 100_000)
+    #expect(!scroll.showsVerticalScrollIndicator)
+    // UIKit's own moves, as when the keyboard resizes the viewport, leave the program alone, and a resting
+    // scroll view returns to the middle.
+    scroll.contentOffset.y -= row * 3
+    #expect(sent.isEmpty)
+    history.synchronize()
+    #expect(scroll.contentOffset.y == rest)
 
-    // UIScrollView's normal deceleration carries a 1,000 point per second flick about 492 points before it stops.
-    sent = []
-    _ = terminal.receive("\u{1b}[?1000;1006h".utf8)
+    _ = terminal.receive("\u{1b}[?1049l".utf8)
     view.display(terminal)
-    history.swipe(.began, by: 0, at: point, velocity: 0, time: 10)
-    history.swipe(.ended, by: -row, at: point, velocity: -1000, time: 10)
-    #expect(sent == ["\u{1b}[<65;5;3M"])
-    history.coast(to: 10.1)
-    let early = sent.count
-    history.coast(to: 20)
-    #expect(early > 1 && early < sent.count)
-    #expect(abs(sent.count - 1 - Int(492 / row)) <= 1)
-    #expect(Set(sent) == ["\u{1b}[<65;5;3M"])
-    #expect(!history.isCoasting)
-
-    // A finger that rests before it lifts has stopped, even if the pan still reports some velocity.
-    sent = []
-    history.swipe(.began, by: 0, at: point, velocity: 0, time: 20)
-    history.swipe(.changed, by: -row * 2, at: point, velocity: -150, time: 20.2)
-    history.swipe(.ended, by: 0, at: point, velocity: -150, time: 20.7)
-    #expect(sent.count == 2 && !history.isCoasting)
-
-    // A touch catches a flick, and that touch doesn't click.
-    sent = []
-    history.swipe(.began, by: 0, at: point, velocity: 0, time: 30)
-    history.swipe(.ended, by: 0, at: point, velocity: 2000, time: 30)
-    history.coast(to: 30.05)
-    let caught = sent.count
-    #expect(caught > 0 && Set(sent) == ["\u{1b}[<64;5;3M"])
-    #expect(!history.gestureRecognizer(tap, shouldReceive: UITouch()))
-    history.coast(to: 31)
-    #expect(sent.count == caught && !history.isCoasting)
-    #expect(history.gestureRecognizer(tap, shouldReceive: UITouch()))
-
-    // A flick ends where UIScrollView's would, once it slows below about 15 points per second, even when slowing
-    // to a standstill would bring one more row. The next tap clicks rather than catching a glide nobody can see.
-    sent = []
-    let deceleration = Double(UIScrollView.DecelerationRate.normal.rawValue)
-    let halfPastThirtyRows = (row * 30 + 0.5) * 1000 * -log(deceleration)
-    history.swipe(.began, by: 0, at: point, velocity: 0, time: 40)
-    history.swipe(.ended, by: 0, at: point, velocity: halfPastThirtyRows, time: 40)
-    history.coast(to: 40 + log(15 / halfPastThirtyRows) / log(deceleration) / 1000)
-    #expect(sent.count == 29 && !history.isCoasting)
-    #expect(history.gestureRecognizer(tap, shouldReceive: UITouch()))
+    #expect(scroll.contentSize == reading.0 && scroll.contentOffset == reading.1)
+    #expect(scroll.showsVerticalScrollIndicator)
 }
 
 /// VoiceOver's three-finger scroll pages a full-screen program and reads the page once the program redraws it.
