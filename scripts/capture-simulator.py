@@ -267,12 +267,13 @@ class Phone:
             raise RuntimeError(f"Requested system appearance {style}, simulator reported {style_now!r}")
 
     def pin_status_bar(self):
-        # Pin the status bar so captures from separate runs and builds can match pixel for pixel.
+        # Pin the status bar so captures from separate runs and builds can match pixel for pixel. A full battery that
+        # isn't charging draws quietly, as in Apple's own screenshots, where a charged one adds a green ring and bolt.
         for attempt in (1, 2):
             try:
                 sim("status_bar", self.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode",
                     "active", "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState",
-                    "charged", "--batteryLevel", "100")
+                    "discharging", "--batteryLevel", "100")
                 return
             except subprocess.TimeoutExpired:
                 # A starved runner can stall the client while SpringBoard applies the override.
