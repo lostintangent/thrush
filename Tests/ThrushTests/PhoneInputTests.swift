@@ -286,18 +286,22 @@ import UIKit
 }
 
 @MainActor
-@Test func hidingTheKeyRowRemovesItsAccessoryAndDisarmsControl() throws {
+@Test func hidingTheKeyRowOrBlockingInputDisarmsControl() throws {
     let view = TerminalMetalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let row = try #require(view.phoneInput.inputAccessoryView as? KeyRow)
-    let buttons = buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton }
-    try #require(buttons?.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
+    let modifier = try #require(buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton }
+        .first { $0.accessibilityIdentifier == "terminal.modifier" })
+    modifier.sendActions(for: .touchUpInside)
     #expect(row.armed == .control)
     view.showsKeyRow = false
     #expect(view.phoneInput.inputAccessoryView == nil && row.armed.isEmpty)
     view.showsKeyRow = true
     #expect(view.phoneInput.inputAccessoryView === row)
+    modifier.sendActions(for: .touchUpInside)
+    view.setInputAvailability(.blocked, dismissKeyboard: false)
+    #expect(row.armed.isEmpty)
 }
 
 @MainActor

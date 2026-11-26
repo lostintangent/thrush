@@ -80,6 +80,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         if keyRow.isUserInteractionEnabled != acceptsInput {
             keyRow.isUserInteractionEnabled = acceptsInput
             keyRow.accessibilityElementsHidden = !acceptsInput
+            if !acceptsInput { keyRow.clearModifier() }
         }
         let width = terminal?.bounds.width ?? 0
         let themeChanged = self.theme != theme
