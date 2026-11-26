@@ -191,8 +191,8 @@ import UIKit
     #expect(view.snapshot?.rows.first?.text == first)
 }
 
-/// A program that takes scrolling gets a one-finger swipe as rows, and a flick coasts until it
-/// slows below a row or a touch stops it without clicking. A finger that rests before lifting doesn't coast.
+/// A program that takes scrolling gets a one-finger swipe as rows, and a flick coasts until UIScrollView
+/// would stop it or a touch does without clicking. A finger that rests before lifting doesn't coast.
 @MainActor
 @Test func swipesScrollFullScreenProgramsAndFlicksCoast() throws {
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
@@ -230,7 +230,7 @@ import UIKit
     history.swipe(.changed, by: -row * 4, at: point, velocity: 0)
     #expect(sent == ["\u{1b}[A", "\u{1b}[A", "\u{1b}[B", "\u{1b}[B", "\u{1b}[B"])
 
-    // UIScrollView's normal deceleration carries a 1,000 point per second flick about 499 points.
+    // UIScrollView's normal deceleration carries a 1,000 point per second flick about 492 points before it stops.
     sent = []
     _ = terminal.receive("\u{1b}[?1000;1006h".utf8)
     view.display(terminal)
@@ -241,7 +241,7 @@ import UIKit
     let early = sent.count
     history.coast(to: 20)
     #expect(early > 1 && early < sent.count)
-    #expect(abs(sent.count - 1 - Int(499 / row)) <= 1)
+    #expect(abs(sent.count - 1 - Int(492 / row)) <= 1)
     #expect(Set(sent) == ["\u{1b}[<65;5;3M"])
     #expect(!history.isCoasting)
 
@@ -262,6 +262,17 @@ import UIKit
     #expect(!history.gestureRecognizer(tap, shouldReceive: UITouch()))
     history.coast(to: 31)
     #expect(sent.count == caught && !history.isCoasting)
+    #expect(history.gestureRecognizer(tap, shouldReceive: UITouch()))
+
+    // A flick ends where UIScrollView's would, once it slows below about 15 points per second, even when slowing
+    // to a standstill would bring one more row. The next tap clicks rather than catching a glide nobody can see.
+    sent = []
+    let deceleration = Double(UIScrollView.DecelerationRate.normal.rawValue)
+    let halfPastThirtyRows = (row * 30 + 0.5) * 1000 * -log(deceleration)
+    history.swipe(.began, by: 0, at: point, velocity: 0, time: 40)
+    history.swipe(.ended, by: 0, at: point, velocity: halfPastThirtyRows, time: 40)
+    history.coast(to: 40 + log(15 / halfPastThirtyRows) / log(deceleration) / 1000)
+    #expect(sent.count == 29 && !history.isCoasting)
     #expect(history.gestureRecognizer(tap, shouldReceive: UITouch()))
 }
 
