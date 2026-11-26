@@ -164,6 +164,10 @@ When a reader resumes, `Terminal.ReplayWriter` writes VT bytes that redraw the s
 - Callbacks out of the core.
 - Foundation, existentials and `Any` in ThrushCore.
 
+## Building for WebAssembly
+
+Because ThrushCore uses only the standard library, it also builds with Embedded Swift, which specializes every generic and leaves out runtime metadata. [Wasm](../Wasm) compiles the same sources into a 334 KB WebAssembly module behind a small JavaScript `Terminal`, which each release attaches as `thrush-wasm` for servers that keep terminals. The module links the standard library's Unicode tables for grapheme breaking, and imports nothing from its host but random bytes to seed hashing. `scripts/check-wasm.sh` writes every program capture to the module and to native ThrushCore and requires the same replies and replays from both, byte for byte. CI runs it whenever the core changes, so code Embedded Swift can't compile fails there.
+
 ## Adding a control function
 
 1. Add cases for the function to the conformance corpus, with omitted and zero parameters, its edges and a delivery split inside the sequence. Run `scripts/check-conformance.sh --write` to record the reference’s cells, cursor, modes and replies. The new cases join the known gaps until Thrush matches them. [Conformance harness](../Fixtures/reference/conformance/README.md)

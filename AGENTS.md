@@ -52,4 +52,6 @@ Some apps build for Mac with only Command Line Tools, so Thrush must build witho
 
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
 
+`scripts/check-wasm.sh` builds the WebAssembly package with the swift.org Swift 6.4.2 toolchain and its Wasm SDK, then checks it against native ThrushCore and under Bun and Node. [Wasm/build.sh](Wasm/build.sh) lists what the build needs.
+
 Build the Release sample apps with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the sample apps](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).

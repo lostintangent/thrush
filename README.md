@@ -93,6 +93,35 @@ TerminalView(session)
 
 The factory opens a shell at the view’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the view hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/swiftui/Sources/SwiftUIExample/ShellTab.swift)
 
+## Keep terminals on a JavaScript server
+
+A server that runs shells keeps a terminal for each one, so a client that attaches later sees the screen it missed. Thrush’s own server does this in Swift. For a server in Bun or Node 22 and later, each release attaches the same emulator built for WebAssembly as `thrush-wasm`, a package with types and no dependencies. Its replay redraws a terminal on any client that speaks VT, such as Thrush in a Mac or iPhone app or xterm.js in a browser.
+
+```sh
+bun add https://github.com/lostintangent/thrush/releases/latest/download/thrush-wasm.tgz
+```
+
+```ts
+import { Terminal } from "thrush-wasm";
+
+const terminal = new Terminal(80, 24);
+
+// Write each chunk of the shell's output, and send any replies, such as a cursor position, back to it.
+const replies = terminal.write(output);
+if (replies.length > 0) pty.write(replies);
+
+// Resize the terminal with the shell's PTY.
+terminal.resize(120, 40);
+
+// A client that attaches at the terminal's size gets the replay, and then live output.
+socket.send(terminal.replay());
+
+// Free the terminal when its shell ends.
+terminal.dispose();
+```
+
+The package carries ThrushCore as a 334 KB WebAssembly module and starts it synchronously, in a few milliseconds, when it makes the first terminal. It also runs in a binary compiled with `bun build --compile`. CI checks that it returns the same replies and replays as native ThrushCore, byte for byte, through every recorded program.
+
 ## Try the sample apps
 
 From the repository root, start the local server. It prints its loopback URL and opens a real shell when the app connects.

@@ -1,0 +1,21 @@
+{
+  "name": "thrush-wasm",
+  "version": "0.0.0",
+  "description": "Thrush's terminal emulator, built for WebAssembly, for servers that keep a terminal without a display",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lostintangent/thrush.git",
+    "directory": "Wasm"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
