@@ -268,7 +268,7 @@ private extension EscapeParser {
         case .csiEntry: return esc + "["
         case .dcsEntry: return esc + "P"
         case .csiParameters, .csiIntermediate, .dcsParameters, .dcsIntermediate:
-            let introducer = state.matches(.csiParameters) || state.matches(.csiIntermediate) ? "[" : "P"
+            let introducer = state == .csiParameters || state == .csiIntermediate ? "[" : "P"
             return esc + introducer + prefix + parameters.replayFields + intermediates
         case .csiIgnore: return esc + "[1?"
         case .dcsIgnore: return esc + "P1?"

@@ -32,13 +32,13 @@ struct EscapeParser: Sendable {
 
     private enum PendingAction { case stringEnd(Bool), execute(UInt8) }
 
-    private(set) var state = Tag(State.ground)
+    private(set) var state = State.ground
     private(set) var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
     private(set) var parameters = ControlParameters()
     private(set) var oscIdentifier = -1
     private var pending: PendingAction?
-    var isGround: Bool { state.matches(.ground) }
+    var isGround: Bool { state == .ground }
 
     /// Printable ASCII has no effect inside these strings. Controls still need framing.
     var discardsASCII: Bool {
@@ -62,8 +62,8 @@ struct EscapeParser: Sendable {
     /// Suppress payload delivery after dispatch declines a string command.
     mutating func discardStringPayload() {
         switch state {
-        case .oscPayload: state = Tag(.discardedOSC)
-        case .dcsPayload: state = Tag(.discardedDCS)
+        case .oscPayload: state = .discardedOSC
+        case .dcsPayload: state = .discardedDCS
         default:
             // An OSC without a payload separator starts and ends on the same scalar.
             if case .stringEnd = pending { pending = nil }
@@ -79,7 +79,7 @@ struct EscapeParser: Sendable {
     @inline(__always)
     mutating func consume(_ bytes: Span<UInt8>, from index: inout Int, parameterBytes: inout Range<Int>?) -> Action? {
         if isGround, bytes.count - index >= 2, bytes[index] == Self.escape, bytes[index + 1] == UInt8(ascii: "[") {
-            state = Tag(.csiEntry)
+            state = .csiEntry
             beginHeader()
             index += 2
             let start = index
@@ -88,13 +88,13 @@ struct EscapeParser: Sendable {
                 parameterBytes = start..<index
                 let identifier = ControlIdentifier(bytes[index])
                 index += 1
-                state = Tag(.ground)
+                state = .ground
                 return .csi(identifier)
             }
             // The rest of the header arrives later or has a prefix or intermediate, so it uses the same
             // stored parameters as a header split across reads.
             if start < index {
-                state = Tag(.csiParameters)
+                state = .csiParameters
                 for position in start..<index { parameters.append(bytes[position]) }
             }
         }
@@ -103,7 +103,7 @@ struct EscapeParser: Sendable {
             guard byte < 0x80 else { break }
             let code = UInt32(byte)
             let transition = Self.transition(from: state, scalar: code)
-            if transition.operation.matches(.parameter) {
+            if transition.operation == .parameter {
                 state = transition.nextState
                 // All parameter bytes continue in the same CSI or DCS parameter state.
                 repeat {
@@ -159,7 +159,7 @@ struct EscapeParser: Sendable {
             collected = 0
         case .beginHeader, .cancelAndBeginHeader:
             beginHeader()
-            if transition.operation.matches(.cancelAndBeginHeader) { return .stringEnd(success: false) }
+            if transition.operation == .cancelAndBeginHeader { return .stringEnd(success: false) }
         case .collect:
             collected = collected << 8 | code
         case .parameter:
@@ -169,27 +169,26 @@ struct EscapeParser: Sendable {
         case .startDCS: return .dcsStart(ControlIdentifier(collected: collected, final: byte))
         case .beginOSC, .cancelAndBeginOSC:
             oscIdentifier = -1
-            if transition.operation.matches(.cancelAndBeginOSC) { return .stringEnd(success: false) }
+            if transition.operation == .cancelAndBeginOSC { return .stringEnd(success: false) }
         case .oscDigit:
             let digit = Int(code - 0x30)
             if oscIdentifier <= (Int.max - digit) / 10 {
                 oscIdentifier = max(0, oscIdentifier) * 10 + digit
             } else {
-                state = Tag(.invalidOSC)
+                state = .invalidOSC
             }
         case .startOSC: return .oscStart(oscIdentifier)
         case .put: return .stringPut(Unicode.Scalar(code)!)
         case .finish, .cancel:
             collected = 0
-            return .stringEnd(success: transition.operation.matches(.finish))
+            return .stringEnd(success: transition.operation == .finish)
         case .finishEmptyOSC, .cancelEmptyOSC:
             collected = 0
-            pending = .stringEnd(transition.operation.matches(.finishEmptyOSC))
+            pending = .stringEnd(transition.operation == .finishEmptyOSC)
             return .oscStart(oscIdentifier)
         case .cancelAndExecute:
             pending = .execute(byte)
             return .stringEnd(success: false)
-        default: preconditionFailure("Invalid framing table operation")
         }
         return nil
     }

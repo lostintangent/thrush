@@ -19,31 +19,18 @@ extension EscapeParser {
         case cancelAndExecute, cancelAndBeginHeader, cancelAndBeginOSC
     }
 
-    // On M1 Max, storing the two enums directly reduced control-heavy framing throughput
-    // by 6–11% compared with these packed tags, with consume inlined for both.
-    struct Tag<Value: RawRepresentable> where Value.RawValue == UInt8 {
-        fileprivate let byte: UInt8
-
-        init(_ value: Value) { byte = value.rawValue }
-        fileprivate init(byte: UInt8) { self.byte = byte }
-        func matches(_ value: Value) -> Bool { byte == value.rawValue }
-
-        static func ~= (value: Value, tag: Self) -> Bool { tag.matches(value) }
-    }
-
     struct Transition {
-        private let packed: UInt16
+        let nextState: State
+        let operation: Operation
 
         init(_ next: State, _ operation: Operation = .ignore) {
-            packed = UInt16(next.rawValue) | UInt16(operation.rawValue) << 8
+            nextState = next
+            self.operation = operation
         }
-
-        var nextState: Tag<State> { Tag(byte: UInt8(truncatingIfNeeded: packed)) }
-        var operation: Tag<Operation> { Tag(byte: UInt8(packed >> 8)) }
     }
 
-    static func transition(from state: Tag<State>, scalar: UInt32) -> Transition {
-        transitions[Int(state.byte) << 8 | Int(min(scalar, 0xA0))]
+    static func transition(from state: State, scalar: UInt32) -> Transition {
+        transitions[Int(state.rawValue) << 8 | Int(min(scalar, 0xA0))]
     }
 
     // Each state occupies one 256-entry row. Slot A0 stands for every Unicode scalar
