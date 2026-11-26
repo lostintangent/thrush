@@ -16,9 +16,8 @@ def edges(frame):
 def grid_pixels(state, image):
     window = state.get("windowPoints", state.get("windowFrame"))
     (_, _), (width, height) = window
-    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
-    scale = state.get("displayScale") or image.width / width
-    if image.width + 1 < width * scale or image.height + 1 < height * scale:
+    scale = image.width / width
+    if abs(image.height - height * scale) > 1:
         raise ValueError("The framebuffer does not cover the measured window.")
     grid = tuple(round(v * scale) for v in edges(state["gridFrame"]))
     x, y, r, b = grid

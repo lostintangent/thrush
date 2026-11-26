@@ -49,9 +49,8 @@ def check(image, state, appearance):
             raise ValueError(f"The last row doesn't reach within a row of the grid's bottom inset: {last}, {grid}")
 
     pixels = Capture(image, appearance)
-    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
-    if pixels.width < round(window[2] * scale) or pixels.height < round(window[3] * scale):
-        raise ValueError("Simulator framebuffer does not hold the mounted window.")
+    if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
+        raise ValueError("Simulator framebuffer does not match the mounted window.")
     slate = pixels.matches("background", tolerance=8)
 
     def canvas(left, top, right, bottom, where):
@@ -62,14 +61,14 @@ def check(image, state, appearance):
         if not samples or sum(value in slate for value in samples) < 0.95 * len(samples):
             raise ValueError(f"The Slate canvas is missing {where}: x={x0}…{x1}, y={y0}…{y1}.")
 
-    # Leading of the centered title and trailing Close button, the bar shows the pane's canvas.
+    # Between the leading title and the trailing Close button, the bar shows the pane's canvas.
     width, middle = bar[2] - bar[0], (bar[1] + bar[3]) / 2
-    canvas(bar[0] + 0.14 * width, middle - 1, bar[0] + 0.28 * width, middle + 1, "beneath the navigation bar")
+    canvas(bar[0] + 0.4 * width, middle - 1, bar[0] + 0.55 * width, middle + 1, "beneath the navigation bar")
     if not shown:
         canvas(max(window[0] + 24, grid[0]), safe[3] + 1, min(window[2] - 24, grid[2]), window[3] - 16,
                "beside the home indicator")
     if state["orientation"] == "landscape":
-        # Just below the bar, clear of the display's rounded corners and the Dynamic Island.
+        # Just below the bar, clear of the display's rounded corners and the camera.
         for left, right, side in ((window[0], grid[0], "leading"), (grid[2], window[2], "trailing")):
             if right - left < 1:
                 continue
@@ -85,7 +84,7 @@ def compare(first, second, appearance, scale):
         return
     # Two system layers composite on their own clocks across launches: the home indicator fades
     # its adaptive tint in and out, and glass and the display mask resample their edges by a
-    # level or two. Everything the pane and its host draw must still match.
+    # few levels. Everything the pane and its host draw must still match.
     indicator_top, indicator_left, indicator_right = a.height - round(16 * scale), a.width // 4, a.width * 3 // 4
     changed = []
     for i in range(len(a.pixels)):
@@ -94,7 +93,7 @@ def compare(first, second, appearance, scale):
         x, y = i % a.width, i // a.width
         if y >= indicator_top and indicator_left <= x < indicator_right:
             continue
-        if max(abs(p - q) for p, q in zip(Capture.rgb(a.pixels[i]), Capture.rgb(b.pixels[i]))) <= 2:
+        if max(abs(p - q) for p, q in zip(Capture.rgb(a.pixels[i]), Capture.rgb(b.pixels[i]))) <= 4:
             continue
         changed.append((x, y))
     if changed:

@@ -45,14 +45,13 @@ def check(image, state, appearance, scene, checker):
         raise ValueError(f"Row one overlaps toolbar chrome or falls outside the grid: {first}, {bar}, {grid}")
     check_copy(image, toolbar["navigationBarFrame"], state, checker, ["Terminal", "Close"])
     pixels = runpy.run_path(str(ROOT / "scripts/check-demo-capture.py"))["Capture"](image, appearance)
-    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
-    if pixels.width < round(window[2] * scale) or pixels.height < round(window[3] * scale):
-        raise ValueError("Simulator framebuffer does not hold the mounted window.")
-    # The inline title sits in the center, with Close on the trailing edge. Sample the
-    # unobstructed bar to the leading side of both, where the canvas must show through.
+    if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
+        raise ValueError("Simulator framebuffer does not match the mounted window.")
+    # The inline title leads the bar, with Close on the trailing edge. Sample the
+    # unobstructed bar between them, where the canvas must show through.
     bar_width = bar[2] - bar[0]
-    left = round((bar[0] - window[0] + 0.14 * bar_width) * scale)
-    right = round((bar[0] - window[0] + 0.28 * bar_width) * scale)
+    left = round((bar[0] - window[0] + 0.4 * bar_width) * scale)
+    right = round((bar[0] - window[0] + 0.55 * bar_width) * scale)
     middle = round(((bar[1] + bar[3]) / 2 - window[1]) * scale)
     slate = pixels.matches("background", tolerance=8)
     for y in range(middle - 1, middle + 2):
