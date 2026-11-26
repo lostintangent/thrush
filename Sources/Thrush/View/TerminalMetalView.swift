@@ -431,6 +431,9 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         programColors.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
     }
 
+    /// Whether the background the view draws is dark, for the bars an app lays over it.
+    package var drawsDarkBackground: Bool { color(.background).isDark }
+
     private func backgroundChanged() {
         applyClearColor()
         onBackgroundChange?()

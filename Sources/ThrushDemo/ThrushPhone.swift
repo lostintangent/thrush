@@ -62,23 +62,23 @@ private final class PhoneHostingController: UIHostingController<DemoSurface> {
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-    // The terminal view draws beneath the status bar, so the status bar follows its background.
-    private var canvas: ColorScheme?
+    // Under a navigation stack, SwiftUI matches the status bar to the bar's scheme, which the view sets.
+    // The demo hides that bar, so it keeps the status bar for itself.
+    override var childForStatusBarStyle: UIViewController? {
+        session.options.checksToolbar ? super.childForStatusBarStyle : nil
+    }
 
+    // The terminal view draws beneath the status bar, so the status bar follows the background it draws now.
+    // A theme or program background change asks again once the view draws it.
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        // Under a navigation stack, SwiftUI matches the status bar to the bar's scheme, which the view sets.
-        if session.options.checksToolbar { return super.preferredStatusBarStyle }
-        let scheme = canvas ?? (traitCollection.userInterfaceStyle == .dark ? .dark : .light)
-        return scheme == .light ? .darkContent : .lightContent
+        guard !session.options.checksToolbar, session.view.window != nil else { return super.preferredStatusBarStyle }
+        return session.view.drawsDarkBackground ? .lightContent : .darkContent
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         session.onThemeChange = { [weak self] in self?.applyChrome($0) }
-        session.onCanvasChange = { [weak self] in
-            self?.canvas = $0
-            self?.setNeedsStatusBarAppearanceUpdate()
-        }
+        session.onCanvasChange = { [weak self] in self?.setNeedsStatusBarAppearanceUpdate() }
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
         if session.options.checksToolbar && session.options.keyboard {

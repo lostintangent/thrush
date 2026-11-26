@@ -84,7 +84,7 @@ final class DemoSession: ObservableObject {
 
     var onShellEndedChange: (() -> Void)?
     var onThemeChange: ((TerminalTheme) -> Void)?
-    var onCanvasChange: ((ColorScheme) -> Void)?
+    var onCanvasChange: (() -> Void)?
     var onBenchmarkFinished: ((Bool) -> Void)?
     var onFirstOutput: (() -> Void)?
     var onFirstUsable: (() -> Void)?
@@ -199,7 +199,7 @@ final class DemoSession: ObservableObject {
                 first?()
                 startInteractionCheck(session)
             case .theme(let theme): onThemeChange?(theme)
-            case .canvas(let scheme): onCanvasChange?(scheme)
+            case .canvas: onCanvasChange?()
             }
         }
         return terminalView.onChange(of: session.hasEnded) {
