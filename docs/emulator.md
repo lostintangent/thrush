@@ -30,7 +30,7 @@ The conformance harness settles what each byte should do. It feeds the same byte
 - **A program can tell Shift-Enter from Enter.** Legacy key encoding sends Enter and Shift-Enter as the same carriage return, so a program like Claude Code or Codex can't start a new line without sending the prompt. Both ask for the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/), which the reference doesn't implement. Thrush supports its flags 1 and 4. Flag 1 reports Escape and every chord legacy encoding can't tell apart as `CSI code ; modifiers u`, so Shift-Enter sends `CSI 13 ; 2 u`. Flag 4 adds the shifted key to a chord, so Control-Shift-A sends `CSI 97 : 65 ; 6 u`. Text keeps its usual bytes, and so do keys legacy encoding already tells apart, except that the cursor keys ignore application mode. Each screen keeps its own stack of up to eight pushed flags, and `CSI ? u` reports the top one, holding only the flags Thrush supports, so a program asking for more learns what it got. DECSTR and RIS empty both stacks, as kitty does, so a program that resets the terminal as it exits leaves keys reported the usual way. The harness lists Thrush's replies as reference defects.
 - **The dispatch reads like the spec.** Every supported control function appears once, by name, in its family's `switch` under `perform`, or as SGR's one case in `receive`. Anything absent there is unsupported, and the harness says so.
 - **State, not events.** `Terminal` is a `Sendable` value. The session and view read what they need, such as the title, modes or text to copy, after applying output. Nothing in the core calls back into them.
-- **Fast by construction, safe by default.** Design starts from the hot path, and every change is measured. Use safe Swift such as `Span`, `MutableSpan` and `InlineArray`. The few places that use unsafe Swift are listed under [Where the speed lives](#where-the-speed-lives).
+- **Fast by construction, safe by default.** Design starts from the hot path, and every change is measured. Use safe Swift such as `Span`, `MutableSpan` and `InlineArray`. The two block moves that use unsafe Swift are measured under [Where the speed lives](#where-the-speed-lives).
 
 ## Layers
 
@@ -70,7 +70,7 @@ Scrolling reaches a program that takes it, which is one that reports the mouse o
 
 ## Where the speed lives
 
-Each technique sits behind one name in one place, and none is spelled in `receive`, `print` or `perform`. The cost of each is how many more instructions per pass the [comparison workloads](../Benchmarks/comparison.md) took at 80 × 24 with that technique alone removed. Pointer input is a ThrushBench workload.
+Each technique sits behind one name in one place, and none is spelled in `receive`, `print` or `perform`. The cost of each is how many more instructions per pass the [comparison workloads](../Benchmarks/comparison.md) took at 80 × 24 with that technique alone removed. Pointer input is a ThrushBench workload. The two unsafe block moves are measured in cycles against their best safe form instead, since safe swaps save instructions and then stall.
 
 **Text**
 
@@ -107,6 +107,8 @@ Each technique sits behind one name in one place, and none is spelled in `receiv
 | Rows are recycled, never allocated | `History.append` and `Screen` | scroll +170%, ascii +144% |
 | The visible rows are a ring | `Screen`'s buffers | scroll +91%, ascii +80% |
 | Scroll regions rotate in place | `Array.rotate` in Screen.swift | region +2696% |
+| A rotation moves its rows in three block moves, without retaining or releasing them | inside `Array.rotate` | region +8% in cycles with a ring of slot indices, +42% with swaps |
+| Inserting or deleting characters slides the rest of the row in one block move | `Row.move` | +65% in cycles on a stream of insertions and deletions with a loop of single cells. No comparison workload edits a line |
 | Clearing a row resets its length instead of blanking its cells | `Row.clear` | ascii +12.6%, scroll +12.3% |
 | Rarely taken row paths are kept out of line | `Row` | scroll +1.8% to +9.2% across code layouts |
 
@@ -119,7 +121,7 @@ A few details complete the picture.
 - **Parameters stay as bytes.** `Parameters` keeps the digits, colons and semicolons as they arrived, and a function converts only the numbers it reads, by position. A header split across reads appends to the same bytes. A header too long for the 1 KiB buffer compacts to what a reader can see, dropping leading zeros, digits past saturation and fields past the limits. A whole SGR is the one header left in the chunk, and SGR reads it before the chunk changes. A cancelled header is never named, so it never reaches the pen.
 - **A function is only a name.** Its parameters and payload stay in the parser, where `perform` reads them. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
 - **Where the calls are.** `next`, the whole-sequence reader, `print` and the family switch inline into `receive`, and performing a function calls its family's `perform`. A sequence that arrives in pieces or carries a private marker, such as `CSI ? 1006 h`, walks the table in one call to `Parser.readSequence`. `endOfParameters` and SGR's reader stay out of line, since a copy at each caller cost more than the call.
-- **Unsafe code.** Six places use unsafe Swift. `Array.rotate` moves rows between slots without retaining or releasing them, and `Row.move` moves cells along a row as memmove does. `Row.compactStyles` renumbers a row's styles in temporary storage. `Payload.append` copies a run of ASCII out of its `Span` through a buffer pointer, and `ProgramColors` splits a color payload into fields over an `UnsafeBufferPointer`. `TextScanner` reinterprets a 16-byte block as two 64-bit words with `unsafeBitCast`, which reads no memory.
+- **Unsafe code.** Two block moves use unsafe Swift, because safe Swift can only move elements one at a time. `Array.rotate` moves rows between slots without retaining or releasing them, and `Row.move` slides cells along a row as memmove does. Everything else is safe, including the scanner's 16-byte blocks, the temporary table that compacts a row's styles and the payload's byte runs.
 
 ## Storage
 
