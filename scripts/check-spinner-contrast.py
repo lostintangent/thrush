@@ -18,7 +18,7 @@ def luminance(rgb):
 
 
 def measure(frame, region):
-    # Reuse the capture checker's ColorSync conversion for both Slate appearances.
+    # Reuse the capture checker's ColorSync conversion for both appearances.
     capture = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))["Capture"](frame, "dark")
     return measure_pixels(capture, region)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture colors a program sets in the packaged Mac window, in both Slate appearances: under the demo's
+"""Capture colors a program sets in the packaged Mac window, in both appearances: under the demo's
 transparent title bar, under a full-size window toolbar with and without its background, and in a split
 view's detail beside a sidebar. The colors scene picks the canvas the system didn't, so every frame puts
 program colors against the host's chrome. The program's canvas must run beneath each toolbar, which takes
@@ -29,7 +29,7 @@ Capture = runpy.run_path(str(SCRIPTS / "check-demo-capture.py"))["Capture"]
 # demo window's width, compact toolbar height and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
 PROGRAM = {"dark": "paper", "light": "night"}
-SLATE = {"dark": "131D27", "light": "FBFDFE"}
+CANVAS = {"dark": "131D27", "light": "FBFDFE"}
 WIDTH, BAR, SIDEBAR = 720, 40, 200
 # Each window's demo arguments.
 WINDOWS = {
@@ -66,7 +66,7 @@ def check(image, appearance, palette, args, checker):
     bar, height, sidebar = BAR, pixels.height / scale, SIDEBAR if split else 0
     total = pixels.width * pixels.height
     below = collections.Counter(pixels.pixels[round(bar * scale) * pixels.width:])
-    if sum(count for value, count in below.items() if near(value, SLATE[appearance], 3)) > total * 0.005:
+    if sum(count for value, count in below.items() if near(value, CANVAS[appearance], 3)) > total * 0.005:
         raise ValueError("The theme's canvas shows through the program's colors.")
     if sum(pixels.hist[v] for v in pixels.hist if near(v, canvas, 3)) < total * 0.5:
         raise ValueError(f"The {palette} canvas covers less than half the window.")

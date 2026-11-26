@@ -2,7 +2,7 @@ import Foundation
 import ThrushCore
 
 /// The terminal's palette and the colors used to draw its cursor and selection.
-/// To customize Slate, edit a copy of `slateDark` or `slateLight` and pass it to the terminal view.
+/// To customize the built-in themes, edit a copy of `dark` or `light` and pass it to the terminal view.
 public struct TerminalTheme: Equatable, Sendable {
     /// The default text, background and ANSI colors. The terminal view uses this palette for OSC color replies.
     public var palette: Terminal.Palette
@@ -26,7 +26,7 @@ public struct TerminalTheme: Equatable, Sendable {
     }
 
     /// The default terminal theme for a dark system appearance.
-    public static let slateDark = TerminalTheme(
+    public static let dark = TerminalTheme(
         palette: .init(foreground: rgb(0xe3eaf0), background: rgb(0x131d27), ansi: [
             0x0b1016, 0xe28282, 0x93cba2, 0xdebb7b, 0x88b6e5, 0xbba0d7, 0x78c4ce, 0xc1cdd4,
             0x8697a4, 0xf49c98, 0xb2dfb5, 0xf2d69c, 0xa9cfff, 0xd3b9f2, 0x9ce0e4, 0xf4f7f9
@@ -35,7 +35,7 @@ public struct TerminalTheme: Equatable, Sendable {
     )
 
     /// The default terminal theme for a light system appearance.
-    public static let slateLight = TerminalTheme(
+    public static let light = TerminalTheme(
         palette: .init(foreground: rgb(0x233442), background: rgb(0xfbfdfe), ansi: [
             0x000000, 0xa43d46, 0x30683e, 0x79601c, 0x2b608f, 0x764d80, 0x276a70, 0x6d767c,
             0x586d7b, 0xbb3147, 0x197539, 0x856100, 0x16699e, 0x864887, 0x007278, 0x757575
@@ -110,8 +110,8 @@ extension Terminal.RGB {
 // Colors for native controls beside the canvas. The opaque backing replaces glass under Reduce Transparency.
 package extension TerminalTheme {
     var opaqueBacking: Terminal.RGB {
-        if self == .slateDark { return .init(red: 0x1D, green: 0x29, blue: 0x34) }
-        if self == .slateLight { return .init(red: 0xE8, green: 0xEE, blue: 0xF1) }
+        if self == .dark { return .init(red: 0x1D, green: 0x29, blue: 0x34) }
+        if self == .light { return .init(red: 0xE8, green: 0xEE, blue: 0xF1) }
         return .init(red: 0x2A, green: 0x27, blue: 0x24)
     }
 }

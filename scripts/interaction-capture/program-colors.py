@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 luminance = runpy.run_path(str(ROOT / "scripts/check-spinner-contrast.py"))["luminance"]
 # The palettes in scripts/demo-peer.ts, by system appearance.
 PROGRAM = {"dark": ("paper", "F4EFE4"), "light": ("night", "17151F")}
-SLATE = {"dark": "131D27", "light": "FBFDFE"}
+CANVAS = {"dark": "131D27", "light": "FBFDFE"}
 
 
 class StatusBarTrails(ValueError):
@@ -61,7 +61,7 @@ def check(image, state, appearance, toolbar, checker):
 
     # The theme's canvas must not show anywhere, and the program's must fill most of the window.
     total = pixels.width * pixels.height
-    if sum(pixels.hist[v] for v in pixels.hist if near(v, SLATE[appearance], 3)) > total * 0.005:
+    if sum(pixels.hist[v] for v in pixels.hist if near(v, CANVAS[appearance], 3)) > total * 0.005:
         raise ValueError("The theme's canvas shows through the program's colors.")
     if sum(pixels.hist[v] for v in pixels.hist if near(v, paper, 3)) < total * 0.5:
         raise ValueError(f"The {name} canvas covers less than half the window.")

@@ -37,7 +37,7 @@ import Testing
         attempts.withLock { $0.append(endpoint) }
         return urlSession.webSocketTask(with: endpoint)
     }
-    var theme = TerminalTheme.slateDark
+    var theme = TerminalTheme.dark
     theme.cursor = .init(red: 29, green: 103, blue: 197)
     await session.setTheme(theme)
     let titleChanges = ChangeCount()
@@ -273,27 +273,27 @@ private struct AppliedFrames: WebSocketFrameTrace {
         #expect(try await session.actor.nextEvent() == .replay)
     }
     let reports = "\u{1b}[?2031h", dark = "\u{1b}[?997;1n", light = "\u{1b}[?997;2n"
-    var warmDark = TerminalTheme.slateDark
+    var warmDark = TerminalTheme.dark
     warmDark.palette = .init(foreground: warmDark.palette.foreground, background: .init(red: 0x1c, green: 0x1a, blue: 0x18), ansi: warmDark.palette.ansi)
 
     // Only a flip between dark and light is reported, not another theme of the same appearance or a
     // background the program set.
-    await session.setTheme(.slateDark)
+    await session.setTheme(.dark)
     try #require(await session.actor.show())
     #expect(try await session.actor.nextEvent() == .ready(resumed: false))
     try peer.send(reports + "\u{1b}]11;#ffffff\u{7}", opcode: .binary)
     #expect(try await session.actor.nextEvent() == .output)
     await session.setTheme(warmDark)
-    await session.setTheme(.slateLight)
-    await session.setTheme(.slateLight)
-    await session.setTheme(.slateDark)
+    await session.setTheme(.light)
+    await session.setTheme(.light)
+    await session.setTheme(.dark)
     try await expectWrites([light, dark], through: "1")
 
     // Another attachment may have told the shell otherwise, so a resumed program hears the current
     // appearance once, whether or not it changed while the shell was detached.
     // A drop discards whatever the peer hasn't read yet, so the first resume's report must arrive before it.
     await session.actor.hide()
-    await session.setTheme(.slateLight)
+    await session.setTheme(.light)
     try await resume(replaying: reports)
     try await expectWrites([light, dark, "1", light], through: "2")
     try await resume(replaying: reports, afterDrop: true)

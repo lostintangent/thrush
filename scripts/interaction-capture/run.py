@@ -275,7 +275,7 @@ def check_images(out):
             path = out / (template.format(appearance) + ".png")
             capture = oracle.Capture(path, appearance)
             if capture.count("background") < capture.width * capture.height * 0.04:
-                raise ValueError(f"{path.name} has insufficient Slate terminal background.")
+                raise ValueError(f"{path.name} has insufficient terminal background.")
             if template.startswith(("word-", "line-")) and capture.count("selection") < 100:
                 raise ValueError(f"{path.name} lacks the Metal selection.")
             if template.endswith("-landscape") and capture.count("passed") < 16:
@@ -435,7 +435,7 @@ def main():
     elif options.swipes_only:
         print("Verified that swipes glide through less and vim as far as through the shell's history and stop under a finger.")
     else:
-        print("Captured the iPhone terminal, selection, controls, scrolling and landscape in both Slate appearances.")
+        print("Captured the iPhone terminal, selection, controls, scrolling and landscape in both appearances.")
 
 
 if __name__ == "__main__":

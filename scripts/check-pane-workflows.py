@@ -219,7 +219,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
             if verify_fixture and name == "vim":
                 verify_recorded_vim_replay(platform, driver, output, result["sourceSHA256"])
             if verify_fixture and name == "codex" and any(capture["appearance"] != "dark" for capture in captures):
-                raise ValueError("Codex recorded its colors on a dark terminal; expected Slate Dark in the captured pane")
+                raise ValueError("Codex recorded its colors on a dark terminal; expected the dark theme in the captured pane")
             if verify_fixture and platform == "simulator":
                 fixture_root = Path("Fixtures/recordings") if name == "shell" else Path("Fixtures/reference/m4/phone")
                 fixture = json.loads((fixture_root / (WORKFLOWS[name] + ".json")).read_bytes())

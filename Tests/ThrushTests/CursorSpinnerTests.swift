@@ -63,7 +63,7 @@ import UIKit
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
-    view.theme = .slateDark
+    view.theme = .dark
     view.setWaiting("Reconnecting")
     let spinner = try #require(view.subviews.compactMap { $0 as? CursorSpinner }.first)
     func expectInk(_ r: UInt8, _ g: UInt8, _ b: UInt8) throws {

@@ -12,7 +12,7 @@ import ThrushCore
         columns: 47, rows: 25, windowPoints: CGRect(x: 0, y: 0, width: 402, height: 874),
         gridFrame: CGRect(x: 0, y: 61, width: 402, height: 466), displayScale: 3,
         keyboardHeight: 301, accessoryHeight: 0, selection: nil)
-    func drawing(generation: UInt64 = 7, theme: TerminalTheme = .slateDark) -> PhoneCapture.Drawing? {
+    func drawing(generation: UInt64 = 7, theme: TerminalTheme = .dark) -> PhoneCapture.Drawing? {
         PhoneCapture.Drawing(state: layout, generation: generation, size: size, drawableSize: pixels,
                              fontSize: nil, theme: theme, historyOffset: 0)
     }
@@ -37,7 +37,7 @@ import ThrushCore
     #expect(settled.keyboardHeight == 345 && settled.accessoryHeight == 44)
 
     #expect(!submission.applying(to: layout, drawing: drawing(generation: 8)).gpuCompleted)
-    #expect(!submission.applying(to: layout, drawing: drawing(theme: .slateLight)).gpuCompleted)
+    #expect(!submission.applying(to: layout, drawing: drawing(theme: .light)).gpuCompleted)
     layout.gridFrame.size.height += 1
     #expect(!submission.applying(to: layout, drawing: drawing()).gpuCompleted)
 }

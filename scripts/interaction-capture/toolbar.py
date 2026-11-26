@@ -53,11 +53,11 @@ def check(image, state, appearance, scene, checker):
     left = round((bar[0] - window[0] + 0.4 * bar_width) * scale)
     right = round((bar[0] - window[0] + 0.55 * bar_width) * scale)
     middle = round(((bar[1] + bar[3]) / 2 - window[1]) * scale)
-    slate = pixels.matches("background", tolerance=8)
+    background = pixels.matches("background", tolerance=8)
     for y in range(middle - 1, middle + 2):
         sample = pixels.pixels[y * pixels.width + left:y * pixels.width + right]
-        if not sample or sum(value in slate for value in sample) < 0.95 * len(sample):
-            raise ValueError(f"Slate canvas is missing beneath the unoccupied bar at x={left}…{right}, y={y}.")
+        if not sample or sum(value in background for value in sample) < 0.95 * len(sample):
+            raise ValueError(f"The canvas is missing beneath the unoccupied bar at x={left}…{right}, y={y}.")
     if scene == "spinner-reconnecting":
         row = ((grid[0], first[1]), (grid[2] - grid[0], first[3] - first[1]))
         check_copy(image, row, state, checker, ["swift test"])

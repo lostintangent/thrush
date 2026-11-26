@@ -72,7 +72,7 @@ struct WorkflowCapture: Encodable {
         self.eventIndex = eventIndex
         columns = snapshot.size.columns
         rows = snapshot.size.rows
-        appearance = view.resolvedTheme == .slateLight ? "light" : "dark"
+        appearance = view.resolvedTheme == .light ? "light" : "dark"
         windowSize = layout.windowSize
         gridInWindow = layout.gridInWindow
         keyboard = layout.keyboard

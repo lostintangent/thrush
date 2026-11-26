@@ -187,7 +187,7 @@ for platform in platforms {
         context.setFillColor(paper)
         context.fill(CGRect(x: 0, y: 0, width: sheetWidth, height: height))
 
-        let name = appearance == "dark" ? "Slate Dark" : "Slate Light"
+        let name = appearance == "dark" ? "Dark" : "Light"
         text("Thrush release tour", context, x: margin, y: 150, height: height, font: font(86, bold: true), color: ink)
         let missing = tiles.filter { $0.image == nil }.count
         let summary = "\(platform.title) in \(name). \(tiles.count - missing) of \(tiles.count) surfaces captured"

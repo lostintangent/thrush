@@ -106,7 +106,7 @@ def check(image, state, require_keyboard=False):
                 "Selection extends outside the recorded grid")
         selected_start, selected_end = sorted((ar * columns + ac, hr * columns + hc))
 
-    slate = image.matches("background", 6)
+    background = image.matches("background", 6)
     highlight = image.matches("selection", 6)
     want = missing = extra = canvas = covered = selection_missing = selection_extra = 0
     row_errors = []
@@ -129,7 +129,7 @@ def check(image, state, require_keyboard=False):
             if not colors:
                 continue
             paper, _ = colors.most_common(1)[0]
-            canvas += paper in slate
+            canvas += paper in background
             # The predominant color is the cell's local paper, including inverse video and selection.
             # A solid background or cursor block by itself does not count as a printed glyph.
             ink = sum(count for rgb, count in colors.items() if different(rgb, paper))
@@ -147,7 +147,7 @@ def check(image, state, require_keyboard=False):
             row_errors.append(f"row {row}: {row_missing} missing, {row_extra} unexpected of {row_want} expected")
 
     require(covered <= rows * columns * 0.10, f"Pane controls cover {covered} of {rows * columns} cells")
-    require(canvas >= rows * columns * 0.20, "Expected Slate terminal background is absent from the grid")
+    require(canvas >= rows * columns * 0.20, "Expected terminal background is absent from the grid")
     count = max(0, selected_end - selected_start + 1) if selection is not None else 0
     require(selection_missing <= max(1, count * 0.04) and selection_extra <= 1,
             f"Selection fill differs: {selection_missing} missing of {count} cells, {selection_extra} outside range")

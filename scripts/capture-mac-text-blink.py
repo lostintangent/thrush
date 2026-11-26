@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Measure blinking text in the packaged Mac renderer, then burst-capture the styles scene in both
-Slate appearances, first blinking and then under Reduce Motion. Runs only on a disposable GitHub
+appearances, first blinking and then under Reduce Motion. Runs only on a disposable GitHub
 runner, because it changes the Reduce Motion preference."""
 import argparse
 import os

@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/Thrush-logo-amber.png" alt="The Thrush mark, an amber-chested bird with a terminal chevron in its slate wing" width="240"></p>
+<p align="center"><img src="docs/Thrush-logo-amber.png" alt="The Thrush mark, an amber-chested bird with a terminal chevron in its blue-gray wing" width="240"></p>
 
 # Thrush
 
@@ -29,7 +29,7 @@ let session = TerminalSession { size in
 TerminalView(session)
 ```
 
-The view fits its grid to the safe area and reports each new size to the session. Like a SwiftUI background, its canvas runs under a navigation bar, a Mac toolbar, the home indicator or any other safe area its frame meets, with no `.ignoresSafeArea()`, while its first row starts below the bar. On iPhone with the keyboard down, its rows run on under the home indicator too. It follows the system appearance between Slate Light and Slate Dark, floats a glass key row of Esc, Ctrl, Tab, the arrows and Hide Keyboard above the iPhone keyboard, with Option and Shift a tap away from Ctrl, and handles focus, selection, copying and scrolling, through history or in full-screen programs like Vim and less. A program that asks can tell Shift-Enter from Enter, and hears whenever the view gains or loses keyboard focus or its theme turns dark or light. The WebSocket stays attached while the view is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the view leaves the screen or the iPhone app goes to the background.
+The view fits its grid to the safe area and reports each new size to the session. Like a SwiftUI background, its canvas runs under a navigation bar, a Mac toolbar, the home indicator or any other safe area its frame meets, with no `.ignoresSafeArea()`, while its first row starts below the bar. On iPhone with the keyboard down, its rows run on under the home indicator too. It follows the system appearance between its light and dark themes, floats a glass key row of Esc, Ctrl, Tab, the arrows and Hide Keyboard above the iPhone keyboard, with Option and Shift a tap away from Ctrl, and handles focus, selection, copying and scrolling, through history or in full-screen programs like Vim and less. A program that asks can tell Shift-Enter from Enter, and hears whenever the view gains or loses keyboard focus or its theme turns dark or light. The WebSocket stays attached while the view is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the view leaves the screen or the iPhone app goes to the background.
 
 A small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the view keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. If the server has already released the shell, the same session opens its replacement at the top of the screen. Scroll up to read the previous shell’s main screen and history. Input held for that shell is discarded. VoiceOver announces a sustained reconnect, a new shell or a shell exit once.
 
@@ -39,13 +39,13 @@ An app can choose which tab accepts input and set the appearance. On iPhone, it 
 TerminalView(
     session,
     isActive: isSelectedTab,        // false while a tab stays in the hierarchy but is hidden
-    theme: .slateDark,              // nil follows the system appearance
+    theme: .dark,                   // nil follows the system appearance
     fontSize: 15,
     showsKeyRow: false              // iPhone only. The row is shown by default
 )
 ```
 
-To customize the colors, edit a copy of `TerminalTheme.slateDark` or `.slateLight` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
+To customize the colors, edit a copy of `TerminalTheme.dark` or `.light` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
 SwiftUI observes `session.title` and `session.hasEnded` directly. When the shell exits or the app closes the session, its final screen and history remain readable. Both sample apps keep that screen until the user chooses **New Shell** in the app’s toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Session lifecycle](docs/design/lifecycle.md)
 
@@ -161,7 +161,7 @@ The timings come from one contended M1 Max, so they show headroom rather than a 
 
 ## Develop
 
-[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover Slate, glass and the session lifecycle.
+[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover the themes, glass and the session lifecycle.
 
 ## License
 

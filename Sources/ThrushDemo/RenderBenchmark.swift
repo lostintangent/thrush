@@ -75,7 +75,7 @@ enum RenderBenchmark {
     }
 
     private struct Report: Encodable {
-        let schemaVersion = 4
+        let schemaVersion = 5
         let recordedAt: Date
         let workloadSHA256: String
         let environment: RenderEnvironment
@@ -147,10 +147,10 @@ enum RenderBenchmark {
         let originalTheme = view.theme
         let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 1, headRow: 0, headColumn: 4)
         try await collector.observeMutation { view.selection = selection }
-        var alternate = TerminalTheme.slateDark
+        var alternate = TerminalTheme.dark
         alternate.cursor = .init(red: 0x82, green: 0xCB, blue: 0xC5)
-        let firstTheme: TerminalTheme = view.resolvedTheme == .slateDark ? .slateLight : .slateDark
-        let secondTheme: TerminalTheme = firstTheme == .slateDark ? .slateLight : .slateDark
+        let firstTheme: TerminalTheme = view.resolvedTheme == .dark ? .light : .dark
+        let secondTheme: TerminalTheme = firstTheme == .dark ? .light : .dark
         let themes = [firstTheme, secondTheme, alternate]
         var switches: [ThemeSwitch] = []
         for theme in themes {
@@ -158,7 +158,7 @@ enum RenderBenchmark {
             guard view.selection == selection, view.resolvedTheme == theme, view.gridSize == size else {
                 throw Failure("Changing appearance displaced the selection or resized the grid.")
             }
-            let name = theme == .slateDark ? "Slate Dark" : theme == .slateLight ? "Slate Light" : "Custom"
+            let name = theme == .dark ? "Dark" : theme == .light ? "Light" : "Custom"
             switches.append(.init(theme: name, generation: frame.generation, submittedAt: frame.submittedAt,
                                   presentedTime: nil, rowsPrepared: frame.rowsPrepared,
                                   glyphUploads: frame.glyphUploads))

@@ -193,7 +193,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         } else {
             config.baseForegroundColor = .label
         }
-        latest.overrideUserInterfaceStyle = theme == .slateDark ? .dark : theme == .slateLight ? .light : .unspecified
+        latest.overrideUserInterfaceStyle = theme == .dark ? .dark : theme == .light ? .light : .unspecified
         latest.configuration = config
     }
 

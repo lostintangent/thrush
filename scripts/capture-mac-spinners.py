@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the active and visibly inactive Mac connection indicators in both Slate appearances."""
+"""Capture the active and visibly inactive Mac connection indicators in both appearances."""
 import argparse
 from contextlib import contextmanager
 import json

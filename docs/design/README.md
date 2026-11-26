@@ -1,12 +1,12 @@
 # Thrush on Mac and iPhone
 
-**Thrush draws in Slate on Mac and iPhone.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. An app can supply a custom theme.
+**Thrush draws a cool blue-gray grid on Mac and iPhone.** Its dark and light themes follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. An app can supply a custom theme.
 
-## Slate Dark
+## Dark
 
-![Slate on Mac and iPhone, with shell output, a Vim buffer, keyboard-open portrait and landscape views with the floating key row, and cursor and selection details](slate.png)
+![The dark theme on Mac and iPhone, with shell output, a Vim buffer, keyboard-open portrait and landscape views with the floating key row, and cursor and selection details](dark.png)
 
-The slate canvas continues to the iPhone safe areas. With the keyboard down, the grid's last rows run on under the home indicator, while Latest and the scroll indicator stay above it. On Mac, the native title bar carries the window controls. The terminal owns the space below it. The amber from the Thrush mark is reserved for the cursor. Build stages and Vim syntax keep their own ANSI colors. On iPhone, one glass capsule of keys floats above the keyboard with Esc, Ctrl, Tab, the arrows and Hide Keyboard.
+The canvas continues to the iPhone safe areas. With the keyboard down, the grid's last rows run on under the home indicator, while Latest and the scroll indicator stay above it. On Mac, the native title bar carries the window controls. The terminal owns the space below it. The amber from the Thrush mark is reserved for the cursor. Build stages and Vim syntax keep their own ANSI colors. On iPhone, one glass capsule of keys floats above the keyboard with Esc, Ctrl, Tab, the arrows and Hide Keyboard.
 
 | Setting | Value |
 | --- | --- |
@@ -23,11 +23,11 @@ The slate canvas continues to the iPhone safe areas. With the keyboard down, the
 | Key row dividers | `#E3EAF0` at 30% opacity, 2.23:1 on the glass and 2.41:1 on the opaque backing |
 | iPhone Duo grid | 45 × 36 portrait and 71 × 25 landscape with the keyboard down, 45 × 18 and 71 × 11 with it open. Derive the live grid from the measured keyboard and safe areas. |
 
-## Slate Light
+## Light
 
-![Slate Light on Mac and iPhone, with the same shell output, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
+![The light theme on Mac and iPhone, with the same shell output, Vim frame, selection, cursor and keyboard-open views as the dark theme](light.png)
 
-Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same grids as Slate Dark.
+Blue-gray text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 494 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same grids as the dark theme.
 
 | Token | sRGB value | Contrast |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ On a system appearance change or a user theme edit, apply one resolved palette t
 
 ## Ember, a custom theme
 
-An app can replace the palette and keep Slate's type and grid. The sample apps show this with `--theme custom`, which uses Ember, a warm palette. Default text reaches 13.80:1 and selected text 5.22:1. Its ANSI colors are in the next table.
+An app can replace the palette and keep the built-in type and grid. The sample apps show this with `--theme custom`, which uses Ember, a warm palette. Default text reaches 13.80:1 and selected text 5.22:1. Its ANSI colors are in the next table.
 
 | Token | sRGB value |
 | --- | --- |
@@ -83,9 +83,9 @@ An app can replace the palette and keep Slate's type and grid. The sample apps s
 | Cursor / glyph under block | `#F0D9B4` / `#1C1A18` |
 | Selected background / text | `#78634E` / `#FFF4E1` |
 
-## Slate Dark and Ember ANSI colors
+## Dark and Ember ANSI colors
 
-| ANSI color | SGR normal / bright | Slate normal | Slate bright | Ember normal | Ember bright |
+| ANSI color | SGR normal / bright | Dark normal | Dark bright | Ember normal | Ember bright |
 | --- | --- | --- | --- | --- | --- |
 | Black | 30 / 90 | `#0B1016` | `#8697A4` | `#12110F` | `#978C80` |
 | Red | 31 / 91 | `#E28282` | `#F49C98` | `#DE8676` | `#F0A493` |
@@ -96,11 +96,11 @@ An app can replace the palette and keep Slate's type and grid. The sample apps s
 | Cyan | 36 / 96 | `#78C4CE` | `#9CE0E4` | `#88B9B0` | `#A6D4CB` |
 | White | 37 / 97 | `#C1CDD4` | `#F4F7F9` | `#CFC2AD` | `#F8EEDD` |
 
-Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. Shell output often uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
+Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. Shell output often uses bright black for secondary text. Both built-in themes keep index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
 
 Underlines take SF Mono's own position and thickness, rounded up to whole pixels: 2 pixels on a 2× Mac and a 3× iPhone, and 1 on a 1× display. A double underline is two lines half as thick that bound a band below the underline's top, and a curly one waves once per cell across that same band, so both stay inside their row. Dotted underlines are square dots, each one stroke wide and a stroke apart on whole pixels, so every gap matches even where a cell's advance isn't whole pixels. Dashed ones clear the middle third of every column, so each dash bridges two cells rather than sitting under one like an underscore. Each runs on unbroken from cell to cell. SGR 58 colors the underline. Without it, and under selection or a block cursor, the underline takes the text's ink. Strikethrough crosses the middle of the x-height. An overline clears the ascenders by the gap the underline leaves below the baseline, so it reads with its own row rather than as an underline of the row above.
 
-Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Slate Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Slate Dark (`#ACB5BB` on `#2F3840`). Dim applies to the glyph and to its underline, overline and strikethrough.
+Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Dark (`#ACB5BB` on `#2F3840`). Dim applies to the glyph and to its underline, overline and strikethrough.
 
 SGR 5 blinking text fades its glyph, underline, overline and strikethrough out and back in on a 1.2 s cycle: shown for 0.5 s, a 0.2 s ease out, hidden for 0.3 s and a 0.2 s ease in. That is 50 blinks a minute, slower than the 150 ECMA-48 allows for slow blink. Backgrounds, inverse paper, selection and the cursor hold still, and a block cursor keeps its glyph. Every terminal view follows one clock, so all blinking text fades together. With Reduce Motion, blinking text stays shown.
 
@@ -127,7 +127,7 @@ Shell output and Vim content in the images are examples. When an app embeds the 
 
 - Use the system monospaced face. Ask Core Text for the digit advance at the chosen size. Snap boundaries from cumulative advances to backing pixels. Keep incomplete columns and rows in the trailing and bottom inset. The listed sizes are defaults. Recompute advances, baselines and grid size when the user changes text size or moves to a display with a different scale.
 - Shape **A翼🐦Z** into six terminal columns. The ideograph spans two cells and the Unicode 11 bird emoji spans two. Core Text supplies the CJK fallback and Apple Color Emoji glyph. Keep the emoji’s intrinsic color and extend a selection through both halves of a wide character.
-- The Mac images use a 720 × 486 pt window with a 32 pt system title bar, which fits 80 × 24 cells. On the iPhone Duo, iOS 27.1's vertical status bar takes an 84 pt trailing safe area in the 466 × 678 pt portrait window and leaves no top inset, so the grid's first row sits 8 pt below the top edge. With the keyboard open, it begins at y = 413 pt and the key row’s capsule runs from y = 353 to 401 pt. Landscape hides the status bar and puts the camera at the bottom trailing corner of the 678 × 466 pt window, where UIKit keeps the 84 pt trailing safe area and none on the leading side. The grid follows the safe area rather than mirroring that inset, which would give up 11 of 71 columns, and the canvas runs beneath the inset to the edge. Its keyboard begins at y = 273 pt and the capsule runs from y = 229 to 265 pt. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and key row geometry. Deduct the key row height once. With a hardware keyboard, use the controls actually on screen. With nothing on screen, the grid runs on to the view's bottom edge, and its 8 pt inset and any incomplete row lie under the home indicator.
+- The Mac images use a 720 × 494 pt window, a 40 pt compact toolbar over a 720 × 454 pt content area that fits 80 × 24 cells. On the iPhone Duo, iOS 27.1's vertical status bar takes an 84 pt trailing safe area in the 466 × 678 pt portrait window and leaves no top inset, so the grid's first row sits 8 pt below the top edge. With the keyboard open, it begins at y = 413 pt and the key row’s capsule runs from y = 353 to 401 pt. Landscape hides the status bar and puts the camera at the bottom trailing corner of the 678 × 466 pt window, where UIKit keeps the 84 pt trailing safe area and none on the leading side. The grid follows the safe area rather than mirroring that inset, which would give up 11 of 71 columns, and the canvas runs beneath the inset to the edge. Its keyboard begins at y = 273 pt and the capsule runs from y = 229 to 265 pt. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and key row geometry. Deduct the key row height once. With a hardware keyboard, use the controls actually on screen. With nothing on screen, the grid runs on to the view's bottom edge, and its 8 pt inset and any incomplete row lie under the home indicator.
 - Keep marked text local to the input view, anchor it at the cursor, and send only the single committed string. Expose accessible terminal lines, selections, modifier state and the return-to-latest action through each platform's accessibility API.
 
 Sign-off compares the palette, cell boundaries, cursor ink and baseline placement against captures of the running Mac and iPhone views. Keyboard timing, VoiceOver, physical-device legibility and idle-frame counts are checked in the running apps.

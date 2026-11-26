@@ -15,7 +15,7 @@ func macViewFitsTheWindowContentLayout(host layout: MacWindowLayout) throws {
         throw URLError(.cannotConnectToHost)
     }
     let terminal = TerminalMetalView(frame: .zero)
-    var terminalView = TerminalView(session, isActive: false, theme: .slateDark)
+    var terminalView = TerminalView(session, isActive: false, theme: .dark)
     terminalView.probe.metalView = terminal
     var style: NSWindow.StyleMask = [.titled, .closable, .resizable]
     if layout != .window { style.insert(.fullSizeContentView) }
@@ -54,7 +54,7 @@ func macViewFitsTheWindowContentLayout(host layout: MacWindowLayout) throws {
     case .paddedToolbar:
         #expect(canvasFrame == safe)
     }
-    let shade = TerminalTheme.slateDark.palette.background
+    let shade = TerminalTheme.dark.palette.background
     let fill = CGColor(srgbRed: CGFloat(shade.red) / 255, green: CGFloat(shade.green) / 255,
                        blue: CGFloat(shade.blue) / 255, alpha: 1)
     #expect(canvas.layer?.backgroundColor == fill)

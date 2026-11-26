@@ -5,7 +5,7 @@ import Testing
 import ThrushCore
 @testable import Thrush
 
-@Test func slateGridUsesCumulativePixelEdges() {
+@Test func gridUsesCumulativePixelEdges() {
     for scale: CGFloat in [1, 2, 3] {
         let metrics = GridMetrics(scale: scale)
         #if os(macOS)

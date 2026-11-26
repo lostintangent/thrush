@@ -4,7 +4,7 @@ import Testing
 import ThrushCore
 @testable import Thrush
 
-// Backing-pixel edges at 2× from Slate's type advance and insets. Keep these
+// Backing-pixel edges at 2× from the default type advance and insets. Keep these
 // independent of GridMetrics so translating the whole grid cannot pass this test.
 private enum Probe {
     #if os(macOS)
@@ -104,22 +104,22 @@ func wideningADrawableRevealsTheRestOfACachedRow() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     _ = terminal.write((escape + "?25lABCDEFGZ").utf8)
     let snapshot = terminal.snapshot()
-    let narrow = try host.draw(snapshot, theme: .slateDark, width: 128)
+    let narrow = try host.draw(snapshot, theme: .dark, width: 128)
     #expect(narrow.colors(in: 0..<1).contains(0xe3eaf0))
-    let wide = try host.draw(snapshot, theme: .slateDark)
+    let wide = try host.draw(snapshot, theme: .dark)
     #expect(wide.colors(in: 7..<8).contains(0xe3eaf0))
-    #expect(try host.draw(snapshot, theme: .slateDark).rowsPrepared == 0)
+    #expect(try host.draw(snapshot, theme: .dark).rowsPrepared == 0)
 }
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
 func dimInkMaintainsContrastOnCodexComposerBackgrounds() async throws {
     let host = try await OffscreenTerminal()
-    // Foreground and composer background bytes from the two Slate appearances.
+    // Foreground and composer background bytes from the dark and light themes.
     // Expected glyph interiors use 70% foreground and 30% background in the UNORM target.
     let cases: [(TerminalTheme, String, UInt32, UInt32, UInt32)] = [
-        (.slateDark, "47;56;64", 0x2f3840, 0xe3eaf0, 0xadb5bb),
-        (.slateLight, "240;242;243", 0xf0f2f3, 0x233442, 0x616d77),
+        (.dark, "47;56;64", 0x2f3840, 0xe3eaf0, 0xadb5bb),
+        (.light, "240;242;243", 0xf0f2f3, 0x233442, 0x616d77),
     ]
     func channels(_ color: UInt32) -> [Int] {
         [Int(color >> 16), Int(color >> 8 & 255), Int(color & 255)]
@@ -165,18 +165,18 @@ func livePaletteChangesRecolorCachedRows() async throws {
     }
     _ = terminal.write((output + escape + "0m" + escape + "?25l").utf8)
     let screen = terminal.snapshot()
-    var custom = TerminalTheme.slateDark
+    var custom = TerminalTheme.dark
     let ansi = (UInt8(0)..<16).map { Terminal.RGB(red: $0, green: 180, blue: 140) }
     custom.palette = .init(foreground: .init(red: 255, green: 224, blue: 36),
                            background: .init(red: 10, green: 12, blue: 14), ansi: ansi)
     let host = try await OffscreenTerminal()
-    let dark = try host.draw(screen, theme: .slateDark)
+    let dark = try host.draw(screen, theme: .dark)
     #expect(dark.rowsPrepared > 0 && dark.uploads == 1)
     #expect(dark[0, 0] == 0x131d27)
     #expect(dark.colors(in: 0..<1).contains(0xe3eaf0))
     #expect(dark[Probe.edges[1] + 1, Probe.top + 1] == 0xe28282)
 
-    for theme in [TerminalTheme.slateLight, custom, .slateDark] {
+    for theme in [TerminalTheme.light, custom, .dark] {
         let shot = try host.draw(screen, theme: theme)
         #expect(shot.rowsPrepared == 0)
         #expect(shot.uploads == 0)
@@ -223,7 +223,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     }
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     _ = terminal.write((escape + "?25lH" + escape + "41m " + escape + "48;5;196m " + escape + "0m").utf8)
-    let theme = TerminalTheme.slateDark
+    let theme = TerminalTheme.dark
     _ = try host.draw(terminal.snapshot(), theme: theme)
     #if os(macOS)
     #expect(canvas.titlebarAppearance == nil)
@@ -319,9 +319,9 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
 func aBlockKeepsItsGlyphReadableUnderAProgramCursor() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    // Slate Light's white glyph ink suits its ochre cursor, not a pale one a program sets.
+    // The light theme's white glyph ink suits its ochre cursor, not a pale one a program sets.
     _ = terminal.write(("H" + escape + "1;1H" + "\u{1b}]12;#f0f0f0\u{7}").utf8)
-    let theme = TerminalTheme.slateLight
+    let theme = TerminalTheme.light
     let block = try host.draw(terminal.snapshot(), theme: theme)
     #expect(block[Probe.edges[0], Probe.top] == 0xf0f0f0)
     #expect(block.colors(in: 0..<1).contains(pack(theme.palette.foreground)))
@@ -335,7 +335,7 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     _ = terminal.write("A翼🐦Z".utf8)
     let snapshot = terminal.snapshot()
-    let dark = try host.draw(snapshot, theme: .slateDark)
+    let dark = try host.draw(snapshot, theme: .dark)
     // A at 0, CJK spanning 1–2, color bird spanning 3–4, Z at 5, cursor at 6.
     for span in [0..<1, 1..<3, 5..<6] {
         #expect(dark.colors(in: span).contains(0xe3eaf0))
@@ -351,7 +351,7 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
 
     // Both endpoints lie on the *continuation* of 翼.
     let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 2, headRow: 0, headColumn: 2)
-    let selected = try host.draw(snapshot, theme: .slateDark, selection: selection)
+    let selected = try host.draw(snapshot, theme: .dark, selection: selection)
     #expect(selected[Probe.edges[1] - 1, y] == 0x131d27)
     #expect(selected[Probe.edges[1], y] == 0x466b85)
     #expect(selected[Probe.edges[3] - 1, y] == 0x466b85)
@@ -359,7 +359,7 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
     #expect(selected.colors(in: 1..<3).contains(0xf8fbfe))
     #expect(selected.colors(in: 3..<5) == bird)
 
-    var hostTheme = TerminalTheme.slateLight
+    var hostTheme = TerminalTheme.light
     hostTheme.selection = .init(red: 15, green: 86, blue: 65)
     hostTheme.selectionInk = .init(red: 247, green: 230, blue: 200)
     let tinted = try host.draw(snapshot, theme: hostTheme, selection: selection)
@@ -373,7 +373,7 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
 func cursorShapeMovesWithItsSnapshot() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    var theme = TerminalTheme.slateDark
+    var theme = TerminalTheme.dark
     theme.cursor = .init(red: 130, green: 32, blue: 48)
     theme.cursorInk = .init(red: 255, green: 224, blue: 0)
     _ = terminal.write(("H" + escape + "1;1H").utf8)
@@ -411,7 +411,7 @@ func cursorShapeMovesWithItsSnapshot() async throws {
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
 func concealedTextKeepsItsCellsAndCopyButDrawsNoInk() async throws {
     let host = try await OffscreenTerminal()
-    var theme = TerminalTheme.slateDark
+    var theme = TerminalTheme.dark
     theme.cursor = .init(red: 130, green: 32, blue: 48)
     theme.cursorInk = .init(red: 255, green: 224, blue: 0)
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
@@ -444,7 +444,7 @@ func underlineStylesDrawInTheirOwnColorAndRunOnAcrossCells() async throws {
                           + escape + "4:4m    " + escape + "4:5m    " + escape + "0m\r\n"
                           + escape + "53;9mH" + escape + "0;4:3;58:2::255:0:0m ").utf8)
     let selection = TerminalMetalView.Selection(anchorRow: 2, anchorColumn: 1, headRow: 2, headColumn: 1)
-    let shot = try host.draw(terminal.snapshot(), theme: .slateDark, selection: selection)
+    let shot = try host.draw(terminal.snapshot(), theme: .dark, selection: selection)
     let red: UInt32 = 0xff0000, paper: UInt32 = 0x131d27
     func rows(_ color: UInt32, x: Int, row: Int = 0) -> [Int] {
         (0..<Probe.height).filter { shot[x, Probe.top + row * Probe.height + $0] == color }
@@ -489,19 +489,19 @@ func blinkingInkFadesOverSteadyCellsWithoutRebuildingRows() async throws {
     _ = terminal.write((escape + "5;4;41mH" + escape + "0mH" + escape + "5mH" + escape + "0m" + escape + "1;3H").utf8)
     let snapshot = terminal.snapshot()
     let underline = (x: Probe.edges[0] + 2, y: Probe.top + Probe.underline)
-    let shown = try host.draw(snapshot, theme: .slateDark)
+    let shown = try host.draw(snapshot, theme: .dark)
     #expect(shown.blinks)
     #expect(shown.colors(in: 0..<1).contains(0xe3eaf0))
     #expect(shown[underline.x, underline.y] == 0xe3eaf0)
 
-    let hidden = try host.draw(snapshot, theme: .slateDark, blinkOpacity: 0)
+    let hidden = try host.draw(snapshot, theme: .dark, blinkOpacity: 0)
     #expect(hidden.rowsPrepared == 0 && hidden.uploads == 0)
     #expect(hidden.colors(in: 0..<1) == [0xe28282])
     #expect(hidden.colors(in: 1..<2) == shown.colors(in: 1..<2))
     // The cursor keeps the cell being edited legible.
     #expect(hidden.colors(in: 2..<3) == shown.colors(in: 2..<3))
 
-    let half = try host.draw(snapshot, theme: .slateDark, blinkOpacity: 0.5)
+    let half = try host.draw(snapshot, theme: .dark, blinkOpacity: 0.5)
     let blend = half[underline.x, underline.y]
     let channels = [blend >> 16, blend >> 8 & 255, blend & 255].map(Int.init)
     #expect(zip(channels, [226, 182, 185]).allSatisfy { abs($0 - $1) <= 1 }, "Measured \(channels)")
@@ -516,7 +516,7 @@ func onlyVisibleBlinkingInkAsksForBlinkFrames() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     for (bytes, blinks) in cases {
         _ = terminal.write((escape + "2J" + escape + "H" + bytes + escape + "0m").utf8)
-        #expect(try host.draw(terminal.snapshot(), theme: .slateDark).blinks == blinks, "\(bytes.debugDescription)")
+        #expect(try host.draw(terminal.snapshot(), theme: .dark).blinks == blinks, "\(bytes.debugDescription)")
     }
 }
 
@@ -604,15 +604,15 @@ func nativeAppearanceYieldsToAHostOverride() async throws {
     #expect(host.view.layer?.isOpaque == (expectedOpacity == 1))
     host.view.backgroundOpacity = 1
     host.view.appearance = light
-    #expect(host.view.resolvedTheme == .slateLight)
+    #expect(host.view.resolvedTheme == .light)
     host.view.appearance = dark
-    #expect(host.view.resolvedTheme == .slateDark)
-    host.view.theme = .slateLight
+    #expect(host.view.resolvedTheme == .dark)
+    host.view.theme = .light
     host.view.appearance = light
     host.view.appearance = dark
-    #expect(host.view.resolvedTheme == .slateLight)
+    #expect(host.view.resolvedTheme == .light)
     host.view.theme = nil
-    #expect(host.view.resolvedTheme == .slateDark)
+    #expect(host.view.resolvedTheme == .dark)
 }
 #endif
 

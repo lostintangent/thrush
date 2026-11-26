@@ -100,7 +100,7 @@ enum PhoneCapture {
         var releases: [[Double]] = []
         let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak view, weak root] in
             guard let session, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
-            let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
+            let appearance = view.resolvedTheme == .dark ? "dark" : view.resolvedTheme == .light ? "light" : "custom"
             let selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
             let input = view.subviews.first(where: \.isFirstResponder)
             let accessory = input?.inputAccessoryView

@@ -11,7 +11,7 @@ def check(path):
     report = json.loads(Path(path).read_bytes())
     columns, rows = report["columns"], report["rows"]
     version = report["schemaVersion"]
-    assert columns >= 24 and rows >= 2 and version in (1, 2, 3, 4)
+    assert columns >= 24 and rows >= 2 and version in (1, 2, 3, 4, 5)
     environment = report["environment"]
     assert environment["commit"] != "unknown" and environment["toolchain"] != "unknown"
     assert environment["hardwareModel"] != "unknown"
@@ -46,7 +46,8 @@ def check(path):
             p95 = latency[math.ceil(0.95 * len(latency)) - 1]
             assert math.isclose(p95, workload["receiptToPresentationP95Milliseconds"])
     switches = report["themeSwitches"]
-    assert {s["theme"] for s in switches} == {"Slate Light", "Slate Dark", "Custom"}
+    themes = {"Light", "Dark", "Custom"} if version >= 5 else {"Slate Light", "Slate Dark", "Custom"}
+    assert {s["theme"] for s in switches} == themes
     assert all(s["generation"] == samples[-1]["generation"] and s["rowsPrepared"] == 0
                and s["glyphUploads"] == 0 for s in switches)
     for state in ["foregroundIdle", "inactiveRenderer", "background"]:

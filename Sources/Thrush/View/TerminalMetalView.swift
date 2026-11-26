@@ -115,7 +115,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     /// The measured size in cells, or `nil` until the view lays out nonempty bounds.
     package private(set) var gridSize: Terminal.Size?
     /// The theme the view currently draws, including any explicit override.
-    package private(set) var resolvedTheme: TerminalTheme = .slateDark
+    package private(set) var resolvedTheme: TerminalTheme = .dark
     /// A nil override follows the native appearance.
     package var theme: TerminalTheme? { didSet { resolveTheme() } }
     #if os(macOS)
@@ -416,7 +416,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         #else
         let isDark = traitCollection.userInterfaceStyle == .dark
         #endif
-        let next = theme ?? (isDark ? .slateDark : .slateLight)
+        let next = theme ?? (isDark ? .dark : .light)
         guard next != resolvedTheme else { return }
         resolvedTheme = next
         onThemeChange?(next)

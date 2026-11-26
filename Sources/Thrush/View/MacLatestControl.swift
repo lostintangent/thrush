@@ -3,11 +3,11 @@ import AppKit
 import ThrushCore
 
 /// A 36 pt native capsule inside a 44 pt pointer target. Inactive windows and Reduce
-/// Transparency use the Slate fallback so an available action remains legible.
+/// Transparency use the theme's opaque backing so an available action remains legible.
 final class MacLatestControl: NSView {
     var onActivate: (() -> Void)?
     private let button = LatestButton(title: "Latest", target: nil, action: nil)
-    private var theme = TerminalTheme.slateDark
+    private var theme = TerminalTheme.dark
     private var trackingEdge = false
 
     init() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Flip the packaged Mac window from Slate Dark to Slate Light to the custom Ember theme, which is also
+"""Flip the packaged Mac window from the dark theme to the light theme to the custom Ember theme, which is also
 dark, under programs on a real shell that set mode 2031. A printer logs every reply it receives, and each
 flip must reach it exactly once. Choosing Dark again and a background the printer sets itself must not.
 Neovim, when installed, then follows the same flips through its own OSC 11 query, and its 'background'

@@ -51,15 +51,15 @@ def check(image, state, appearance):
     pixels = Capture(image, appearance)
     if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
         raise ValueError("Simulator framebuffer does not match the mounted window.")
-    slate = pixels.matches("background", tolerance=8)
+    background = pixels.matches("background", tolerance=8)
 
     def canvas(left, top, right, bottom, where):
-        # Points in the window to framebuffer pixels. Nearly every sample must be the Slate canvas.
+        # Points in the window to framebuffer pixels. Nearly every sample must be the canvas.
         x0, x1 = round((left - window[0]) * scale), round((right - window[0]) * scale)
         y0, y1 = round((top - window[1]) * scale), round((bottom - window[1]) * scale)
         samples = [pixels.pixels[y * pixels.width + x] for y in range(y0, y1) for x in range(x0, x1)]
-        if not samples or sum(value in slate for value in samples) < 0.95 * len(samples):
-            raise ValueError(f"The Slate canvas is missing {where}: x={x0}…{x1}, y={y0}…{y1}.")
+        if not samples or sum(value in background for value in samples) < 0.95 * len(samples):
+            raise ValueError(f"The canvas is missing {where}: x={x0}…{x1}, y={y0}…{y1}.")
 
     # Between the leading title and the trailing Close button, the bar shows the pane's canvas.
     width, middle = bar[2] - bar[0], (bar[1] + bar[3]) / 2

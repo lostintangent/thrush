@@ -21,7 +21,7 @@ on:
         type: boolean
         default: false
       spinner_matrix:
-        description: Check the cursor spinner and unchanged grid in both Slate appearances
+        description: Check the cursor spinner and unchanged grid in both appearances
         type: boolean
         default: false
       text_blink:
@@ -29,7 +29,7 @@ on:
         type: boolean
         default: false
       program_colors:
-        description: Capture colors a program sets under the title bar and a window toolbar in both Slate appearances
+        description: Capture colors a program sets under the title bar and a window toolbar in both appearances
         type: boolean
         default: false
       appearance_reports:
@@ -72,7 +72,7 @@ jobs:
       - name: Check active and inactive Mac cursor spinners against the live grid
         if: inputs.spinner_matrix
         run: python3 scripts/capture-mac-spinners.py --prepare-hosted-motion --output "$RUNNER_TEMP/mac-spinners"
-      - name: Measure and capture blinking text in both Slate appearances
+      - name: Measure and capture blinking text in both appearances
         if: ${{ !cancelled() && inputs.text_blink }}
         run: python3 scripts/capture-mac-text-blink.py --output "$RUNNER_TEMP/mac-text-blink"
       - name: Capture program colors under the title bar and a window toolbar

@@ -56,7 +56,7 @@ def measure(image, state, appearance, row, column, expected_label, *, use_adjace
     region = [math.floor(sx*scale)-1, math.floor(sy*scale)-1,
               math.ceil((sx+sw)*scale)-math.floor(sx*scale)+2, math.ceil((sy+sh)*scale)-math.floor(sy*scale)+2]
     # The native spinner replaces the block cursor on an empty cell in these scenes.
-    # Its visible spokes must differ from the nearby Slate canvas, even in an inactive window.
+    # Its visible spokes must differ from the nearby canvas, even in an inactive window.
     background_pixels = None
     if use_adjacent_canvas:
         # The reconnect-typing movie has an empty cell after the insertion point.

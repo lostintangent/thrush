@@ -214,7 +214,7 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
     let transport = ControlledTransport()
     let session = TerminalSession(openTransport: { _ in transport })
     let actor = session.actor
-    let dark = TerminalTheme.slateDark, light = TerminalTheme.slateLight
+    let dark = TerminalTheme.dark, light = TerminalTheme.light
     await actor.setPalette(dark.palette, cursor: dark.cursor)
     try await actor.sendResize(to: .init(columns: 20, rows: 4))
     try #require(await actor.show())

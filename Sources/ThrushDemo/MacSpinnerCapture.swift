@@ -72,7 +72,7 @@ import Thrush
                     }
                     let state = State(pid: ProcessInfo.processInfo.processIdentifier, windowID: window.windowNumber,
                                       scene: session.options.scene.rawValue,
-                                      appearance: session.view.resolvedTheme == .slateDark ? "dark" : "light",
+                                      appearance: session.view.resolvedTheme == .dark ? "dark" : "light",
                                       keyWindow: window.isKeyWindow, activeApp: NSApp.isActive,
                                       visible: window.isVisible && !window.isMiniaturized && window.occlusionState.contains(.visible),
                                       hasTranscript: session.view.snapshot?.rows.contains { $0.text == "Test run passed." } ?? false,

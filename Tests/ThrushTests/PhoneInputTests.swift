@@ -13,16 +13,16 @@ import UIKit
     let input = view.phoneInput
     var sent: [[UInt8]] = []
     view.onInput = { sent.append(terminal.encode($0)) }
-    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateDark,
-                      ink: TerminalTheme.slateDark.palette.foreground, paper: TerminalTheme.slateDark.palette.background)
+    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .dark,
+                      ink: TerminalTheme.dark.palette.foreground, paper: TerminalTheme.dark.palette.background)
 
     input.setMarkedText("つ", selectedRange: NSRange(location: 1, length: 0))
     input.setMarkedText("つばさ", selectedRange: NSRange(location: 3, length: 0))
     #expect(input.markedTextRange != nil)
     #expect(input.frame.minX == 92 && input.frame.minY == 44)
     #expect(sent.isEmpty)
-    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .slateLight,
-                      ink: TerminalTheme.slateLight.palette.foreground, paper: TerminalTheme.slateLight.palette.background)
+    input.synchronize(cursorRect: .init(x: 92, y: 44, width: 8, height: 18), pointSize: 13, theme: .light,
+                      ink: TerminalTheme.light.palette.foreground, paper: TerminalTheme.light.palette.background)
     #expect(input.markedTextRange != nil && input.text == "つばさ")
     input.insertText("翼")
     input.unmarkText()

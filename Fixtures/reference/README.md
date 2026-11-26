@@ -25,7 +25,7 @@ Run `bun Fixtures/reference/generate-widths.mjs` to regenerate the core's Unicod
 
 The numbered compiler log and the interactive Vim session retain their actual PTY bytes and resize events. Their generator replays them through the pinned reference. [Shell and Vim recordings](m2/README.md)
 
-Two further captures open the same Swift source in Vim against Slate Dark and Slate Light. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](m3/README.md)
+Two further captures open the same Swift source in Vim against the dark and light themes. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](m3/README.md)
 
 The three interactive workflow recordings include a soft-wrapped shell copy, an actual server-serialized Vim screen and a streamed Codex response. [Shell, Vim and Codex workflows](m4/README.md)
 

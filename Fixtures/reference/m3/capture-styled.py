@@ -1,4 +1,4 @@
-"""Capture the same Swift editor session twice with the Slate Dark and Slate Light palettes."""
+"""Capture the same Swift editor session twice with the dark and light palettes."""
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -16,13 +16,13 @@ from capture import PROMPT, Session, VIM
 
 DESIGN = ROOT.parents[2] / "docs/design/README.md"
 
-def slate_palette(appearance):
+def theme_palette(appearance):
     design = DESIGN.read_text()
-    section = design.split("## Slate " + appearance.title() + "\n", 1)[1].split("\n## ", 1)[0]
+    section = design.split("## " + appearance.title() + "\n", 1)[1].split("\n## ", 1)[0]
     defaults = next(line for line in section.splitlines() if line.startswith("| Default foreground / background"))
     colors = lambda line: [v.lower() for v in re.findall(r"#(?:[a-fA-F0-9]{6})\b", line)]
     fg, bg = colors(defaults)
-    table = section if appearance == "light" else design.split("## Slate Dark and Ember ANSI colors", 1)[1]
+    table = section if appearance == "light" else design.split("## Dark and Ember ANSI colors", 1)[1]
     normal, bright = [], []
     for name in ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White"]:
         row = next(line for line in table.splitlines() if line.startswith(f"| {name} |"))
@@ -33,7 +33,7 @@ def slate_palette(appearance):
 
 def capture_styled(appearance):
     name = "vim-swift-" + appearance
-    palette = slate_palette(appearance)
+    palette = theme_palette(appearance)
     with tempfile.TemporaryDirectory(prefix="thrush-styled-") as work:
         directory = Path(work)
         (directory / "bin").mkdir()

@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 
-# Independent reference from the approved Slate specifications and the Vim recording.
+# Independent reference from the approved theme specifications and the Vim recording.
 COLORS = {
     "dark": dict(background="131D27", ink="E3EAF0", cursor="FD9A01", cursor_ink="131D27",
                  selection="466B85", selected_ink="F8FBFE", stage="A9CFFF", passed="93CBA2",
@@ -254,7 +254,7 @@ def check(image, scene, metadata=None):
     if scene == "keyboard":
         return keyboard(image, metadata)
     require(image.count("background") >= image.width * image.height * 0.12,
-            "The expected Slate terminal canvas is absent")
+            "The expected terminal canvas is absent")
     require(image.count("cursor") >= 8, "Missing the terminal cursor")
     if scene == "prompt":
         return prompt(image)

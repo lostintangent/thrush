@@ -11,7 +11,7 @@ final class KeyRow: UIView {
     static func height(compact: Bool) -> CGFloat { compact ? 44 : 60 }
     /// The modifier the next key carries, if any. Only one is armed at a time.
     private(set) var armed: Terminal.Input.Modifiers = []
-    private var theme: TerminalTheme = .slateDark
+    private var theme: TerminalTheme = .dark
     private let glass = UIVisualEffectView()
     private lazy var glassHeight = glass.heightAnchor.constraint(equalToConstant: capsuleHeight)
     private let stack = UIStackView()
@@ -129,7 +129,7 @@ final class KeyRow: UIView {
             self.invalidateIntrinsicContentSize()
             self.refreshModifier()
         }
-        apply(.slateDark, force: true)
+        apply(.dark, force: true)
     }
 
     @available(*, unavailable)
@@ -275,8 +275,8 @@ final class KeyRow: UIView {
         tintColor = ink
         // Dividers are the key ink at 30%, so they keep their contrast on whatever the glass shows.
         for divider in dividers { divider.backgroundColor = ink.withAlphaComponent(0.3) }
-        if theme == .slateDark { overrideUserInterfaceStyle = .dark }
-        else if theme == .slateLight { overrideUserInterfaceStyle = .light }
+        if theme == .dark { overrideUserInterfaceStyle = .dark }
+        else if theme == .light { overrideUserInterfaceStyle = .light }
         else { overrideUserInterfaceStyle = .unspecified }
         chooser.overrideUserInterfaceStyle = overrideUserInterfaceStyle
         refreshBacking()
