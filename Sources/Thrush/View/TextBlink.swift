@@ -1,9 +1,4 @@
 import QuartzCore
-#if os(macOS)
-import AppKit
-#else
-import UIKit
-#endif
 
 /// Paces SGR 5 blinking text. Every pane follows the same media clock, so all blinking text
 /// fades out and back in together. A view draws only during the two fades of each cycle and
@@ -38,39 +33,31 @@ package final class TextBlink {
     }
 
     private let redraw: @MainActor () -> Void
-    private var link: CADisplayLink?
+    /// Asks the view's frame pacer for display link ticks, which arrive at `tick(target:)`.
+    private let fading: @MainActor (Bool) -> Void
     private var wake: Task<Void, Never>?
     /// The latest tick's target, so a fade's final frame lands exactly on the steady opacity.
     private var target = 0.0
     /// The opacity of the latest frame the pacer requested.
     private var drawn: Float = 1
+    /// Whether drawn frames show blinking text.
+    private(set) var isRunning = false
 
-    init(redraw: @escaping @MainActor () -> Void) {
+    init(redraw: @escaping @MainActor () -> Void, fading: @escaping @MainActor (Bool) -> Void) {
         self.redraw = redraw
+        self.fading = fading
     }
 
-    isolated deinit { stop() }
+    isolated deinit { wake?.cancel() }
 
     /// The opacity of blinking text in a frame drawn now.
     var opacity: Float { Self.opacity(at: max(CACurrentMediaTime(), target)) }
 
-    var isRunning: Bool { link != nil }
-
     /// Follow a drawn frame. Pace the fades while it shows blinking text, otherwise stop.
-    func frameDrawn(blinking: Bool, in view: TerminalView) {
+    func frameDrawn(blinking: Bool) {
         guard blinking else { return stop() }
-        guard link == nil else { return }
-        let tick = Tick(owner: self)
-        #if os(macOS)
-        let link = view.displayLink(target: tick, selector: #selector(Tick.fire(_:)))
-        #else
-        guard let link = view.window?.windowScene?.displayLink(target: tick, selector: #selector(Tick.fire(_:))) else { return }
-        #endif
-        // An opacity fade looks smooth at 60 Hz. ProMotion would spend twice the frames.
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
-        link.isPaused = true
-        link.add(to: .main, forMode: .common)
-        self.link = link
+        guard !isRunning else { return }
+        isRunning = true
         let now = CACurrentMediaTime()
         drawn = Self.opacity(at: now)
         hold(until: Self.nextFade(from: now))
@@ -79,13 +66,15 @@ package final class TextBlink {
     func stop() {
         wake?.cancel()
         wake = nil
-        link?.invalidate()
-        link = nil
+        isRunning = false
         target = 0
+        fading(false)
     }
 
-    fileprivate func fire(_ link: CADisplayLink) {
-        target = link.targetTimestamp
+    /// Follows a display link tick during a fade.
+    func tick(target: Double) {
+        guard isRunning else { return }
+        self.target = target
         let opacity = Self.opacity(at: target)
         if opacity != drawn {
             drawn = opacity
@@ -93,7 +82,7 @@ package final class TextBlink {
         }
         let next = Self.nextFade(from: target)
         if next > target {
-            link.isPaused = true
+            fading(false)
             hold(until: next)
         }
     }
@@ -101,27 +90,11 @@ package final class TextBlink {
     private func hold(until start: Double) {
         wake?.cancel()
         let delay = start - CACurrentMediaTime()
-        guard delay > 0 else {
-            link?.isPaused = false
-            return
-        }
+        guard delay > 0 else { return fading(true) }
         wake = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay), tolerance: .milliseconds(4))
-            guard !Task.isCancelled else { return }
-            self?.link?.isPaused = false
+            guard !Task.isCancelled, let self, isRunning else { return }
+            fading(true)
         }
-    }
-}
-
-/// A display link retains its target, so this forwards each tick without retaining the pacer.
-@MainActor
-private final class Tick: NSObject {
-    weak var owner: TextBlink?
-
-    init(owner: TextBlink) { self.owner = owner }
-
-    @objc func fire(_ link: CADisplayLink) {
-        guard let owner else { return link.invalidate() }
-        owner.fire(link)
     }
 }
