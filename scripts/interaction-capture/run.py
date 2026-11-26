@@ -22,6 +22,9 @@ APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "word-{}-menu",
         "line-{}-selected", "history-{}-latest")
 CLIPS = ("control", "rotate", "select", "history")
+# The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
+ROUND_TRIPS = 2
+DISPLAY_FRAME = 1 / 60
 
 
 def load_helper(name):
@@ -298,14 +301,16 @@ def check_anchored_row(out, appearance):
     UIKit animates the viewport's edges with the rotation and the keyboard on separate curves, so a row
     gliding between its source and destination places can lead or trail both edges by a few points. A
     frame fails when the row moves further than either edge carried it and also shifts more than half a
-    row against each edge, which no eased glide does at the display's frame rate.
+    row against each edge for every display frame since the previous sample, which no eased glide does.
 
     Samples taken before the window's turn begins are skipped, because the screen still shows the previous
-    frame. So is one sample per turn whose row doesn't span its viewport. Every commit lays out the whole
-    tree, so it caught the main thread between layout passes, in a state the screen never shows. Both turns
-    must be sampled while they turn, and each turn's last sample is its settled frame and is never skipped.
-    The system animates the accessory on its own, so the row is held above the accessory only once those
-    animations finish.
+    frame. UIKit can hold the turn until the keyboard lays out, and after a stall the main thread can read
+    a turn further along than the one the screen then begins, so a sample further from where its turn
+    settles than a later one is skipped too. So is one sample per turn whose row doesn't span its viewport.
+    Every commit lays out the whole tree, so it caught the main thread between layout passes, in a state the
+    screen never shows. Each direction must be sampled while it turns, and each turn's last sample is its
+    settled frame and is never skipped. The system animates the accessory on its own, so the row is held
+    above the accessory only once those animations finish.
     """
     start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
     landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
@@ -317,8 +322,11 @@ def check_anchored_row(out, appearance):
                 and (event.get("layout") or {}).get("appearance") == appearance):
             frames.append(event)
 
+    def width(event):
+        return event["anchor"]["viewportInWindow"][1][0]
+
     def held(event):
-        return not all(map(begun, event["animations"]["window"]))
+        return event.get("ahead") or not all(map(begun, event["animations"]["window"]))
 
     def mid_layout(event):
         (_, (row_width, _)), (_, (viewport_width, _)) = (event["anchor"]["rowInWindow"],
@@ -332,14 +340,20 @@ def check_anchored_row(out, appearance):
             turns.append([])
         turns[-1].append(event)
     for turn in turns:
+        settled = width(turn[-1])
+        for index, event in enumerate(turn):
+            event["ahead"] = any(abs(width(later) - settled) > abs(width(event) - settled) + 1
+                                 for later in turn[index + 1:])
         when = f"{appearance} turn settling at {turn[-1]['time'] - start:.3f}s"
         if held(turn[-1]) or mid_layout(turn[-1]):
             raise ValueError(f"{when} ended on a sample the screen never showed.")
         if sum(map(mid_layout, turn)) > 1:
             raise ValueError(f"{when} had more than one sample read between layout passes.")
-    turned = sum(any(event["animations"]["window"] for event in turn) for turn in turns)
-    if turned != 2:
-        raise ValueError(f"{appearance}: the trace sampled {turned} of the capture's 2 turns while they turned.")
+    turned = [turn for turn in turns if any(event["animations"]["window"] for event in turn)]
+    directions = {(turn[-1]["anchor"]["columns"], turn[-1]["anchor"]["rows"]) for turn in turned}
+    if len(directions) != 2:
+        raise ValueError(f"{appearance}: the trace sampled {len(turned)} of the capture's {2 * ROUND_TRIPS} turns "
+                         f"while they turned, settling only in {sorted(directions)}.")
     skipped = sum(map(held, frames))
     partial = sum(1 for event in frames if not held(event) and mid_layout(event))
     frames = [event for event in frames if not held(event) and not mid_layout(event)]
@@ -372,11 +386,13 @@ def check_anchored_row(out, appearance):
             carried = max(abs(visible_top - previous[1]), abs(visible_bottom - previous[2]))
             shifted = min(abs(top - visible_top - previous[0] + previous[1]),
                           abs(top - visible_bottom - previous[0] + previous[2]))
-            if moved > carried + 1 and shifted > (bottom - top) / 2:
+            elapsed = max(1, round((event["time"] - previous[3]) / DISPLAY_FRAME))
+            if moved > carried + 1 and shifted > (bottom - top) / 2 * elapsed:
                 raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt, "
-                                 f"shifting it {shifted:g} pt against both of the viewport's edges.")
-        previous = (top, visible_top, visible_bottom)
-    print(f"{appearance} anchored row: {len(frames)} displayed frames across {turned} turns kept "
+                                 f"shifting it {shifted:g} pt against both of the viewport's edges "
+                                 f"in {elapsed} display frames.")
+        previous = (top, visible_top, visible_bottom, event["time"])
+    print(f"{appearance} anchored row: {len(frames)} displayed frames across {len(turned)} turns kept "
           f"{reference['text']!r} in view and never jumped it against the viewport, skipping {skipped} "
           f"before the turn began and {partial} read between layout passes.", flush=True)
 
@@ -387,6 +403,7 @@ def check_rotation_sizes(out, appearance):
     for stage in ("landscape", "portrait-return"):
         layout = json.loads((out / f"shell-{appearance}-{stage}-layout.json").read_text())
         expected.append((layout["columns"], layout["rows"]))
+    expected *= ROUND_TRIPS
     actual = []
     for line in (out / "peer.log").read_text().splitlines():
         if not line.startswith("{"):

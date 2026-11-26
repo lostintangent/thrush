@@ -30,15 +30,21 @@ final class PhoneInteractionProof: XCTestCase {
             try captureControl(appearance: appearance)
         }
 
+        // Turn to landscape and back twice, since a stalled main thread can miss a turn's frames.
         let rotate = Date.now.timeIntervalSince1970
-        XCUIDevice.shared.orientation = .landscapeLeft
-        try waitForOrientation(landscape: true)
-        try assertKeyboard()
-        try screenshot("shell-\(appearance)-landscape")
-        let retainedBuild = built.exists
-        XCUIDevice.shared.orientation = .portrait
-        try waitForOrientation(landscape: false)
-        try assertKeyboard()
+        var retainedBuild = true
+        for trip in 0..<2 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            try waitForOrientation(landscape: true)
+            try assertKeyboard()
+            if trip == 0 {
+                try screenshot("shell-\(appearance)-landscape")
+            }
+            retainedBuild = retainedBuild && built.exists
+            XCUIDevice.shared.orientation = .portrait
+            try waitForOrientation(landscape: false)
+            try assertKeyboard()
+        }
         try finishClip("rotate-\(appearance)", since: rotate)
         // Keep the settled portrait on screen through the movie's post-gesture padding.
         Thread.sleep(forTimeInterval: 0.75)
