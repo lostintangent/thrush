@@ -24,7 +24,7 @@ type FrameObservation = {
 };
 type Closure = { side: "upstream" | "client"; code: number; atMs: number; attachment: number };
 const same = (a: Grid, b: Grid) => a.columns === b.columns && a.rows === b.rows;
-const replies = /^(?:\x1b\[(?:[?>]?[\d;$]*[cRy]|[IO])|\x1b\](?:4;\d+|10|11);rgb:[\da-f/]+(?:\x07|\x1b\\))+$/i;
+const replies = /^(?:\x1b\[(?:[?>]?[\d;$]*[cRy]|\?\d*u|[IO])|\x1b\](?:4;\d+|10|11);rgb:[\da-f/]+(?:\x07|\x1b\\))+$/i;
 
 export class LiveRun {
     readonly clientID = "thrush-native-workflow";
