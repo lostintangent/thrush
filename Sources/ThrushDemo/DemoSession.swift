@@ -28,6 +28,8 @@ struct DemoOptions {
     /// The toolbar proof adds the `.ignoresSafeArea()` hosts wrote before the pane extended under bars itself.
     let hostIgnoresSafeArea: Bool
     let frameTraceURL: URL?
+    let clearCaptureURL: URL?
+    let burstCaptureURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -35,6 +37,8 @@ struct DemoOptions {
                   !arguments[index + 1].hasPrefix("--") else { return nil }
             return arguments[index + 1]
         }
+        clearCaptureURL = value(after: "--clear-capture").map { URL(fileURLWithPath: $0) }
+        burstCaptureURL = value(after: "--burst-capture").map { URL(fileURLWithPath: $0) }
         checksToolbar = arguments.contains("--toolbar-proof")
         hostIgnoresSafeArea = arguments.contains("--host-ignores-safe-area")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
@@ -95,6 +99,8 @@ final class DemoSession: ObservableObject {
             view.onGridSizeChange = { [weak self] _ in self?.scheduleRenderBenchmark() }
         } else {
             prepareSession()
+            if let output = options.clearCaptureURL { ClearCapture.start(in: view, output: output) }
+            if let output = options.burstCaptureURL { ClearCapture.start(in: view, output: output, typesClear: false) }
         }
     }
 
@@ -133,7 +139,8 @@ final class DemoSession: ObservableObject {
     func pane(_ session: TerminalSession) -> some View {
         var pane = TerminalPane(session, isActive: isActive, theme: theme)
         pane.preparedView = view
-        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
+        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance || options.clearCaptureURL != nil
+            || options.burstCaptureURL != nil
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
         pane.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
         pane.onReady = { [weak self] resumed in
@@ -146,8 +153,8 @@ final class DemoSession: ObservableObject {
         }
         pane.onOutput = { [weak self] generation, receivedAt in
             guard let self else { return }
-            markSessionUsable(session)
             interaction?.received(generation: generation, at: receivedAt)
+            markSessionUsable(session)
             onOutput?(generation, receivedAt)
             let first = onFirstOutput
             onFirstOutput = nil
