@@ -27,6 +27,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private weak var swipeGesture: UIPanGestureRecognizer?
     private var programRemainder: CGFloat = 0
     private var programCell: (row: Int, column: Int)?
+    private var fingerMoved: CFTimeInterval = 0
     private var flick: Flick?
     private weak var caughtTouch: UITouch?
     private var pageSentToProgram: (generation: UInt64, deadline: CFTimeInterval)?
@@ -413,12 +414,15 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     /// Follows one finger over the program in the natural direction, then lets it coast from the release velocity.
     func swipe(_ phase: UIGestureRecognizer.State, by points: CGFloat, at point: CGPoint, velocity: CGFloat,
-               releasedAt time: CFTimeInterval = CACurrentMediaTime()) {
+               time: CFTimeInterval = CACurrentMediaTime()) {
         if phase == .began { stopFlick(); programRemainder = 0 }
+        if phase == .began || points != 0 { fingerMoved = time }
         programCell = terminal.cell(at: point) ?? programCell
         // Like a scroll view, the program moves from where the pan began, not from where the finger landed.
         scrollProgram(by: phase == .began ? 0 : points)
-        guard phase == .ended, canReachRow(travelling: Self.coastingDistance(velocity)) else { return }
+        // As in a native list, a finger that rested before lifting has already stopped the program.
+        guard phase == .ended, time - fingerMoved < Self.restingTime,
+              canReachRow(travelling: Self.coastingDistance(velocity)) else { return }
         let link = window?.windowScene?.displayLink(target: self, selector: #selector(coastToFrame(_:)))
         link?.add(to: .main, forMode: .common)
         flick = Flick(velocity: velocity, start: time, link: link)
@@ -440,6 +444,9 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     }
 
     var isCoasting: Bool { flick != nil }
+
+    /// A finger still for this long before it lifts has rested rather than flicked.
+    private static let restingTime: CFTimeInterval = 0.05
 
     /// UIScrollView's normal deceleration keeps this fraction of a flick's velocity each millisecond.
     private static let deceleration = Double(UIScrollView.DecelerationRate.normal.rawValue)

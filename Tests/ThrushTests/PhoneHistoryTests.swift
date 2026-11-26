@@ -192,7 +192,7 @@ import UIKit
 }
 
 /// A program that takes scrolling gets a one-finger swipe as rows, and a flick coasts until it
-/// slows below a row or a touch stops it without clicking.
+/// slows below a row or a touch stops it without clicking. A finger that rests before lifting doesn't coast.
 @MainActor
 @Test func swipesScrollFullScreenProgramsAndFlicksCoast() throws {
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
@@ -234,8 +234,8 @@ import UIKit
     sent = []
     _ = terminal.receive("\u{1b}[?1000;1006h".utf8)
     view.display(terminal)
-    history.swipe(.began, by: 0, at: point, velocity: 0)
-    history.swipe(.ended, by: -row, at: point, velocity: -1000, releasedAt: 10)
+    history.swipe(.began, by: 0, at: point, velocity: 0, time: 10)
+    history.swipe(.ended, by: -row, at: point, velocity: -1000, time: 10)
     #expect(sent == ["\u{1b}[<65;5;3M"])
     history.coast(to: 10.1)
     let early = sent.count
@@ -245,10 +245,17 @@ import UIKit
     #expect(Set(sent) == ["\u{1b}[<65;5;3M"])
     #expect(!history.isCoasting)
 
+    // A finger that rests before it lifts has stopped, even if the pan still reports some velocity.
+    sent = []
+    history.swipe(.began, by: 0, at: point, velocity: 0, time: 20)
+    history.swipe(.changed, by: -row * 2, at: point, velocity: -150, time: 20.2)
+    history.swipe(.ended, by: 0, at: point, velocity: -150, time: 20.7)
+    #expect(sent.count == 2 && !history.isCoasting)
+
     // A touch catches a flick, and that touch doesn't click.
     sent = []
-    history.swipe(.began, by: 0, at: point, velocity: 0)
-    history.swipe(.ended, by: 0, at: point, velocity: 2000, releasedAt: 30)
+    history.swipe(.began, by: 0, at: point, velocity: 0, time: 30)
+    history.swipe(.ended, by: 0, at: point, velocity: 2000, time: 30)
     history.coast(to: 30.05)
     let caught = sent.count
     #expect(caught > 0 && Set(sent) == ["\u{1b}[<64;5;3M"])
