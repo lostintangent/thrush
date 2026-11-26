@@ -14,8 +14,8 @@ Both iPhone checkpoints match the editor's grid with the keyboard up on the iPho
 
 | Orientation | Window (pt) | Grid origin and size (pt) | Keyboard layout guide height (pt) |
 | --- | --- | --- | --- |
-| [Portrait](https://github.com/lostintangent/thrush/actions/runs/RUNID) | 466 × 678 | (0, 0), 382 × 353 | 325 |
-| [Landscape](https://github.com/lostintangent/thrush/actions/runs/RUNID) | 678 × 466 | (0, 0), 594 × 229 | 237 |
+| [Portrait](https://github.com/lostintangent/thrush/actions/runs/45883634566) | 466 × 678 | (0, 0), 382 × 353 | 325 |
+| [Landscape](https://github.com/lostintangent/thrush/actions/runs/45883634566) | 678 × 466 | (0, 0), 594 × 229 | 237 |
 
 For the complete session, apply the palette, PTY output and grid changes in recorded order. For a stand-alone renderer frame, start with a clean terminal at the checkpoint's grid and its recorded host palette. The two `Paint Swift buffer` output chunks come from a real Ctrl-L repaint at 80 × 24. For portrait or landscape, use the `Redraw after resize` output chunks between the corresponding resize and styled checkpoint. These are Vim's responses to the PTY's native size change. The generator separately replays each paint on a fresh target-sized grid and checks every visible row, cell, style, wrap flag and cursor position against the continuous session.
 
