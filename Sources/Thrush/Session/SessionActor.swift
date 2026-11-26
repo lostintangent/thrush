@@ -173,7 +173,7 @@ package actor SessionActor {
         try await send(.focus(focused))
     }
 
-    /// A first attachment starts from a blank terminal with the host's theme and focus.
+    /// A first attachment starts from a blank terminal with the app's theme and focus.
     func resetTerminal(size: Terminal.Size) {
         var next = Terminal(size: size, palette: terminal.palette, cursorColor: terminal.cursorColor)
         next.isFocused = terminal.isFocused

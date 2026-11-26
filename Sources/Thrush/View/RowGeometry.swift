@@ -1,6 +1,8 @@
 import Metal
 import ThrushCore
 
+/// One instanced rectangle in a row's vertex buffer. Its layout matches `Quad` in the shader source
+/// in ShaderPipeline.swift field for field, so the GPU reads these bytes directly.
 struct Quad {
     var rect: SIMD4<Float>
     var uv: SIMD4<Float> = .zero

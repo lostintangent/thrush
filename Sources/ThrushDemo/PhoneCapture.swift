@@ -8,7 +8,7 @@ import UIKit
 @MainActor
 enum PhoneCapture {
     struct Toolbar: Encodable, Equatable {
-        let paneFrame, safeAreaFrame, navigationBarFrame, firstCellFrame: CGRect
+        let canvasFrame, safeAreaFrame, navigationBarFrame, firstCellFrame: CGRect
     }
 
     struct State: Encodable, Equatable {
@@ -90,7 +90,7 @@ enum PhoneCapture {
     }
 
     #if os(iOS)
-    static func observe(_ session: DemoSession, view: TerminalView, in root: UIView) -> (() -> Void)? {
+    static func observe(_ session: DemoSession, view: TerminalMetalView, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
         let accessibility = PhoneAccessibilityCapture(scene: session.options.scene, view: view)

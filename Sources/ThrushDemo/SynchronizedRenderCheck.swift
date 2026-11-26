@@ -32,7 +32,7 @@ enum SynchronizedRenderCheck {
         let receipt: Double
     }
 
-    static func run(on view: TerminalView, continuing previous: Terminal, frames: RenderFrameObservations) async throws -> Result {
+    static func run(on view: TerminalMetalView, continuing previous: Terminal, frames: RenderFrameObservations) async throws -> Result {
         var terminal = previous
         var hash = SHA256()
         let begin = "\u{1b}[?2026h"

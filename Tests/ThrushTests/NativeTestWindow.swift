@@ -6,7 +6,7 @@ import UIKit
 #endif
 
 /// The synchronized renderer accepts a generation only while its viewport belongs to a window.
-@MainActor func mountTestView(_ view: TerminalView) -> AnyObject {
+@MainActor func mountTestView(_ view: TerminalMetalView) -> AnyObject {
     #if os(macOS)
     _ = NSApplication.shared
     let window = NSWindow(contentRect: view.bounds, styleMask: .borderless, backing: .buffered, defer: false)

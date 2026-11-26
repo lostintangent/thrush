@@ -4,17 +4,17 @@ import UIKit
 
 /// The scroll view supplies UIKit's pan velocity, deceleration, scroll indicator and VoiceOver
 /// paging. Metal draws only the current rows, so a full history needs no offscreen views.
-final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
-    unowned let terminal: TerminalView
+final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+    unowned let terminal: TerminalMetalView
     private let scroll = UIScrollView()
     private let latest = UIButton(type: .system)
     private lazy var latestBottom = latest.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8)
-    private lazy var selectionControls = PhoneSelectionControls(transcript: self)
+    private lazy var selectionControls = PhoneSelectionControls(scrollView: self)
     private var syncing = false
     private var rowHeight: CGFloat = 18
     private var lastTheme: TerminalTheme?
     private var reducedTransparency: Bool?
-    private var pressAnchor: TerminalView.Selection?
+    private var pressAnchor: TerminalMetalView.Selection?
     private var pointerAnchor: (row: Int, column: Int)?
     private var pointerButton = Terminal.Input.Pointer.Button.left
     private var remotePress = false
@@ -24,9 +24,9 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
     private var lastPointerCell: (row: Int, column: Int)?
     private weak var wheelGesture: UIPanGestureRecognizer?
     private var wheelRemainder: CGFloat = 0
-    private let reading = PhoneTranscriptAccessibility()
+    private let reading = PhoneAccessibleText()
 
-    init(terminal: TerminalView) {
+    init(terminal: TerminalMetalView) {
         self.terminal = terminal
         super.init(frame: terminal.bounds)
         autoresizingMask = [.flexibleWidth, .flexibleHeight]

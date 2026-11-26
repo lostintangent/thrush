@@ -15,7 +15,7 @@ final class OutputMailbox: Sendable {
     }
     private let state = Mutex(State())
 
-    /// Returns true when the pane needs a wakeup. At most one wakeup can be queued.
+    /// Returns true when the view needs a wakeup. At most one wakeup can be queued.
     func offer(_ screen: Terminal.Snapshot, receivedAt receipt: Double?) -> Bool {
         state.withLock { state in
             let firstReceipt = state.frame == nil ? receipt : state.frame?.receipt

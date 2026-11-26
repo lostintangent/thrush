@@ -6,14 +6,14 @@ import UIKit
 @MainActor
 struct NativeInteractionProbe {
     private struct Failure: Error, CustomStringConvertible { let description: String }
-    private let view: TerminalView
+    private let view: TerminalMetalView
     private let input: UITextView
     private let reading: UIView
 
-    init(view: TerminalView) throws {
+    init(view: TerminalMetalView) throws {
         guard let input = view.subviews.compactMap({ $0 as? UITextView }).first,
               let reading = view.subviews.first(where: { !($0 is UITextView) && $0.accessibilityElements != nil }) else {
-            throw Failure(description: "The iPhone terminal is missing its native input or accessible transcript.")
+            throw Failure(description: "The iPhone terminal is missing its native input or accessible text.")
         }
         self.view = view
         self.input = input
@@ -53,7 +53,7 @@ struct NativeInteractionProbe {
         return action.actionHandler?(action) == true
     }
 
-    var transcript: String { lines.compactMap(\.accessibilityLabel).joined(separator: "\n") }
+    var accessibleText: String { lines.compactMap(\.accessibilityLabel).joined(separator: "\n") }
 
     var selection: String? {
         (reading.accessibilityElements ?? []).compactMap { $0 as? UIAccessibilityElement }

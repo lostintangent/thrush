@@ -5,21 +5,21 @@ import UIKit
 /// terminal cells as Metal's selection, including the second column of a wide character.
 @MainActor
 final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionDelegate, @MainActor UIEditMenuInteractionDelegate {
-    private unowned let transcript: PhoneTranscriptView
-    private var terminal: TerminalView { transcript.terminal }
+    private unowned let scrollView: PhoneHistoryScrollView
+    private var terminal: TerminalMetalView { scrollView.terminal }
     private lazy var menu = UIEditMenuInteraction(delegate: self)
     private var handles: [UIView & UITextSelectionHandleView] = []
     private var visibleButtons: [HandleTarget] = []
     private var active = false
     private var menuVisible = false
-    private var lastSelection: TerminalView.Selection?
+    private var lastSelection: TerminalMetalView.Selection?
     private var movingStart = false
     private var dragOffset: CGPoint = .zero
 
-    init(transcript: PhoneTranscriptView) {
-        self.transcript = transcript
+    init(scrollView: PhoneHistoryScrollView) {
+        self.scrollView = scrollView
         super.init()
-        transcript.addInteraction(menu)
+        scrollView.addInteraction(menu)
     }
 
     func beginSelection() {
@@ -36,10 +36,10 @@ final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionD
                 target.accessibilityElementsHidden = true
                 handle.direction = index == 0 ? .leading : .trailing
                 handle.isUserInteractionEnabled = false
-                handle.tintColor = nil  // Inherit the transcript's tint; the input's idle caret is clear.
+                handle.tintColor = nil  // Inherit the scroll view's tint; the input's idle caret is clear.
                 target.addSubview(handle)
                 target.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragged(_:))))
-                transcript.addSubview(target)
+                scrollView.addSubview(target)
                 visibleButtons.append(target)
             }
         }
@@ -86,7 +86,7 @@ final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionD
     }
 
     @objc private func dragged(_ gesture: UIPanGestureRecognizer) {
-        let point = gesture.location(in: transcript)
+        let point = gesture.location(in: scrollView)
         guard let target = gesture.view as? HandleTarget else { return }
         switch gesture.state {
         case .began:
@@ -145,7 +145,7 @@ final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionD
             rect = rect.union(terminal.cellRect(row: row, column: columns.lowerBound))
                 .union(terminal.cellRect(row: row, column: columns.upperBound - 1))
         }
-        return rect.isNull ? nil : rect.intersection(transcript.bounds)
+        return rect.isNull ? nil : rect.intersection(scrollView.bounds)
     }
 
     func editMenuInteraction(_ interaction: UIEditMenuInteraction, targetRectFor configuration: UIEditMenuConfiguration) -> CGRect {
@@ -176,13 +176,13 @@ final class PhoneSelectionControls: NSObject, UITextSelectionDisplayInteractionD
     func editMenuInteraction(_ interaction: UIEditMenuInteraction, willPresentMenuFor configuration: UIEditMenuConfiguration,
                              animator: any UIEditMenuInteractionAnimating) {
         menuVisible = true
-        transcript.layoutLatest()
+        scrollView.layoutLatest()
     }
 
     func editMenuInteraction(_ interaction: UIEditMenuInteraction, willDismissMenuFor configuration: UIEditMenuConfiguration,
                              animator: any UIEditMenuInteractionAnimating) {
         menuVisible = false
-        transcript.layoutLatest()
+        scrollView.layoutLatest()
     }
 
     private final class HandleTarget: UIView {

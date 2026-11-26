@@ -2,13 +2,13 @@
 import SwiftUI
 import Thrush
 
-/// The integration app uses only the public pane, under a full-size window toolbar with a title and Close button,
+/// The integration app uses only the public view, under a full-size window toolbar with a title and Close button,
 /// alone or as a split view's detail.
 struct MacToolbarProof: View {
     let session: TerminalSession
-    /// Whether to add the modifier hosts wrote before the pane extended under bars itself, which must change nothing.
+    /// Whether to add the modifier apps wrote before the view extended under bars itself, which must change nothing.
     let ignoresSafeArea: Bool
-    /// Whether a sidebar with its own toolbar item floats over the pane's leading edge.
+    /// Whether a sidebar with its own toolbar item floats over the view's leading edge.
     let split: Bool
 
     var body: some View {
@@ -28,7 +28,7 @@ struct MacToolbarProof: View {
     }
 
     private var detail: some View {
-        pane
+        terminalView
             .navigationTitle("Terminal")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -37,8 +37,8 @@ struct MacToolbarProof: View {
             }
     }
 
-    @ViewBuilder private var pane: some View {
-        if ignoresSafeArea { TerminalPane(session).ignoresSafeArea() } else { TerminalPane(session) }
+    @ViewBuilder private var terminalView: some View {
+        if ignoresSafeArea { TerminalView(session).ignoresSafeArea() } else { TerminalView(session) }
     }
 }
 #endif

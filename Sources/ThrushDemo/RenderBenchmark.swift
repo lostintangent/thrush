@@ -117,7 +117,7 @@ enum RenderBenchmark {
         }
     }
 
-    static func run(on view: TerminalView, size: Terminal.Size, reportURL: URL) async throws {
+    static func run(on view: TerminalMetalView, size: Terminal.Size, reportURL: URL) async throws {
         #if DEBUG
         throw Failure("Build the packaged demo in Release to measure rendering.")
         #else
@@ -145,7 +145,7 @@ enum RenderBenchmark {
             try await collector.apply(full, as: "full")
         }
         let originalTheme = view.theme
-        let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 1, headRow: 0, headColumn: 4)
+        let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 1, headRow: 0, headColumn: 4)
         try await collector.observeMutation { view.selection = selection }
         var alternate = TerminalTheme.slateDark
         alternate.cursor = .init(red: 0x82, green: 0xCB, blue: 0xC5)
@@ -170,7 +170,7 @@ enum RenderBenchmark {
         let foregroundIdle = try await observeIdle(view)
         let textBlink = try await observeBlink(collector, interval: interval)
         view.setRenderingActive(false)
-        // Exercise the same suspension switch the host calls on backgrounding. Keep an
+        // Exercise the same suspension switch the view flips on backgrounding. Keep an
         // update pending, so a renderer that merely suppresses its timer fails this check.
         let inactive: IdleObservation
         let before = view.submissionCount
@@ -247,7 +247,7 @@ enum RenderBenchmark {
         #endif
     }
 
-    private static func observeIdle(_ view: TerminalView, for seconds: Double = 1) async throws -> IdleObservation {
+    private static func observeIdle(_ view: TerminalMetalView, for seconds: Double = 1) async throws -> IdleObservation {
         let before = view.submissionCount
         let start = CACurrentMediaTime()
         try await Task.sleep(for: .seconds(seconds))
@@ -288,13 +288,13 @@ enum RenderBenchmark {
 
     @MainActor
     private final class FrameCollector {
-        let view: TerminalView
+        let view: TerminalMetalView
         let frames: RenderFrameObservations
         var terminal: Terminal
         var hash = SHA256()
         var samples: [Sample] = []
 
-        init(view: TerminalView, size: Terminal.Size, frames: RenderFrameObservations) {
+        init(view: TerminalMetalView, size: Terminal.Size, frames: RenderFrameObservations) {
             self.view = view
             self.frames = frames
             terminal = Terminal(size: size)
@@ -353,7 +353,7 @@ final class DisplayInterval: NSObject {
         if interval > 0, interval.isFinite { periods.append(interval) }
     }
 
-    static func measure(on view: TerminalView) async throws -> Double {
+    static func measure(on view: TerminalMetalView) async throws -> Double {
         let sample = DisplayInterval()
         #if os(macOS)
         let link = view.displayLink(target: sample, selector: #selector(tick(_:)))
@@ -444,13 +444,13 @@ struct RenderEnvironment: Encodable {
 /// parent script brings another app forward, then foregrounds the existing Thrush process.
 @MainActor
 private final class RenderLifecycleObserver: NSObject {
-    private let view: TerminalView
+    private let view: TerminalMetalView
     private var start: (time: Double, frames: Int)?
     private var observation: RenderBenchmark.IdleObservation?
     private var whileBackgrounded: (() throws -> Void)?
     private var entryError: Error?
 
-    init(view: TerminalView) { self.view = view }
+    init(view: TerminalMetalView) { self.view = view }
 
     @objc private func entered() {
         guard start == nil else { return }
@@ -474,7 +474,7 @@ private final class RenderLifecycleObserver: NSObject {
         let enteredMarker = reportURL.appendingPathExtension("background-entered")
         self.whileBackgrounded = {
             whileBackgrounded()
-            // The host may resume a suspended process. Acknowledge the actual UIKit
+            // iOS may resume a suspended process. Acknowledge the actual UIKit
             // transition after recording the counter and feeding the pending update.
             try Data().write(to: enteredMarker, options: .atomic)
         }

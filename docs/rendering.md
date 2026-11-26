@@ -1,12 +1,12 @@
 # Rendering
 
-The pane draws terminal state with Metal. This document covers how shell output reaches a frame and when that frame draws. [The rendering benchmarks](../Benchmarks/rendering.md) measure the result.
+`TerminalView` draws terminal state with Metal. This document covers how shell output reaches a frame and when that frame draws. [The rendering benchmarks](../Benchmarks/rendering.md) measure the result.
 
 ## From output to a frame
 
-The session reads shell output on its own actor and never waits for the view. After each read, it applies the bytes to its `Terminal` and offers the screen snapshot to the pane's `OutputMailbox`. The new snapshot replaces any snapshot still waiting there, and at most one wakeup to the main actor is queued at a time. Each frame starts by taking whatever is waiting, before it measures its layout, so it shows everything that arrived before it started and a held grid that the output completes releases in the same frame. A frame's receipt time comes from the first update it includes, so latency counts from the oldest output on screen.
+The session reads shell output on its own actor and never waits for the view. After each read, it applies the bytes to its `Terminal` and offers the screen snapshot to the view's `OutputMailbox`. The new snapshot replaces any snapshot still waiting there, and at most one wakeup to the main actor is queued at a time. Each frame starts by taking whatever is waiting, before it measures its layout, so it shows everything that arrived before it started and a held grid that the output completes releases in the same frame. A frame's receipt time comes from the first update it includes, so latency counts from the oldest output on screen.
 
-Some updates have to arrive in order rather than as the latest snapshot. These are the start and end of synchronized output, replay, shell replacement and exit. The pane presents any waiting output before it applies one of them.
+Some updates have to arrive in order rather than as the latest snapshot. These are the start and end of synchronized output, replay, shell replacement and exit. The view presents any waiting output before it applies one of them.
 
 ## When a frame draws
 

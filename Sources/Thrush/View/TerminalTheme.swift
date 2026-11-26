@@ -2,9 +2,9 @@ import Foundation
 import ThrushCore
 
 /// The terminal's palette and the colors used to draw its cursor and selection.
-/// To customize Slate, edit a copy of `slateDark` or `slateLight` and pass it to the pane.
+/// To customize Slate, edit a copy of `slateDark` or `slateLight` and pass it to the terminal view.
 public struct TerminalTheme: Equatable, Sendable {
-    /// The default text, background and ANSI colors. The pane uses this palette for OSC color replies.
+    /// The default text, background and ANSI colors. The terminal view uses this palette for OSC color replies.
     public var palette: Terminal.Palette
     /// The color of the block, underline or bar cursor.
     public var cursor: Terminal.RGB

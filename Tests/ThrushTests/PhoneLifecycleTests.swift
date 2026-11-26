@@ -26,10 +26,10 @@ import UIKit
         urlSession.webSocketTask(with: address)
     }
 
-    let terminal = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
-    var pane = TerminalPane(session)
-    pane.preparedView = terminal
-    let host = UIHostingController(rootView: pane)
+    let terminal = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
+    var terminalView = TerminalView(session)
+    terminalView.preparedView = terminal
+    let host = UIHostingController(rootView: terminalView)
     let window: UIWindow
     if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
         window = UIWindow(windowScene: scene)
@@ -41,23 +41,23 @@ import UIKit
     defer { window.isHidden = true }
     host.view.setNeedsLayout()
     host.view.layoutIfNeeded()
-    func mountedPane() -> TerminalPaneContainer? {
+    func mountedCanvas() -> CanvasView? {
         var ancestor = terminal.superview
         while let view = ancestor {
-            if let container = view as? TerminalPaneContainer { return container }
+            if let canvas = view as? CanvasView { return canvas }
             ancestor = view.superview
         }
         return nil
     }
-    try await waitFor("the mounted terminal pane") { mountedPane() != nil }
-    let container = try #require(mountedPane())
+    try await waitFor("the mounted canvas") { mountedCanvas() != nil }
+    let canvas = try #require(mountedCanvas())
     func deliver(_ name: Notification.Name) {
         if let scene = window.windowScene {
             NotificationCenter.default.post(name: name, object: scene)
         } else {
             // An unhosted XCTest process has no owning UIScene. Exercise the same
             // native notification handler the scene-filtered selector calls.
-            container.sceneLifecycleChanged(name)
+            canvas.sceneLifecycleChanged(name)
         }
     }
 
@@ -70,13 +70,13 @@ import UIKit
     try await waitFor("the live shell's first row") { terminal.snapshot?.rows.first?.text == prompt }
 
     // Control Center briefly deactivates the scene and then dismisses, without
-    // entering background. The mounted pane pauses Metal and retains its live PTY.
+    // entering background. The mounted view pauses Metal and retains its live PTY.
     deliver(UIScene.willDeactivateNotification)
-    #expect(container.isShellPresented)
-    #expect(!container.isDrawingVisible)
+    #expect(canvas.isShellPresented)
+    #expect(!canvas.isDrawingVisible)
     await Task.yield()
     deliver(UIScene.didActivateNotification)
-    #expect(container.isDrawingVisible)
+    #expect(canvas.isDrawingVisible)
     try await Task.sleep(for: .milliseconds(300))
     #expect(await session.actor.state == .active)
     #expect(peer.opens == 1)
@@ -88,8 +88,8 @@ import UIKit
     deliver(UIScene.didEnterBackgroundNotification)
     host.view.layoutIfNeeded()
     try await waitFor("the background close frame") { await session.actor.state == .idle && peer.closes == 1 }
-    #expect(!container.isDrawingVisible)
-    #expect(!container.isShellPresented)
+    #expect(!canvas.isDrawingVisible)
+    #expect(!canvas.isShellPresented)
     #expect(peer.opens == 1)
 
     peer.resumeNextAttachment = true

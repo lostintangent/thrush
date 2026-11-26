@@ -26,7 +26,7 @@ final class FramePacer {
     /// When the output frame in progress was due, so its cost includes any wait past that.
     private(set) var due: Double?
 
-    private unowned let view: TerminalView
+    private unowned let view: TerminalMetalView
     private let drawOutput: @MainActor () -> Void
     private let fadeTick: @MainActor (Double) -> Void
     private var link: CADisplayLink?
@@ -41,7 +41,7 @@ final class FramePacer {
     /// Output arrived since the last tick, so the link runs until the next one.
     private var awaitingTick = false
 
-    init(view: TerminalView, drawOutput: @escaping @MainActor () -> Void,
+    init(view: TerminalMetalView, drawOutput: @escaping @MainActor () -> Void,
          fadeTick: @escaping @MainActor (Double) -> Void) {
         self.view = view
         self.drawOutput = drawOutput

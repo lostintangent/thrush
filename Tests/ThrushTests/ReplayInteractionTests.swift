@@ -9,7 +9,7 @@ import UIKit
 
 @MainActor
 @Test func heldInputKeepsTheConfirmedCursorAndSuspendsMouseReporting() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var shell = Terminal(size: .init(columns: 28, rows: 4))
@@ -36,7 +36,7 @@ import UIKit
 
 @MainActor
 @Test func replacingDisplayedReplayPreservesCompositionFocusAndSingleCommit() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let grid = Terminal.Size(columns: 28, rows: 4)
@@ -88,7 +88,7 @@ import UIKit
 
 @MainActor
 @Test func ambiguousOneByteReplaySelectionClearsNativeCopyAndHandles() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let grid = Terminal.Size(columns: 20, rows: 6)
@@ -105,13 +105,13 @@ import UIKit
     view.replaceDisplayedSnapshot(replay.snapshot(), receivedAt: nil)
     #expect(!input.validateMenuItem(copy))
     #else
-    let transcript = try #require(view.subviews.compactMap { $0 as? PhoneTranscriptView }.first)
-    transcript.selectAccessibleLine(1)
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
+    history.selectAccessibleLine(1)
     let copy = #selector(UIResponderStandardEditActions.copy(_:))
     #expect(view.selectedText == "x" && view.phoneInput.canPerformAction(copy, withSender: nil))
-    let edit = try #require(transcript.interactions.compactMap { $0 as? UIEditMenuInteraction }.first)
+    let edit = try #require(history.interactions.compactMap { $0 as? UIEditMenuInteraction }.first)
     let configuration = UIEditMenuConfiguration(identifier: nil, sourcePoint: .zero)
-    let handles = transcript.subviews.flatMap(\.subviews).filter { $0 is any UITextSelectionHandleView }
+    let handles = history.subviews.flatMap(\.subviews).filter { $0 is any UITextSelectionHandleView }
     #expect(handles.count == 2)
     view.replaceDisplayedSnapshot(replay.snapshot(), receivedAt: nil)
     #expect(!view.phoneInput.canPerformAction(copy, withSender: nil))

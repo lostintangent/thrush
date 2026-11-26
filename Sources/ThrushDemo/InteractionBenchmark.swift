@@ -47,12 +47,12 @@ final class InteractionBenchmark {
         let anchoredReplay: AnchoredReplay
     }
 
-    private let view: TerminalView
+    private let view: TerminalMetalView
     private var sentAt: Double?
     private var receipt: (generation: UInt64, time: Double)?
     private var frame: FrameMeasurement?
 
-    init(view: TerminalView) { self.view = view }
+    init(view: TerminalMetalView) { self.view = view }
 
     func writeStarted(at time: Double) { sentAt = time }
     func received(generation: UInt64, at time: Double) { receipt = (generation, time) }
@@ -70,11 +70,11 @@ final class InteractionBenchmark {
         try await Task.sleep(for: .milliseconds(450))
         let grid = view.gridSize ?? size
         let interval = try? await DisplayInterval.measure(on: view)
-        let initial = probe.transcript
+        let initial = probe.accessibleText
         let composition = "翼"
         try probe.mark("つばさ")
         try probe.mark(composition)
-        guard probe.transcript == initial else { throw RenderBenchmark.Failure("Marked text escaped into the transcript.") }
+        guard probe.accessibleText == initial else { throw RenderBenchmark.Failure("Marked text escaped into the accessible text.") }
         _ = try await echo(marker: composition, expectedSuffix: composition, probe: probe) {
             try probe.commit(composition)
         }
@@ -82,7 +82,7 @@ final class InteractionBenchmark {
         let known = composition + suffix
         _ = try await echo(marker: "paste", expectedSuffix: known, probe: probe) { try probe.paste(suffix) }
 
-        let all = probe.transcript
+        let all = probe.accessibleText
         guard let range = all.range(of: known) else { throw RenderBenchmark.Failure("Missing soft-wrapped marker.") }
         let startCopy = CACurrentMediaTime()
         try probe.select(NSRange(range, in: all), in: all)
@@ -97,7 +97,7 @@ final class InteractionBenchmark {
         let historyMilliseconds = (CACurrentMediaTime() - startHistory) * 1_000
         let startLatest = CACurrentMediaTime()
         try probe.latest()
-        guard view.historyOffset == 0, probe.transcript == all else {
+        guard view.historyOffset == 0, probe.accessibleText == all else {
             throw RenderBenchmark.Failure("Latest did not restore the live viewport.")
         }
         let latestMilliseconds = (CACurrentMediaTime() - startLatest) * 1_000
@@ -153,12 +153,12 @@ final class InteractionBenchmark {
             throw RenderBenchmark.Failure("Replay workload did not fill both history buffers.")
         }
 
-        let reader = TerminalView(frame: .zero)
+        let reader = TerminalMetalView(frame: .zero)
         reader.replaceDisplayedSnapshot(first, receivedAt: nil)
         reader.setHistoryOffset(historyRows - 512)
         let readingLine = "Build step 512"
         let selectedLine = "Build step 513"
-        let range = TerminalView.Selection(anchorRow: 1, anchorColumn: 0,
+        let range = TerminalMetalView.Selection(anchorRow: 1, anchorColumn: 0,
                                            headRow: 1, headColumn: selectedLine.utf8.count - 1)
         reader.selection = range
         var times: [Double] = []
@@ -189,7 +189,7 @@ final class InteractionBenchmark {
         let deadline = keyAt + 10
         while CACurrentMediaTime() < deadline {
             if let sentAt, let receipt,
-               probe.transcript.trimmingCharacters(in: .newlines).hasSuffix(expectedSuffix) {
+               probe.accessibleText.trimmingCharacters(in: .newlines).hasSuffix(expectedSuffix) {
                 let matched = frame.flatMap { measurement in
                     measurement.generation == receipt.generation && measurement.receivedAt == receipt.time ? measurement : nil
                 }
@@ -207,6 +207,6 @@ final class InteractionBenchmark {
             }
             try await Task.sleep(for: .milliseconds(2))
         }
-        throw RenderBenchmark.Failure("Missing socket write, echo transcript, or matching native frame for \(marker).")
+        throw RenderBenchmark.Failure("Missing socket write, echoed text, or matching native frame for \(marker).")
     }
 }

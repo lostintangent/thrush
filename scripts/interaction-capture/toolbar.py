@@ -25,10 +25,10 @@ def check_copy(image, rect, state, checker, labels):
 def check(image, state, appearance, scene, scratch):
     toolbar = state.get("toolbar")
     if not toolbar:
-        raise ValueError("Missing mounted navigation bar or pane geometry.")
+        raise ValueError("Missing mounted navigation bar or canvas geometry.")
     scale = state["displayScale"]
     epsilon = 1 / scale
-    pane = edges(toolbar["paneFrame"])
+    canvas = edges(toolbar["canvasFrame"])
     safe = edges(toolbar["safeAreaFrame"])
     bar = edges(toolbar["navigationBarFrame"])
     grid = edges(state["gridFrame"])
@@ -36,8 +36,8 @@ def check(image, state, appearance, scene, scratch):
     first = edges(toolbar["firstCellFrame"])
     if not (window[0] <= bar[0] < bar[2] <= window[2] and window[1] <= bar[1] < bar[3] <= window[3]):
         raise ValueError(f"Invalid native navigation bar: {bar}, {window}")
-    if abs(pane[1] - window[1]) > epsilon:
-        raise ValueError(f"The canvas does not reach the physical top of the window: {pane}, {window}")
+    if abs(canvas[1] - window[1]) > epsilon:
+        raise ValueError(f"The canvas does not reach the physical top of the window: {canvas}, {window}")
     if state["orientation"] == "portrait" and abs(grid[1] - bar[3]) > epsilon:
         raise ValueError(f"The terminal grid does not begin at the inline bar’s bottom: {grid}, {bar}")
     if (first[1] + epsilon < max(bar[3], safe[1]) or first[0] + epsilon < grid[0] or
@@ -52,7 +52,7 @@ def check(image, state, appearance, scene, scratch):
                                         round((window[3] - window[1]) * scale)):
         raise ValueError("Simulator framebuffer does not match the mounted window.")
     # The inline title sits in the center, with Close on the trailing edge. Sample the
-    # unobstructed bar to the leading side of both, where the pane canvas must show through.
+    # unobstructed bar to the leading side of both, where the canvas must show through.
     bar_width = bar[2] - bar[0]
     left = round((bar[0] - window[0] + 0.14 * bar_width) * scale)
     right = round((bar[0] - window[0] + 0.28 * bar_width) * scale)

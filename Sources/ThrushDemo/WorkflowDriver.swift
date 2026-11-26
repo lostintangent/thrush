@@ -5,9 +5,9 @@ import ThrushReplay
 
 /// This development-only driver observes the tab's session and drives its native
 /// responder. The terminal protocol stays on the existing socket. A separate loopback HTTP
-/// listener holds each reference boundary until the pane, Metal, and capture runner have caught up.
+/// listener holds each reference boundary until the view, Metal, and capture runner have caught up.
 @MainActor
-final class PaneWorkflowDriver {
+final class WorkflowDriver {
     static let clientID = "thrush-native-workflow"
 
     private struct Failure: Error, CustomStringConvertible {
@@ -34,7 +34,7 @@ final class PaneWorkflowDriver {
         let generation: UInt64, acceptedGeneration: UInt64, renderedGeneration: UInt64
         let synchronized: Bool, hasPresentationTime: Bool
         let copiedText: String?
-        let sameNativePane, sessionEnded: Bool?
+        let sameNativeCanvas, sessionEnded: Bool?
         let archivedRows: [String]?
     }
     private struct Report: Encodable {
@@ -54,8 +54,8 @@ final class PaneWorkflowDriver {
     typealias NewSession = @MainActor (Int, Int, Int, @MainActor () throws -> Void) async throws -> TerminalSession
 
     private let control: URL, output: URL
-    private let view: TerminalView
-    private weak var originalContainer: AnyObject?
+    private let view: TerminalMetalView
+    private weak var originalSuperview: AnyObject?
     private weak var originalWindow: AnyObject?
     private var session: TerminalSession
     private let setActive: (Bool) -> Void
@@ -72,7 +72,7 @@ final class PaneWorkflowDriver {
     private var entries: [Entry] = []
     private var lastCheckpoint: ReplayFixture.Event?
 
-    private init(control: URL, output: URL, view: TerminalView, session: TerminalSession,
+    private init(control: URL, output: URL, view: TerminalMetalView, session: TerminalSession,
                  setActive: @escaping (Bool) -> Void, newSession: @escaping NewSession) {
         self.control = control
         self.output = output
@@ -82,21 +82,21 @@ final class PaneWorkflowDriver {
         self.newSession = newSession
     }
 
-    static func startIfRequested(view: TerminalView, session: TerminalSession, setActive: @escaping (Bool) -> Void,
+    static func startIfRequested(view: TerminalMetalView, session: TerminalSession, setActive: @escaping (Bool) -> Void,
                                  newSession: @escaping NewSession) {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--workflow-driver"), i + 1 < args.count,
               let j = args.firstIndex(of: "--workflow-output"), j + 1 < args.count else { return }
         let folder = URL(fileURLWithPath: args[j + 1], isDirectory: true)
         Task {
-            var currentDriver: PaneWorkflowDriver?
+            var currentDriver: WorkflowDriver?
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 guard let url = URL(string: args[i + 1]), url.scheme == "http",
                       ["127.0.0.1", "localhost", "[::1]"].contains(url.host ?? "") else {
                     throw Failure("The fixture control listener must use a loopback HTTP address.")
                 }
-                let driver = PaneWorkflowDriver(control: url, output: folder, view: view,
+                let driver = WorkflowDriver(control: url, output: folder, view: view,
                                                 session: session, setActive: setActive, newSession: newSession)
                 currentDriver = driver
                 try await driver.run()
@@ -136,7 +136,7 @@ final class PaneWorkflowDriver {
     }
 
     private func run() async throws {
-        // Keep the development host scheduled while a capture utility reads an obscured window.
+        // Keep the demo app scheduled while a capture utility reads an obscured window.
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated], reason: "Capture native terminal checkpoints")
         defer { ProcessInfo.processInfo.endActivity(activity) }
         let trace = output.appending(path: "workflow-events.log")
@@ -200,7 +200,7 @@ final class PaneWorkflowDriver {
             case .layout:
                 try await NativeWorkflowActions.resize(.init(columns: fixture.columns, rows: fixture.rows), view: view)
                 try await confirmLayout(eventIndex: -1)
-                originalContainer = view.superview
+                originalSuperview = view.superview
                 originalWindow = view.window
                 // The peer can select a source recorded at the settled handset geometry.
                 fixture = try ReplayFixture.decode(await get("fixture"))
@@ -237,7 +237,7 @@ final class PaneWorkflowDriver {
             case .focus, .input, .resize, .detach, .resume, .checkpoint:
                 guard fixture.events.indices.contains(state.eventIndex) else { throw Failure("Invalid fixture event index.") }
                 let event = fixture.events[state.eventIndex]
-                guard event.name == state.name else { throw Failure("The pane and socket peer use different recordings.") }
+                guard event.name == state.name else { throw Failure("The view and socket peer use different recordings.") }
                 switch state.phase {
                 case .focus:
                     try await NativeWorkflowActions.focusForTyping(view)
@@ -300,7 +300,7 @@ final class PaneWorkflowDriver {
             }
             try await Task.sleep(for: .milliseconds(20))
         }
-        throw Failure("The pane and its WebSocket did not settle on the same grid at event \(eventIndex).")
+        throw Failure("The view and its WebSocket did not settle on the same grid at event \(eventIndex).")
     }
 
     private func inspect(_ expected: ReplayFixture.Event, state: State, lifecycle: Bool) async throws -> Entry {
@@ -327,13 +327,13 @@ final class PaneWorkflowDriver {
                         copiedAt = CACurrentMediaTime()
                         copied = try NativeWorkflowActions.copy(copy, view: view)
                     }
-                    guard let accepted, let frame = lastFrame else { throw Failure("The pane has no rendered checkpoint yet.") }
+                    guard let accepted, let frame = lastFrame else { throw Failure("The view has no rendered checkpoint yet.") }
                     if let copiedAt, frame.submittedAt < copiedAt { throw Failure("Waiting for the native selection highlight.") }
                     if expected.lifecycle?.resumed == true {
                         // A continuing session keeps its previous screen until the replay arrives.
                         guard let previous = lastCheckpoint, snapshot.generation == accepted.generation,
                               accepted.generation == frame.generation else {
-                            throw Failure("The pane lost its pre-detach frame while waiting for replay.")
+                            throw Failure("The view lost its pre-detach frame while waiting for replay.")
                         }
                         try previous.verify(snapshot)
                         try previous.verify(accepted)
@@ -342,9 +342,9 @@ final class PaneWorkflowDriver {
                                                       accepted: accepted, renderedGeneration: frame.generation, copiedText: copied)
                     }
                     if lifecycle {
-                        guard let originalContainer, let originalWindow,
-                              view.superview === originalContainer, view.window === originalWindow else {
-                            throw Failure("The native terminal changed its pane or window")
+                        guard let originalSuperview, let originalWindow,
+                              view.superview === originalSuperview, view.window === originalWindow else {
+                            throw Failure("The native terminal moved to another canvas or window")
                         }
                         guard session.hasEnded == (state.ended == true) else {
                             throw Failure("The native session has an unexpected end state")
@@ -360,7 +360,7 @@ final class PaneWorkflowDriver {
                                  attachments: state.attachments, generation: snapshot.generation,
                                  acceptedGeneration: accepted.generation, renderedGeneration: frame.generation,
                                  synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: lastTimedSubmission == frame.submittedAt,
-                                 copiedText: copied, sameNativePane: lifecycle ? true : nil,
+                                 copiedText: copied, sameNativeCanvas: lifecycle ? true : nil,
                                  sessionEnded: lifecycle ? session.hasEnded : nil, archivedRows: state.archivedRows)
                 } catch {
                     detail = "\(error) (session cursor row \(snapshot.cursorRow), displayed \(accepted?.cursorRow ?? -1), history offset \(view.historyOffset))"

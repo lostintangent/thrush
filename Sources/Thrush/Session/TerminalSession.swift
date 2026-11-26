@@ -2,10 +2,10 @@ import Foundation
 import Observation
 import ThrushCore
 
-/// A terminal session an app can observe and display in a pane.
+/// A terminal session an app can observe and display in a ``TerminalView``.
 ///
-/// Keep one session per tab or window. The pane shows it while visible, and the
-/// session retains its screen and history while the pane is hidden.
+/// Keep one session per tab or window. A ``TerminalView`` shows it while visible, and the
+/// session retains its screen and history while the view is hidden.
 @MainActor @Observable public final class TerminalSession {
     /// The last title set by the shell. The initial title is empty.
     public private(set) var title = ""
@@ -28,8 +28,8 @@ import ThrushCore
 
     /// Creates a session on a transport supplied by the app.
     ///
-    /// The factory opens the program at the pane’s first measured grid size. The session
-    /// keeps reading while the pane is hidden. EOF, a transport failure, or an explicit
+    /// The factory opens the program at the view’s first measured grid size. The session
+    /// keeps reading while the view is hidden. EOF, a transport failure, or an explicit
     /// close ends the session. Create a new session to open another transport.
     public convenience init(openTransport: @escaping @Sendable (Terminal.Size) async throws -> any TerminalTransport) {
         self.init { observer in SessionActor(observer: observer, openTransport: openTransport) }

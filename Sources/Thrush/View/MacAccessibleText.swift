@@ -50,7 +50,7 @@ struct MacAccessibleText {
     let string: NSString
     let lines: [Line]
 
-    init(snapshot: Terminal.Snapshot?, textIn selectionText: (TerminalView.Selection) -> String) {
+    init(snapshot: Terminal.Snapshot?, textIn selectionText: (TerminalMetalView.Selection) -> String) {
         guard let snapshot else { string = ""; lines = []; return }
         var output = ""
         var offset = 0
@@ -63,7 +63,7 @@ struct MacAccessibleText {
             var column = 0
             while offset - start < length, column < snapshot.size.columns {
                 let cell = row[column]
-                let value = cell.transcriptText(spoken: true)
+                let value = cell.text(spoken: true)
                 let count = value.utf16.count
                 let span = min(max(1, cell.width), snapshot.size.columns - column)
                 cells.append(contentsOf: repeatElement(NSRange(location: offset, length: count), count: span))
@@ -110,13 +110,13 @@ struct MacAccessibleText {
         return (row, column ?? max(0, cells.count - 1))
     }
 
-    func range(for selection: TerminalView.Selection) -> NSRange {
+    func range(for selection: TerminalMetalView.Selection) -> NSRange {
         let anchor = range(row: selection.anchorRow, column: selection.anchorColumn)
         let head = range(row: selection.headRow, column: selection.headColumn)
         return NSUnionRange(anchor, head)
     }
 
-    func selection(for range: NSRange) -> TerminalView.Selection? {
+    func selection(for range: NSRange) -> TerminalMetalView.Selection? {
         guard range.length > 0 else { return nil }
         let first = position(at: range.location)
         let last = position(at: NSMaxRange(range) - 1)

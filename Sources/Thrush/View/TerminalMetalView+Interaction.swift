@@ -1,21 +1,21 @@
 import CoreGraphics
 import ThrushCore
 
-extension TerminalView {
-    var historyCount: Int { transcript.historyCount }
-    package var historyOffset: Int { transcript.offset }
+extension TerminalMetalView {
+    var historyCount: Int { viewport.historyCount }
+    package var historyOffset: Int { viewport.offset }
     var isPointerReporting: Bool { inputAvailability == .live && historyOffset == 0 && snapshot.map { $0.mouseTracking != .off } == true }
-    var selectedText: String? { selection.map { transcript.text(in: $0) } }
+    var selectedText: String? { selection.map { viewport.text(in: $0) } }
     /// VoiceOver reads what a sighted reader sees, so concealed text is blank. Copy keeps it.
-    var spokenSelectedText: String? { selection.map { transcript.text(in: $0, spoken: true) } }
-    func text(in selection: Selection, spoken: Bool = false) -> String { transcript.text(in: selection, spoken: spoken) }
+    var spokenSelectedText: String? { selection.map { viewport.text(in: $0, spoken: true) } }
+    func text(in selection: Selection, spoken: Bool = false) -> String { viewport.text(in: selection, spoken: spoken) }
 
     func selectWord(row: Int, column: Int) {
         updateSelection { $0.selectWord(row: row, column: column) }
     }
 
     func spokenLineText(row: Int) -> String {
-        var reader = transcript
+        var reader = viewport
         reader.selectLine(row: row)
         return reader.selection.map { reader.text(in: $0, spoken: true) } ?? ""
     }

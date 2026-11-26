@@ -8,7 +8,7 @@ import ThrushCore
 @testable import Thrush
 
 @MainActor @Test func outputArrivingDuringDrawSupersedesTheFirstInvalidation() throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 320, height: 140))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 320, height: 140))
     #if os(macOS)
     let window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.contentView = view
@@ -23,7 +23,7 @@ import ThrushCore
     var terminal = Terminal(size: .init(columns: 16, rows: 2))
     _ = terminal.receive("old\r\n~ # clear".utf8)
 
-    // The first Oshen Return message wakes the pane. It can invalidate the view immediately.
+    // The first Oshen Return message wakes the view. It can invalidate the view immediately.
     _ = terminal.receive("\r\u{1b}[2K\u{1b}[32m~\u{1b}[0m # ".utf8)
     #expect(mailbox.offer(terminal.snapshot(), receivedAt: 1))
     let first = try #require(mailbox.take(notification: true))
@@ -72,7 +72,7 @@ import ThrushCore
 
     let mailbox = OutputMailbox()
     var seen: [String] = []
-    // Leave ordinary frames for the next barrier, as if the pane were still preparing its drawable.
+    // Leave ordinary frames for the next barrier, as if the view were still preparing its drawable.
     try await actor.readUpdates(into: mailbox, notify: {}) { update in
         if let earlier = mailbox.take() { seen.append("pending " + earlier.screen.rows[0].text) }
         switch update {

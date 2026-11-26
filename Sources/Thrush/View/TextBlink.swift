@@ -1,6 +1,6 @@
 import QuartzCore
 
-/// Paces SGR 5 blinking text. Every pane follows the same media clock, so all blinking text
+/// Paces SGR 5 blinking text. Every terminal view follows the same media clock, so all blinking text
 /// fades out and back in together. A view draws only during the two fades of each cycle and
 /// holds its frame in between. It draws nothing for blinking once no visible text blinks.
 @MainActor

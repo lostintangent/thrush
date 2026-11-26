@@ -5,14 +5,14 @@ import Thrush
 /// the window server never calls the drawable's presentation handler.
 @MainActor
 final class RenderFrameObservations {
-    private let view: TerminalView
+    private let view: TerminalMetalView
     private var completions: [FrameMeasurement] = []
     private var presentations: [Double: FrameMeasurement] = [:]
     private var waitsForPresentation = true
     private let previousFrame: ((FrameMeasurement) -> Void)?
     private let previousCompletion: (@MainActor (FrameMeasurement) -> Void)?
 
-    init(view: TerminalView) {
+    init(view: TerminalMetalView) {
         self.view = view
         previousFrame = view.onFrame
         previousCompletion = view.onFrameCompleted

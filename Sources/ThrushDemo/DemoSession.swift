@@ -26,9 +26,9 @@ struct DemoOptions {
     let interactionURL: URL?
     let runsWorkflowDriver: Bool
     let checksToolbar: Bool
-    /// The toolbar proof adds the `.ignoresSafeArea()` hosts wrote before the pane extended under bars itself.
+    /// The toolbar proof adds the `.ignoresSafeArea()` apps wrote before the view extended under bars itself.
     let hostIgnoresSafeArea: Bool
-    /// The Mac toolbar proof puts the pane in a split view's detail, beside a sidebar with its own toolbar item.
+    /// The Mac toolbar proof puts the terminal view in a split view's detail, beside a sidebar with its own toolbar item.
     let splitsToolbar: Bool
     /// The Mac toolbar proof keeps the window toolbar's background, which a split view draws per column.
     let showsToolbarBackground: Bool
@@ -71,10 +71,10 @@ struct DemoOptions {
 }
 
 /// State specific to the demo: replay selection, appearance and optional measurements.
-/// TerminalPane owns the socket lifecycle and native interactions in each connected scene.
+/// TerminalView owns the socket lifecycle and native interactions in each connected scene.
 @MainActor
 final class DemoSession: ObservableObject {
-    let view = TerminalView(frame: .zero)
+    let view = TerminalMetalView(frame: .zero)
     private(set) var options: DemoOptions
     @Published private(set) var isActive = false
     @Published var theme: TerminalTheme?
@@ -129,7 +129,7 @@ final class DemoSession: ObservableObject {
     }
 
     private func openShell(trace: (any WebSocketFrameTrace)?) throws -> TerminalSession {
-        let id = options.runsWorkflowDriver ? PaneWorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
+        let id = options.runsWorkflowDriver ? WorkflowDriver.clientID : "thrush-\(options.scene.rawValue)-\(UUID().uuidString)"
         let next = try TerminalSession(baseURL: options.endpoint, clientID: id, frameTrace: trace)
         endpointError = nil
         hasUsableSession = false
@@ -143,7 +143,7 @@ final class DemoSession: ObservableObject {
             let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
             let next = try openShell(trace: trace)
             if options.runsWorkflowDriver {
-                PaneWorkflowDriver.startIfRequested(view: view, session: next, setActive: setActive) { sockets, received, applied, activate in
+                WorkflowDriver.startIfRequested(view: view, session: next, setActive: setActive) { sockets, received, applied, activate in
                     let previous = self.terminalSession
                     self.nextShellTrace = trace?.continuing(after: sockets, received: received, applied: applied)
                     defer { self.nextShellTrace = nil }
@@ -165,13 +165,13 @@ final class DemoSession: ObservableObject {
         }
     }
 
-    func pane(_ session: TerminalSession) -> some View {
-        var pane = TerminalPane(session, isActive: isActive, theme: theme)
-        pane.preparedView = view
-        pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
-        pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
-        pane.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
-        pane.onReady = { [weak self] resumed in
+    func terminalView(_ session: TerminalSession) -> some View {
+        var terminalView = TerminalView(session, isActive: isActive, theme: theme)
+        terminalView.preparedView = view
+        terminalView.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
+        terminalView.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
+        terminalView.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
+        terminalView.onReady = { [weak self] resumed in
             guard let self else { return }
             if options.scene == .glyphs {
                 view.selection = .init(anchorRow: 1, anchorColumn: 2, headRow: 1, headColumn: 2)
@@ -179,7 +179,7 @@ final class DemoSession: ObservableObject {
             if !resumed { markSessionUsable(session) }
             onReady?(resumed)
         }
-        pane.onOutput = { [weak self] generation, receivedAt in
+        terminalView.onOutput = { [weak self] generation, receivedAt in
             guard let self else { return }
             markSessionUsable(session)
             interaction?.received(generation: generation, at: receivedAt)
@@ -190,11 +190,11 @@ final class DemoSession: ObservableObject {
             startInteractionCheck()
         }
         if options.interactionURL != nil {
-            pane.onWriteStarted = { [weak self] time in
+            terminalView.onWriteStarted = { [weak self] time in
                 Task { @MainActor in self?.interaction?.writeStarted(at: time) }
             }
         }
-        return pane.onChange(of: session.hasEnded) {
+        return terminalView.onChange(of: session.hasEnded) {
             guard self.terminalSession === session else { return }
             if session.hasEnded { self.hasUsableSession = false }
             self.onShellEndedChange?()
@@ -251,7 +251,7 @@ final class DemoSession: ObservableObject {
         func rgb(_ hex: UInt32) -> Terminal.RGB {
             .init(red: UInt8(hex >> 16), green: UInt8(truncatingIfNeeded: hex >> 8), blue: UInt8(truncatingIfNeeded: hex))
         }
-        // The host supplies the Ember palette from the design doc. Metrics and the underlying grid stay Slate's.
+        // The demo supplies the Ember palette from the design doc. Metrics and the underlying grid stay Slate's.
         return TerminalTheme(palette: .init(foreground: rgb(0xEEE4D6), background: rgb(0x1C1A18), ansi: [
             0x12110F, 0xDE8676, 0xA6BD89, 0xDDB278, 0x98ABD0, 0xC99DAF, 0x88B9B0, 0xCFC2AD,
             0x978C80, 0xF0A493, 0xBFDAA1, 0xF4CF93, 0xB5C9E8, 0xE3B9C9, 0xA6D4CB, 0xF8EEDD,

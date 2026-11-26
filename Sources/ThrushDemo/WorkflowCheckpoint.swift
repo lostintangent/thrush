@@ -1,7 +1,7 @@
 import Thrush
 import ThrushReplay
 
-/// Checks a paused workflow against the recorded checkpoint and the running pane.
+/// Checks a paused workflow against the recorded checkpoint and the running view.
 package enum WorkflowCheckpoint {
     private struct Failure: Error, CustomStringConvertible {
         let description: String
@@ -24,8 +24,8 @@ package enum WorkflowCheckpoint {
         try event.verify(snapshot)
         guard snapshot.palette == nativePalette else { throw failure("terminal palette differs from the native view") }
 
-        guard let accepted else { throw failure("the native pane has not accepted a snapshot") }
-        guard let renderedGeneration else { throw failure("the native pane has not rendered a frame") }
+        guard let accepted else { throw failure("the native view has not accepted a snapshot") }
+        guard let renderedGeneration else { throw failure("the native view has not rendered a frame") }
         if snapshot.synchronizedOutputID != nil {
             guard accepted.synchronizedOutputID == nil, accepted.generation < snapshot.generation,
                   renderedGeneration <= accepted.generation else {

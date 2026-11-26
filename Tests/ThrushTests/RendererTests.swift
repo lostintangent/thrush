@@ -44,17 +44,17 @@ private struct Pixels {
 private struct OffscreenTerminal {
     let device: any MTLDevice
     let renderer: MetalRenderer
-    let view: TerminalView
+    let view: TerminalMetalView
 
     init() async throws {
         device = try #require(MTLCreateSystemDefaultDevice())
         let program = try await ShaderPipelines.shared.pipeline(for: device)
         renderer = try MetalRenderer(device: device, pipeline: program)
-        view = TerminalView(frame: .zero, device: device)
+        view = TerminalMetalView(frame: .zero, device: device)
     }
 
     func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme, width: Int = Probe.canvasWidth,
-              selection: TerminalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
+              selection: TerminalMetalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
         view.theme = theme
         let height = Probe.canvasHeight
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width,
@@ -155,12 +155,12 @@ func livePaletteChangesRecolorCachedRows() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 3))
     // The first row includes direct RGB and a color-cube index. The next two rows
     // put each customizable ANSI background through the shader and into the readback.
-    var transcript = "H" + escape + "41m " + escape + "48;2;22;53;84m " + escape + "48;5;196m "
+    var output = "H" + escape + "41m " + escape + "48;2;22;53;84m " + escape + "48;5;196m "
     for index in 0..<16 {
-        if index.isMultiple(of: 8) { transcript += escape + "\(2 + index / 8);1H" }
-        transcript += escape + "48;5;\(index)m "
+        if index.isMultiple(of: 8) { output += escape + "\(2 + index / 8);1H" }
+        output += escape + "48;5;\(index)m "
     }
-    _ = terminal.receive((transcript + escape + "0m" + escape + "?25l").utf8)
+    _ = terminal.receive((output + escape + "0m" + escape + "?25l").utf8)
     let screen = terminal.snapshot()
     var custom = TerminalTheme.slateDark
     let ansi = (UInt8(0)..<16).map { Terminal.RGB(red: $0, green: 180, blue: 140) }
@@ -192,27 +192,27 @@ func livePaletteChangesRecolorCachedRows() async throws {
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
-func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async throws {
+func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async throws {
     let host = try await OffscreenTerminal()
-    let pane = TerminalPaneContainer(terminal: host.view)
-    // A mounted view displays each snapshot as it arrives. On the Mac, a dark title bar overlaps the pane.
+    let canvas = CanvasView(terminal: host.view)
+    // A mounted view displays each snapshot as it arrives. On the Mac, a dark title bar overlaps the canvas.
     #if os(macOS)
     _ = NSApplication.shared
     let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 402, height: 550), styleMask: [.titled, .closable, .fullSizeContentView],
                           backing: .buffered, defer: false)
     window.appearance = NSAppearance(named: .darkAqua)
-    window.contentView = pane
-    pane.layoutSubtreeIfNeeded()
+    window.contentView = canvas
+    canvas.layoutSubtreeIfNeeded()
     #else
     let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
-    window.addSubview(pane)
+    window.addSubview(canvas)
     #endif
     defer { withExtendedLifetime(window) {} }
-    func paneBackground() -> CGColor? {
+    func canvasBackground() -> CGColor? {
         #if os(macOS)
-        pane.layer?.backgroundColor
+        canvas.layer?.backgroundColor
         #else
-        pane.backgroundColor?.cgColor
+        canvas.backgroundColor?.cgColor
         #endif
     }
     func color(_ hex: UInt32) -> CGColor {
@@ -223,7 +223,7 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     let theme = TerminalTheme.slateDark
     _ = try host.draw(terminal.snapshot(), theme: theme)
     #if os(macOS)
-    #expect(pane.titlebarAppearance == nil)
+    #expect(canvas.titlebarAppearance == nil)
     #endif
 
     let osc = "\u{1b}]"
@@ -237,15 +237,15 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     #expect(shot.colors(in: 0..<1).contains(0x202020))
     #expect(shot[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
     #expect(shot[Probe.edges[2] + 1, Probe.top + 1] == 0xff0000)
-    #expect(paneBackground() == color(0xfaf0e6))
-    #expect(pane.canvasScheme == .light)
+    #expect(canvasBackground() == color(0xfaf0e6))
+    #expect(canvas.canvasScheme == .light)
     #if os(macOS)
     // The dark window's title bar takes the light canvas's appearance, so its title stays readable over it.
-    #expect(pane.titlebarAppearance == .aqua)
-    #expect(pane.toolbarCoverColor == nil)
+    #expect(canvas.titlebarAppearance == .aqua)
+    #expect(canvas.toolbarCoverColor == nil)
     #endif
 
-    let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 0)
+    let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 0)
     let selected = try host.draw(program, theme: theme, selection: selection)
     #expect(selected[Probe.edges[0], Probe.top + 1] == pack(theme.selection))
     #expect(selected.colors(in: 0..<1).contains(pack(theme.selectionInk)))
@@ -256,58 +256,58 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     let reset = try host.draw(restored, theme: theme)
     #expect(reset[0, 0] == pack(theme.palette.background))
     #expect(reset[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
-    #expect(paneBackground() == color(pack(theme.palette.background)))
-    #expect(pane.canvasScheme == .dark)
+    #expect(canvasBackground() == color(pack(theme.palette.background)))
+    #expect(canvas.canvasScheme == .dark)
     #if os(macOS)
-    #expect(pane.titlebarAppearance == nil)
-    // A hidden pane, or one the title bar no longer overlaps, gives the title bar back to the window.
+    #expect(canvas.titlebarAppearance == nil)
+    // A hidden canvas, or one the title bar no longer overlaps, gives the title bar back to the window.
     _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
-    #expect(pane.titlebarAppearance == .aqua)
-    pane.isHidden = true
-    #expect(pane.titlebarAppearance == nil)
-    pane.isHidden = false
-    #expect(pane.titlebarAppearance == .aqua)
+    #expect(canvas.titlebarAppearance == .aqua)
+    canvas.isHidden = true
+    #expect(canvas.titlebarAppearance == nil)
+    canvas.isHidden = false
+    #expect(canvas.titlebarAppearance == .aqua)
     window.styleMask.remove(.fullSizeContentView)
-    pane.layoutSubtreeIfNeeded()
-    #expect(pane.titlebarAppearance == nil)
-    #expect(pane.toolbarCoverColor == nil)
+    canvas.layoutSubtreeIfNeeded()
+    #expect(canvas.titlebarAppearance == nil)
+    #expect(canvas.toolbarCoverColor == nil)
 
     // Where AppKit keeps an item over the canvas on the window's appearance, as a split view's visible toolbar
     // background does, the bar goes back to the window and the theme stops the canvas beneath it.
     window.styleMask.insert(.fullSizeContentView)
-    pane.layoutSubtreeIfNeeded()
-    #expect(pane.titlebarAppearance == .aqua)
+    canvas.layoutSubtreeIfNeeded()
+    #expect(canvas.titlebarAppearance == .aqua)
     var titlebar = try #require(window.standardWindowButton(.closeButton) as NSView?)
     while let parent = titlebar.superview, parent !== window.contentView?.superview { titlebar = parent }
     let pinned = NSView(frame: CGRect(x: 200, y: 0, width: 40, height: 20))
     pinned.appearance = NSAppearance(named: .darkAqua)
     titlebar.addSubview(pinned)
-    pane.needsLayout = true
-    pane.layoutSubtreeIfNeeded()
-    // The pane checks the bar a moment after AppKit settles it.
+    canvas.needsLayout = true
+    canvas.layoutSubtreeIfNeeded()
+    // The canvas checks the bar a moment after AppKit settles it.
     try await Task.sleep(for: .milliseconds(300))
-    #expect(pane.titlebarAppearance == nil)
-    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
-    pane.needsLayout = true
-    pane.layoutSubtreeIfNeeded()
-    #expect(pane.titlebarAppearance == nil)
+    #expect(canvas.titlebarAppearance == nil)
+    #expect(canvas.toolbarCoverColor == color(pack(theme.palette.background)))
+    canvas.needsLayout = true
+    canvas.layoutSubtreeIfNeeded()
+    #expect(canvas.titlebarAppearance == nil)
     // A canvas the window's appearance already suits needs neither, and the next opposite one asks again.
     pinned.removeFromSuperview()
     _ = terminal.receive((osc + "111\u{7}").utf8)
     host.view.display(terminal.snapshot())
-    #expect(pane.toolbarCoverColor == nil)
+    #expect(canvas.toolbarCoverColor == nil)
     _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
     try await Task.sleep(for: .milliseconds(300))
-    #expect(pane.titlebarAppearance == .aqua)
-    #expect(pane.toolbarCoverColor == nil)
+    #expect(canvas.titlebarAppearance == .aqua)
+    #expect(canvas.toolbarCoverColor == nil)
     // Window buttons beside the canvas, over a sidebar, that followed it would leave the sidebar's ground.
-    pane.additionalSafeAreaInsets.left = 120
-    pane.layoutSubtreeIfNeeded()
+    canvas.additionalSafeAreaInsets.left = 120
+    canvas.layoutSubtreeIfNeeded()
     try await Task.sleep(for: .milliseconds(300))
-    #expect(pane.titlebarAppearance == nil)
-    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
+    #expect(canvas.titlebarAppearance == nil)
+    #expect(canvas.toolbarCoverColor == color(pack(theme.palette.background)))
     #endif
 }
 
@@ -347,7 +347,7 @@ func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
     #expect(dark[Probe.edges[7], y] == 0x131d27)
 
     // Both endpoints lie on the *continuation* of 翼.
-    let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 2, headRow: 0, headColumn: 2)
+    let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 2, headRow: 0, headColumn: 2)
     let selected = try host.draw(snapshot, theme: .slateDark, selection: selection)
     #expect(selected[Probe.edges[1] - 1, y] == 0x131d27)
     #expect(selected[Probe.edges[1], y] == 0x466b85)
@@ -422,12 +422,12 @@ func concealedTextKeepsItsCellsAndCopyButDrawsNoInk() async throws {
     #expect(shot.colors(in: 2..<3).contains(0xe3eaf0))
     #expect(shot.colors(in: 3..<4) == [0x822030])
 
-    let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 1)
+    let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 1)
     let selected = try host.draw(snapshot, theme: theme, selection: selection)
     #expect(selected.colors(in: 0..<2) == [0x466b85])
-    var transcript = TerminalTranscript()
-    transcript.display(snapshot)
-    #expect(transcript.text(in: selection) == "HH")
+    var viewport = Viewport()
+    viewport.display(snapshot)
+    #expect(viewport.text(in: selection) == "HH")
 }
 
 @MainActor

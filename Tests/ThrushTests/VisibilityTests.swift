@@ -12,22 +12,22 @@ import ThrushCore
     let shown: Bool
     let selected: Bool
 
-    private var pane: TerminalPane {
-        var result = TerminalPane(session, isActive: selected)
+    private var terminalView: TerminalView {
+        var result = TerminalView(session, isActive: selected)
         result.assumesVisibleForBenchmark = true
         return result
     }
 
     var body: some View {
         if shown {
-            pane
+            terminalView
         } else {
             Color.clear
         }
     }
 }
 
-@MainActor @Test func paneAttachesOnlyWhilePresentedAndSelected() async throws {
+@MainActor @Test func viewAttachesOnlyWhilePresentedAndSelected() async throws {
     let opened = Mutex<[Terminal.Size]>([])
     let session = TerminalSession { measured in
         opened.withLock { $0.append(measured) }
@@ -49,7 +49,7 @@ import ThrushCore
     func waitFor(_ predicate: () async -> Bool) async throws {
         let until = ContinuousClock.now.advanced(by: .seconds(5))
         while !(await predicate()) {
-            try #require(ContinuousClock.now < until, "The pane did not finish its visibility transition.")
+            try #require(ContinuousClock.now < until, "The view did not finish its visibility transition.")
             try await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -80,7 +80,7 @@ import ThrushCore
 #endif
 
 @MainActor @Test func hiddenDrawingCoalescesOutputAndRetainsTheNativeReader() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 370))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 402, height: 370))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var terminal = Terminal(size: .init(columns: 40, rows: 10))

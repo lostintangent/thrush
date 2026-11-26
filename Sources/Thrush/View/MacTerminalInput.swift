@@ -11,12 +11,12 @@ package protocol MacTerminalClipboard {
 /// AppKit owns key interpretation and candidate windows. Only committed text leaves this responder.
 @MainActor
 final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemValidation, MacTerminalClipboard {
-    unowned let terminal: TerminalView
+    unowned let terminal: TerminalMetalView
     private var marked = NSAttributedString()
     private var insertion = NSRange(location: 0, length: 0)
     private var preview: NSTextView?
     private var dragAnchor: (row: Int, column: Int)?
-    private var initialSelection: TerminalView.Selection?
+    private var initialSelection: TerminalMetalView.Selection?
     private var clickCount = 0
     private var displacedClick: TimeInterval?
     private var singleClick: Task<Void, Never>?
@@ -32,7 +32,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     private var previousGeneration: UInt64?
     private var previousOffset: Int?
 
-    init(terminal: TerminalView) {
+    init(terminal: TerminalMetalView) {
         self.terminal = terminal
         super.init(frame: terminal.bounds)
         autoresizingMask = [.width, .height]
@@ -55,7 +55,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .iBeam) }
 
-    func invalidateTranscriptCache() {
+    func invalidateAccessibleText() {
         previousGeneration = nil
         accessibilityText = nil
     }
@@ -517,7 +517,7 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     // VoiceOver addresses UTF-16 ranges. The map is built on the first accessibility query
     // for a displayed generation, and is reused as the user navigates by line or character.
-    private var transcript: MacAccessibleText {
+    private var accessibleText: MacAccessibleText {
         if let accessibilityText { return accessibilityText }
         let text = MacAccessibleText(snapshot: terminal.snapshot) { terminal.text(in: $0, spoken: true) }
         accessibilityText = text
@@ -539,62 +539,62 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         return actions.isEmpty ? nil : actions
     }
 
-    override func accessibilityValue() -> Any? { transcript.string }
-    override func accessibilityNumberOfCharacters() -> Int { transcript.string.length }
-    override func accessibilityVisibleCharacterRange() -> NSRange { NSRange(location: 0, length: transcript.string.length) }
+    override func accessibilityValue() -> Any? { accessibleText.string }
+    override func accessibilityNumberOfCharacters() -> Int { accessibleText.string.length }
+    override func accessibilityVisibleCharacterRange() -> NSRange { NSRange(location: 0, length: accessibleText.string.length) }
     override func accessibilitySelectedText() -> String? { terminal.spokenSelectedText ?? "" }
     override func accessibilitySelectedTextRange() -> NSRange {
-        if let selection = terminal.selection { return transcript.range(for: selection) }
+        if let selection = terminal.selection { return accessibleText.range(for: selection) }
         guard let snapshot = terminal.snapshot else { return NSRange(location: 0, length: 0) }
         if let readingCaret, let row = readingCaret.visibleRow(in: snapshot, historyOffset: terminal.historyOffset) {
-            let line = transcript.lines[row].range
+            let line = accessibleText.lines[row].range
             if readingCaret.utf16Offset <= line.length {
                 return NSRange(location: line.location + readingCaret.utf16Offset, length: 0)
             }
         }
-        return NSRange(location: transcript.range(row: snapshot.cursorRow, column: snapshot.cursorColumn).location, length: 0)
+        return NSRange(location: accessibleText.range(row: snapshot.cursorRow, column: snapshot.cursorColumn).location, length: 0)
     }
 
     override func setAccessibilitySelectedTextRange(_ range: NSRange) {
-        guard let valid = bounded(range, to: transcript.string.length) else { return }
+        guard let valid = bounded(range, to: accessibleText.string.length) else { return }
         if valid.length == 0, let snapshot = terminal.snapshot {
-            readingCaret = MacAccessibleText.Caret(index: valid.location, text: transcript, snapshot: snapshot,
+            readingCaret = MacAccessibleText.Caret(index: valid.location, text: accessibleText, snapshot: snapshot,
                                                    historyOffset: terminal.historyOffset)
         } else {
             readingCaret = nil
         }
-        terminal.selection = transcript.selection(for: valid)
+        terminal.selection = accessibleText.selection(for: valid)
         selectionDidChange()
     }
 
     override func accessibilityInsertionPointLineNumber() -> Int {
         accessibilityLine(for: accessibilitySelectedTextRange().location)
     }
-    override func accessibilityLine(for index: Int) -> Int { transcript.line(for: index) }
+    override func accessibilityLine(for index: Int) -> Int { accessibleText.line(for: index) }
     override func accessibilityRange(forLine line: Int) -> NSRange {
-        guard transcript.lines.indices.contains(line) else { return NSRange(location: NSNotFound, length: 0) }
-        return transcript.lines[line].range
+        guard accessibleText.lines.indices.contains(line) else { return NSRange(location: NSNotFound, length: 0) }
+        return accessibleText.lines[line].range
     }
     override func accessibilityString(for range: NSRange) -> String? {
-        bounded(range, to: transcript.string.length).map { transcript.string.substring(with: $0) }
+        bounded(range, to: accessibleText.string.length).map { accessibleText.string.substring(with: $0) }
     }
     override func accessibilityAttributedString(for range: NSRange) -> NSAttributedString? {
         accessibilityString(for: range).map(NSAttributedString.init(string:))
     }
     override func accessibilityRange(for index: Int) -> NSRange {
-        guard index >= 0, index < transcript.string.length else { return NSRange(location: NSNotFound, length: 0) }
-        return transcript.string.rangeOfComposedCharacterSequence(at: index)
+        guard index >= 0, index < accessibleText.string.length else { return NSRange(location: NSNotFound, length: 0) }
+        return accessibleText.string.rangeOfComposedCharacterSequence(at: index)
     }
     override func accessibilityRange(for point: NSPoint) -> NSRange {
         guard let window, let hit = terminal.cell(at: convert(window.convertPoint(fromScreen: point), from: nil)) else {
             return NSRange(location: NSNotFound, length: 0)
         }
-        return transcript.range(row: hit.row, column: hit.column)
+        return accessibleText.range(row: hit.row, column: hit.column)
     }
     override func accessibilityFrame(for range: NSRange) -> NSRect {
-        guard let window, let range = bounded(range, to: transcript.string.length) else { return .zero }
-        let start = transcript.position(at: range.location)
-        let end = transcript.position(at: max(range.location, NSMaxRange(range) - 1), trailing: range.length > 0)
+        guard let window, let range = bounded(range, to: accessibleText.string.length) else { return .zero }
+        let start = accessibleText.position(at: range.location)
+        let end = accessibleText.position(at: max(range.location, NSMaxRange(range) - 1), trailing: range.length > 0)
         var rect = terminal.cellRect(row: start.row, column: start.column)
         rect = rect.union(terminal.cellRect(row: end.row, column: end.column))
         if end.row > start.row, let width = terminal.snapshot?.size.columns {

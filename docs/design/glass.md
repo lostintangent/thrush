@@ -23,7 +23,7 @@ The difference is most useful on **Latest**. Color from the history can pass thr
 
 ![Four Mac windows with identical terminal content and backdrop, comparing opaque Slate Dark and Light with 85 percent background opacity](glass-canvases.png)
 
-The same fictional editor sits behind each window. Its white source pane and dark build log remain recognizable as broad regions after an 18 pt Gaussian blur. Only the inherited terminal background changes opacity. Text, explicit cell backgrounds, selection and cursor keep their assigned colors. [Full-resolution backing window](glass-backdrop.png)
+The same fictional editor sits behind each window. Its white source editor and dark build log remain recognizable as broad regions after an 18 pt Gaussian blur. Only the inherited terminal background changes opacity. Text, explicit cell backgrounds, selection and cursor keep their assigned colors. [Full-resolution backing window](glass-backdrop.png)
 
 | Lowest contrast over that window | Opaque | 92% fill | 85% fill |
 | --- | ---: | ---: | ---: |

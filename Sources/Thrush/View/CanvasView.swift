@@ -3,19 +3,21 @@ import ThrushCore
 
 #if os(macOS)
 import AppKit
-typealias PaneNativeView = NSView
+typealias PlatformView = NSView
 #else
 import UIKit
-typealias PaneNativeView = UIView
+typealias PlatformView = UIView
 #endif
 
-/// Keeps the grid inside the window's safe area and above the iPhone keyboard.
-@MainActor final class TerminalPaneContainer: PaneNativeView {
-    let terminal: TerminalView
+/// The terminal view's canvas. Its background reaches under every bar and safe area, while it keeps the
+/// Metal view's grid inside the window's safe area and above the iPhone keyboard.
+@MainActor final class CanvasView: PlatformView {
+    let terminal: TerminalMetalView
     var onVisibility: (() -> Void)?
     #if os(macOS)
     private weak var closingWindow: NSWindow?
     #else
+    // Clips the Metal view to where the viewport shows, inside the safe area and above the keyboard.
     private let viewport = UIView()
     private var gridConstraints: [NSLayoutConstraint] = []
     private var holdConstraints: [NSLayoutConstraint] = []
@@ -32,28 +34,28 @@ typealias PaneNativeView = UIView
     private var visibilityObservations: [NSKeyValueObservation] = []
     #endif
 
-    /// The scheme of the background the pane draws.
+    /// The scheme of the background the canvas draws.
     private(set) var canvasScheme: ColorScheme?
     #if os(iOS)
-    /// The scheme that keeps a navigation bar over the pane readable, or nil when none overlaps it.
+    /// The scheme that keeps a navigation bar over the canvas readable, or nil when none overlaps it.
     private(set) var barScheme: ColorScheme?
     #else
-    /// The title bar of the full-size window toolbar the pane runs under, which takes the canvas's appearance
+    /// The title bar of the full-size window toolbar the canvas runs under, which takes the canvas's appearance
     /// while it's opposite the window's, as a navigation bar takes its scheme on iPhone.
     private weak var titlebar: NSView?
-    /// Whether everything in the title bar over the canvas took the appearance the pane last asked for.
+    /// Whether everything in the title bar over the canvas took the appearance the canvas last asked for.
     private var titlebarFollows: (dark: Bool, follows: Bool)?
     private var titlebarCheckPending = false
-    /// The pane that set each title bar's appearance, so a pane leaving it clears only its own.
-    private static let titlebarOwners = NSMapTable<NSView, TerminalPaneContainer>.weakToWeakObjects()
+    /// The canvas that set each title bar's appearance, so a canvas leaving it clears only its own.
+    private static let titlebarOwners = NSMapTable<NSView, CanvasView>.weakToWeakObjects()
     var titlebarAppearance: NSAppearance.Name? { window.flatMap(Self.titlebar(of:))?.appearance?.name }
     /// Keeps the title readable where the title bar can't follow the canvas, by stopping the canvas beneath it.
-    private let toolbarCover = PaneNativeView()
+    private let toolbarCover = PlatformView()
     var toolbarCoverColor: CGColor? { toolbarCover.isHidden ? nil : toolbarCover.layer?.backgroundColor }
     #endif
     var onCanvasChange: (() -> Void)?
 
-    init(terminal: TerminalView) {
+    init(terminal: TerminalMetalView) {
         self.terminal = terminal
         super.init(frame: .zero)
         #if os(macOS)
@@ -242,8 +244,8 @@ typealias PaneNativeView = UIView
         terminal.holdsGridGeometry = false
     }
 
-    /// Holds the viewport's lower edge at a height in this pane, where it is now by default, so
-    /// the pane can follow the keyboard's own frame in one motion instead of its layout guide.
+    /// Holds the viewport's lower edge at a height in this canvas, where it is now by default, so
+    /// the canvas can follow the keyboard's own frame in one motion instead of its layout guide.
     func pinLowerEdge(at y: CGFloat? = nil) {
         pinnedHeight.constant = max(0, (y ?? viewport.frame.maxY) - safeAreaLayoutGuide.layoutFrame.minY)
         keyboardEdge.isActive = false
@@ -270,7 +272,7 @@ typealias PaneNativeView = UIView
         !holdConstraints.isEmpty || viewport.layer.animation(forKey: "turn bounds.size.height") != nil
     }
 
-    // UIKit turns the pane with additive animations, so a keyboard guide that moves the viewport
+    // UIKit turns the canvas with additive animations, so a keyboard guide that moves the viewport
     // mid-turn without one shifts it by the whole change at once. A shorter viewport can then
     // present shorter than any frame it had and clip the terminal away. Instead, the change eases
     // in on the turn's own curve: an offset that starts at the full change and shrinks with the
@@ -344,9 +346,9 @@ typealias PaneNativeView = UIView
         #endif
     }
 
-    /// The area outside the grid follows the program. An overlapping Mac toolbar may need the host theme.
+    /// The area outside the grid follows the program. An overlapping Mac toolbar may need the app's theme.
     private func updateBacking() {
-        let background = terminal.color(.background).paneCGColor
+        let background = terminal.color(.background).cgColor
         #if os(macOS)
         layer?.backgroundColor = background
         #else
@@ -396,7 +398,7 @@ typealias PaneNativeView = UIView
             if let next { release(next) }
             // The theme's background where it suits the window's title, or else the window's.
             let theme = terminal.resolvedTheme.palette.background
-            var cover = theme.paneCGColor
+            var cover = theme.cgColor
             if theme.isDark == dark {
                 window.effectiveAppearance.performAsCurrentDrawingAppearance { cover = NSColor.windowBackgroundColor.cgColor }
             }
@@ -430,13 +432,13 @@ typealias PaneNativeView = UIView
         Self.titlebarOwners.removeObject(forKey: titlebar)
     }
 
-    /// The window span where the canvas shows through the title bar, beside any sidebar floating over the pane,
-    /// or nil when the pane doesn't span the bar, so flipping it would also flip chrome over other content.
+    /// The window span where the canvas shows through the title bar, beside any sidebar floating over the canvas,
+    /// or nil when the canvas doesn't span the bar, so flipping it would also flip chrome over other content.
     private func canvasSpan(under titlebar: NSView) -> ClosedRange<CGFloat>? {
-        let pane = convert(bounds, to: nil), bar = titlebar.convert(titlebar.bounds, to: nil)
-        guard pane.minX <= bar.minX + 0.5, pane.maxX >= bar.maxX - 0.5 else { return nil }
-        let start = pane.minX + safeAreaInsets.left
-        return start...max(start, pane.maxX - safeAreaInsets.right)
+        let canvas = convert(bounds, to: nil), bar = titlebar.convert(titlebar.bounds, to: nil)
+        guard canvas.minX <= bar.minX + 0.5, canvas.maxX >= bar.maxX - 0.5 else { return nil }
+        let start = canvas.minX + safeAreaInsets.left
+        return start...max(start, canvas.maxX - safeAreaInsets.right)
     }
 
     /// Whether everything in the bar over the canvas took its appearance, while the window buttons and toolbar items
@@ -473,7 +475,7 @@ typealias PaneNativeView = UIView
 }
 
 private extension Terminal.RGB {
-    var paneCGColor: CGColor {
+    var cgColor: CGColor {
         CGColor(srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1)
     }
 }
@@ -485,11 +487,11 @@ private extension NSAppearance {
 #endif
 
 #if os(iOS)
-extension TerminalView {
-    package var paneGeometryInWindow: (frame: CGRect, safeArea: CGRect, firstCell: CGRect)? {
-        guard let pane = superview?.superview as? TerminalPaneContainer, let window else { return nil }
-        return (pane.convert(pane.bounds, to: window),
-                pane.convert(pane.safeAreaLayoutGuide.layoutFrame, to: window),
+extension TerminalMetalView {
+    package var canvasGeometryInWindow: (frame: CGRect, safeArea: CGRect, firstCell: CGRect)? {
+        guard let canvas = superview?.superview as? CanvasView, let window else { return nil }
+        return (canvas.convert(canvas.bounds, to: window),
+                canvas.convert(canvas.safeAreaLayoutGuide.layoutFrame, to: window),
                 convert(cellRect(row: 0, column: 0), to: window))
     }
 }

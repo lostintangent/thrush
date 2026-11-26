@@ -11,7 +11,7 @@ private func frame(_ submission: Double, receivedAt: Double? = nil, presentedTim
 }
 
 @Test @MainActor func renderSampleSurvivesAnUnmarkedRedrawOfTheSameGeneration() async throws {
-    let view = TerminalView(frame: .zero)
+    let view = TerminalMetalView(frame: .zero)
     let observations = RenderFrameObservations(view: view)
     defer { observations.stop() }
     let receipt = CACurrentMediaTime()
@@ -30,7 +30,7 @@ private func frame(_ submission: Double, receivedAt: Double? = nil, presentedTim
 }
 
 @Test @MainActor func rendererRequiresSuccessfulGPUCompletionEvenWhenAPresentationIsDelivered() async throws {
-    let view = TerminalView(frame: .zero)
+    let view = TerminalMetalView(frame: .zero)
     let observations = RenderFrameObservations(view: view)
     defer { observations.stop() }
     let start = CACurrentMediaTime() - 16

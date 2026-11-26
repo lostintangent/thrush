@@ -1,6 +1,6 @@
-# Terminal pane lifecycle
+# Session lifecycle
 
-A `TerminalSession` owns a terminal and its history. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
+A `TerminalSession` owns a terminal and its history. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The terminal view keeps the screen and history readable and copyable through interruptions and after exit.
 
 ## Opening and reconnecting
 
@@ -18,7 +18,7 @@ A fresh ready on reattach means the old shell expired. Move its main screen into
 
 ## The shell ends
 
-Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
+Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the view stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The view announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
 
 ## In-band replay
 
@@ -30,6 +30,6 @@ When a WebSocket reader falls behind, the server can send `ready(resumed: true)`
 
 ## Check on Mac and iPhone
 
-Open a shell, interrupt a WebSocket while typing and check the spinner at the cursor. Verify that the grid holds its size and a resumed Vim receives the held key in its restored mode. Displace the shell from another window and confirm that reading or foregrounding either pane leaves ownership alone. Reclaim once by tapping and once by typing. The tap sends no terminal bytes and the triggering key reaches the same shell exactly once.
+Open a shell, interrupt a WebSocket while typing and check the spinner at the cursor. Verify that the grid holds its size and a resumed Vim receives the held key in its restored mode. Displace the shell from another window and confirm that reading or foregrounding either view leaves ownership alone. Reclaim once by tapping and once by typing. The tap sends no terminal bytes and the triggering key reaches the same shell exactly once.
 
-Let an orphan expire with input held. Verify that the replacement prompt starts at row one, the previous main screen is readable in history and the replacement receives only new input. On natural exit, copy the final line and check that the app can dismiss the tab or present a new session in the same pane. A new session starts with a fresh screen and history. With VoiceOver enabled, the reading position stays on terminal content throughout.
+Let an orphan expire with input held. Verify that the replacement prompt starts at row one, the previous main screen is readable in history and the replacement receives only new input. On natural exit, copy the final line and check that the app can dismiss the tab or present a new session in the same view. A new session starts with a fresh screen and history. With VoiceOver enabled, the reading position stays on terminal content throughout.

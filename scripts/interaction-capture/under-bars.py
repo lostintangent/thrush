@@ -23,18 +23,18 @@ def edges(rect):
 def check(image, state, appearance):
     toolbar = state.get("toolbar")
     if not toolbar:
-        raise ValueError("Missing mounted navigation bar or pane geometry.")
+        raise ValueError("Missing mounted navigation bar or canvas geometry.")
     scale = state["displayScale"]
     epsilon = 1 / scale
     window = edges(state["windowPoints"])
-    pane = edges(toolbar["paneFrame"])
+    canvas = edges(toolbar["canvasFrame"])
     safe = edges(toolbar["safeAreaFrame"])
     bar = edges(toolbar["navigationBarFrame"])
     grid = edges(state["gridFrame"])
     first = edges(toolbar["firstCellFrame"])
     keyboard_top = window[3] - state["keyboardHeight"]
-    if any(abs(pane[i] - window[i]) > epsilon for i in range(4)):
-        raise ValueError(f"The pane doesn't reach every edge of the window: {pane}, {window}")
+    if any(abs(canvas[i] - window[i]) > epsilon for i in range(4)):
+        raise ValueError(f"The canvas doesn't reach every edge of the window: {canvas}, {window}")
     usable = (safe[0], safe[1], safe[2], keyboard_top)
     if any(abs(grid[i] - usable[i]) > epsilon for i in range(4)):
         raise ValueError(f"The grid doesn't fill the safe area above the keyboard: {grid}, {usable}")

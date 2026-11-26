@@ -1,7 +1,7 @@
 import Metal
 import QuartzCore
 
-/// Statically linked hosts carry this source in the binary, including Command Line Tools builds.
+/// Statically linked apps carry this source in the binary, including Command Line Tools builds.
 private let gridShader = #"""
 #include <metal_stdlib>
 using namespace metal;

@@ -2,9 +2,9 @@
 import UIKit
 
 /// Build an accessible line only when UIKit requests the reading order. Output and frame
-/// timing remain independent of the length of the transcript when VoiceOver is idle.
+/// timing remain independent of the length of history when VoiceOver is idle.
 @MainActor
-final class PhoneTranscriptAccessibility {
+final class PhoneAccessibleText {
     private struct LineID: Hashable {
         let generation: UInt64
         let occurrence: Int
@@ -16,7 +16,7 @@ final class PhoneTranscriptAccessibility {
 
     func invalidate() { cached = nil }
 
-    func elements(in view: PhoneTranscriptView, latest: UIButton) -> [Any] {
+    func elements(in view: PhoneHistoryScrollView, latest: UIButton) -> [Any] {
         if let cached { return cached }
         let terminal = view.terminal
         var result: [Any] = []
@@ -98,7 +98,7 @@ final class PhoneTranscriptAccessibility {
 
     private final class EmptyTerminalElement: UIAccessibilityElement {
         override func accessibilityActivate() -> Bool {
-            guard let terminal = (accessibilityContainer as? PhoneTranscriptView)?.terminal else { return false }
+            guard let terminal = (accessibilityContainer as? PhoneHistoryScrollView)?.terminal else { return false }
             return terminal.tapDisplacedGrid() || terminal.focusInput()
         }
     }

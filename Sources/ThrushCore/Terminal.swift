@@ -3,7 +3,7 @@
 
 /// A terminal emulator that applies shell output to a screen and encodes user input for the shell.
 public struct Terminal: Sendable {
-    /// The pane’s visible dimensions in character cells, supplied to the socket factory.
+    /// The terminal’s visible dimensions in character cells, supplied to the socket factory.
     public struct Size: Equatable, Sendable {
         /// The number of visible character columns, with a minimum of two.
         public let columns: Int

@@ -10,11 +10,11 @@ import UIKit
 func phoneReplaysRecordedWorkflows(_ name: String) throws {
     let fixture = try ReplayFixture.load(named: name)
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     view.layoutIfNeeded()
-    let transcript = try #require(view.subviews.compactMap { $0 as? PhoneTranscriptView }.first)
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     var wire: [UInt8] = []
     view.onInput = { wire += terminal.encode($0) }
     let spokenAt = [
@@ -45,7 +45,7 @@ func phoneReplaysRecordedWorkflows(_ name: String) throws {
         #expect(terminal.receive(event.bytes) == event.reply, "\(name): \(event.name)")
         view.display(terminal)
         if let wanted = spokenAt[event.name], event.checkpoint != nil {
-            let lines = transcript.accessibilityElements?.compactMap { ($0 as? UIAccessibilityElement)?.accessibilityLabel } ?? []
+            let lines = history.accessibilityElements?.compactMap { ($0 as? UIAccessibilityElement)?.accessibilityLabel } ?? []
             #expect(lines.contains(where: { $0.contains(wanted) }), "\(name): \(event.name)")
         }
         if let copy = event.copy {
@@ -59,7 +59,7 @@ func phoneReplaysRecordedWorkflows(_ name: String) throws {
 /// Exercise UIKit's committed text, paste, delete, Return and hardware chord paths as a
 /// person would. Several recorded shell commands combine a typed string and Return.
 @MainActor
-private func performRecordedInput(_ input: Terminal.Input, in view: TerminalView) throws {
+private func performRecordedInput(_ input: Terminal.Input, in view: TerminalMetalView) throws {
     switch input {
     case .text(let text):
         for character in text { view.phoneInput.insertText(character == "\r" ? "\n" : String(character)) }

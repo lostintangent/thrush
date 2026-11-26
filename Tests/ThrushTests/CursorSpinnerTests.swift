@@ -8,7 +8,7 @@ import UIKit
 #endif
 
 @MainActor @Test func cursorSpinnerFollowsTheGridWithoutMovingText() throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let size = try #require(view.gridSize)
@@ -60,7 +60,7 @@ import UIKit
 }
 
 @MainActor @Test func cursorSpinnerUsesProgramCursorInkAndContrastsWithItsCell() throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     view.theme = .slateDark
@@ -91,7 +91,7 @@ import UIKit
 
 #if os(macOS)
 @MainActor @Test func onlyAnUnmodifiedSingleGridClickReclaimsTheShell() async throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
     let window = try #require(mountTestView(view) as? NSWindow)
     defer { withExtendedLifetime(window) {} }
     let input = try #require(view.subviews.compactMap { $0 as? MacTerminalInput }.first)
@@ -140,16 +140,16 @@ import UIKit
 }
 #endif
 #if os(iOS)
-@MainActor @Test func accessibilityCanReclaimFromTheSameTranscriptLineWithoutFocusingTheKeyboard() throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
+@MainActor @Test func accessibilityCanReclaimFromTheSameHistoryLineWithoutFocusingTheKeyboard() throws {
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 400))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var terminal = Terminal(size: try #require(view.gridSize))
     _ = terminal.receive("still here".utf8)
     view.display(terminal)
-    let transcript = try #require(view.subviews.compactMap { $0 as? PhoneTranscriptView }.first)
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     func line() -> UIAccessibilityElement? {
-        transcript.accessibilityElements?.compactMap { $0 as? UIAccessibilityElement }
+        history.accessibilityElements?.compactMap { $0 as? UIAccessibilityElement }
             .first { $0.accessibilityLabel == "still here" }
     }
     let original = try #require(line())

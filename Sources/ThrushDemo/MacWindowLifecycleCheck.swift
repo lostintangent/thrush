@@ -3,7 +3,7 @@ import AppKit
 import QuartzCore
 import Thrush
 
-/// Opt-in proof running inside the normal packaged pane. No visibility or input overrides.
+/// Opt-in proof running inside the normal packaged terminal view. No visibility or input overrides.
 @MainActor
 final class MacWindowLifecycleCheck {
     private enum Phase: String, CaseIterable { case covered, minimized, hidden }

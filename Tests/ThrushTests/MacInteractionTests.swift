@@ -6,13 +6,13 @@ import ThrushCore
 
 @MainActor
 private struct MacInputFixture {
-    let view: TerminalView
+    let view: TerminalMetalView
     let window: NSWindow
     let input: MacTerminalInput
 
     init() throws {
         _ = NSApplication.shared
-        view = TerminalView(frame: CGRect(x: 0, y: 0, width: 320, height: 180))
+        view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 320, height: 180))
         window = NSWindow(contentRect: view.bounds, styleMask: .borderless, backing: .buffered, defer: false)
         window.contentView = view
         view.layoutSubtreeIfNeeded()
@@ -74,7 +74,7 @@ private struct MacInputFixture {
 }
 
 @MainActor
-@Test func appKitFrozenPaneAllowsCopyAndDropsPendingComposition() throws {
+@Test func appKitFrozenViewAllowsCopyAndDropsPendingComposition() throws {
     let host = try MacInputFixture()
     var shell = Terminal(size: .init(columns: 20, rows: 4))
     _ = shell.receive("final output".utf8)

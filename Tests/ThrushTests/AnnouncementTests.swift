@@ -2,13 +2,13 @@ import SwiftUI
 import Testing
 @testable import Thrush
 
-@MainActor @Test func visiblePaneAnnouncesEachDelayedReconnectAndEndsOnlyOnce() async throws {
+@MainActor @Test func visibleViewAnnouncesEachDelayedReconnectAndEndsOnlyOnce() async throws {
     func waitFor(_ reason: Comment, until condition: () -> Bool) async throws {
         let deadline = ContinuousClock.now + .seconds(5)
         while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
         try #require(condition(), reason)
     }
-    func label(in view: TerminalView) -> String? {
+    func label(in view: TerminalMetalView) -> String? {
         let spinner = view.subviews.compactMap { $0 as? CursorSpinner }.first
         #if os(macOS)
         return spinner?.accessibilityLabel()
@@ -29,24 +29,24 @@ import Testing
     var announcements: [String] = []
     var times: [ContinuousClock.Instant] = []
     let rect = CGRect(x: 0, y: 0, width: 440, height: 300)
-    func surface() -> TerminalView {
-        let view = TerminalView(frame: rect, device: nil)
+    func surface() -> TerminalMetalView {
+        let view = TerminalMetalView(frame: rect, device: nil)
         view.onAccessibilityAnnouncement = { message in
             announcements.append(message)
             times.append(.now)
         }
         return view
     }
-    func pane(_ view: TerminalView) -> some View {
-        var pane = TerminalPane(session)
-        pane.preparedView = view
-        pane.assumesVisibleForBenchmark = true
-        return pane.id(ObjectIdentifier(view))
+    func terminalView(_ view: TerminalMetalView) -> some View {
+        var terminalView = TerminalView(session)
+        terminalView.preparedView = view
+        terminalView.assumesVisibleForBenchmark = true
+        return terminalView.id(ObjectIdentifier(view))
     }
     let view = surface()
     #if os(macOS)
     _ = NSApplication.shared
-    let host = NSHostingView(rootView: pane(view))
+    let host = NSHostingView(rootView: terminalView(view))
     host.sizingOptions = []
     let window = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
@@ -55,7 +55,7 @@ import Testing
     defer { window.close() }
     host.layoutSubtreeIfNeeded()
     #else
-    let host = UIHostingController(rootView: pane(view))
+    let host = UIHostingController(rootView: terminalView(view))
     let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first.map(UIWindow.init(windowScene:))
         ?? UIWindow(frame: rect)
     window.rootViewController = host
@@ -67,9 +67,9 @@ import Testing
     try await waitFor("The initial spinner is labeled Connecting.") { label(in: view) == "Connecting" && peer.opens == 1 }
     #expect(announcements.isEmpty)
     try peer.send(#"{"type":"ready","resumed":false}"#, opcode: .text)
-    let transcript = "keep reading"
-    try peer.send(transcript, opcode: .binary)
-    try await waitFor("The live screen is displayed.") { view.snapshot?.rows.first?.text == transcript && label(in: view) == nil }
+    let output = "keep reading"
+    try peer.send(output, opcode: .binary)
+    try await waitFor("The live screen is displayed.") { view.snapshot?.rows.first?.text == output && label(in: view) == nil }
     view.selectWord(row: 0, column: 0)
     for episode in 1...2 {
         let started = ContinuousClock.now
@@ -83,8 +83,8 @@ import Testing
         try await waitFor("A second retry socket opened.") { peer.opens == opens + 2 }
         #expect(announcements == Array(repeating: "Reconnecting", count: episode))
         try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
-        try peer.send(transcript, opcode: .binary)
-        try await waitFor("The replay restored the live pane.") { label(in: view) == nil }
+        try peer.send(output, opcode: .binary)
+        try await waitFor("The replay restored the live view.") { label(in: view) == nil }
         #expect(view.selectedText == "keep")
     }
 
@@ -94,7 +94,7 @@ import Testing
     try await waitFor("A third reconnect is awaiting its ready frame.") { label(in: view) == "Reconnecting" && peer.opens == 6 }
     view.sendInput(.text("old-shell-only"))
     var typedDuringReplacement = false
-    // The actor has adopted the new shell when its title clears, but the pane still displays the old one.
+    // The actor has adopted the new shell when its title clears, but the view still displays the old one.
     let typeOnOldScreen: @MainActor @Sendable () -> Void = {
         typedDuringReplacement = true
         view.sendInput(.text("key-during-replacement"))
@@ -104,7 +104,7 @@ import Testing
         MainActor.assumeIsolated { typeOnOldScreen() }
     }
     try peer.send(#"{"type":"ready","resumed":false}"#, opcode: .text)
-    try await waitFor("The pane announces the replacement and returns to live input.") {
+    try await waitFor("The view announces the replacement and returns to live input.") {
         announcements.last == "New shell" && label(in: view) == nil
     }
     #expect(typedDuringReplacement && !session.hasEnded)
@@ -113,15 +113,15 @@ import Testing
     try peer.send(newPrompt, opcode: .binary)
     try await waitFor("Fresh output appears on the live grid.") { view.snapshot?.rows.first?.text == newPrompt }
     view.setHistoryOffset(view.historyCount)
-    #expect(view.snapshot?.rows.first?.text == transcript && view.selectedText == "keep")
+    #expect(view.snapshot?.rows.first?.text == output && view.selectedText == "keep")
     let archivedRows = view.historyCount
     peer.drop()
     try await waitFor("The next socket reattaches to the replacement shell.") { label(in: view) == "Reconnecting" && peer.opens == 7 }
     try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
     try peer.send(newPrompt, opcode: .binary) // The server knows only its current shell.
-    try await waitFor("The pane finished replay while reading its archive.") { label(in: view) == nil }
+    try await waitFor("The view finished replay while reading its archive.") { label(in: view) == nil }
     #expect(view.historyOffset == archivedRows && view.historyCount == archivedRows)
-    #expect(view.snapshot?.rows.first?.text == transcript && view.selectedText == "keep")
+    #expect(view.snapshot?.rows.first?.text == output && view.selectedText == "keep")
     view.setHistoryOffset(0)
     view.sendInput(.text("new-shell-only"))
     try await waitFor("The replacement shell receives its new input.") { peer.receivedBinary.contains("new-shell-only") }
@@ -130,7 +130,7 @@ import Testing
     try peer.send(#"{"type":"exit"}"#, opcode: .text)
     try await waitFor("The shell end is announced.") { announcements.last == "Shell ended" }
     let reopened = surface()
-    host.rootView = pane(reopened)
-    try await waitFor("A new pane displays the ended session's final screen.") { reopened.snapshot?.rows.first?.text == newPrompt }
+    host.rootView = terminalView(reopened)
+    try await waitFor("A new view displays the ended session's final screen.") { reopened.snapshot?.rows.first?.text == newPrompt }
     #expect(announcements == ["Reconnecting", "Reconnecting", "Reconnecting", "New shell", "Reconnecting", "Shell ended"])
 }

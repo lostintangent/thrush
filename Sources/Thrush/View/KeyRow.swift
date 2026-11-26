@@ -3,7 +3,7 @@ import ThrushCore
 import UIKit
 
 /// A glass capsule that floats above the keyboard with the keys a terminal needs and Hide Keyboard.
-final class TerminalKeyAccessory: UIView {
+final class KeyRow: UIView {
     /// Portrait floats a 48-point capsule 12 points above the keyboard. Landscape, where every
     /// row counts, floats a 36-point capsule 8 points above it. The grid's own bottom inset keeps
     /// the last row clear of either.
@@ -112,7 +112,7 @@ final class TerminalKeyAccessory: UIView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func layoutSubviews() {
-        // UIKit animates the accessory's host to the new keyboard width. Keep the
+        // UIKit animates the view holding the key row to the new keyboard width. Keep the
         // controls in destination coordinates throughout that transform.
         UIView.performWithoutAnimation {
             super.layoutSubviews()

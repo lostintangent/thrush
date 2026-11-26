@@ -7,7 +7,7 @@ import UIKit
     private struct Layout: Encodable, Equatable {
         let windowSize, terminalSize: CGSize
         let keyboardGuideInWindow: CGRect
-        let keyboardEndFrameInWindow, paneKeyboardGuideInWindow: CGRect?
+        let keyboardEndFrameInWindow, canvasKeyboardGuideInWindow: CGRect?
         let orientation, appearance: String
         let columns, rows: Int?
         let inheritedAnimationDuration: TimeInterval
@@ -106,7 +106,7 @@ import UIKit
         var animations: Animations?
     }
 
-    private weak var terminal: TerminalView?
+    private weak var terminal: TerminalMetalView?
     private weak var host: UIViewController?
     private var boundsObservation: NSKeyValueObservation?
     private var previous: Layout?
@@ -116,7 +116,7 @@ import UIKit
     private var drawn: DrawnRow?
     private let output: FileHandle
 
-    init?(terminal: TerminalView, host: UIViewController) {
+    init?(terminal: TerminalMetalView, host: UIViewController) {
         guard CommandLine.arguments.contains("--trace-rotation-layout") else { return nil }
         let pid = ProcessInfo.processInfo.processIdentifier
         let url = URL.documentsDirectory.appending(path: "rotation-layout-\(pid).jsonl")
@@ -150,7 +150,7 @@ import UIKit
         if let previous, previous.windowSize != layout.windowSize || previous.orientation != layout.orientation {
             sampleTransition(for: host?.transitionCoordinator?.transitionDuration ?? 0)
         } else if link != nil {
-            // A pane can release its held grid after the window and keyboard settle.
+            // The canvas can release its held grid after the window and keyboard settle.
             sampleTransition(for: 0)
         }
         previous = layout
@@ -243,12 +243,12 @@ import UIKit
         }
     }
 
-    private func paneKeyboardGuide(in window: UIWindow?) -> CGRect? {
+    private func canvasKeyboardGuide(in window: UIWindow?) -> CGRect? {
         guard let window else { return nil }
         var responder: UIResponder? = terminal
         while let current = responder {
-            if let controller = current as? UIViewController, let pane = controller.viewIfLoaded {
-                return pane.convert(pane.keyboardLayoutGuide.layoutFrame, to: window)
+            if let controller = current as? UIViewController, let canvas = controller.viewIfLoaded {
+                return canvas.convert(canvas.keyboardLayoutGuide.layoutFrame, to: window)
             }
             responder = current.next
         }
@@ -268,7 +268,7 @@ import UIKit
         return Layout(windowSize: window.bounds.size, terminalSize: terminal.bounds.size,
                       keyboardGuideInWindow: root.convert(root.keyboardLayoutGuide.layoutFrame, to: window),
                       keyboardEndFrameInWindow: keyboardEndFrameInScreen.map { window.convert($0, from: scene.screen.coordinateSpace) },
-                      paneKeyboardGuideInWindow: paneKeyboardGuide(in: window),
+                      canvasKeyboardGuideInWindow: canvasKeyboardGuide(in: window),
                       orientation: orientation, appearance: terminal.traitCollection.userInterfaceStyle == .dark ? "dark" : "light",
                       columns: terminal.gridSize?.columns, rows: terminal.gridSize?.rows,
                       inheritedAnimationDuration: UIView.inheritedAnimationDuration,

@@ -1,8 +1,8 @@
 import ThrushCore
 
 /// Cell indexes in this type include retained history. Only the native view deals in viewport coordinates.
-struct TerminalTranscript {
-    typealias Selection = TerminalView.Selection
+struct Viewport {
+    typealias Selection = TerminalMetalView.Selection
 
     struct Position: Comparable {
         var row: Int
@@ -215,7 +215,7 @@ struct TerminalTranscript {
             let limit = min(end + 1, source.textEnd(in: y))
             while column < limit {
                 let cell = row[column]
-                result.append(cell.transcriptText(spoken: spoken))
+                result.append(cell.text(spoken: spoken))
                 column += max(1, cell.width)
             }
         }
@@ -307,15 +307,16 @@ struct TerminalTranscript {
 }
 
 extension Terminal.Cell {
-    /// Concealed text reads as one space per UTF-16 unit, so spoken and copied text share every range.
-    func transcriptText(spoken: Bool) -> String {
+    /// The cell's copied or spoken text, where an empty cell reads as a space. Spoken concealed text reads as
+    /// one space per UTF-16 unit, so spoken and copied text share every range.
+    func text(spoken: Bool) -> String {
         if text.isEmpty { return " " }
         return spoken && style.invisible ? String(repeating: " ", count: text.utf16.count) : text
     }
 }
 
-private extension TerminalView.Selection {
-    typealias Position = TerminalTranscript.Position
+private extension TerminalMetalView.Selection {
+    typealias Position = Viewport.Position
     var anchor: Position { .init(row: anchorRow, column: anchorColumn) }
     var head: Position { .init(row: headRow, column: headColumn) }
 
@@ -331,11 +332,11 @@ private extension TerminalView.Selection {
 private extension Terminal.Snapshot {
     var count: Int { history.count + rows.count }
 
-    func cellOffset(of position: TerminalTranscript.Position, in rows: ClosedRange<Int>) -> Int {
+    func cellOffset(of position: Viewport.Position, in rows: ClosedRange<Int>) -> Int {
         (rows.lowerBound..<position.row).reduce(position.column) { $0 + textEnd(in: $1) }
     }
 
-    func position(at offset: Int, in rows: ClosedRange<Int>) -> TerminalTranscript.Position? {
+    func position(at offset: Int, in rows: ClosedRange<Int>) -> Viewport.Position? {
         var column = offset
         for row in rows {
             if row == rows.upperBound {

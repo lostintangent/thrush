@@ -9,28 +9,28 @@ import Testing
     let session: TerminalSession
     let shown: Bool
 
-    private var pane: TerminalPane {
-        var pane = TerminalPane(session)
-        // Command-line windows may be occluded. SwiftUI still mounts and removes the actual pane.
-        pane.assumesVisibleForBenchmark = true
-        return pane
+    private var terminalView: TerminalView {
+        var terminalView = TerminalView(session)
+        // Command-line windows may be occluded. SwiftUI still mounts and removes the actual view.
+        terminalView.assumesVisibleForBenchmark = true
+        return terminalView
     }
 
     var body: some View {
         if shown {
-            pane
+            terminalView
         } else {
             Color.clear
         }
     }
 }
 
-@MainActor private func terminal(in view: NSView) -> TerminalView? {
-    if let terminal = view as? TerminalView { return terminal }
+@MainActor private func terminal(in view: NSView) -> TerminalMetalView? {
+    if let terminal = view as? TerminalMetalView { return terminal }
     return view.subviews.lazy.compactMap { terminal(in: $0) }.first
 }
 
-@MainActor private func waitForPane(_ change: String, until condition: () -> Bool) async throws {
+@MainActor private func waitForView(_ change: String, until condition: () -> Bool) async throws {
     let deadline = ContinuousClock.now + .seconds(5)
     while !condition() {
         try #require(ContinuousClock.now < deadline, "Timed out waiting for \(change)")
@@ -38,7 +38,7 @@ import Testing
     }
 }
 
-@MainActor @Test func remountedMacPaneDisplaysOutputReadWhileRemoved() async throws {
+@MainActor @Test func remountedMacViewDisplaysOutputReadWhileRemoved() async throws {
     _ = NSApplication.shared
     let transport = ControlledTransport()
     let opens = Mutex<[Terminal.Size]>([])
@@ -57,7 +57,7 @@ import Testing
     hostingView.layoutSubtreeIfNeeded()
 
     await transport.emit("first\r\n")
-    try await waitForPane("the first native grid") { terminal(in: hostingView)?.snapshot?.rows.first?.text == "first" }
+    try await waitForView("the first native grid") { terminal(in: hostingView)?.snapshot?.rows.first?.text == "first" }
     let firstView = try #require(terminal(in: hostingView))
     let measured = try #require(firstView.gridSize)
     #expect(measured.columns > 1 && measured.rows > 1)
@@ -65,14 +65,14 @@ import Testing
 
     hostingView.rootView = SessionTestView(session: session, shown: false)
     hostingView.layoutSubtreeIfNeeded()
-    try await waitForPane("native view removal") { firstView.window == nil && terminal(in: hostingView) == nil }
+    try await waitForView("native view removal") { firstView.window == nil && terminal(in: hostingView) == nil }
     await transport.emit("\u{1b}]2;Hidden title\u{7}second")
-    try await waitForPane("output while unmounted") { session.title == "Hidden title" }
+    try await waitForView("output while unmounted") { session.title == "Hidden title" }
     #expect(await transport.closes == 0)
 
     hostingView.rootView = SessionTestView(session: session, shown: true)
     hostingView.layoutSubtreeIfNeeded()
-    try await waitForPane("the new native grid") {
+    try await waitForView("the new native grid") {
         guard let view = terminal(in: hostingView), view !== firstView, let rows = view.snapshot?.rows else { return false }
         return rows.prefix(2).map(\.text) == ["first", "second"]
     }
@@ -102,14 +102,14 @@ import Testing
     defer { window.close() }
     hostingView.layoutSubtreeIfNeeded()
 
-    try await waitForPane("the transport request") { requested.withLock { $0 } }
+    try await waitForView("the transport request") { requested.withLock { $0 } }
     try await Task.sleep(for: .milliseconds(50))
     // The shell opens while the main actor stays busy past the spinner's 200 ms wait, so the
     // spinner's wakeup runs after the first screen has already cancelled it.
     opening.continuation.yield()
     usleep(400_000)
     let view = try #require(terminal(in: hostingView))
-    try await waitForPane("the fresh shell") { view.snapshot != nil }
+    try await waitForView("the fresh shell") { view.snapshot != nil }
     try await Task.sleep(for: .milliseconds(100))
     #expect(view.cursorSpinnerFrameInWindow == nil)
     #expect(!view.subviews.contains { $0 is CursorSpinner })

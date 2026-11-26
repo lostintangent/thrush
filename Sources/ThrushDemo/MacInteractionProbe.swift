@@ -10,7 +10,7 @@ struct NativeInteractionProbe {
     private let clipboard: any MacTerminalClipboard
     private let unspecified = NSRange(location: NSNotFound, length: 0)
 
-    init(view: TerminalView) throws {
+    init(view: TerminalMetalView) throws {
         guard view.focusInput(), let surface = view.window?.firstResponder as? NSView,
               let client = surface as? any NSTextInputClient, let clipboard = surface as? any MacTerminalClipboard else {
             throw RenderBenchmark.Failure("The terminal's text input client could not receive focus.")
@@ -20,7 +20,7 @@ struct NativeInteractionProbe {
         self.clipboard = clipboard
     }
 
-    var transcript: String { surface.accessibilityValue() as? String ?? "" }
+    var accessibleText: String { surface.accessibilityValue() as? String ?? "" }
     var selection: String? {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }

@@ -4,19 +4,19 @@ import SwiftUI
 import Testing
 @testable import Thrush
 
-enum MacPaneHost: CaseIterable {
+enum MacWindowLayout: CaseIterable {
     case window, toolbar, toolbarIgnoringSafeArea, paddedToolbar
 }
 
-@MainActor @Test(arguments: MacPaneHost.allCases)
-func macPaneFitsTheWindowContentLayout(host layout: MacPaneHost) throws {
+@MainActor @Test(arguments: MacWindowLayout.allCases)
+func macViewFitsTheWindowContentLayout(host layout: MacWindowLayout) throws {
     _ = NSApplication.shared
     let session = TerminalSession { _ in
         throw URLError(.cannotConnectToHost)
     }
-    let terminal = TerminalView(frame: .zero)
-    var pane = TerminalPane(session, isActive: false, theme: .slateDark)
-    pane.preparedView = terminal
+    let terminal = TerminalMetalView(frame: .zero)
+    var terminalView = TerminalView(session, isActive: false, theme: .slateDark)
+    terminalView.preparedView = terminal
     var style: NSWindow.StyleMask = [.titled, .closable, .resizable]
     if layout != .window { style.insert(.fullSizeContentView) }
     let window = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 720, height: 480),
@@ -27,9 +27,9 @@ func macPaneFitsTheWindowContentLayout(host layout: MacPaneHost) throws {
         window.toolbarStyle = .unified
     }
     let root = switch layout {
-    case .window, .toolbar: AnyView(pane)
-    case .toolbarIgnoringSafeArea: AnyView(pane.ignoresSafeArea())
-    case .paddedToolbar: AnyView(pane.padding(24))
+    case .window, .toolbar: AnyView(terminalView)
+    case .toolbarIgnoringSafeArea: AnyView(terminalView.ignoresSafeArea())
+    case .paddedToolbar: AnyView(terminalView.padding(24))
     }
     let hosting = NSHostingView(rootView: root)
     hosting.sizingOptions = []
@@ -40,24 +40,24 @@ func macPaneFitsTheWindowContentLayout(host layout: MacPaneHost) throws {
     let host = try #require(window.contentView)
     host.layoutSubtreeIfNeeded()
 
-    let container = try #require(terminal.superview as? TerminalPaneContainer)
-    let paneFrame = container.convert(container.bounds, to: nil)
+    let canvas = try #require(terminal.superview as? CanvasView)
+    let canvasFrame = canvas.convert(canvas.bounds, to: nil)
     let bounds = host.convert(host.bounds, to: nil)
-    // A pane meeting the toolbar's edge paints beneath it. A padded pane stays inside the safe area.
+    // A view meeting the toolbar's edge paints beneath it. A padded view stays inside the safe area.
     let safe = layout == .paddedToolbar ? window.contentLayoutRect.insetBy(dx: 24, dy: 24) : window.contentLayoutRect
     switch layout {
     case .window:
-        #expect(paneFrame == safe && paneFrame == bounds)
+        #expect(canvasFrame == safe && canvasFrame == bounds)
     case .toolbar, .toolbarIgnoringSafeArea:
         #expect(window.toolbar?.isVisible == true)
-        #expect(paneFrame.maxY > safe.maxY && paneFrame == bounds)
+        #expect(canvasFrame.maxY > safe.maxY && canvasFrame == bounds)
     case .paddedToolbar:
-        #expect(paneFrame == safe)
+        #expect(canvasFrame == safe)
     }
     let shade = TerminalTheme.slateDark.palette.background
     let fill = CGColor(srgbRed: CGFloat(shade.red) / 255, green: CGFloat(shade.green) / 255,
                        blue: CGFloat(shade.blue) / 255, alpha: 1)
-    #expect(container.layer?.backgroundColor == fill)
+    #expect(canvas.layer?.backgroundColor == fill)
     #expect(terminal.convert(terminal.bounds, to: nil) == safe)
     let input = try #require(terminal.subviews.compactMap { $0 as? MacTerminalInput }.first)
     let firstCell = input.convert(terminal.cellRect(row: 0, column: 0), to: nil)

@@ -14,10 +14,10 @@ struct DemoSurface: View {
             NavigationStack {
                 Group {
                     if session.options.checksToolbar {
-                        // The integration check mounts the public pane exactly as an app would.
-                        proofPane(terminalSession)
+                        // The integration check mounts the public view exactly as an app would.
+                        proofView(terminalSession)
                     } else {
-                        session.pane(terminalSession)
+                        session.terminalView(terminalSession)
                     }
                 }
                 .navigationTitle(terminalSession.title.isEmpty ? "Terminal" : terminalSession.title)
@@ -38,7 +38,7 @@ struct DemoSurface: View {
                 MacToolbarProof(session: terminalSession, ignoresSafeArea: session.options.hostIgnoresSafeArea,
                                 split: session.options.splitsToolbar)
             } else {
-                session.pane(terminalSession)
+                session.terminalView(terminalSession)
             }
             #endif
         } else if session.options.benchmarkURL != nil {
@@ -50,12 +50,12 @@ struct DemoSurface: View {
     }
 
     #if os(iOS)
-    /// A host's own `.ignoresSafeArea()`, written before the pane extended under bars itself, must change nothing.
-    @ViewBuilder private func proofPane(_ terminalSession: TerminalSession) -> some View {
+    /// An app's own `.ignoresSafeArea()`, written before the view extended under bars itself, must change nothing.
+    @ViewBuilder private func proofView(_ terminalSession: TerminalSession) -> some View {
         if session.options.hostIgnoresSafeArea {
-            TerminalPane(terminalSession).ignoresSafeArea()
+            TerminalView(terminalSession).ignoresSafeArea()
         } else {
-            TerminalPane(terminalSession)
+            TerminalView(terminalSession)
         }
     }
     #endif
@@ -63,14 +63,14 @@ struct DemoSurface: View {
 
 #if os(macOS)
 private struct RendererSurface: NSViewRepresentable {
-    let view: TerminalView
-    func makeNSView(context: Context) -> TerminalView { view }
-    func updateNSView(_ view: TerminalView, context: Context) {}
+    let view: TerminalMetalView
+    func makeNSView(context: Context) -> TerminalMetalView { view }
+    func updateNSView(_ view: TerminalMetalView, context: Context) {}
 }
 #else
 private struct RendererSurface: UIViewRepresentable {
-    let view: TerminalView
-    func makeUIView(context: Context) -> TerminalView { view }
-    func updateUIView(_ view: TerminalView, context: Context) {}
+    let view: TerminalMetalView
+    func makeUIView(context: Context) -> TerminalMetalView { view }
+    func updateUIView(_ view: TerminalMetalView, context: Context) {}
 }
 #endif

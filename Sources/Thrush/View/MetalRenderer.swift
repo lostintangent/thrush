@@ -52,7 +52,7 @@ final class MetalRenderer {
 
     /// Encode one frame. Blinking ink takes `blinkOpacity`, so a blink reuses every cached row.
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
-                pass: MTLRenderPassDescriptor, selection: TerminalView.Selection? = nil,
+                pass: MTLRenderPassDescriptor, selection: TerminalMetalView.Selection? = nil,
                 showsCursor: Bool = true, blinkOpacity: Float = 1) throws -> Prepared {
         guard let target = pass.colorAttachments[0].texture else { throw RendererFailure.missingRenderTarget }
         let viewport = CGSize(width: target.width, height: target.height)

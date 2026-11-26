@@ -4,7 +4,7 @@ import UIKit
 
 /// UIKit owns the editable document only until its input method commits. The terminal owns all echo.
 final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDelegate {
-    private weak var terminalView: TerminalView?
+    private weak var terminal: TerminalMetalView?
     private lazy var terminalKeyCommands = makeKeyCommands()
     private var editingDepth = 0
     private var cursorRect = CGRect.zero
@@ -12,13 +12,13 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private var theme: TerminalTheme?
     private var ink: Terminal.RGB?
     private var paper: Terminal.RGB?
-    private lazy var accessory = TerminalKeyAccessory(
+    private lazy var keyRow = KeyRow(
         onKey: { [weak self] key in self?.sendKey(key) },
         onHide: { [weak self] in _ = self?.resignFirstResponder() }
     )
 
-    init(terminalView: TerminalView) {
-        self.terminalView = terminalView
+    init(terminal: TerminalMetalView) {
+        self.terminal = terminal
         super.init(frame: .zero, textContainer: nil)
         delegate = self
         pasteDelegate = self
@@ -42,24 +42,24 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         backgroundColor = .clear
         tintColor = .clear
         isOpaque = false
-        inputAccessoryView = accessory
+        inputAccessoryView = keyRow
         registerForTraitChanges([UITraitVerticalSizeClass.self]) { (self: Self, _) in self.matchKeyRowToWindow() }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // A separate transcript interaction handles terminal selection, scrolling and keyboard focus.
+    // The history scroll view handles terminal selection, scrolling and keyboard focus.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool { false }
     override var hasText: Bool { true }
-    private var acceptsInput: Bool { terminalView?.acceptsTerminalInput == true }
+    private var acceptsInput: Bool { terminal?.acceptsTerminalInput == true }
     override var canBecomeFirstResponder: Bool { acceptsInput && super.canBecomeFirstResponder }
 
     var showsKeyRow = true {
         didSet {
             guard showsKeyRow != oldValue else { return }
-            accessory.clearModifier()
-            inputAccessoryView = showsKeyRow ? accessory : nil
+            keyRow.clearModifier()
+            inputAccessoryView = showsKeyRow ? keyRow : nil
             if isFirstResponder { reloadInputViews() }
         }
     }
@@ -70,17 +70,17 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private func matchKeyRowToWindow() {
         let sizeClass = traitCollection.verticalSizeClass
         guard sizeClass != .unspecified else { return }
-        accessory.traitOverrides.verticalSizeClass = sizeClass
-        accessory.updateTraitsIfNeeded()
+        keyRow.traitOverrides.verticalSizeClass = sizeClass
+        keyRow.updateTraitsIfNeeded()
     }
 
     /// Composition draws in the terminal's ink on its paper. The key row stays on the theme.
     func synchronize(cursorRect: CGRect, pointSize: CGFloat, theme: TerminalTheme, ink: Terminal.RGB, paper: Terminal.RGB) {
-        if accessory.isUserInteractionEnabled != acceptsInput {
-            accessory.isUserInteractionEnabled = acceptsInput
-            accessory.accessibilityElementsHidden = !acceptsInput
+        if keyRow.isUserInteractionEnabled != acceptsInput {
+            keyRow.isUserInteractionEnabled = acceptsInput
+            keyRow.accessibilityElementsHidden = !acceptsInput
         }
-        let width = terminalView?.bounds.width ?? 0
+        let width = terminal?.bounds.width ?? 0
         let themeChanged = self.theme != theme
         let inkChanged = self.ink != ink || self.paper != paper
         let fontChanged = font?.pointSize != pointSize
@@ -98,16 +98,16 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
             ]
         }
-        if themeChanged { accessory.apply(theme) }
+        if themeChanged { keyRow.apply(theme) }
         layoutComposition()
     }
 
     private func layoutComposition() {
-        guard let font, let terminalView, let ink, let paper else { return }
+        guard let font, let terminal, let ink, let paper else { return }
         let marked = markedTextRange != nil
         let measuredWidth = ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
-        let width = min(terminalView.bounds.width, max(cursorRect.width, measuredWidth))
-        let x = min(cursorRect.minX, max(0, terminalView.bounds.maxX - width))
+        let width = min(terminal.bounds.width, max(cursorRect.width, measuredWidth))
+        let x = min(cursorRect.minX, max(0, terminal.bounds.maxX - width))
         let rect = CGRect(x: x, y: cursorRect.minY, width: width,
                           height: max(cursorRect.height, ceil(font.lineHeight)))
         if frame != rect { frame = rect }
@@ -163,11 +163,11 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case "\n", "\r": sendKey(.enter)
         case "\t": sendKey(.tab)
         default:
-            if accessory.controlArmed, committed.count == 1, let character = committed.first {
+            if keyRow.controlArmed, committed.count == 1, let character = committed.first {
                 sendKey(.character(character))
             } else {
-                accessory.clearModifier()
-                terminalView?.sendInput(.text(committed))
+                keyRow.clearModifier()
+                terminal?.sendInput(.text(committed))
             }
         }
     }
@@ -182,30 +182,30 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
 
     func cancelPendingInput() {
         clearDocument()
-        accessory.clearModifier()
+        keyRow.clearModifier()
     }
 
     override func becomeFirstResponder() -> Bool {
         if !isFirstResponder, canBecomeFirstResponder {
-            terminalView?.beforeKeyboardMove?()
+            terminal?.beforeKeyboardMove?()
             matchKeyRowToWindow()
         }
         guard super.becomeFirstResponder() else { return false }
-        terminalView?.inputFocusDidChange()
+        terminal?.inputFocusDidChange()
         return true
     }
 
     override func resignFirstResponder() -> Bool {
         cancelPendingInput()
-        if isFirstResponder { terminalView?.beforeKeyboardMove?() }
+        if isFirstResponder { terminal?.beforeKeyboardMove?() }
         guard super.resignFirstResponder() else { return false }
-        terminalView?.inputFocusDidChange()
+        terminal?.inputFocusDidChange()
         return true
     }
 
     override func paste(_ sender: Any?) {
         guard acceptsInput else { return }
-        terminalView?.paste(from: .general)
+        terminal?.paste(from: .general)
     }
 
     override func paste(itemProviders: [NSItemProvider]) {
@@ -228,19 +228,19 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     func pasteText(_ content: String) {
         guard acceptsInput, !content.isEmpty else { return }
         if markedTextRange != nil { unmarkText() }
-        accessory.clearModifier()
-        terminalView?.sendInput(.paste(content))
+        keyRow.clearModifier()
+        terminal?.sendInput(.paste(content))
     }
 
     override func copy(_ sender: Any?) {
-        if let selected = terminalView?.selectedText, !selected.isEmpty {
+        if let selected = terminal?.selectedText, !selected.isEmpty {
             UIPasteboard.general.string = selected
         }
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         if action == #selector(terminalKey(_:)) { return acceptsInput && markedTextRange == nil }
-        if action == #selector(copy(_:)) { return terminalView?.selectedText?.isEmpty == false }
+        if action == #selector(copy(_:)) { return terminal?.selectedText?.isEmpty == false }
         if action == #selector(paste(_:)) { return acceptsInput && UIPasteboard.general.hasStrings }
         if action == #selector(cut(_:)) { return false }
         return super.canPerformAction(action, withSender: sender)
@@ -249,9 +249,9 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private func sendKey(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers = []) {
         guard acceptsInput else { return }
         var modifiers = modifiers
-        if accessory.controlArmed { modifiers.insert(.control) }
-        accessory.clearModifier()
-        terminalView?.sendInput(.key(key, modifiers: modifiers))
+        if keyRow.controlArmed { modifiers.insert(.control) }
+        keyRow.clearModifier()
+        terminal?.sendInput(.key(key, modifiers: modifiers))
     }
 
     // UIKit binds unmodified arrows, Tab and several Control keys to local text editing before
@@ -341,7 +341,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 }
 
-extension TerminalView {
+extension TerminalMetalView {
     /// The standard edit command uses the system pasteboard. A packaged benchmark can use its own.
     package func paste(from pasteboard: UIPasteboard) {
         if let text = pasteboard.string { phoneInput.pasteText(text) }

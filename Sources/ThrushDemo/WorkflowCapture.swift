@@ -23,7 +23,7 @@ struct WorkflowCapture: Encodable {
         let gridInWindow: [CGFloat]
         let keyboard: Keyboard?
 
-        @MainActor init?(view: TerminalView, drawableGrid: CGRect) {
+        @MainActor init?(view: TerminalMetalView, drawableGrid: CGRect) {
             guard let window = view.window, !view.bounds.isEmpty, !drawableGrid.isEmpty,
                   view.drawableSize.width > 0, view.drawableSize.height > 0 else { return nil }
             let sx = view.bounds.width / view.drawableSize.width
@@ -63,10 +63,10 @@ struct WorkflowCapture: Encodable {
     let inkMask: [String]
     let selection: [Int]?
     let copiedText: String?
-    /// Window rectangles of the pane's own controls over the grid, such as Latest while reading history.
+    /// Window rectangles of the view's own controls over the grid, such as Latest while reading history.
     let overlays: [[CGFloat]]
 
-    init(name: String, eventIndex: Int, view: TerminalView, snapshot: Terminal.Snapshot, layout: Layout, copied: String?, ended: Bool = false) {
+    init(name: String, eventIndex: Int, view: TerminalMetalView, snapshot: Terminal.Snapshot, layout: Layout, copied: String?, ended: Bool = false) {
         self.ended = ended
         self.name = name
         self.eventIndex = eventIndex
@@ -92,7 +92,7 @@ struct WorkflowCapture: Encodable {
         }
     }
 
-    private static func overlays(over view: TerminalView) -> [[CGFloat]] {
+    private static func overlays(over view: TerminalMetalView) -> [[CGFloat]] {
         // Glass and its shadow extend a few points past the control's frame.
         let margin: CGFloat = 6
         #if os(macOS)

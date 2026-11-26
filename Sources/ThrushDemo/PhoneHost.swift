@@ -63,11 +63,11 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-    // The pane draws beneath the status bar, so the status bar follows the pane's background.
+    // The terminal view draws beneath the status bar, so the status bar follows its background.
     private var canvas: ColorScheme?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        // Under a navigation stack, SwiftUI matches the status bar to the bar's scheme, which the pane sets.
+        // Under a navigation stack, SwiftUI matches the status bar to the bar's scheme, which the view sets.
         if session.options.checksToolbar { return super.preferredStatusBarStyle }
         let scheme = canvas ?? (traitCollection.userInterfaceStyle == .dark ? .dark : .light)
         return scheme == .light ? .darkContent : .lightContent
@@ -83,7 +83,7 @@ private final class PhoneHost: UIHostingController<DemoSurface> {
         applyChrome(session.view.resolvedTheme)
         session.onFirstUsable = { [weak self] in self?.focusIfRequested() }
         if session.options.checksToolbar && session.options.keyboard {
-            // The toolbar proof mounts only the public pane, so keep asking until its terminal is in the window.
+            // The toolbar proof mounts only the public view, so keep asking until its terminal is in the window.
             Task { [weak self] in
                 while let host = self, !host.focusRequested {
                     host.focusIfRequested()

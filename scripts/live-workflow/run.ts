@@ -265,7 +265,7 @@ export class LiveRun {
         }
     }
     // A real Vim resize can return from the host layout before SIGWINCH redraws the PTY.
-    // Drain that burst before exposing the checkpoint or instructing the pane to detach.
+    // Drain that burst before exposing the checkpoint or instructing the view to detach.
     async settleOutput(description: string) {
         const start = performance.now();
         await this.until(() => this.frames.length === 0 && performance.now() - Math.max(start, this.lastOutputAt) >= 250,
@@ -293,7 +293,7 @@ export class LiveRun {
         assert(link?.open && this.ready.at(-1) === false,
                "Only a newly allocated shell accepts fixture setup");
         const marker = ".thrush-ready-" + randomUUID();
-        // This is a separate harness write. Every byte the PTY emits still reaches the native pane and reference.
+        // This is a separate harness write. Every byte the PTY emits still reaches the native view and reference.
         const quotedPath = "'" + this.bootstrapShell.replaceAll("'", "'\\''") + "'";
         const command = Buffer.from("exec " + quotedPath + " " + marker + (this.previousScreen ? " --keep-history" : "") + "\r");
         link.server.send(command);
@@ -328,7 +328,7 @@ export class LiveRun {
         if (ended) this.state.ended = true;
         if (archivedRows) this.state.archivedRows = archivedRows;
         this.pendingReference = referenceDocument(this.reference, this.fixture, event, this.previousScreen);
-        // Native framebuffer capture can retry for 160 seconds before the pane acknowledges.
+        // Native framebuffer capture can retry for 160 seconds before the view acknowledges.
         await this.until(() => this.accepted, "acknowledgement of " + event.name, 190_000, false);
     }
     projection(index: number) { return index === this.state.eventIndex ? this.pendingReference : undefined; }
@@ -342,7 +342,7 @@ export class LiveRun {
         assert.equal(body.columns, ref.columns); assert.equal(body.rows, ref.rows);
         if (ref.events[0].copy) assert.equal(body.copiedText, ref.events[0].copy.text);
         if (this.fixture.name === "live-lifecycle") {
-            assert.equal(body.sameNativePane, true, "The native view moved to a different pane or window");
+            assert.equal(body.sameNativeCanvas, true, "The native view moved to a different canvas or window");
             assert.equal(body.sessionEnded, this.state.ended ?? false);
             if (this.state.archivedRows) assert.deepEqual(body.archivedRows, this.state.archivedRows);
         }

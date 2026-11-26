@@ -16,10 +16,10 @@ import Testing
 
 @MainActor private struct SessionTab: View {
     let selected: SelectedSession
-    var body: some View { TerminalPane(selected.session) }
+    var body: some View { TerminalView(selected.session) }
 }
 
-@MainActor @Test func switchingPublicPaneSessionsReusesTheViewAndRoutesNewInput() async throws {
+@MainActor @Test func switchingSessionsReusesTheMetalViewAndRoutesNewInput() async throws {
     func waitFor(_ reason: Comment, until condition: () async -> Bool) async throws {
         let deadline = ContinuousClock.now + .seconds(5)
         while !(await condition()) {
@@ -27,9 +27,9 @@ import Testing
             try await Task.sleep(for: .milliseconds(10))
         }
     }
-    func container(in view: PaneNativeView) -> TerminalPaneContainer? {
-        if let pane = view as? TerminalPaneContainer { return pane }
-        return view.subviews.lazy.compactMap { container(in: $0) }.first
+    func mountedCanvas(in view: PlatformView) -> CanvasView? {
+        if let canvas = view as? CanvasView { return canvas }
+        return view.subviews.lazy.compactMap { mountedCanvas(in: $0) }.first
     }
 
     let first = ControlledTransport(), second = ControlledTransport()
@@ -60,13 +60,13 @@ import Testing
     let root = host.view!
     #endif
 
-    try await waitFor("The public pane mounted.") { container(in: root) != nil }
-    let pane = try #require(container(in: root))
+    try await waitFor("The public view mounted.") { mountedCanvas(in: root) != nil }
+    let canvas = try #require(mountedCanvas(in: root))
     #if os(iOS)
     // Unhosted UIKit tests have no owning scene to send an activation notification.
-    if window.windowScene == nil { pane.sceneLifecycleChanged(UIScene.didActivateNotification) }
+    if window.windowScene == nil { canvas.sceneLifecycleChanged(UIScene.didActivateNotification) }
     #endif
-    let view = pane.terminal
+    let view = canvas.terminal
     let size = try #require(view.gridSize)
     await first.emit("archived in A\r\nfirst shell" + String(repeating: "\r\n", count: size.rows - 1))
     try await waitFor("The first shell displayed.") { view.snapshot?.rows.first?.text == "first shell" && view.historyCount == 1 }
@@ -86,7 +86,7 @@ import Testing
     try await waitFor("The same native view displayed the second shell.") {
         view.snapshot?.rows.first?.text == "second shell"
     }
-    #expect(container(in: root) === pane && pane.terminal === view)
+    #expect(mountedCanvas(in: root) === canvas && canvas.terminal === view)
     #expect(view.selectedText == nil && view.historyCount == 0)
     // Output arriving on the old, still-owned transport cannot change the selected tab.
     await first.emit("\u{1b}]2;hidden output\u{7} only in A")

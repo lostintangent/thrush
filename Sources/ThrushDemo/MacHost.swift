@@ -68,7 +68,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         MacWindowLifecycleCheck.startIfRequested(session: session, window: window)
     }
 
-    // The renderer benchmark mounts its Metal view directly. Connected panes observe
+    // The renderer benchmark mounts its Metal view directly. Connected terminal views observe
     // window visibility themselves and keep their shells attached while hidden.
     func applicationWillHide(_ notification: Notification) {
         if session.options.benchmarkURL != nil { session.view.setRenderingActive(false) }

@@ -7,7 +7,7 @@ import UIKit
 @MainActor
 @Test func phoneTextInputCommitsMarkedTextExactlyOnce() throws {
     let terminal = Terminal(size: .init(columns: 40, rows: 20))
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let input = view.phoneInput
@@ -46,22 +46,22 @@ import UIKit
 }
 
 @MainActor
-@Test func phoneAccessoryAndHardwareKeysUseTerminalModes() throws {
+@Test func phoneKeyRowAndHardwareKeysUseTerminalModes() throws {
     var terminal = Terminal(size: .init(columns: 40, rows: 20))
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     let input = view.phoneInput
     var sent: [[UInt8]] = []
     view.onInput = { sent.append(terminal.encode($0)) }
-    let accessory = try #require(input.inputAccessoryView)
-    let stack = try #require(accessoryStack(accessory))
+    let keyRow = try #require(input.inputAccessoryView)
+    let stack = try #require(buttonStack(keyRow))
     let buttons = stack.arrangedSubviews.compactMap { $0 as? UIButton }
     let control = try #require(buttons.first { $0.accessibilityLabel == "Control" })
     let arrow = try #require(buttons.first { $0.accessibilityLabel == "Up arrow" })
     #expect(buttons.count == 8)
-    accessory.frame = .init(x: 0, y: 0, width: 320, height: TerminalKeyAccessory.height(compact: false))
-    accessory.layoutIfNeeded()
+    keyRow.frame = .init(x: 0, y: 0, width: 320, height: KeyRow.height(compact: false))
+    keyRow.layoutIfNeeded()
     #expect(buttons.allSatisfy { $0.bounds.width >= 44 && $0.bounds.height >= 44 })
 
     control.sendActions(for: .touchUpInside)
@@ -95,7 +95,7 @@ import UIKit
 @Test func phonePasteUsesThePastePath() async throws {
     var terminal = Terminal(size: .init(columns: 40, rows: 20))
     _ = terminal.receive(Array("\u{1B}[?2004h".utf8))
-    let view = TerminalView(frame: .zero)
+    let view = TerminalMetalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var sent: [[UInt8]] = []
@@ -109,28 +109,28 @@ import UIKit
 }
 
 @MainActor
-@Test func phoneAccessoryUsesOnlyTheKeyboardHostResizeAnimation() throws {
+@Test func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
     let host = UIView(frame: window.bounds)
-    let accessory = TerminalKeyAccessory(onKey: { _ in }, onHide: {})
+    let keyRow = KeyRow(onKey: { _ in }, onHide: {})
     window.addSubview(host)
-    host.addSubview(accessory)
+    host.addSubview(keyRow)
     window.isHidden = false
     defer { window.isHidden = true }
 
-    accessory.frame = .init(x: 0, y: 0, width: 750, height: accessory.intrinsicContentSize.height)
-    accessory.layoutIfNeeded()
-    let stack = try #require(accessoryStack(accessory))
+    keyRow.frame = .init(x: 0, y: 0, width: 750, height: keyRow.intrinsicContentSize.height)
+    keyRow.layoutIfNeeded()
+    let stack = try #require(buttonStack(keyRow))
     let buttons = stack.arrangedSubviews
     #expect(buttons.count == 8)
     CATransaction.flush()
 
-    // UIKit gives the accessory its destination bounds and animates the keyboard host.
+    // UIKit gives the key row its destination bounds and animates the keyboard host.
     // Auto Layout still runs with the host's inherited animation context.
     UIView.animate(withDuration: 5, delay: 0, options: .curveLinear) {
         host.transform = .init(scaleX: 0.6, y: 1)
-        UIView.performWithoutAnimation { accessory.bounds.size.width = 402 }
-        accessory.layoutIfNeeded()
+        UIView.performWithoutAnimation { keyRow.bounds.size.width = 402 }
+        keyRow.layoutIfNeeded()
     }
     CATransaction.flush()
 
@@ -146,27 +146,27 @@ import UIKit
 @MainActor
 @Test func compactKeyRowKeysReachIntoTheFloat() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
-    let accessory = TerminalKeyAccessory(onKey: { _ in }, onHide: {})
-    window.addSubview(accessory)
+    let keyRow = KeyRow(onKey: { _ in }, onHide: {})
+    window.addSubview(keyRow)
     window.isHidden = false
     defer { window.isHidden = true }
-    accessory.traitOverrides.verticalSizeClass = .compact
-    accessory.updateTraitsIfNeeded()
-    #expect(accessory.intrinsicContentSize.height == 44)
-    accessory.frame = .init(x: 0, y: 0, width: 750, height: 44)
-    accessory.layoutIfNeeded()
+    keyRow.traitOverrides.verticalSizeClass = .compact
+    keyRow.updateTraitsIfNeeded()
+    #expect(keyRow.intrinsicContentSize.height == 44)
+    keyRow.frame = .init(x: 0, y: 0, width: 750, height: 44)
+    keyRow.layoutIfNeeded()
 
-    let buttons = try #require(accessoryStack(accessory)?.arrangedSubviews)
+    let buttons = try #require(buttonStack(keyRow)?.arrangedSubviews)
     for button in buttons {
-        let bottom = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.maxY), to: accessory)
+        let bottom = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.maxY), to: keyRow)
         #expect(bottom.y == 36)
-        #expect(accessory.hitTest(CGPoint(x: bottom.x, y: 43.5), with: nil) === button)
+        #expect(keyRow.hitTest(CGPoint(x: bottom.x, y: 43.5), with: nil) === button)
     }
 }
 
 @MainActor
 @Test func keyRowTakesTheTerminalWindowsSizeClassBeforeTheKeyboardShowsIt() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 750, height: 300))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 750, height: 300))
     let window = try #require(mountTestView(view) as? UIWindow)
     defer { withExtendedLifetime(window) {} }
     view.display(Terminal(size: .init(columns: 60, rows: 4)))
@@ -174,7 +174,7 @@ import UIKit
     window.makeKeyAndVisible()
     defer { window.isHidden = true }
     window.updateTraitsIfNeeded()
-    let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
+    let row = try #require(view.phoneInput.inputAccessoryView as? KeyRow)
     #expect(row.window == nil && row.frame.height == 60 && row.intrinsicContentSize.height == 60)
 
     // The window turns to landscape before focus. UIKit first sizes a row that joins the keyboard
@@ -187,15 +187,15 @@ import UIKit
 
 @MainActor
 @Test func hideKeyboardResignsTheTerminalAndDisarmsControl() throws {
-    let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = try #require(mountTestView(view) as? UIWindow)
     defer { withExtendedLifetime(window) {} }
     view.display(Terminal(size: .init(columns: 28, rows: 4)))
     window.makeKeyAndVisible()
     view.layoutIfNeeded()
     try #require(view.focusInput())
-    let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
-    let buttons = try #require(accessoryStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton })
+    let row = try #require(view.phoneInput.inputAccessoryView as? KeyRow)
+    let buttons = try #require(buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton })
     try #require(buttons.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
     try #require(buttons.last { $0.accessibilityLabel == "Hide Keyboard" }).sendActions(for: .touchUpInside)
     #expect(!view.phoneInput.isFirstResponder && !row.controlArmed)
@@ -203,11 +203,11 @@ import UIKit
 
 @MainActor
 @Test func hidingTheKeyRowRemovesItsAccessoryAndDisarmsControl() throws {
-    let view = TerminalView(frame: .zero)
+    let view = TerminalMetalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
-    let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
-    let buttons = accessoryStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton }
+    let row = try #require(view.phoneInput.inputAccessoryView as? KeyRow)
+    let buttons = buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton }
     try #require(buttons?.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
     #expect(row.controlArmed)
     view.showsKeyRow = false
@@ -218,14 +218,14 @@ import UIKit
 
 @MainActor
 @Test func aDisplacedPhoneShellKeepsSelectionAndRejectsNewInput() throws {
-    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 390, height: 500))
     let window = UIWindow(frame: view.bounds)
     window.addSubview(view)
     defer { withExtendedLifetime(window) {} }
     var term = Terminal(size: .init(columns: 40, rows: 20))
     _ = term.receive("Final output.".utf8)
     view.display(term)
-    let selected = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 12)
+    let selected = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 12)
     view.selection = selected
     var sent: [[UInt8]] = []
     view.onInput = { sent.append(term.encode($0)) }
@@ -247,7 +247,7 @@ import UIKit
     #expect(sent == [[119]])
 }
 
-@MainActor private func accessoryStack(_ view: UIView) -> UIStackView? {
-    view as? UIStackView ?? view.subviews.lazy.compactMap(accessoryStack).first
+@MainActor private func buttonStack(_ view: UIView) -> UIStackView? {
+    view as? UIStackView ?? view.subviews.lazy.compactMap(buttonStack).first
 }
 #endif

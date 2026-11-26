@@ -46,7 +46,7 @@ private struct ShellWindow: View {
 
     var body: some View {
         NavigationStack {
-            TerminalPane(model.tab.session)
+            TerminalView(model.tab.session)
                 .navigationTitle(title)
                 .toolbar {
                     if model.tab.session.hasEnded {

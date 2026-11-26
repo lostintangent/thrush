@@ -7,12 +7,12 @@ import AppKit
 import UIKit
 #endif
 
-/// Perform the recorded actions through the responders and geometry of the packaged pane.
+/// Perform the recorded actions through the responders and geometry of the packaged terminal view.
 @MainActor
 enum NativeWorkflowActions {
     private typealias Failure = RenderBenchmark.Failure
 
-    static func input(_ input: Terminal.Input, view: TerminalView) throws {
+    static func input(_ input: Terminal.Input, view: TerminalMetalView) throws {
         #if os(iOS)
         _ = try phoneInput(view)
         #endif
@@ -35,7 +35,7 @@ enum NativeWorkflowActions {
     }
 
     /// Drive the app's mounted toolbar item, using the same action as a person activating it.
-    static func newShellAction(in view: TerminalView) -> (@MainActor () throws -> Void)? {
+    static func newShellAction(in view: TerminalMetalView) -> (@MainActor () throws -> Void)? {
         #if os(macOS)
         guard let toolbar = view.window?.toolbar, toolbar.isVisible else { return nil }
         for item in toolbar.visibleItems ?? [] {
@@ -79,7 +79,7 @@ enum NativeWorkflowActions {
         [root] + root.subviews.flatMap { descendants(of: $0) }
     }
 
-    private static func navigationBars(in view: TerminalView) -> [UINavigationBar] {
+    private static func navigationBars(in view: TerminalMetalView) -> [UINavigationBar] {
         guard let window = view.window else { return [] }
         return descendants(of: window).compactMap { $0 as? UINavigationBar }.filter { !$0.isHidden }
     }
@@ -89,8 +89,8 @@ enum NativeWorkflowActions {
         return top.trailingItemGroups.flatMap(\.barButtonItems) + (top.rightBarButtonItems ?? [])
     }
 
-    /// Only inspect the sample's toolbar, so a failure cannot log the terminal transcript.
-    static func toolbarDescription(in view: TerminalView) -> String {
+    /// Only inspect the sample's toolbar, so a failure cannot log the terminal text.
+    static func toolbarDescription(in view: TerminalMetalView) -> String {
         let bars = navigationBars(in: view)
         let items = bars.flatMap { trailingItems(in: $0) }.prefix(12).map { item in
             let name = item.accessibilityIdentifier ?? item.accessibilityLabel ?? item.title ?? "(unnamed)"
@@ -101,7 +101,7 @@ enum NativeWorkflowActions {
     }
     #endif
 
-    static func verifyKeyboardDown(_ view: TerminalView) async throws {
+    static func verifyKeyboardDown(_ view: TerminalMetalView) async throws {
         #if os(iOS)
         guard let root = view.window?.rootViewController?.viewIfLoaded else {
             throw Failure("The iPhone terminal has no window")
@@ -117,13 +117,13 @@ enum NativeWorkflowActions {
         #endif
     }
 
-    static func focusForTyping(_ view: TerminalView) async throws {
+    static func focusForTyping(_ view: TerminalMetalView) async throws {
         #if os(iOS)
         try await verifyKeyboardDown(view)
         let probe = try NativeInteractionProbe(view: view)
         let deadline = ContinuousClock.now.advanced(by: .seconds(8))
         while !probe.activateTyping() {
-            guard ContinuousClock.now < deadline else { throw Failure("The transcript has no enabled Type in terminal action.") }
+            guard ContinuousClock.now < deadline else { throw Failure("The history has no enabled Type in terminal action.") }
             try await Task.sleep(for: .milliseconds(20))
         }
         try await settleKeyboard(view: view, landscape: nil)
@@ -132,21 +132,21 @@ enum NativeWorkflowActions {
         #endif
     }
 
-    static func copy(_ copy: ReplayFixture.Copy, view: TerminalView) throws -> String {
+    static func copy(_ copy: ReplayFixture.Copy, view: TerminalMetalView) throws -> String {
         // Recorded row/column endpoints belong to the recording grid. The accessible
         // logical line identifies the same user-visible selection after native reflow.
         let probe = try NativeInteractionProbe(view: view)
-        let fullText = probe.transcript
+        let fullText = probe.accessibleText
         let source = fullText as NSString
         let range = source.range(of: copy.text, options: .literal)
-        guard range.location != NSNotFound else { throw Failure("The recorded copy text is missing from the native transcript.") }
+        guard range.location != NSNotFound else { throw Failure("The recorded copy text is missing from the accessible text.") }
         let remainder = NSRange(location: NSMaxRange(range), length: source.length - NSMaxRange(range))
         guard source.range(of: copy.text, options: .literal, range: remainder).location == NSNotFound else {
-            throw Failure("The native transcript contains multiple matches for the requested selection.")
+            throw Failure("The accessible text contains multiple matches for the requested selection.")
         }
         try probe.select(range, in: fullText)
         guard let selection = view.selection, let snapshot = view.snapshot else {
-            throw Failure("The native pane did not retain its compiler-path selection.")
+            throw Failure("The native view did not retain its compiler-path selection.")
         }
         let top = snapshot.history.count - view.historyOffset
         let endRow = copy.end.column == 0 ? copy.end.row - 1 : copy.end.row
@@ -173,7 +173,7 @@ enum NativeWorkflowActions {
     }
 
     #if os(macOS)
-    private static func key(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers, view: TerminalView) throws {
+    private static func key(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers, view: TerminalMetalView) throws {
         guard let window = view.window, view.focusInput(), let responder = window.firstResponder else {
             throw Failure("The terminal keyboard responder is unavailable.")
         }
@@ -202,7 +202,7 @@ enum NativeWorkflowActions {
         responder.keyDown(with: event)
     }
 
-    static func resize(_ requested: Terminal.Size, view: TerminalView, landscape: Bool = false) async throws {
+    static func resize(_ requested: Terminal.Size, view: TerminalMetalView, landscape: Bool = false) async throws {
         guard let window = view.window, let content = window.contentView else { throw Failure("Missing native window.") }
         for _ in 0..<8 {
             content.layoutSubtreeIfNeeded()
@@ -211,24 +211,24 @@ enum NativeWorkflowActions {
             let client = window.firstResponder as? any NSTextInputClient
             let cell = client?.firstRect(forCharacterRange: NSRange(location: 0, length: 0), actualRange: nil).size ?? .zero
             // AppKit reports the renderer's snapped caret rectangle to input methods. Before
-            // the first frame it can be empty, so make the first adjustment using the pane.
+            // the first frame it can be empty, so make the first adjustment using the view.
             let width = cell.width > 0 ? cell.width : view.bounds.width / CGFloat(grid.columns)
             let height = cell.height > 0 ? cell.height : view.bounds.height / CGFloat(grid.rows)
             window.setContentSize(NSSize(width: content.bounds.width + CGFloat(requested.columns - grid.columns) * width,
                                          height: content.bounds.height + CGFloat(requested.rows - grid.rows) * height))
             await Task.yield()
         }
-        throw Failure("The Mac pane did not reach the requested \(requested.columns)×\(requested.rows) grid.")
+        throw Failure("The Mac terminal view did not reach the requested \(requested.columns)×\(requested.rows) grid.")
     }
     #else
-    private static func phoneInput(_ view: TerminalView) throws -> UITextView {
+    private static func phoneInput(_ view: TerminalMetalView) throws -> UITextView {
         guard let input = view.subviews.compactMap({ $0 as? UITextView }).first, input.isFirstResponder else {
             throw Failure("The terminal's native iPhone keyboard is not focused.")
         }
         return input
     }
 
-    private static func key(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers, view: TerminalView) throws {
+    private static func key(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers, view: TerminalMetalView) throws {
         let responder = try phoneInput(view)
         let value: String
         switch key {
@@ -251,11 +251,11 @@ enum NativeWorkflowActions {
         }
     }
 
-    static func resize(_ requested: Terminal.Size, view: TerminalView, landscape: Bool = false) async throws {
+    static func resize(_ requested: Terminal.Size, view: TerminalMetalView, landscape: Bool = false) async throws {
         try await settleKeyboard(view: view, landscape: landscape)
     }
 
-    private static func settleKeyboard(view: TerminalView, landscape: Bool?) async throws {
+    private static func settleKeyboard(view: TerminalMetalView, landscape: Bool?) async throws {
         guard let window = view.window, let scene = window.windowScene, let host = window.rootViewController else {
             throw Failure("The terminal is missing its native iPhone window scene.")
         }
@@ -298,7 +298,7 @@ enum NativeWorkflowActions {
             previousKeyboard = keyboard
             try await Task.sleep(for: .milliseconds(40))
         }
-        throw Failure("The iPhone pane did not settle with its software keyboard in the requested orientation.")
+        throw Failure("The iPhone terminal view did not settle with its software keyboard in the requested orientation.")
     }
     #endif
 }
