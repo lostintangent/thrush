@@ -188,8 +188,6 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     override func becomeFirstResponder() -> Bool {
         if !isFirstResponder, canBecomeFirstResponder {
             terminalView?.beforeKeyboardMove?()
-            // A view takes new traits at its next layout, and this one may not have laid out since the window turned.
-            updateTraitsIfNeeded()
             matchKeyRowToWindow()
         }
         guard super.becomeFirstResponder() else { return false }

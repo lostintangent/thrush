@@ -170,14 +170,16 @@ import UIKit
     let window = try #require(mountTestView(view) as? UIWindow)
     defer { withExtendedLifetime(window) {} }
     view.display(Terminal(size: .init(columns: 60, rows: 4)))
+    window.traitOverrides.verticalSizeClass = .regular
     window.makeKeyAndVisible()
     defer { window.isHidden = true }
-    view.layoutIfNeeded()
+    window.updateTraitsIfNeeded()
     let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
     #expect(row.window == nil && row.intrinsicContentSize.height == 60)
 
     // The window turns to landscape and focus arrives before the input's next layout.
     window.traitOverrides.verticalSizeClass = .compact
+    #expect(view.phoneInput.traitCollection.verticalSizeClass == .regular)
     try #require(view.focusInput())
     #expect(row.intrinsicContentSize.height == 44)
 }
