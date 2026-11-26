@@ -471,13 +471,20 @@ extension TerminalView {
         let view: TerminalView
         let coordinator: Coordinator
         func makeCoordinator() -> Coordinator { coordinator }
+
+        /// Links open through the environment's action, so an app can send them to its own browser.
+        func update(_ canvas: PlatformView, _ environment: EnvironmentValues) {
+            coordinator.apply(view, probe: environment.terminalProbe)
+            let openURL = environment.openURL
+            (canvas as? CanvasView)?.terminal.openURL = { openURL($0) }
+        }
     }
 }
 
 #if os(macOS)
 extension TerminalView.Representable: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { view.makeCanvas(coordinator, probe: context.environment.terminalProbe) }
-    func updateNSView(_ canvas: NSView, context: Context) { coordinator.apply(view, probe: context.environment.terminalProbe) }
+    func updateNSView(_ canvas: NSView, context: Context) { update(canvas, context.environment) }
     static func dismantleNSView(_ canvas: NSView, coordinator: TerminalView.Coordinator) { coordinator.dismantle(canvas) }
 }
 #else
@@ -486,7 +493,7 @@ extension TerminalView.Representable: UIViewControllerRepresentable {
         PhoneCanvasController(view.makeCanvas(coordinator, probe: context.environment.terminalProbe))
     }
     func updateUIViewController(_ controller: PhoneCanvasController, context: Context) {
-        coordinator.apply(view, probe: context.environment.terminalProbe)
+        update(controller.view, context.environment)
     }
     static func dismantleUIViewController(_ controller: PhoneCanvasController, coordinator: TerminalView.Coordinator) {
         coordinator.dismantle(controller.view)

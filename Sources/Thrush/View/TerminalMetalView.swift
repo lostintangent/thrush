@@ -104,6 +104,19 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     }
     /// Delivers user input in order. Its owner encodes it on the same terminal that receives output.
     package var onInput: ((Terminal.Input) -> Void)?
+    /// Opens a link the reader chose. ``TerminalView`` passes SwiftUI's `openURL` action, so an app can
+    /// send links to its own browser. Otherwise the system opens them.
+    var openURL: @MainActor (URL) -> Void = { url in
+        #if os(macOS)
+        NSWorkspace.shared.open(url)
+        #else
+        UIApplication.shared.open(url)
+        #endif
+    }
+    /// The link the renderer draws engaged. Input sets it while ⌘ is held over a link or one is pressed.
+    var engagedLink: EngagedLink? {
+        didSet { if engagedLink != oldValue { invalidateFrame() } }
+    }
     /// Reports a new row and column count after layout. Apply the size to the terminal and its PTY.
     package var onGridSizeChange: ((Terminal.Size) -> Void)?
     /// Reports a change to the effective theme. Apply its palette to the terminal for OSC color replies.

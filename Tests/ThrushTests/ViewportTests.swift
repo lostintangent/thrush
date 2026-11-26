@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import ThrushCore
 @testable import Thrush
@@ -182,4 +183,59 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
     selected.scroll(selected.historyCount)
     #expect(selected.selection == .init(anchorRow: 4, anchorColumn: 0, headRow: 4, headColumn: 3))
     #expect(padding.selection == nil)
+}
+
+@Test func linksGoWhereTheirURIsSayWhateverTheirTextShows() throws {
+    func link(_ uri: String) -> Terminal.Link? {
+        var terminal = Terminal(size: .init(columns: 4, rows: 1))
+        _ = terminal.write("\u{1b}]8;;\(uri)\u{1b}\\x".utf8)
+        let snapshot = terminal.snapshot()
+        return snapshot.link(for: snapshot.rows[0][0].style)
+    }
+    let docs = try #require(URL(string: "https://example.com/docs"))
+    #expect(link("https://example.com/docs")?.destination == .web(docs))
+    #expect(link("ssh://devbox")?.openableURL == URL(string: "ssh://devbox"))
+    #expect(link("mailto:bird@example.com")?.destination == .app(try #require(URL(string: "mailto:bird@example.com"))))
+    let file = try #require(link("file://devbox/tmp/a%20b"))
+    #expect(file.destination == .file(path: "/tmp/a b"))
+    #expect(file.openableURL == nil && file.copiedText == "/tmp/a b" && file.copyTitle == "Copy Path")
+    for uri in ["http:///nowhere", "JavaScript:alert(1)", "data:text/html,hi", "example.com/docs", "file://devbox"] {
+        #expect(link(uri)?.destination == .inert, "\(uri)")
+    }
+    #expect(link("https://example.com/\u{202E}gpj.exe")?.displayedDestination == "https://example.com/%E2%80%AEgpj.exe")
+    let long = try #require(link("https://example.com/" + String(repeating: "a", count: 300) + "/end")?.displayedDestination)
+    #expect(long.count == 160 && long.hasPrefix("https://example.com/aaa") && long.hasSuffix("aaa/end"))
+}
+
+@MainActor @Test func linksHitOnlyTheirOwnCellsAndReadAsOneLinkAcrossRows() throws {
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 200))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    func open(_ uri: String, id: String = "") -> String { "\u{1b}]8;\(id.isEmpty ? "" : "id=\(id)");\(uri)\u{1b}\\" }
+    let close = "\u{1b}]8;;\u{1b}\\"
+    var terminal = Terminal(size: .init(columns: 10, rows: 4))
+    _ = terminal.write("go \(open("https://example.com/docs", id: "docs"))Security guide\(close).\r\n".utf8)
+    _ = terminal.write("\(open("https://a.example"))one\(close) \(open("https://a.example"))two\(close)\r\n".utf8)
+    _ = terminal.write("\(open("https://example.com/docs", id: "docs"))more\(close)".utf8)
+    view.display(terminal)
+
+    let runs = view.linkRuns()
+    let docs = try #require(runs.first?.number)
+    #expect(runs.map(\.row) == [0, 1, 2, 2, 3])
+    #expect(runs.map(\.columns) == [3..<10, 0..<7, 0..<3, 4..<7, 0..<4])
+    #expect(runs.filter { $0.number == docs }.map(\.row) == [0, 1, 3])
+    #expect(runs[2].number != runs[3].number)
+    #expect(view.linkText(view.linkRuns(of: docs)) == "Security guide more")
+    #expect(view.link(row: 1, column: 0)?.link.displayedDestination == "https://example.com/docs")
+    #expect(view.rect(of: runs[0]) == view.cellRect(row: 0, column: 3).union(view.cellRect(row: 0, column: 9)))
+
+    func center(_ row: Int, _ column: Int) -> CGPoint {
+        let cell = view.cellRect(row: row, column: column)
+        return CGPoint(x: cell.midX, y: cell.midY)
+    }
+    #expect(view.link(at: center(0, 3))?.number == docs)
+    #expect(view.link(at: center(0, 2)) == nil)
+    #expect(view.link(at: center(1, 7)) == nil)
+    let edge = view.cellRect(row: 0, column: 9)
+    #expect(view.link(at: CGPoint(x: edge.maxX + 2, y: edge.midY)) == nil)
 }
