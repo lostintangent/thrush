@@ -344,7 +344,7 @@ def main():
     parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"),
                         help="Select workflows. Defaults to shell, vim, codex and lifecycle; recovery exercises a stalled reader.")
     parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames, plus an iPhone Simulator movie, for the lifecycle workflow")
-    parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
+    parser.add_argument("--device", help="Reserved booted iPhone Duo UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
     parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")

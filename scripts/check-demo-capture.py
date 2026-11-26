@@ -153,8 +153,9 @@ def check_status_row(image, state):
     scale = state["displayScale"]
     columns, rows = state["columns"], state["rows"]
     require(state["gpuCompleted"] and rows >= 2 and columns > 18, "Missing the completed terminal grid")
-    require((image.width, image.height) == (round(window_width * scale), round(window_height * scale)),
-            "Image size or orientation differs from the submitted window")
+    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
+    require(image.width >= round(window_width * scale) and image.height >= round(window_height * scale),
+            "Image size or orientation doesn't hold the submitted window")
     left = round((view_x - wx) * scale + cell_x)
     grid_top = round((view_y - wy) * scale + cell_y)
     width = round(pixel_width)
@@ -190,8 +191,8 @@ def keyboard(image, state):
     (gx, gy), (gw, gh) = state["gridFrame"]
     scale = state["displayScale"]
     guide, accessory = state["keyboardHeight"], state["accessoryHeight"]
-    require((image.width, image.height) == (round(width * scale), round(height * scale)),
-            "Keyboard framebuffer is not upright at the submitted window size")
+    require(image.width >= round(width * scale) and image.height >= round(height * scale),
+            "Keyboard framebuffer is not upright around the submitted window")
     require(guide > 90 and 44 <= accessory < guide and gy - wy + gh <= height - guide + 1,
             "The terminal viewport must clear the native keyboard and its accessory")
     left, right = round(gx - wx), round(gx - wx + gw)

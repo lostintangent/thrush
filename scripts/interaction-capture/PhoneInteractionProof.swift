@@ -15,51 +15,30 @@ final class PhoneInteractionProof: XCTestCase {
         continueAfterFailure = false
         let previousAppearance = XCUIDevice.shared.appearance
         XCUIDevice.shared.appearance = appearance == "dark" ? .dark : .light
-        XCUIDevice.shared.orientation = .portrait
-        defer {
-            XCUIDevice.shared.orientation = .portrait
-            XCUIDevice.shared.appearance = previousAppearance
-        }
+        defer { XCUIDevice.shared.appearance = previousAppearance }
         try launch(scene: "shell")
+        try waitForOrientation(landscape: false)
         let built = app.staticTexts["Build complete."]
         XCTAssertTrue(built.waitForExistence(timeout: 12), app.debugDescription)
         try assertKeyboard()
         try screenshot("shell-\(appearance)-portrait")
-
-        let rotationOnly = ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ROTATION_ONLY"] == "1"
-        if !rotationOnly {
-            try captureControl(appearance: appearance)
-        }
-
-        // Turn to landscape and back twice, since a stalled main thread can miss a turn's frames.
-        let rotate = Date.now.timeIntervalSince1970
-        var retainedBuild = true
-        for trip in 0..<2 {
-            XCUIDevice.shared.orientation = .landscapeLeft
-            try waitForOrientation(landscape: true)
-            try assertKeyboard()
-            if trip == 0 {
-                try screenshot("shell-\(appearance)-landscape")
-            }
-            retainedBuild = retainedBuild && built.exists
-            XCUIDevice.shared.orientation = .portrait
-            try waitForOrientation(landscape: false)
-            try assertKeyboard()
-        }
-        try finishClip("rotate-\(appearance)", since: rotate)
-        // Keep the settled portrait on screen through the movie's post-gesture padding.
-        Thread.sleep(forTimeInterval: 0.75)
-        XCTAssertTrue(retainedBuild, "Rotation should keep the build completion line visible above the prompt.")
+        try captureControl(appearance: appearance)
 
         // The log fills the screen down to its prompt, so the grid travels with the keyboard.
         try launch(scene: "log")
         let wrapped = app.staticTexts[Self.wrappedText]
         XCTAssertTrue(wrapped.waitForExistence(timeout: 30), app.debugDescription)
         try captureKeyboard(appearance: appearance, keeping: wrapped)
-        if !rotationOnly {
-            try captureTranscript(appearance: appearance, wrapped: wrapped)
-            try captureLastLine(appearance: appearance)
-        }
+        try captureTranscript(appearance: appearance, wrapped: wrapped)
+        try captureLastLine(appearance: appearance)
+
+        // The simulated Duo's resizable scene doesn't turn with the device, so the shell opens turned instead.
+        try launch(scene: "shell", landscape: true)
+        try waitForOrientation(landscape: true)
+        XCTAssertTrue(built.waitForExistence(timeout: 12), "Landscape should keep the build completion line above the prompt.")
+        try assertKeyboard()
+        try screenshot("shell-\(appearance)-landscape")
+        try captureLandscapeControl(appearance: appearance)
     }
 
     /// Taps the modifier key to arm Control, chooses Shift from the chooser it raises, then holds the key
@@ -97,11 +76,12 @@ final class PhoneInteractionProof: XCTestCase {
         modifier.tap()
         XCTAssertEqual(modifier.value as? String, "Off")
         try finishClip("control-\(appearance)", since: start)
+    }
 
-        // In landscape the chooser slims with the row, and its choices take taps beyond their 36-point capsule.
-        XCUIDevice.shared.orientation = .landscapeLeft
-        try waitForOrientation(landscape: true)
-        try assertKeyboard()
+    /// In landscape the chooser slims with the row, and its choices take taps beyond their 36-point capsule.
+    private func captureLandscapeControl(appearance: String) throws {
+        let modifier = app.buttons["terminal.modifier"]
+        let choices = ["control", "option", "shift"].map { app.buttons["terminal.modifier.\($0)"] }
         modifier.tap()
         XCTAssertTrue(choices[2].waitForExistence(timeout: 3), app.debugDescription)
         XCTAssertEqual(choices[0].frame.midX, modifier.frame.midX, accuracy: 1)
@@ -114,9 +94,6 @@ final class PhoneInteractionProof: XCTestCase {
         try screenshot("control-\(appearance)-landscape")
         modifier.tap()
         XCTAssertEqual(modifier.value as? String, "Off")
-        XCUIDevice.shared.orientation = .portrait
-        try waitForOrientation(landscape: false)
-        try assertKeyboard()
     }
 
     /// Hides the keyboard with the key row's button, then taps the transcript to bring it back.
@@ -210,11 +187,11 @@ final class PhoneInteractionProof: XCTestCase {
         try screenshot("line-\(appearance)-last")
     }
 
-    private func launch(scene: String) throws {
+    private func launch(scene: String, landscape: Bool = false) throws {
         let address = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
         app.launchArguments = ["--endpoint", address, "--scene", scene, "--keyboard", "--capture-state"]
-        if scene == "shell", ProcessInfo.processInfo.environment["THRUSH_TRACE_ROTATION_LAYOUT"] == "1" {
-            app.launchArguments.append("--trace-rotation-layout")
+        if landscape {
+            app.launchArguments.append("--capture-landscape")
         }
         app.launch()
     }

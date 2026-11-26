@@ -33,7 +33,7 @@ def arguments():
     for platform in ("mac", "simulator"):
         mode = modes.add_parser(platform)
         if platform == "simulator":
-            mode.add_argument("udid", help="a booted iPhone UDID, or new to create a disposable iPhone 17")
+            mode.add_argument("udid", help="a booted iPhone Duo UDID, or new to create a disposable one")
         mode.add_argument("output", type=Path, help="fresh evidence directory for this platform")
         mode.add_argument("workflows", nargs="*", metavar="WORKFLOW", help="shell, vim, codex (default: all)")
     args = parser.parse_args()
@@ -58,9 +58,9 @@ def reserve_phone(udid):
     devices = json.loads(simctl("list", "devices", "booted", "-j"))["devices"]
     matches = [d for group in devices.values() for d in group
                if d["udid"].lower() == udid.lower() and d["state"] == "Booted" and d["isAvailable"]
-               and d["deviceTypeIdentifier"] == "com.apple.CoreSimulator.SimDeviceType.iPhone-17"]
+               and d["deviceTypeIdentifier"] == "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"]
     if not matches:
-        raise ValueError("pass the exact UDID of an available, already booted iPhone 17 Simulator")
+        raise ValueError("pass the exact UDID of an available, already booted iPhone Duo Simulator")
     device = matches[0]["udid"]
     # flock releases on exit, including crashes. Other worktrees must see the same lock.
     path = Path("/tmp") / f"thrush-pane-workflows-{os.getuid()}-{device}.lock"
@@ -233,7 +233,7 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
                         expected[index] = grid
                 measured = {step["eventIndex"]: (step["columns"], step["rows"]) for step in result["checkpoints"]}
                 if measured != expected:
-                    raise ValueError(f"{name} iPhone 17 keyboard geometry differs: got {measured}, expected {expected}")
+                    raise ValueError(f"{name} iPhone keyboard geometry differs: got {measured}, expected {expected}")
             return
         check_alive(app, "packaged app", output / "app.log")
         check_alive(peer, "peer", output / "peer.log")

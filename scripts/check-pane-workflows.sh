@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run the three recorded workflows in a packaged native terminal pane.
 # Usage: scripts/check-pane-workflows.sh mac OUTPUT [shell|vim|codex ...]
-#        scripts/check-pane-workflows.sh simulator BOOTED_IPHONE_UDID|new OUTPUT [shell|vim|codex ...]
-# Select an iPhone reserved for this task. The runner installs the app on that device.
+#        scripts/check-pane-workflows.sh simulator BOOTED_IPHONE_DUO_UDID|new OUTPUT [shell|vim|codex ...]
+# Select an iPhone Duo reserved for this task. The runner installs the app on that device.
 # The checkpoint oracle is the pinned reference in Fixtures/reference, which the runner installs first.
 set -euo pipefail
 cd "$(dirname "$0")/.."

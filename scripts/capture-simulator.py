@@ -25,6 +25,7 @@ PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
 PANE_CHECKER = ROOT / ".build/demo/check-pane-capture"
+PHONE = "iPhone Duo"
 
 
 def run(*command, timeout=90, check=True):
@@ -87,9 +88,9 @@ def save_json(path, value):
 def runtime():
     runtimes = json.loads(sim("list", "runtimes", "--json").stdout)["runtimes"]
     available = [r for r in runtimes if r["isAvailable"] and r["name"].startswith("iOS 27.")
-                 and any(t["name"] == "iPhone 17" for t in r["supportedDeviceTypes"])]
+                 and any(t["name"] == PHONE for t in r["supportedDeviceTypes"])]
     if not available:
-        raise RuntimeError("An installed iOS 27 runtime supporting iPhone 17 is required.")
+        raise RuntimeError(f"An installed iOS 27 runtime supporting {PHONE} is required.")
     return max(available, key=lambda r: tuple(map(int, r["version"].split("."))))
 
 
@@ -98,7 +99,7 @@ def disposable_phone(out):
     device = None
     try:
         chosen = runtime()
-        device_type = next(t["identifier"] for t in chosen["supportedDeviceTypes"] if t["name"] == "iPhone 17")
+        device_type = next(t["identifier"] for t in chosen["supportedDeviceTypes"] if t["name"] == PHONE)
         name = "Thrush capture " + uuid.uuid4().hex[:8]
         print(f"Creating {name} on {chosen['name']}", flush=True)
         device = str(uuid.UUID(sim("create", name, device_type, chosen["identifier"]).stdout.strip())).upper()

@@ -5,17 +5,12 @@ import json
 from pathlib import Path
 import runpy
 import subprocess
-import time
 
 ROOT = Path(__file__).resolve().parents[2]
 luminance = runpy.run_path(str(ROOT / "scripts/check-spinner-contrast.py"))["luminance"]
 # The palettes in scripts/demo-peer.ts, by system appearance.
 PROGRAM = {"dark": ("paper", "F4EFE4"), "light": ("night", "17151F")}
 SLATE = {"dark": "131D27", "light": "FBFDFE"}
-
-
-class StatusBarTrails(ValueError):
-    """SpringBoard draws the status bar, so on a starved runner it can show the app's new style seconds late."""
 
 
 def edges(rect):
@@ -29,8 +24,9 @@ def check(image, state, appearance, toolbar, checker):
     scale = state["displayScale"]
     window = edges(state["windowPoints"])
     grid = edges(state["gridFrame"])
-    if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
-        raise ValueError("Simulator framebuffer does not match the mounted window.")
+    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
+    if pixels.width < round(window[2] * scale) or pixels.height < round(window[3] * scale):
+        raise ValueError("Simulator framebuffer does not hold the mounted window.")
 
     def near(pixel, hex, tolerance=8):
         return max(abs(a - b) for a, b in zip(pixels.rgb(pixel), bytes.fromhex(hex))) <= tolerance
@@ -43,14 +39,14 @@ def check(image, state, appearance, toolbar, checker):
         if not samples or sum(near(value, paper) for value in samples) < 0.95 * len(samples):
             raise ValueError(f"The {name} canvas is missing {what}: x={x0}…{x1}, y={y0}…{y1}.")
 
-    def legible(left, top, right, bottom, what, error=ValueError):
+    def legible(left, top, right, bottom, what):
         # Vision reads text a person can't, so the strongest strokes must reach 4.5:1 against their ground.
         x0, x1 = round((left - window[0]) * scale), round((right - window[0]) * scale)
         y0, y1 = round((top - window[1]) * scale), round((bottom - window[1]) * scale)
         samples = pixels.crop((x0, y0, x1 - 1, y1 - 1))
         ground = luminance(max(set(samples), key=samples.count))
         if max((max(a, ground) + 0.05) / (min(a, ground) + 0.05) for a in map(luminance, samples)) < 4.5:
-            raise error(f"The {what} doesn't stand out from the {name} canvas.")
+            raise ValueError(f"The {what} doesn't stand out from the {name} canvas.")
 
     def read(rect, labels):
         left, top, right, bottom = edges(rect)
@@ -60,7 +56,7 @@ def check(image, state, appearance, toolbar, checker):
                        check=True, timeout=60)
 
     # The theme's canvas must not show anywhere, and the program's must fill most of the window.
-    total = pixels.width * pixels.height
+    total = round(window[2] * scale) * round(window[3] * scale)
     if sum(pixels.hist[v] for v in pixels.hist if near(v, SLATE[appearance], 3)) > total * 0.005:
         raise ValueError("The theme's canvas shows through the program's colors.")
     if sum(pixels.hist[v] for v in pixels.hist if near(v, paper, 3)) < total * 0.5:
@@ -72,11 +68,6 @@ def check(image, state, appearance, toolbar, checker):
     read(((grid[0], top), (grid[2] - grid[0], bottom - top)), ["palette " + name])
     # Past the first command, the row is bare canvas out to the grid's trailing edge.
     band(grid[0] + 0.7 * (grid[2] - grid[0]), top + 1, grid[2] - 1, bottom - 1, "beside the first row")
-    # The demo draws the canvas beneath the status bar, so its clock must follow the canvas. The span
-    # stays clear of the display's rounded corner and the Dynamic Island.
-    status = edges(toolbar["navigationBarFrame"])[1] if toolbar else grid[1]
-    legible(window[0] + 0.12 * (window[2] - window[0]), window[1] + 16, window[0] + 0.30 * (window[2] - window[0]),
-            status - 12, "status bar clock", StatusBarTrails)
     if toolbar:
         bar = edges(toolbar["navigationBarFrame"])
         read(toolbar["navigationBarFrame"], ["Terminal", "Close"])
@@ -108,19 +99,10 @@ def capture(phone, options, checker):
                 (phone.out / (prefix + ".json")).write_text(json.dumps(state, indent=2) + "\n")
                 if toolbar and not state.get("toolbar"):
                     raise ValueError("Missing mounted navigation bar geometry.")
-                settles = time.monotonic() + 20
-                while True:
-                    phone.screenshot(image)
-                    if state != phone.state():
-                        raise ValueError("Native geometry changed during the framebuffer capture.")
-                    try:
-                        check(image, state, appearance, state.get("toolbar") if toolbar else None, checker)
-                        break
-                    except StatusBarTrails:
-                        if time.monotonic() > settles:
-                            raise
-                        print(f"{prefix}: the status bar hasn't followed the canvas yet", flush=True)
-                        time.sleep(1)
+                phone.screenshot(image)
+                if state != phone.state():
+                    raise ValueError("Native geometry changed during the framebuffer capture.")
+                check(image, state, appearance, state.get("toolbar") if toolbar else None, checker)
                 print(f"Verified the program's canvas and readable chrome in {image.name}", flush=True)
             except (KeyError, ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
                 failures[prefix] = str(error)

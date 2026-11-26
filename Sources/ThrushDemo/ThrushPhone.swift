@@ -53,7 +53,6 @@ private final class PhoneHostingController: UIHostingController<DemoSurface> {
     let session: DemoSession
     private var focusRequested = false
     private var captureLayout: (() -> Void)?
-    private var layoutTrace: PhoneLayoutTrace?
     private var stateObservation: Task<Void, Never>?
 
     init() {
@@ -92,8 +91,6 @@ private final class PhoneHostingController: UIHostingController<DemoSurface> {
             }
         }
         if !session.options.checksToolbar { captureLayout = PhoneCapture.observe(session, view: session.view, in: view) }
-        // The trace forwards frame submissions to the capture hook it wraps.
-        layoutTrace = PhoneLayoutTrace(terminal: session.view, controller: self)
         if CommandLine.arguments.contains("--capture-state"), session.options.scene.capturesSessionState {
             stateObservation = Task { [weak self] in
                 while !Task.isCancelled, self != nil {
@@ -106,7 +103,6 @@ private final class PhoneHostingController: UIHostingController<DemoSurface> {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        layoutTrace?.recordLayout("host.layout")
         focusIfRequested()
         observeLayout()
     }

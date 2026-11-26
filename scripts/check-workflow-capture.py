@@ -28,8 +28,14 @@ def grid_edges(image, state):
     window_w, window_h = state["windowSize"]
     require(all(math.isfinite(v) for v in (x, y, w, h, window_w, window_h))
             and min(window_w, window_h, w, h) > 0, "Invalid window or grid geometry")
-    sx, sy = image.width / window_w, image.height / window_h
-    require(abs(sx / sy - 1) < 0.025, "Window and screenshot aspect ratios differ")
+    if state.get("keyboard"):
+        # The simulator captures the whole display, which on the Duo runs past the window.
+        sx = sy = state["keyboard"]["displayScale"]
+        require(image.width + 1 >= window_w * sx and image.height + 1 >= window_h * sy,
+                "Screenshot doesn't hold the window")
+    else:
+        sx, sy = image.width / window_w, image.height / window_h
+        require(abs(sx / sy - 1) < 0.025, "Window and screenshot aspect ratios differ")
     xs = [round((x + i * w / columns) * sx) for i in range(columns + 1)]
     ys = [round((y + j * h / rows) * sy) for j in range(rows + 1)]
     require(0 <= xs[0] < xs[-1] <= image.width and 0 <= ys[0] < ys[-1] <= image.height and

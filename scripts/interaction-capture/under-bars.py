@@ -49,8 +49,9 @@ def check(image, state, appearance):
             raise ValueError(f"The last row doesn't reach within a row of the grid's bottom inset: {last}, {grid}")
 
     pixels = Capture(image, appearance)
-    if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
-        raise ValueError("Simulator framebuffer does not match the mounted window.")
+    # The Duo's display runs past the window, beside it in portrait and below it in landscape.
+    if pixels.width < round(window[2] * scale) or pixels.height < round(window[3] * scale):
+        raise ValueError("Simulator framebuffer does not hold the mounted window.")
     slate = pixels.matches("background", tolerance=8)
 
     def canvas(left, top, right, bottom, where):
@@ -70,6 +71,8 @@ def check(image, state, appearance):
     if state["orientation"] == "landscape":
         # Just below the bar, clear of the display's rounded corners and the Dynamic Island.
         for left, right, side in ((window[0], grid[0], "leading"), (grid[2], window[2], "trailing")):
+            if right - left < 1:
+                continue
             canvas(left + 0.3 * (right - left), bar[3] + 4, left + 0.7 * (right - left), bar[3] + 24,
                    f"in the {side} landscape inset")
 

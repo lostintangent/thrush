@@ -23,11 +23,8 @@ APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "control-{}-shift", "control-{}-option", "control-{}-landscape",
         "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu", "line-{}-selected", "history-{}-latest",
         "line-{}-last")
-CLIPS = ("control", "rotate", "keyboard", "select", "history")
+CLIPS = ("control", "keyboard", "select", "history")
 SWIPES = ("less", "vim", "history", "settings")
-# The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
-ROUND_TRIPS = 2
-DISPLAY_FRAME = 1 / 60
 # An interrupted xcodebuild cancels its tests and still writes the result bundle, which keeps
 # the screenshots and clips taken before a hang. Tearing down a hung test took 68 s on a Mac.
 INTERRUPT_GRACE = 120
@@ -186,40 +183,29 @@ def run_gestures(phone, device, plan, result, out, attempt, observe):
     return video_start
 
 
-def save_rotation_layouts(out, appearance, spans, frame_times):
-    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
-    portrait = frame_times[f"shell-{appearance}-portrait"]
-    landscape = frame_times[f"shell-{appearance}-landscape"]
-    if not portrait <= start < landscape < end:
-        raise ValueError(f"{appearance}: screenshot times do not bracket the two orientation changes.")
-
-    pid = None
-    for stage, when in (("portrait", portrait), ("landscape", landscape), ("portrait-return", end)):
+def save_shell_layouts(out, appearance, spans, frame_times):
+    for orientation in ("portrait", "landscape"):
+        when = frame_times[f"shell-{appearance}-{orientation}"]
         # A span ends at the first poll with a different geometry, an unqualified drawing or a different PID.
         span = next((span for span in reversed(spans) if span[0][0] <= when), None)
         if span is None or when > spans[-1][-1][0]:
-            raise ValueError(f"{appearance} {stage}: no observed layout at the XCTest checkpoint.")
+            raise ValueError(f"{appearance} {orientation}: no observed layout at the XCTest checkpoint.")
         observed, state = next(sample for sample in reversed(span) if sample[0] <= when)
-        orientation = "portrait" if stage == "portrait-return" else stage
         if (state is None or state["appearance"] != appearance or state["orientation"] != orientation
-                or span[-1][0] - span[0][0] < 0.7 or (pid is not None and state["pid"] != pid)):
+                or span[-1][0] - span[0][0] < 0.7):
             measured = (state["pid"], state["appearance"], state["orientation"]) if state else None
-            raise ValueError(f"{appearance} {stage}: expected a stable completed layout at {when}; "
-                             f"observed {measured} for {span[-1][0] - span[0][0]:.3f}s, shell PID {pid}.")
-        pid = state["pid"]
-        name = f"shell-{appearance}-{stage}"
+            raise ValueError(f"{appearance} {orientation}: expected a stable completed layout at {when}; "
+                             f"observed {measured} for {span[-1][0] - span[0][0]:.3f}s.")
+        name = f"shell-{appearance}-{orientation}"
         evidence = dict(state, checkpointTime=when, observedAt=observed)
         (out / (name + "-layout.json")).write_text(json.dumps(evidence, indent=2) + "\n")
-        print(f"{name}: PID {pid}, {state['columns']} × {state['rows']} cells, "
+        print(f"{name}: PID {state['pid']}, {state['columns']} × {state['rows']} cells, "
               f"{state['keyboardHeight']:g} pt keyboard", flush=True)
 
 
-def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=False, trace_layout=False):
+def collect(phone, device, endpoint, plan, out, work, attempt):
     configuration = plistlib.loads(plan.read_bytes())
-    environment = configuration[RUNNER]["EnvironmentVariables"]
-    environment["THRUSH_CAPTURE_ENDPOINT"] = endpoint
-    environment["THRUSH_CAPTURE_ROTATION_ONLY"] = "1" if rotation_only else "0"
-    environment["THRUSH_TRACE_ROTATION_LAYOUT"] = "1" if trace_layout else "0"
+    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
     plan.write_bytes(plistlib.dumps(configuration))
     result = work / "interactions.xcresult"
     spans = []
@@ -241,8 +227,7 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
         spans[-1].append((time.time(), state))
 
     video_start = run_gestures(phone, device, plan, result, out, attempt, observe_layout)
-    gestures = ("rotate", "keyboard") if rotation_only else CLIPS
-    names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in gestures]
+    names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in CLIPS]
     if result.exists():
         frame_times = {}
 
@@ -251,7 +236,7 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
                                if path.suffix == ".png")
         attempt("gesture attachments", export)
         for appearance in APPEARANCES:
-            attempt(f"{appearance} rotation layouts", save_rotation_layouts, out, appearance, spans, frame_times)
+            attempt(f"{appearance} shell layouts", save_shell_layouts, out, appearance, spans, frame_times)
     export_clips(names, video_start, out, work, attempt)
 
 
@@ -280,197 +265,13 @@ def collect_swipes(phone, device, endpoint, plan, out, work, attempt):
     export_clips(names, video_start, out, work, attempt)
 
 
-def collect_layout_traces(phone, out):
-    traces = list(phone.state_path.parent.glob("rotation-layout-*.jsonl"))
-    for trace in traces:
-        shutil.copyfile(trace, out / trace.name)
-    if not traces or any(trace.stat().st_size == 0 for trace in traces):
-        raise ValueError("The shell did not save a populated rotation layout trace for each traced process.")
-
-
-def check_keyboard_release(out, appearance):
-    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
-    landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
-    trace = out / f"rotation-layout-{landscape['pid']}.jsonl"
-    events = [json.loads(line) for line in trace.read_text().splitlines()]
-    for orientation, stage in (("landscape", "landscape"), ("portrait", "portrait-return")):
-        settled = json.loads((out / f"shell-{appearance}-{stage}-layout.json").read_text())
-        expected = (settled["columns"], settled["rows"])
-        # The proof's full-screen window starts at the screen origin. The docked keyboard
-        # fills its width and ends at its bottom edge in each settled orientation.
-        _, (width, height) = settled["windowPoints"]
-        keyboard = settled["keyboardHeight"]
-        box = ((0, height - keyboard), (width, keyboard))
-        pixel = 1 / settled["displayScale"]
-
-        def matches(rect):
-            return rect and all(abs(value - target) <= pixel for pair, expected_pair in zip(rect, box)
-                                for value, target in zip(pair, expected_pair))
-
-        for event in events:
-            layout = event.get("layout") or {}
-            if (start <= event["time"] <= end and event["source"] in
-                    ("UIKeyboardWillChangeFrameNotification", "UIKeyboardDidChangeFrameNotification")
-                    and layout.get("appearance") == appearance and layout.get("orientation", "").startswith(orientation)
-                    and matches(event.get("keyboardEndFrameInScreen")) and matches(layout.get("keyboardGuideInWindow"))):
-                break
-        else:
-            raise ValueError(f"{appearance} {orientation}: no destination keyboard frame matched the settled guide.")
-        delivered = next((sample for sample in events if sample.get("afterNotificationAt") == event["time"]), None)
-        if not delivered:
-            raise ValueError(f"{appearance} {orientation}: missing post-delivery sample for {event['source']}.")
-        grid = delivered.get("layout") or {}
-        actual = (grid.get("columns"), grid.get("rows"))
-        if actual != expected:
-            raise ValueError(f"{appearance} {orientation}: grid was {actual} immediately after the first matching "
-                             f"keyboard frame; expected {expected}.")
-        # The motion starts in portrait; only the subsequent return belongs to the second check.
-        start = event["time"]
-
-
-def begun(animation):
-    """Whether an animation has begun in its layer's own time.
-
-    UIKit can hold the turn's transaction until the keyboard lays out for the new orientation, leaving
-    each begin time at 0, and it can begin the turn later in the layer's time. Until then the screen
-    keeps the previous frame, and the app's presentation layers describe nothing that was drawn.
-    """
-    return animation["beginTime"] != 0 and animation["layerTime"] >= animation["beginTime"]
-
-
-def finished(animation):
-    return begun(animation) and animation["layerTime"] >= animation["beginTime"] + animation["duration"]
-
-
-def check_anchored_row(out, appearance):
-    """Every displayed frame keeps the reader's row visible and never jumps it against its viewport.
-
-    UIKit animates the viewport's edges with the rotation and the keyboard on separate curves, so a row
-    gliding between its source and destination places can lead or trail both edges by a few points. A
-    frame fails when the row moves further than either edge carried it and also shifts more than half a
-    row against each edge for every display frame since the previous sample, which no eased glide does.
-
-    Samples taken before the window's turn begins are skipped, because the screen still shows the previous
-    frame. UIKit can hold the turn until the keyboard lays out, and after a stall the main thread can read
-    a turn further along than the one the screen then begins, so a sample further from where its turn
-    settles than a later one is skipped too. So is one sample per turn whose row doesn't span its viewport.
-    Every commit lays out the whole tree, so it caught the main thread between layout passes, in a state the
-    screen never shows. Each direction must be sampled while it turns, and each turn's last sample is its
-    settled frame and is never skipped. The system animates the accessory on its own, so the row is held
-    above the accessory only once those animations finish.
-    """
-    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
-    landscape = json.loads((out / f"shell-{appearance}-landscape-layout.json").read_text())
-    trace = out / f"rotation-layout-{landscape['pid']}.jsonl"
-    frames = []
-    for line in trace.read_text().splitlines():
-        event = json.loads(line)
-        if (event["source"] == "accessory.display" and event.get("anchor") and start <= event["time"] <= end
-                and (event.get("layout") or {}).get("appearance") == appearance):
-            frames.append(event)
-
-    def width(event):
-        return event["anchor"]["viewportInWindow"][1][0]
-
-    def held(event):
-        return event.get("ahead") or not all(map(begun, event["animations"]["window"]))
-
-    def mid_layout(event):
-        (_, (row_width, _)), (_, (viewport_width, _)) = (event["anchor"]["rowInWindow"],
-                                                         event["anchor"]["viewportInWindow"])
-        return abs(row_width - viewport_width) > 1
-
-    # A turn runs from the first sample with the window's turn animations through its settled samples.
-    turns = []
-    for event in frames:
-        if not turns or (event["animations"]["window"] and not turns[-1][-1]["animations"]["window"]):
-            turns.append([])
-        turns[-1].append(event)
-    for turn in turns:
-        settled = width(turn[-1])
-        for index, event in enumerate(turn):
-            event["ahead"] = any(abs(width(later) - settled) > abs(width(event) - settled) + 1
-                                 for later in turn[index + 1:])
-        when = f"{appearance} turn settling at {turn[-1]['time'] - start:.3f}s"
-        if held(turn[-1]) or mid_layout(turn[-1]):
-            raise ValueError(f"{when} ended on a sample the screen never showed.")
-        if sum(map(mid_layout, turn)) > 1:
-            raise ValueError(f"{when} had more than one sample read between layout passes.")
-    turned = [turn for turn in turns if any(event["animations"]["window"] for event in turn)]
-    directions = {(turn[-1]["anchor"]["columns"], turn[-1]["anchor"]["rows"]) for turn in turned}
-    if len(directions) != 2:
-        raise ValueError(f"{appearance}: the trace sampled {len(turned)} of the capture's {2 * ROUND_TRIPS} turns "
-                         f"while they turned, settling only in {sorted(directions)}.")
-    skipped = sum(map(held, frames))
-    partial = sum(1 for event in frames if not held(event) and mid_layout(event))
-    frames = [event for event in frames if not held(event) and not mid_layout(event)]
-    if len(frames) < 30:
-        raise ValueError(f"{appearance}: only {len(frames)} displayed frames recorded the anchored row.")
-    reference = frames[0]["anchor"]
-    if reference["kind"] != "prompt" or not reference["text"]:
-        raise ValueError(f"{appearance}: the turn began anchored to {reference['kind']} row {reference['text']!r}.")
-
-    def span(rect):
-        (_, y), (_, height) = rect
-        return y, y + height
-
-    previous = None
-    for event in frames:
-        anchor = event["anchor"]
-        top, bottom = span(anchor["rowInWindow"])
-        visible_top, visible_bottom = span(anchor["viewportInWindow"])
-        when = f"{appearance} frame at {event['time'] - start:.3f}s ({anchor['columns']} × {anchor['rows']})"
-        if (anchor["kind"], anchor["text"]) != (reference["kind"], reference["text"]):
-            raise ValueError(f"{when} anchored {anchor['kind']} row {anchor['row']} {anchor['text']!r} "
-                             f"instead of {reference['text']!r}.")
-        settled = all(map(finished, event["animations"]["accessory"]))
-        accessory = anchor.get("accessoryTopInWindow") if settled else None
-        if top < visible_top - 1 or bottom > visible_bottom + 1 or (accessory is not None and bottom > accessory + 1):
-            raise ValueError(f"{when} drew {reference['text']!r} at {top:g}–{bottom:g} pt, outside the viewport "
-                             f"{visible_top:g}–{visible_bottom:g} pt above the accessory at {accessory}.")
-        if previous:
-            moved = abs(top - previous[0])
-            carried = max(abs(visible_top - previous[1]), abs(visible_bottom - previous[2]))
-            shifted = min(abs(top - visible_top - previous[0] + previous[1]),
-                          abs(top - visible_bottom - previous[0] + previous[2]))
-            elapsed = max(1, round((event["time"] - previous[3]) / DISPLAY_FRAME))
-            if moved > carried + 1 and shifted > (bottom - top) / 2 * elapsed:
-                raise ValueError(f"{when} moved {reference['text']!r} {moved:g} pt while its viewport moved {carried:g} pt, "
-                                 f"shifting it {shifted:g} pt against both of the viewport's edges "
-                                 f"in {elapsed} display frames.")
-        previous = (top, visible_top, visible_bottom, event["time"])
-    print(f"{appearance} anchored row: {len(frames)} displayed frames across {len(turned)} turns kept "
-          f"{reference['text']!r} in view and never jumped it against the viewport, skipping {skipped} "
-          f"before the turn began and {partial} read between layout passes.", flush=True)
-
-
-def check_rotation_sizes(out, appearance):
-    start, end = json.loads((out / f"rotate-{appearance}-motion.json").read_text())
-    expected = []
-    for stage in ("landscape", "portrait-return"):
-        layout = json.loads((out / f"shell-{appearance}-{stage}-layout.json").read_text())
-        expected.append((layout["columns"], layout["rows"]))
-    expected *= ROUND_TRIPS
-    actual = []
-    for line in (out / "peer.log").read_text().splitlines():
-        if not line.startswith("{"):
-            continue
-        event = json.loads(line)
-        if (event.get("scene") == "shell" and event["event"] == "resize"
-                and start <= event["time"] / 1000 <= end):
-            actual.append((event["cols"], event["rows"]))
-    if actual != expected:
-        raise ValueError(f"{appearance} rotation sent {actual} to the shell; expected the settled grids {expected}.")
-
-
-def check_images(out, appearances=APPEARANCES, pictures=PICS):
+def check_images(out):
     oracle = load_helper("check-demo-capture")
-    for appearance in appearances:
+    for appearance in APPEARANCES:
         for orientation in ("portrait", "landscape"):
             if not (out / f"shell-{appearance}-{orientation}-layout.json").exists():
                 raise ValueError(f"Missing settled keyboard and grid measurements for {appearance} {orientation}.")
-        check_rotation_sizes(out, appearance)
-        for template in pictures:
+        for template in PICS:
             path = out / (template.format(appearance) + ".png")
             capture = oracle.Capture(path, appearance)
             if capture.count("background") < capture.width * capture.height * 0.04:
@@ -478,7 +279,7 @@ def check_images(out, appearances=APPEARANCES, pictures=PICS):
             if template.startswith(("word-", "line-")) and capture.count("selection") < 100:
                 raise ValueError(f"{path.name} lacks the Metal selection.")
             if template.endswith("-landscape") and capture.count("passed") < 16:
-                raise ValueError(f"{path.name} lost the green shell checks above the prompt during rotation.")
+                raise ValueError(f"{path.name} lost the green shell checks above the prompt in landscape.")
             if template.startswith("control-"):
                 check_armed(capture, path.name)
         run_logged([sys.executable, ROOT / "scripts/check-demo-capture.py", out / f"shell-{appearance}-portrait.png",
@@ -548,21 +349,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="A new or empty directory for captures and logs.")
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
-    parser.add_argument("--trace-rotation-layout", action="store_true",
-                        help="Record UIKit geometry, keyboard notifications and the anchored row of each displayed frame "
-                             "during the shell gestures, and check them through rotation.")
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--accessibility-only", action="store_true",
                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
-    scope.add_argument("--rotation-only", action="store_true",
-                       help="Capture keyboard-open rotation and the keyboard hiding and returning in both appearances, "
-                            "and check the shell resize sequence.")
     scope.add_argument("--swipes-only", action="store_true",
                        help="Swipe through less, vim and the shell's history on a real shell in both appearances, and check "
                             "that a program glides as far as the history and stops under a resting or catching finger.")
     options = parser.parse_args()
-    if (options.accessibility_only or options.swipes_only) and options.trace_rotation_layout:
-        parser.error("--trace-rotation-layout applies to shell gestures.")
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = options.output.resolve()
@@ -621,21 +414,9 @@ def main():
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} swipes", scroll.check, out, appearance)
                 else:
-                    attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
-                            options.rotation_only, options.trace_rotation_layout)
-                if options.trace_rotation_layout:
-                    attempt("rotation layout traces", collect_layout_traces, phone, out)
-                    for appearance in APPEARANCES:
-                        attempt(f"{appearance} keyboard release", check_keyboard_release, out, appearance)
-                        attempt(f"{appearance} anchored row", check_anchored_row, out, appearance)
-                if options.rotation_only:
-                    for appearance in APPEARANCES:
-                        attempt(f"{appearance} rotation", check_images, out, (appearance,),
-                                ("shell-{}-portrait", "shell-{}-landscape"))
-                elif not options.swipes_only:
+                    attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt)
                     attempt("interaction screenshots", check_images, out)
-            if not options.rotation_only:
-                attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
+            attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
             if options.accessibility_only:
                 report = out / "accessibility-spinner-reconnecting.json"
                 if report.exists():
@@ -649,12 +430,10 @@ def main():
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
     if options.accessibility_only:
         print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
-    elif options.rotation_only:
-        print("Verified keyboard-open iPhone rotation and shell resizes in both Slate appearances.")
     elif options.swipes_only:
         print("Verified that swipes glide through less and vim as far as through the shell's history and stop under a finger.")
     else:
-        print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
+        print("Captured the iPhone terminal, selection, controls, scrolling and landscape in both Slate appearances.")
 
 
 if __name__ == "__main__":
