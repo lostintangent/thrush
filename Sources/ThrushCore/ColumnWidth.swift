@@ -1,6 +1,5 @@
 /// Returns how many grid columns a scalar occupies according to the server’s Unicode 11 provider.
 enum ColumnWidth {
-    @inline(__always)
     static func of(_ scalar: Unicode.Scalar) -> Int {
         let code = Int(scalar.value)
         let page = Int(pageIndices[code >> 8])

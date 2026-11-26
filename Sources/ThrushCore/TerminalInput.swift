@@ -134,8 +134,7 @@ extension Terminal {
         case numbered(UInt8, modifyOn: Input.Modifiers = [.shift, .alt, .control], localOn: Input.Modifiers = [])
 
         func encode(applicationCursorKeys: Bool, modifiers: Input.Modifiers) -> [UInt8] {
-            // Specialize the parameter and final byte so an unmodified key can reuse constant storage.
-            @inline(__always) func csi(_ number: UInt8, final: UInt8, modifiers: Input.Modifiers) -> [UInt8] {
+            func csi(_ number: UInt8, final: UInt8, modifiers: Input.Modifiers) -> [UInt8] {
                 let digit = UInt8(ascii: "0") + number % 10
                 let modifier = UInt8(ascii: "1") + modifiers.rawValue
                 // Construct the common one-digit report in one allocation.

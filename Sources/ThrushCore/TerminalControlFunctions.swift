@@ -261,8 +261,6 @@ extension Terminal {
         static let secondaryDeviceAttributes = "\u{1b}[>0;276;0c"
 
         /// CPR reports the cursor's row and column using the protocol's one-based coordinates.
-        // Keep interpolation in the caller on query-heavy streams.
-        @inline(__always)
         static func cursorPosition(row: Int, column: Int) -> String {
             "\u{1b}[\(row + 1);\(column + 1)R"
         }

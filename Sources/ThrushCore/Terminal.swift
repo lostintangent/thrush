@@ -220,10 +220,6 @@ public struct Terminal: Sendable {
     }
 
     /// Reads a sequence from `index`: at most one action, or the ASCII payload of a string.
-    ///
-    /// Each sequence costs this one call, which inlines the parser's framing loop. Inlined into
-    /// `receive` instead, it made plain text up to 5% slower.
-    @inline(never)
     private mutating func readSequence(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
         let byte = bytes[index]
         if byte >= 0x80 {
@@ -276,7 +272,6 @@ public struct Terminal: Sendable {
         dispatch(action, replies: &replies)
     }
 
-    @inline(__always)
     private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
         if let action {
             if let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
@@ -487,7 +482,6 @@ public struct Terminal: Sendable {
     private var originTop: Int { modes.origin ? screen.scrollTop : 0 }
 
     /// Places the cursor for the controls that address a row, which origin mode keeps within the region.
-    @inline(__always)
     private mutating func position(row: Int, column: Int) {
         screen.move(toRow: modes.origin ? min(screen.scrollTop + row, screen.scrollBottom) : row, column: column)
     }
@@ -589,7 +583,6 @@ public struct Terminal: Sendable {
         }
     }
 
-    @inline(__always)
     private mutating func setPrivateModes(enabled: Bool, replies: inout [UInt8]) {
         for index in 0..<parser.parameters.count {
             guard let mode = PrivateMode(rawValue: parser.parameters[index]) else { continue }

@@ -60,48 +60,46 @@ struct TextScanner: Sendable {
                                                 into buffer: inout InlineArray<capacity, UInt32>)
         -> (count: Int, control: Unicode.Scalar?) {
         var glyphs = buffer.mutableSpan
-        // Working on copies keeps the position and state in registers, since the compiler can't
-        // tell that writing a glyph leaves them alone.
-        var decoder = self, position = index, count = 0
+        var count = 0
         var control: Unicode.Scalar?
-        while count < glyphs.count, position < bytes.count {
-            let byte = bytes[position]
+        while count < glyphs.count, index < bytes.count {
+            let byte = bytes[index]
             if byte < 0x80 {
-                guard continuingASCII, count > 0, decoder.isComplete, Self.isPrintableASCII(byte) else { break }
-                if bytes.count &- position >= 16, glyphs.count &- count >= 16 {
+                guard continuingASCII, count > 0, isComplete, Self.isPrintableASCII(byte) else { break }
+                if bytes.count &- index >= 16, glyphs.count &- count >= 16 {
                     // A stretch of printable ASCII shorter than a block joins the text at once. A longer
                     // one ends it, since the vector path writes that faster.
-                    let block = bytes.bytes.load(fromByteOffset: position, as: SIMD16<UInt8>.self)
+                    let block = bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self)
                     let length = Self.printablePrefix(of: block)
                     guard length < 16 else { break }
                     var output = glyphs.mutableBytes
                     output.storeBytes(of: Self.widened(block), toByteOffset: count &* 4, as: SIMD16<UInt32>.self)
                     count &+= length
-                    position &+= length
+                    index &+= length
                     continue
                 }
                 glyphs[count] = UInt32(byte)
                 count += 1
-                position += 1
+                index += 1
                 continue
             }
             var sequence: (scalar: Unicode.Scalar?, length: Int) = (nil, 0)
-            if decoder.isComplete, bytes.count &- position >= 4 {
+            if isComplete, bytes.count &- index >= 4 {
                 // A branch for each length lets the next read start before this sequence's bytes arrive.
                 switch byte {
-                case 0xc2...0xdf: sequence = (Self.sequence(in: bytes, at: position, length: 2), 2)
-                case 0xe0...0xef: sequence = (Self.sequence(in: bytes, at: position, length: 3), 3)
-                case 0xf0...0xf4: sequence = (Self.sequence(in: bytes, at: position, length: 4), 4)
+                case 0xc2...0xdf: sequence = (Self.sequence(in: bytes, at: index, length: 2), 2)
+                case 0xe0...0xef: sequence = (Self.sequence(in: bytes, at: index, length: 3), 3)
+                case 0xf0...0xf4: sequence = (Self.sequence(in: bytes, at: index, length: 4), 4)
                 default: break
                 }
             }
             let scalar: Unicode.Scalar
             if let decoded = sequence.scalar {
                 scalar = decoded
-                position &+= sequence.length
+                index &+= sequence.length
             } else {
-                position += 1
-                guard let decoded = decoder.decode(byte) else { continue }
+                index += 1
+                guard let decoded = decode(byte) else { continue }
                 if decoded.value < 0xa0 {
                     control = decoded
                     break
@@ -112,8 +110,6 @@ struct TextScanner: Sendable {
             glyphs[count] = Terminal.StoredCell.glyph(scalar, width: ColumnWidth.of(scalar))
             count += 1
         }
-        self = decoder
-        index = position
         return (count, control)
     }
 

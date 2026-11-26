@@ -370,8 +370,6 @@ extension Terminal {
             } else {
                 store(upTo: end)
                 var target = cells.mutableSpan
-                // One check up front lets the compiler drop the check on every cell.
-                precondition(end <= target.count)
                 for offset in 0..<bytes.count {
                     target[column &+ offset] = StoredCell(glyph: UInt32(bytes[offset]), stylePosition: style)
                 }
@@ -398,8 +396,6 @@ extension Terminal {
             extend(to: column)
             store(upTo: limit)
             var target = cells.mutableSpan
-            // One check up front lets the compiler drop the check on every cell.
-            precondition(column >= 0 && limit <= target.count)
             let first = next
             var end = column
             while next < glyphs.count {
