@@ -78,6 +78,8 @@ public struct Terminal: Sendable {
     // Printed text runs up to the cursor until a control function runs. Until then a combining mark
     // joins the last character and REP repeats it. A sequence that is incomplete or ignored keeps the run.
     private(set) var followsText = false
+    /// Where each run of non-ASCII text decodes before it's written. Keeping it saves clearing a new one.
+    private var glyphs = InlineArray<64, UInt32>(repeating: 0)
 
     /// Creates a terminal with a blank normal screen and the host theme's colors.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
@@ -190,29 +192,12 @@ public struct Terminal: Sendable {
     private var printsInRuns: Bool { modes.wraparound && !modes.insert && characterSets.active == .ascii }
 
     private mutating func writeNonASCII(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
-        guard let first = scanner.nextNonASCII(in: bytes, index: &index) else { return }
-        var control: Unicode.Scalar?
-        if first.value < 0xa0 {
-            control = first
-        } else {
-            var decoder = scanner
-            let written = screen.writeRun(startingWith: (first, ColumnWidth.of(first)), style: style,
-                                          joinsPrevious: &followsText) { appending in
-                // Printable ASCII continues a run that appends cells, so mixed text stays in one run.
-                // Overwriting cells, the run ends instead and ASCII takes the vector path.
-                if appending, index < bytes.count, TextScanner.isPrintableASCII(bytes[index]) {
-                    index += 1
-                    return (Unicode.Scalar(bytes[index - 1]), 1)
-                }
-                guard let scalar = decoder.nextNonASCII(in: bytes, index: &index) else { return nil }
-                if scalar.value < 0xa0 {
-                    control = scalar
-                    return nil
-                }
-                return (scalar, ColumnWidth.of(scalar))
-            }
-            scanner = decoder
-            generation &+= written
+        // Printable ASCII continues text that appends cells, so mixed text stays in one run.
+        // Overwriting cells, the text ends at ASCII instead, which takes the vector path.
+        let (count, control) = scanner.decodeText(in: bytes, index: &index, continuingASCII: screen.appendsAtCursor,
+                                                  into: &glyphs)
+        if count > 0 {
+            generation &+= screen.writeRun(glyphs.span.extracting(..<count), style: style, joinsPrevious: &followsText)
         }
         if let control {
             let action = parser.consume(control)

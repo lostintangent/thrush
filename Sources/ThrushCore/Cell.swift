@@ -87,6 +87,11 @@ extension Terminal {
         /// Zero is the default style. Any other value `n` is `styles[n - 1]` in the cell's row.
         var stylePosition: UInt32 = 0
 
+        /// A scalar with the flag for its width.
+        static func glyph(_ scalar: Unicode.Scalar, width: Int) -> UInt32 {
+            scalar.value | (width == 2 ? wide : (width == 0 ? zeroWidth : 0))
+        }
+
         var scalar: UInt32 { glyph & 0x1f_ffff }
         var width: Int {
             if glyph & Self.wide != 0 { return 2 }
@@ -102,8 +107,8 @@ extension Terminal {
         var storageColumns: Int
         // The cells written so far, with room for every column so writing never reallocates. Only
         // the cells before `length` are in use, and the columns from there on are blank in the
-        // default style. Clearing a row just resets `length`. Text written past the stored cells is
-        // appended, so a new row stores only the columns it has shown.
+        // default style. Clearing a row just resets `length`. ASCII written past the stored cells is
+        // appended, and a run of other text first stores blanks through the row's last column.
         var cells: [StoredCell]
         private(set) var length = 0
         // The styles the cells use other than the default. An entry can repeat, and it can stay
@@ -324,51 +329,36 @@ extension Terminal {
             clearWideEdges(column..<end, style: style)
             discardClusters(in: column..<end)
             prepareToWrite(column..<end)
-            let flag: UInt32 = width == 2 ? StoredCell.wide : (width == 0 ? StoredCell.zeroWidth : 0)
-            cells[column] = StoredCell(glyph: scalar.value | flag, stylePosition: style)
+            cells[column] = StoredCell(glyph: StoredCell.glyph(scalar, width: width), stylePosition: style)
             if width == 2 { cells[column + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style) }
         }
 
-        /// Writes complete, non-combining scalars from `column`, at or past the cells in use,
-        /// until one doesn't fit before `limit`. Returns how many it wrote.
-        mutating func appendRun(_ pending: inout SizedScalar?, at column: Int, limit: Int, style: Style,
-                                next: () -> SizedScalar?) -> UInt64 {
+        /// Appends glyphs from `next`, at or past the cells in use, until one is zero width or
+        /// doesn't fit before `limit`. Returns how many it wrote.
+        mutating func appendRun(_ glyphs: Span<UInt32>, from next: inout Int, at column: Int, limit: Int,
+                                style: Style) -> UInt64 {
             let style = position(of: style)
             clearWideLead(before: column, style: style)
             extend(to: column)
-            var written: UInt64 = 0
+            store(upTo: limit)
+            var target = cells.mutableSpan
+            // One check up front lets the compiler drop the check on every cell.
+            precondition(column >= 0 && limit <= target.count)
+            let first = next
             var end = column
-            if column == cells.count {
-                appendCells(upTo: limit) { appended in
-                    while let glyph = pending, glyph.width > 0, end + glyph.width <= limit {
-                        if glyph.width == 2 {
-                            appended.append(StoredCell(glyph: glyph.scalar.value | StoredCell.wide, stylePosition: style))
-                            appended.append(StoredCell(glyph: StoredCell.continuation, stylePosition: style))
-                        } else {
-                            appended.append(StoredCell(glyph: glyph.scalar.value, stylePosition: style))
-                        }
-                        end += glyph.width
-                        written &+= 1
-                        pending = next()
-                    }
-                }
-            } else {
-                store(upTo: limit)
-                var target = cells.mutableSpan
-                while let glyph = pending, glyph.width > 0, end + glyph.width <= limit {
-                    if glyph.width == 2 {
-                        target[end] = StoredCell(glyph: glyph.scalar.value | StoredCell.wide, stylePosition: style)
-                        target[end + 1] = StoredCell(glyph: StoredCell.continuation, stylePosition: style)
-                    } else {
-                        target[end] = StoredCell(glyph: glyph.scalar.value, stylePosition: style)
-                    }
-                    end += glyph.width
-                    written &+= 1
-                    pending = next()
-                }
+            while next < glyphs.count {
+                let glyph = glyphs[next]
+                let width = 1 &+ Int(glyph >> 21 & 1)
+                guard glyph & StoredCell.zeroWidth == 0, end &+ width <= limit else { break }
+                // Every glyph writes a continuation after it, so the loop doesn't branch on width.
+                // A narrow glyph's lands where the next glyph goes, or past the cells in use.
+                target[min(end &+ 1, limit &- 1)] = StoredCell(glyph: StoredCell.continuation, stylePosition: style)
+                target[end] = StoredCell(glyph: glyph, stylePosition: style)
+                end &+= width
+                next &+= 1
             }
             length = end
-            return written
+            return UInt64(next - first)
         }
 
         mutating func appendCombining(_ scalar: Unicode.Scalar, before column: Int) {

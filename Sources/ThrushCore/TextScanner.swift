@@ -19,30 +19,121 @@ struct TextScanner: Sendable {
     static func endOfASCII(in bytes: Span<UInt8>, from start: Int) -> Int {
         var index = start
         while bytes.count - index >= 16 {
-            // A lane is printable ASCII exactly when subtracting space gives a value below 95.
-            // Adding 33 sets the high bit from 95 up, and anything past 127 has it already, so
-            // the high bits mark the lanes that end the run.
-            let offset = bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self) &- 0x20
-            let marks = unsafeBitCast((offset | (offset &+ 33)) & 0x80, to: SIMD2<UInt64>.self)
-            // Each half read as a little-endian word puts its first lane in the lowest byte.
-            let first = UInt64(littleEndian: marks[0]), second = UInt64(littleEndian: marks[1])
-            if first != 0 { return index + first.trailingZeroBitCount / 8 }
-            if second != 0 { return index + 8 + second.trailingZeroBitCount / 8 }
+            let length = printablePrefix(of: bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self))
+            if length < 16 { return index + length }
             index += 16
         }
         while index < bytes.count && isPrintableASCII(bytes[index]) { index += 1 }
         return index
     }
 
-    /// Returns the next decoded non-ASCII scalar before an ASCII byte or the end of this chunk.
+    /// How many lanes of `block` are printable ASCII before the first that isn't.
     @inline(__always)
-    mutating func nextNonASCII(in bytes: Span<UInt8>, index: inout Int) -> Unicode.Scalar? {
-        while index < bytes.count, bytes[index] >= 0x80 {
-            let byte = bytes[index]
-            index += 1
-            if let scalar = decode(byte), scalar != Self.byteOrderMark { return scalar }
+    private static func printablePrefix(of block: SIMD16<UInt8>) -> Int {
+        // A lane is printable ASCII exactly when subtracting space gives a value below 95.
+        // Adding 33 sets the high bit from 95 up, and anything past 127 has it already, so
+        // the high bits mark the lanes that end the run.
+        let offset = block &- 0x20
+        let marks = unsafeBitCast((offset | (offset &+ 33)) & 0x80, to: SIMD2<UInt64>.self)
+        // Each half read as a little-endian word puts its first lane in the lowest byte.
+        let first = UInt64(littleEndian: marks[0]), second = UInt64(littleEndian: marks[1])
+        if first != 0 { return first.trailingZeroBitCount / 8 }
+        if second != 0 { return 8 + second.trailingZeroBitCount / 8 }
+        return 16
+    }
+
+    /// Each byte of `block` as a 32-bit lane. Widening by halves compiles to a few vector instructions,
+    /// where widening all 16 lanes at once compiles to a call.
+    @inline(__always)
+    private static func widened(_ block: SIMD16<UInt8>) -> SIMD16<UInt32> {
+        let halves = SIMD16<UInt16>(lowHalf: .init(truncatingIfNeeded: block.lowHalf),
+                                    highHalf: .init(truncatingIfNeeded: block.highHalf))
+        return SIMD16<UInt32>(lowHalf: .init(truncatingIfNeeded: halves.lowHalf),
+                              highHalf: .init(truncatingIfNeeded: halves.highHalf))
+    }
+
+    /// Decodes printable text from `index` into `buffer`, each a scalar with the flag for its width,
+    /// until a control, the end of this chunk or a full buffer. Printable ASCII continues the text
+    /// only when `continuingASCII` and a glyph came before it, so ASCII after a lone byte order mark
+    /// takes the vector path. Returns how many glyphs it decoded and any C1 control that ended them.
+    mutating func decodeText<let capacity: Int>(in bytes: Span<UInt8>, index: inout Int, continuingASCII: Bool,
+                                                into buffer: inout InlineArray<capacity, UInt32>)
+        -> (count: Int, control: Unicode.Scalar?) {
+        var glyphs = buffer.mutableSpan
+        // Working on copies keeps the position and state in registers, since the compiler can't
+        // tell that writing a glyph leaves them alone.
+        var decoder = self, position = index, count = 0
+        var control: Unicode.Scalar?
+        while count < glyphs.count, position < bytes.count {
+            let byte = bytes[position]
+            if byte < 0x80 {
+                guard continuingASCII, count > 0, decoder.isComplete, Self.isPrintableASCII(byte) else { break }
+                if bytes.count &- position >= 16, glyphs.count &- count >= 16 {
+                    // A stretch of printable ASCII shorter than a block joins the text at once. A longer
+                    // one ends it, since the vector path writes that faster.
+                    let block = bytes.bytes.load(fromByteOffset: position, as: SIMD16<UInt8>.self)
+                    let length = Self.printablePrefix(of: block)
+                    guard length < 16 else { break }
+                    var output = glyphs.mutableBytes
+                    output.storeBytes(of: Self.widened(block), toByteOffset: count &* 4, as: SIMD16<UInt32>.self)
+                    count &+= length
+                    position &+= length
+                    continue
+                }
+                glyphs[count] = UInt32(byte)
+                count += 1
+                position += 1
+                continue
+            }
+            var sequence: (scalar: Unicode.Scalar?, length: Int) = (nil, 0)
+            if decoder.isComplete, bytes.count &- position >= 4 {
+                // A branch for each length lets the next read start before this sequence's bytes arrive.
+                switch byte {
+                case 0xc2...0xdf: sequence = (Self.sequence(in: bytes, at: position, length: 2), 2)
+                case 0xe0...0xef: sequence = (Self.sequence(in: bytes, at: position, length: 3), 3)
+                case 0xf0...0xf4: sequence = (Self.sequence(in: bytes, at: position, length: 4), 4)
+                default: break
+                }
+            }
+            let scalar: Unicode.Scalar
+            if let decoded = sequence.scalar {
+                scalar = decoded
+                position &+= sequence.length
+            } else {
+                position += 1
+                guard let decoded = decoder.decode(byte) else { continue }
+                if decoded.value < 0xa0 {
+                    control = decoded
+                    break
+                }
+                scalar = decoded
+            }
+            if scalar == Self.byteOrderMark { continue }
+            glyphs[count] = Terminal.StoredCell.glyph(scalar, width: ColumnWidth.of(scalar))
+            count += 1
         }
-        return nil
+        self = decoder
+        index = position
+        return (count, control)
+    }
+
+    /// The smallest value a sequence of each length encodes. A smaller one is an overlong form,
+    /// and two-byte values below 0xa0 are C1 controls.
+    private static let smallestValues: InlineArray<5, UInt32> = [0, 0, 0xa0, 0x800, 0x1_0000]
+
+    /// Decodes a complete, valid, printable sequence of `length` bytes at `start`, from the four bytes
+    /// there. Returns nil for a C1 control or an invalid sequence, which the byte-at-a-time decoder
+    /// handles instead.
+    @inline(__always)
+    private static func sequence(in bytes: Span<UInt8>, at start: Int, length: Int) -> Unicode.Scalar? {
+        let word = UInt32(bigEndian: bytes.bytes.load(fromByteOffset: start, as: UInt32.self))
+        // Each byte after the lead starts with 10.
+        let following = 0x00c0_c0c0 & ~(UInt32.max >> (8 * length))
+        guard word & following == 0x0080_8080 & following else { return nil }
+        let bits = (word >> 24 & 0x7f >> length) << 18 | (word >> 16 & 0x3f) << 12 | (word >> 8 & 0x3f) << 6 | word & 0x3f
+        let value = bits >> (6 * (4 - length))
+        guard value >= smallestValues[length] else { return nil }
+        return Unicode.Scalar(value)
     }
 
     private(set) var value: UInt32 = 0
