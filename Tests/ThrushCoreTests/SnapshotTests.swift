@@ -172,6 +172,23 @@ import ThrushFixtures
     #expect(full.rows.map(\.text) == ["d", "e", "f", "g", "h"])
 }
 
+@Test func fullScreenScrollsAndResizesAfterARegionScrollKeepScreenOrder() {
+    var terminal = Terminal(size: .init(columns: 3, rows: 5))
+    // A region scroll leaves the rows out of slot order, so later scrolls must follow the screen order.
+    _ = terminal.receive("a\r\nb\r\nc\r\nd\r\ne\u{1b}[2;4r\u{1b}[4;1H\nx".utf8)
+    #expect(terminal.snapshot().rows.map(\.text) == ["a", "c", "d", "x", "e"])
+
+    _ = terminal.receive("\u{1b}[r\u{1b}[5;1H\r\nf\r\ng".utf8)
+    let scrolled = terminal.snapshot()
+    #expect(scrolled.history.map(\.text) == ["a", "c"])
+    #expect(scrolled.rows.map(\.text) == ["d", "x", "e", "f", "g"])
+
+    terminal.resize(to: .init(columns: 3, rows: 3))
+    let resized = terminal.snapshot()
+    #expect(resized.history.map(\.text) == ["a", "c", "d", "x"])
+    #expect(resized.rows.map(\.text) == ["e", "f", "g"])
+}
+
 @Test func synchronizedOutputKeepsParsingAndAnswersQueriesBeforeRelease() throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let start = "\u{1b}[?2026h", end = "\u{1b}[?2026l"

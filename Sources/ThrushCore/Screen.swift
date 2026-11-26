@@ -162,10 +162,13 @@ extension Terminal {
         }
     }
 
-    /// A rotating viewport makes the usual full-height scroll O(1), independent of scrollback.
+    /// Rows stay in their slots while the screen reorders them. `order` lists the slot of each screen
+    /// row as a ring that starts at `head`, so a full-height scroll moves `head` and a region scroll
+    /// rotates one integer per row instead of the rows.
     struct Buffer: Sendable {
         var size: Size
         var rows: [Row]
+        var order: [Int]
         var head = 0
         var history = History()
         var row = 0
@@ -182,17 +185,24 @@ extension Terminal {
             self.alternate = alternate
             history = History(capacity: historyCapacity)
             rows = Array(repeating: Row(columns: size.columns, generation: generation, style: style), count: size.rows)
+            order = Array(rows.indices)
             tabs = TabStops(columns: size.columns)
             scrollBottom = size.rows - 1
         }
 
         func index(of row: Int) -> Int {
-            let offset = head + row
-            return offset >= rows.count ? offset - rows.count : offset
+            order[position(of: row)]
         }
 
+        private func position(of row: Int) -> Int {
+            let offset = head + row
+            return offset >= order.count ? offset - order.count : offset
+        }
+
+        /// Shares the row array while every row sits in its own slot.
         var visible: [Row] {
-            head == 0 ? rows : Array(rows[head...] + rows[..<head])
+            let screen = rows.indices
+            return screen.allSatisfy { index(of: $0) == $0 } ? rows : screen.map { rows[index(of: $0)] }
         }
 
         /// Moves the cursor down a row and scrolls the region when it leaves the bottom margin.
@@ -213,10 +223,11 @@ extension Terminal {
             }
 
             if scrollTop == 0 {
-                history.append(&rows[head])
+                let top = index(of: 0)
+                history.append(&rows[top])
                 if scrollBottom == size.rows - 1 {
-                    rows[head].clear(columns: size.columns, generation: generation, style: eraseStyle,
-                                     wrapped: wrapped ?? false)
+                    rows[top].clear(columns: size.columns, generation: generation, style: eraseStyle,
+                                    wrapped: wrapped ?? false)
                     head += 1
                     if head == size.rows { head = 0 }
                     return
@@ -251,13 +262,13 @@ extension Terminal {
         /// Moves the rows in `region` down by `offset`, or up when it's negative, and wraps the rows pushed
         /// past one margin around to the other.
         private mutating func rotate(_ region: ClosedRange<Int>, by offset: Int) {
-            if head + region.lowerBound < rows.count, head + region.upperBound >= rows.count {
-                // The region crosses the end of the ring, so put the rows back in screen order first.
-                rows.rotate(rows.indices, by: -head)
+            if head + region.lowerBound < order.count, head + region.upperBound >= order.count {
+                // The region crosses the end of the ring, so put the slots back in screen order first.
+                order.rotate(order.indices, by: -head)
                 head = 0
             }
-            let first = index(of: region.lowerBound)
-            rows.rotate(first..<(first + region.count), by: offset)
+            let first = position(of: region.lowerBound)
+            order.rotate(first..<(first + region.count), by: offset)
         }
     }
 
@@ -687,11 +698,8 @@ extension Array {
     /// Moves the elements in `range` toward its end by `offset`, or toward its start when it's negative,
     /// and wraps the elements pushed past one end around to the other.
     ///
-    /// The shorter side waits in temporary storage while the rest slides over its slots, then fills the
-    /// slots the slide left behind. Each typed move hands its elements to the destination and leaves the
-    /// source uninitialized, so every element keeps its one owner and nothing is retained or released.
-    /// Nothing between the moves can throw or read the array, and taking the buffer first copies it when
-    /// a snapshot shares it.
+    /// The shorter side waits in temporary storage while the rest slides over its slots in one
+    /// overlapping copy, then fills the slots the slide left behind.
     fileprivate mutating func rotate(_ range: Range<Int>, by offset: Int) {
         let count = range.count
         guard count > 1 else { return }
