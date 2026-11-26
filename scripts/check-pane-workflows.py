@@ -224,7 +224,8 @@ def await_report(name, app, peer, driver, output, platform, target, *, verify_fi
                 fixture_root = Path("Fixtures/recordings") if name == "shell" else Path("Fixtures/reference/m4/phone")
                 fixture = json.loads((fixture_root / (WORKFLOWS[name] + ".json")).read_bytes())
                 expected = {}
-                grid = (47, 24)
+                # Every workflow opens at the Duo's portrait grid with the keyboard up.
+                grid = (45, 18)
                 for index, event in enumerate(fixture["events"]):
                     if "resize" in event:
                         change = event["resize"]

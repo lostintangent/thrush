@@ -49,7 +49,7 @@ def capture(bash):
             prompt = session.read("Shell prompt", PROMPT)
             assert prompt.endswith(PROMPT) and b"\x1b[?2004h" in prompt, "The shell must negotiate bracketed paste."
             session.checkpoint("Fresh prompt")
-            session.resize(47, 24)
+            session.resize(45, 18)
             assert b"./builx" in session.input("Type unfinished command", b"./builx")
             session.checkpoint("Typed command")
             session.input("Correct typo", b"\x7f", "key", "backspace")
