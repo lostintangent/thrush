@@ -21,7 +21,7 @@ The script installs the reference from its lockfile, builds ThrushConformance in
 ## What the harness writes
 
 - `Tests/ThrushConformanceTests/Cases/{functions,programs,streams}.json` holds every case with the reference's checkpoints. Cells and lines are interned, so long histories stay small.
-- `Tests/ThrushConformanceTests/KnownGaps.json` lists the cases Thrush doesn't match yet, by the function they exercise. The tests expect each listed case to fail. A case that starts matching fails as an unrecorded known issue, so the list only shrinks. After a fix, regenerate with `--write` and commit the shorter list.
+- `Tests/ThrushConformanceTests/KnownGaps.json` lists the cases Thrush doesn't match yet, by the function they exercise. The tests expect each listed case to fail. A case that starts matching fails as an unrecorded known issue, so the list only shrinks. After a fix, regenerate with `--write` and commit the shorter list. A gap Thrush keeps by choice has a reason written by hand, which the harness keeps when it regenerates. The report lists these gaps apart from the ranking.
 - `Tests/ThrushConformanceTests/ReferenceDefects.json` lists the cases where the reference is wrong, such as a crash or corrupted history. Each entry has a reason written by hand and the exact differences, which the harness regenerates. Thrush must differ in exactly those ways, so a change on either side shows up in review. Any case where the reference throws must be listed.
 - `reference.json` records the reference configuration and how often each recorded program emits each function.
 

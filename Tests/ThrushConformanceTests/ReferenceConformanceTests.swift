@@ -17,13 +17,22 @@ struct ReferenceDefect: Decodable {
     var differences: [Difference]
 }
 
+/// A function Thrush doesn't match yet, and the cases that show it.
+struct KnownGap: Decodable {
+    /// Why Thrush differs by choice, written by hand. A gap without one is still to be closed.
+    var reason: String?
+    var cases: [String]
+}
+
 /// The harness's lists, decoded once. A list that fails to decode fails `listsNameCases`.
 enum Lists {
-    /// Cases Thrush doesn't match yet, by the function they exercise. A listed case that starts
+    /// What each case Thrush doesn't match yet records as its known issue. A listed case that starts
     /// matching fails as an unrecorded known issue, so the list can only shrink.
     static let knownGaps: [String: String] = {
-        let gaps = (try? decode([String: [String]].self, from: "KnownGaps")) ?? [:]
-        return Dictionary(gaps.flatMap { subject, cases in cases.map { ($0, subject) } }, uniquingKeysWith: { first, _ in first })
+        let gaps = (try? decode([String: KnownGap].self, from: "KnownGaps")) ?? [:]
+        return Dictionary(gaps.flatMap { subject, gap in
+            gap.cases.map { ($0, gap.reason ?? "Thrush doesn't match the reference for \(subject) yet") }
+        }, uniquingKeysWith: { first, _ in first })
     }()
 
     static let referenceDefects: [String: ReferenceDefect] =
@@ -53,12 +62,12 @@ struct ReferenceConformanceTests {
             #expect(testCase.differences(in: checkpoints) == defect.differences, Comment(rawValue: defect.reason))
             return
         }
-        guard let subject = Lists.knownGaps[testCase.name] else {
+        guard let gap = Lists.knownGaps[testCase.name] else {
             if let report = testCase.report(checkpoints) { Issue.record(Comment(rawValue: report)) }
             return
         }
         // A known gap records only its first difference, so the full reports stay for regressions.
-        withKnownIssue("Thrush doesn't match the reference for \(subject) yet") {
+        withKnownIssue(Comment(rawValue: gap)) {
             if let first = testCase.differences(in: checkpoints).first {
                 Issue.record("At checkpoint \"\(first.checkpoint)\", \(first)")
             }
@@ -73,7 +82,7 @@ struct ReferenceConformanceTests {
 
     @Test func listsNameCases() throws {
         let names = Set(bundledCases.map(\.name))
-        let gaps = try Lists.decode([String: [String]].self, from: "KnownGaps").values.joined()
+        let gaps = try Lists.decode([String: KnownGap].self, from: "KnownGaps").values.flatMap(\.cases)
         let defects = try Lists.decode([String: ReferenceDefect].self, from: "ReferenceDefects").keys
         #expect(gaps.filter { !names.contains($0) }.sorted() == [])
         #expect(defects.filter { !names.contains($0) }.sorted() == [])

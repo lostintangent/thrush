@@ -84,16 +84,20 @@ if (options.thrush) {
   }
   log(`Thrush replayed the same cases in ${seconds(started)}`);
 
+  // A gap's reason is written by hand, and marks it as a choice rather than work still to do.
+  const listedGaps = existsSync(files.gaps) ? JSON.parse(readFileSync(files.gaps, 'utf8')) : {};
   const gaps = {};
   for (const corpusResults of Object.values(results)) {
     for (const result of corpusResults) {
-      const name = result.testCase.name;
+      const { name, subject } = result.testCase;
       // The reason is written by hand, and the differences are regenerated so a change on either side shows.
       if (defects[name]) {
         defects[name] = { reason: defects[name].reason, differences: result.differences };
         continue;
       }
-      if (result.failing) (gaps[result.testCase.subject] ??= []).push(name);
+      if (!result.failing) continue;
+      const reason = listedGaps[subject]?.reason;
+      (gaps[subject] ??= reason ? { reason, cases: [] } : { cases: [] }).cases.push(name);
     }
   }
   for (const [name, defect] of Object.entries(defects)) {
@@ -105,7 +109,7 @@ if (options.thrush) {
 
   if (options.report) {
     const shrinker = new Shrinker(reference, thrush);
-    const report = await gapReport(results, emitted, defects, shrinker);
+    const report = await gapReport(results, emitted, defects, gaps, shrinker);
     mkdirSync(dirname(resolve(options.report)), { recursive: true });
     writeFileSync(resolve(options.report), report);
     log(`Wrote the gap report to ${options.report} in ${seconds(started)}`);
@@ -138,7 +142,7 @@ function caseFile(corpusRuns) {
     + `"cases": [\n${cases.join(',\n')}\n]\n}\n`;
 }
 
-async function gapReport(results, emitted, defects, shrinker) {
+async function gapReport(results, emitted, defects, gaps, shrinker) {
   const programs = Object.keys(emitted);
   const users = names => programs.filter(program => names.every(name => emitted[program][name]));
   const total = name => programs.reduce((sum, program) => sum + (emitted[program][name] ?? 0), 0);
@@ -149,8 +153,11 @@ async function gapReport(results, emitted, defects, shrinker) {
 
   // 1. Each failing function case shrinks to the functions that still disagree. The cause is the case's
   // own function when it survives, and otherwise whatever its setup used that Thrush gets wrong.
+  // Deliberate gaps aren't work to do, so they're listed apart from the ranking.
+  const deliberate = Object.entries(sorted(gaps)).filter(([, gap]) => gap.reason);
   const causes = new Map();
-  for (const result of results.functions.filter(result => result.failing && !defects[result.testCase.name])) {
+  for (const result of results.functions.filter(result => result.failing && !defects[result.testCase.name]
+    && !gaps[result.testCase.subject]?.reason)) {
     const { testCase } = result;
     const steps = testCase.steps.filter(step => !step.checkpoint);
     const shrunk = result.crashed ? undefined : await shrinker.shrink(testCase, steps, { tests: 300, scalars: false });
@@ -214,6 +221,7 @@ async function gapReport(results, emitted, defects, shrinker) {
     .sort((a, b) => b.users.length - a.users.length || b.emissions - a.emissions || a.name.localeCompare(b.name));
   const status = name => {
     if (rank.has(name)) return `gap, row ${rank.get(name)}`;
+    if (gaps[name]?.reason) return 'deliberate gap';
     const cases = exercised.get(name);
     if (!cases) return name === 'resize' ? 'matches' : '**no function case**';
     const failing = cases.filter(result => result.failing).length;
@@ -237,10 +245,12 @@ async function gapReport(results, emitted, defects, shrinker) {
     defectCount ? 'Reference defects are listed at the end, with why Thrush differs.' : '',
     '',
     '## Ranked function gaps', '',
-    'Each failing function case is shrunk to the fewest bytes that still disagree, and grouped by the functions left in them. '
-      + `Rows rank by how many of the ${programs.length} recorded programs emit every function in the cause, then by how often they do.`, '',
-    '| # | Cause | Failing cases | Programs | Emissions | Smallest input | First difference |',
-    '| ---: | --- | ---: | --- | ---: | --- | --- |',
+    ...(ranked.length ? [
+      'Each failing function case is shrunk to the fewest bytes that still disagree, and grouped by the functions left in them. '
+        + `Rows rank by how many of the ${programs.length} recorded programs emit every function in the cause, then by how often they do.`, '',
+      '| # | Cause | Failing cases | Programs | Emissions | Smallest input | First difference |',
+      '| ---: | --- | ---: | --- | ---: | --- | --- |',
+    ] : ['Every function case matches, except the deliberate gaps and reference defects.']),
     ...ranked.map((gap, index) => {
       const smallest = gap.failing.filter(result => result.shrunk).sort((a, b) => length(a.shrunk.steps) - length(b.shrunk.steps))[0];
       const first = smallest ?? gap.failing[0];
@@ -249,6 +259,13 @@ async function gapReport(results, emitted, defects, shrinker) {
         + `${smallest ? code(printable(smallest.shrunk.steps)) : ''} | ${cell(`${first.testCase.name}: ${difference}`)} |`;
     }),
     '',
+    ...(deliberate.length ? [
+      '## Deliberate gaps', '',
+      'Thrush differs from the reference in these functions by choice, for the reason given in KnownGaps.json.', '',
+      '| Function | Failing cases | Reason |', '| --- | ---: | --- |',
+      ...deliberate.map(([subject, gap]) => `| ${code(subject)} | ${gap.cases.length} | ${cell(gap.reason)} |`),
+      '',
+    ] : []),
     '## Real programs', '',
     'Each program replays with a visible checkpoint after every read. For each kind of state that disagrees, the reads up to the first disagreement are shrunk to the fewest bytes that still disagree that way.', '',
     ...programFindings.flatMap(({ result, steps, findings, hidden, crashed }) => [

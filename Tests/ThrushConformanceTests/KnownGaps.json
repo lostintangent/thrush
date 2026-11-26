@@ -1,17 +1,32 @@
 {
- "DECRQSS \" q": [
-  "DECRQSS \" q · after DECSCA 1"
- ],
- "DECSED 2": [
-  "DECSED 2 · over protected cells"
- ],
- "DECSEL 2": [
-  "DECSEL 2 · over protected cells"
- ],
- "DECSET 1016": [
-  "DECSET 1016"
- ],
- "DECSET 9": [
-  "DECSET 9"
- ]
+ "DECRQSS \" q": {
+  "reason": "Thrush doesn't protect cells with DECSCA, which no recorded program sends, so it always reports 0.",
+  "cases": [
+   "DECRQSS \" q · after DECSCA 1"
+  ]
+ },
+ "DECSED 2": {
+  "reason": "Thrush doesn't protect cells with DECSCA, which no recorded program sends, so selective erase clears every cell.",
+  "cases": [
+   "DECSED 2 · over protected cells"
+  ]
+ },
+ "DECSEL 2": {
+  "reason": "Thrush doesn't protect cells with DECSCA, which no recorded program sends, so selective erase clears every cell.",
+  "cases": [
+   "DECSEL 2 · over protected cells"
+  ]
+ },
+ "DECSET 1016": {
+  "reason": "Few programs ask for pixel positions, which need each view's grid size in pixels sent through to the PTY, so Thrush reports cells until it draws images.",
+  "cases": [
+   "DECSET 1016"
+  ]
+ },
+ "DECSET 9": {
+  "reason": "No recorded program asks for X10 mouse reports, so Thrush reports the pointer only in the modes from 1000 up.",
+  "cases": [
+   "DECSET 9"
+  ]
+ }
 }
