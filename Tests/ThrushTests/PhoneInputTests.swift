@@ -134,7 +134,8 @@ import UIKit
 }
 
 @MainActor
-@Test func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation() throws {
+@Test(arguments: [false, true])
+func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation(opaque: Bool) throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
     let host = UIView(frame: window.bounds)
     let keyRow = KeyRow(host: nil, onKey: { _ in }, onHide: {})
@@ -148,6 +149,9 @@ import UIKit
     let stack = try #require(buttonStack(keyRow))
     let buttons = stack.arrangedSubviews
     #expect(buttons.count == 8)
+    // Reduce Transparency takes the effect off the glass, which then lays out its content on its own.
+    let glass = try #require(stack.superview?.superview as? UIVisualEffectView)
+    if opaque { glass.effect = nil }
     CATransaction.flush()
 
     // UIKit gives the key row its destination bounds and animates the keyboard host.
@@ -160,7 +164,7 @@ import UIKit
     CATransaction.flush()
 
     #expect(!(host.layer.animationKeys() ?? []).isEmpty)
-    for view in [stack] + buttons {
+    for view in glass.contentView.subviews + buttons {
         let presented = try #require(view.layer.presentation())
         #expect(abs(presented.bounds.width - view.bounds.width) <= 1)
         #expect(abs(presented.position.x - view.layer.position.x) <= 1)

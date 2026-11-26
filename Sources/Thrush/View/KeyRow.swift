@@ -139,6 +139,8 @@ final class KeyRow: UIView {
         UIView.performWithoutAnimation {
             super.layoutSubviews()
             glass.layoutIfNeeded()
+            // Without an effect, under Reduce Transparency, the glass leaves its content view's layout for later.
+            glass.contentView.layoutIfNeeded()
             stack.layoutIfNeeded()
         }
         placeChooser()
