@@ -99,6 +99,9 @@ final class TerminalKeyAccessory: UIView {
         )
         registerForTraitChanges([UITraitVerticalSizeClass.self]) { (self: Self, _) in
             self.glassHeight.constant = self.capsuleHeight
+            // UIKit first sizes a row that joins the keyboard from its frame, so a detached row keeps
+            // its frame at its own height. A stale frame leaves the keyboard guide short of the row.
+            if self.window == nil { self.frame.size.height = Self.height(compact: self.compact) }
             self.invalidateIntrinsicContentSize()
             self.refreshControl()
         }

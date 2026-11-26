@@ -165,6 +165,27 @@ import UIKit
 }
 
 @MainActor
+@Test func keyRowTakesTheTerminalWindowsSizeClassBeforeTheKeyboardShowsIt() throws {
+    let view = TerminalView(frame: .init(x: 0, y: 0, width: 750, height: 300))
+    let window = try #require(mountTestView(view) as? UIWindow)
+    defer { withExtendedLifetime(window) {} }
+    view.display(Terminal(size: .init(columns: 60, rows: 4)))
+    window.traitOverrides.verticalSizeClass = .regular
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+    window.updateTraitsIfNeeded()
+    let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
+    #expect(row.window == nil && row.frame.height == 60 && row.intrinsicContentSize.height == 60)
+
+    // The window turns to landscape before focus. UIKit first sizes a row that joins the keyboard
+    // from its frame, so the detached row's frame has to shrink with it.
+    window.traitOverrides.verticalSizeClass = .compact
+    window.updateTraitsIfNeeded()
+    #expect(row.window == nil && row.intrinsicContentSize.height == 44)
+    #expect(row.frame.height == 44)
+}
+
+@MainActor
 @Test func hideKeyboardResignsTheTerminalAndDisarmsControl() throws {
     let view = TerminalView(frame: .init(x: 0, y: 0, width: 402, height: 420))
     let window = try #require(mountTestView(view) as? UIWindow)
