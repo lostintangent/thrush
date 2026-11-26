@@ -37,6 +37,10 @@ on:
         description: Report each dark and light flip of the Mac window to programs on a real shell that set mode 2031
         type: boolean
         default: false
+      links:
+        description: Open the links scene's links with ⌘-clicks, tooltips and menus in both Slate appearances
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       voiceover: { type: boolean, default: false }
@@ -44,6 +48,7 @@ on:
       text_blink: { type: boolean, default: false }
       program_colors: { type: boolean, default: false }
       appearance_reports: { type: boolean, default: false }
+      links: { type: boolean, default: false }
 permissions:
   contents: read
 # Every push to main runs to completion, and a newer push waits rather than cancelling it.
@@ -54,7 +59,7 @@ concurrency:
 jobs:
   window-lifecycle:
     runs-on: xcode-27
-    timeout-minutes: ${{ (inputs.voiceover || inputs.text_blink || inputs.appearance_reports) && 25 || 12 }}
+    timeout-minutes: ${{ (inputs.voiceover || inputs.text_blink || inputs.appearance_reports || inputs.links) && 25 || 12 }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -65,7 +70,7 @@ jobs:
         with:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
-        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors && !inputs.appearance_reports }}
+        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors && !inputs.appearance_reports && !inputs.links }}
         run: python3 scripts/pty/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
@@ -88,8 +93,11 @@ jobs:
       - name: Report the Mac window's dark and light flips to programs on a real shell
         if: inputs.appearance_reports
         run: python3 scripts/capture-mac-appearance-reports.py --output "$RUNNER_TEMP/mac-appearance-reports"
+      - name: Open links with ⌘-clicks, tooltips and menus in the packaged Mac window
+        if: ${{ !cancelled() && inputs.links }}
+        run: python3 scripts/interaction-capture/mac-links.py --output "$RUNNER_TEMP/mac-links"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors || inputs.appearance_reports))
+        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors || inputs.appearance_reports || inputs.links))
         with:
           name: ${{ inputs.voiceover && 'thrush-mac-voiceover' || 'thrush-window-lifecycle' }}
           path: ${{ runner.temp }}/window-lifecycle/
@@ -113,3 +121,8 @@ jobs:
         with:
           name: thrush-mac-appearance-reports
           path: ${{ runner.temp }}/mac-appearance-reports/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && inputs.links
+        with:
+          name: thrush-mac-links
+          path: ${{ runner.temp }}/mac-links/
