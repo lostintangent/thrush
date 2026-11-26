@@ -29,15 +29,14 @@ extension EscapeParser {
         }
     }
 
-    static func transition(from state: State, scalar: UInt32) -> Transition {
+    func transition(from state: State, scalar: UInt32) -> Transition {
         transitions[Int(state.rawValue) << 8 | Int(min(scalar, 0xA0))]
     }
 
     // Each state occupies one 256-entry row. Slot A0 stands for every Unicode scalar
     // beyond the C1 range. The two-byte entry gives both the next state and its operation.
-    static let transitions: InlineArray<4608, Transition> = {
-        var table = InlineArray<4608, Transition>(repeating: Transition(.ground))
-        precondition(table.count == State.allCases.count * 256)
+    static let transitions: [Transition] = {
+        var table = [Transition](repeating: Transition(.ground), count: State.allCases.count * 256)
         for state in State.allCases {
             let row = Int(state.rawValue) << 8
             func set(_ byte: Int, _ next: State, _ operation: Operation = .ignore) {

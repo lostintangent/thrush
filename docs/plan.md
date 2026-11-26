@@ -116,8 +116,6 @@ Use a monotonic host clock and each drawable’s actual `presentedTime` to corre
 
 ThrushCore runs faster than @xterm/headless on every [comparison](../Benchmarks/comparison.md) workload and matches or beats libghostty-vt on everyday ones. [Where Thrush loses time](../Benchmarks/comparison.md#where-thrush-loses-time) traces each remaining gap to its costs. A gap gets closed for a gain someone would notice, not a marginal one. Clarity comes first. A change that makes the core simpler may cost up to 2% on any workload, and a technique worth more than 2% somewhere stays, behind one name. Run the comparison, ThrushBench and the conformance harness before and after each change to the core, and refresh the comparison when one lands.
 
-One change remains. **Read the transition table without a lazy static.** The parser reads its table through a lazily initialized static, and for tens of milliseconds after its first use each read calls out to `swift_once`. Each parser holds the table instead, so a lookup is one load. A prototype that holds it as a shared array ran Codex about 1.14× and vim and cursor addressing about 1.05× as fast in the comparison's runs. `EscapeParser.swift` and `EscapeParser+Transitions.swift`.
-
 Each technique lives in the file that owns it, so the rest of the core keeps calling plain operations. `Cell.swift` owns row storage, the cell layout, the style list and bulk writes. `TextScanner.swift` owns SIMD scanning and decoding. `EscapeParser+Transitions.swift` owns the transition table.
 
 ## Build sequence
