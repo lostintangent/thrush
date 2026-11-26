@@ -121,6 +121,8 @@ ThrushCore must lead libghostty-vt on every [comparison](../Benchmarks/compariso
 3. **Decode a non-ASCII run before storing it.** Decode the run's scalars and widths into a small fixed buffer, then store them in one pass. Two tight loops replace the per-scalar call. `TextScanner.swift`, `Terminal.swift` and `Screen.swift`. After a prototype of the changes above, wide text needs about 1.16× more to lead and the shell recording about 1.04×.
 4. **Read a control sequence's parameters in one pass.** Read each run of digits in a register and store each field once. One mapping from each control identifier to its function serves both a complete header and one resumed from a split, so the two can't diverge. SGR keeps its borrowed bytes. `EscapeParser.swift`, `ControlParameters.swift` and `TerminalControlFunctions.swift`. Codex needs about 1.12× to lead. A first prototype that also sent SGR through the stored parameters gained 1.08× on cursor addressing but cost SGR 25%.
 
+After the last change, compare ThrushBench's hardware-keys and pointer-input replays with 724ddf9. Each holds under 50 bytes of mode changes and no text, and the [comparison](../Benchmarks/comparison.md#change-since-the-previous-report) records them at 0.98–0.99× after a change they never reach. If either still trails, find the cost before closing the gap. Fixed work per call in the receive loop is the likeliest.
+
 Each technique lives in the file that owns it, so the rest of the core keeps calling plain operations. `Cell.swift` owns row storage, the cell layout, the style list and bulk writes. `TextScanner.swift` owns SIMD scanning and decoding. `EscapeParser+Transitions.swift` owns the transition table.
 
 ## Build sequence

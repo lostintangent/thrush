@@ -11,13 +11,13 @@ The runner needs Node and Bun. It installs the [pinned reference](../Fixtures/re
 
 ## Where Thrush stands
 
-- **Thrush led libghostty-vt in 18 of 36 conditions.** It led in every condition on Vim by 1.21–1.67×, dense ASCII by 1.00–1.20× and SGR by 1.40–1.58×. At 240 × 60 it also led on the shell recording by 1.02–1.07×, cursor addressing by 1.46–1.55× and scrolling by 1.26–1.28×. [Screens](#screens)
-- **The widest gaps are at 80 × 24.** Thrush ran at 0.61–0.62× of libghostty-vt on the shell recording, 0.66× on wide text and 0.67–0.69× on the scroll region. [Where Thrush loses time](#where-thrush-loses-time)
-- **Thrush ran faster than both @xterm/headless runtimes in every condition**, by 2.64–14.88×.
+- **Thrush led libghostty-vt in 22 of 36 conditions.** It led in every condition on Vim by 1.22–1.68×, dense ASCII by 1.06–1.29× and SGR by 1.38–1.54×. At 240 × 60 it also led on the shell recording by 1.19–1.21×, Codex by 1.01×, cursor addressing by 1.52–1.53× and scrolling by 1.33–1.45×. [Screens](#screens)
+- **The widest gaps are at 80 × 24.** Thrush ran at 0.68× of libghostty-vt on the scroll region, 0.70–0.71× on the shell recording and 0.78× on wide text. [Where Thrush loses time](#where-thrush-loses-time)
+- **Thrush ran faster than both @xterm/headless runtimes in every condition**, by 3.02–15.21×.
 - **Screen checks.** Thrush matched the Node reference in 36 of 36 conditions. The Bun runtime matched it in 36 of 36, and libghostty-vt matched it in 32 of 36. [Screens](#screens)
 - **Allocations.** At 4 KiB, Thrush recorded 21 to 21,508 allocations per workload and libghostty-vt recorded 0 to 1,330. [Allocations](#allocations)
 
-Since the [previous report](#change-since-the-previous-report), Thrush's ratio to libghostty-vt rose in 31 of 36 conditions. At 80 × 24 in 4 KiB chunks, scrolling went from 0.76× to 0.90× and dense ASCII went from 0.85× to 1.00×.
+Since the [previous report](#change-since-the-previous-report), Thrush's ratio to libghostty-vt rose in 30 of 36 conditions. At 80 × 24 in 4 KiB chunks, scrolling went from 0.90× to 1.07× and wide text went from 0.66× to 0.78×.
 
 ## Identical work
 
@@ -25,7 +25,7 @@ Every core receives the same bytes at the same grid size with a 1,000-row histor
 
 - **libghostty-vt builds the full screen.** `ghostty_terminal_vt_write` drives cells, styles, cursor, modes, both screens and history. Its final visible rows, cursor and active screen matched the Node reference in 32 of 36 conditions. The comparison checks visible text, cursor position and the active buffer. It also checks history depth for Thrush and both JavaScript runtimes. The conformance suite checks cell attributes. At 80 × 24 in 4 KiB chunks its throughput was 1,012 MiB/s on plain text and 147 MiB/s on per-cell SGR.
 - **History depth doesn't change its work.** libghostty-vt drops history a whole page at a time, so with the same 1,000-row limit it kept 578 to 964 rows where the others kept 1,000. Every line still scrolls into history, and a dropped page is reused for new rows, so its whole scroll pass allocated 2 times. A separate check on the scroll workload at 80 × 24 raised its limit to 2,000 rows. It kept 1,864 rows, more than Thrush, and ran at 391 to 401 MiB/s against 389 to 400 with the 1,000-row limit. Only an unlimited history, which keeps all 64,616 lines in new pages, slowed it, to 174 to 182 MiB/s.
-- **libghostty-vt did less scrolling in four conditions.** Its large-grid shell and Vim runs retained the alternate screen’s scroll region. Thrush reached 1.02–1.67× of its throughput in these conditions. [Screens](#screens)
+- **libghostty-vt did less scrolling in four conditions.** Its large-grid shell and Vim runs retained the alternate screen’s scroll region. Thrush reached 1.19–1.68× of its throughput in these conditions. [Screens](#screens)
 
 ## Method
 
@@ -69,62 +69,62 @@ Each workload is about 1 MiB, generated deterministically by `scripts/comparison
 
 ## Results
 
-Recorded November 25, 2026 at 23:40 UTC on an Apple M1 Max with 10 cores, macOS 27.2.1 and Apple Swift version 6.4.2. The one-minute load average was 33 at the start and 39 at the end. Within each round the cores ran back to back. The ranges show how their relative rates varied. [Measured source 0929ef1](https://github.com/lostintangent/thrush/commit/0929ef1bd2183365745a10ef6dbfede7a3fd8303)
+Recorded November 26, 2026 at 00:07 UTC on an Apple M1 Max with 10 cores, macOS 27.2.1 and Apple Swift version 6.4.2. The one-minute load average was 5 at the start and 12 at the end. Within each round the cores ran back to back. The ranges show how their relative rates varied. [Measured source 6d664e6](https://github.com/lostintangent/thrush/commit/6d664e6a962362e53437be45453923436664be34)
 
 | Workload | Grid | Chunks | Thrush MiB/s | libghostty-vt MiB/s | xterm MiB/s | Thrush ÷ libghostty-vt | Thrush ÷ xterm |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| shell | 80 × 24 | 4 KiB | 179 | 289 | 50 (Node) | 0.62× (0.60–1.08) | 3.41× (3.37–4.23) |
-| shell | 80 × 24 | Whole | 181 | 295 | 48 (Node) | 0.61× (0.61–0.65) | 3.75× (3.27–4.21) |
-| shell | 240 × 60 | 4 KiB | 176 | 171 | 51 (Node) | 1.02× (1.01–1.08) | 3.55× (3.40–4.49) |
-| shell | 240 × 60 | Whole | 178 | 167 | 48 (Node) | 1.07× (1.03–1.10) | 3.66× (3.51–4.09) |
-| vim | 80 × 24 | 4 KiB | 415 | 343 | 53 (Node) | 1.21× (1.20–1.24) | 7.88× (7.80–8.49) |
-| vim | 80 × 24 | Whole | 423 | 341 | 53 (Node) | 1.24× (1.22–1.27) | 7.94× (7.88–8.30) |
-| vim | 240 × 60 | 4 KiB | 386 | 235 | 31 (Bun) | 1.65× (1.62–1.74) | 12.26× (11.73–15.76) |
-| vim | 240 × 60 | Whole | 392 | 235 | 32 (Bun) | 1.67× (1.66–1.72) | 12.44× (11.59–15.12) |
-| codex | 80 × 24 | 4 KiB | 228 | 262 | 61 (Bun) | 0.86× (0.80–0.87) | 3.67× (3.43–4.06) |
-| codex | 80 × 24 | Whole | 230 | 262 | 65 (Bun) | 0.87× (0.87–0.89) | 3.52× (3.44–3.64) |
-| codex | 240 × 60 | 4 KiB | 223 | 226 | 43 (Bun) | 0.98× (0.90–1.04) | 5.05× (3.69–5.80) |
-| codex | 240 × 60 | Whole | 223 | 227 | 43 (Bun) | 0.98× (0.87–1.02) | 5.21× (4.35–7.03) |
-| ascii | 80 × 24 | 4 KiB | 1043 | 1025 | 78 (Node) | 1.00× (0.86–1.02) | 12.48× (11.33–12.90) |
-| ascii | 80 × 24 | Whole | 1059 | 1007 | 83 (Node) | 1.06× (1.04–1.17) | 12.83× (12.45–15.98) |
-| ascii | 240 × 60 | 4 KiB | 1239 | 1088 | 114 (Bun) | 1.15× (0.61–1.23) | 10.58× (8.28–12.18) |
-| ascii | 240 × 60 | Whole | 1264 | 1049 | 113 (Bun) | 1.20× (1.13–1.42) | 11.02× (10.69–12.96) |
-| sgr | 80 × 24 | 4 KiB | 210 | 150 | 67 (Node) | 1.41× (1.36–1.45) | 3.11× (3.10–3.42) |
-| sgr | 80 × 24 | Whole | 211 | 150 | 66 (Node) | 1.40× (1.38–1.54) | 3.12× (2.93–4.42) |
-| sgr | 240 × 60 | 4 KiB | 207 | 133 | 66 (Node) | 1.58× (1.50–1.64) | 3.13× (2.99–3.46) |
-| sgr | 240 × 60 | Whole | 209 | 135 | 67 (Node) | 1.55× (1.31–1.57) | 3.03× (2.95–3.16) |
-| wide | 80 × 24 | 4 KiB | 225 | 337 | 78 (Node) | 0.66× (0.65–0.78) | 2.89× (2.73–2.97) |
-| wide | 80 × 24 | Whole | 223 | 337 | 79 (Node) | 0.66× (0.65–0.71) | 2.88× (2.80–3.10) |
-| wide | 240 × 60 | 4 KiB | 226 | 332 | 86 (Bun) | 0.68× (0.62–0.70) | 2.64× (2.22–2.97) |
-| wide | 240 × 60 | Whole | 230 | 330 | 86 (Bun) | 0.69× (0.68–0.75) | 2.65× (2.57–2.69) |
-| cursor | 80 × 24 | 4 KiB | 164 | 169 | 43 (Bun) | 0.97× (0.96–0.97) | 3.65× (3.51–5.89) |
-| cursor | 80 × 24 | Whole | 164 | 167 | 45 (Bun) | 0.97× (0.97–1.53) | 3.69× (3.60–5.85) |
-| cursor | 240 × 60 | 4 KiB | 151 | 102 | 10 (Bun) | 1.46× (1.31–1.51) | 14.37× (12.90–20.44) |
-| cursor | 240 × 60 | Whole | 151 | 98 | 10 (Bun) | 1.55× (1.45–1.62) | 14.88× (14.36–16.86) |
-| scroll | 80 × 24 | 4 KiB | 366 | 404 | 60 (Node) | 0.90× (0.25–0.91) | 6.02× (1.72–6.11) |
-| scroll | 80 × 24 | Whole | 370 | 399 | 57 (Bun) | 0.91× (0.89–0.94) | 5.96× (5.68–8.27) |
-| scroll | 240 × 60 | 4 KiB | 362 | 288 | 49 (Node) | 1.28× (1.22–1.30) | 7.45× (7.15–8.06) |
-| scroll | 240 × 60 | Whole | 366 | 292 | 49 (Node) | 1.26× (1.21–1.27) | 7.39× (7.04–13.84) |
-| region | 80 × 24 | 4 KiB | 309 | 460 | 32 (Node) | 0.67× (0.25–0.68) | 9.07× (4.00–10.56) |
-| region | 80 × 24 | Whole | 308 | 449 | 37 (Bun) | 0.69× (0.64–1.41) | 7.72× (7.41–17.14) |
-| region | 240 × 60 | 4 KiB | 305 | 340 | 24 (Bun) | 0.90× (0.85–0.98) | 12.68× (9.47–12.75) |
-| region | 240 × 60 | Whole | 310 | 343 | 27 (Bun) | 0.90× (0.85–0.95) | 11.32× (9.62–12.37) |
+| shell | 80 × 24 | 4 KiB | 217 | 302 | 56 (Node) | 0.71× (0.70–0.85) | 3.83× (3.02–3.96) |
+| shell | 80 × 24 | Whole | 214 | 310 | 56 (Node) | 0.70× (0.69–0.72) | 3.81× (3.72–3.87) |
+| shell | 240 × 60 | 4 KiB | 216 | 178 | 52 (Node) | 1.21× (1.21–1.27) | 4.18× (4.04–4.40) |
+| shell | 240 × 60 | Whole | 216 | 181 | 50 (Node) | 1.19× (1.19–1.20) | 4.29× (4.03–4.61) |
+| vim | 80 × 24 | 4 KiB | 439 | 362 | 55 (Bun) | 1.22× (1.20–1.22) | 7.72× (7.55–8.33) |
+| vim | 80 × 24 | Whole | 448 | 358 | 59 (Bun) | 1.24× (1.24–1.25) | 7.59× (7.24–8.46) |
+| vim | 240 × 60 | 4 KiB | 404 | 241 | 32 (Bun) | 1.67× (1.64–1.69) | 12.18× (11.72–12.60) |
+| vim | 240 × 60 | Whole | 414 | 246 | 34 (Bun) | 1.68× (1.65–1.69) | 12.15× (12.08–12.31) |
+| codex | 80 × 24 | 4 KiB | 243 | 276 | 63 (Node) | 0.88× (0.86–0.88) | 3.85× (3.81–3.85) |
+| codex | 80 × 24 | Whole | 245 | 276 | 68 (Bun) | 0.89× (0.86–0.91) | 3.62× (2.80–3.74) |
+| codex | 240 × 60 | 4 KiB | 229 | 228 | 59 (Bun) | 1.01× (1.00–1.02) | 3.87× (3.81–4.00) |
+| codex | 240 × 60 | Whole | 241 | 239 | 48 (Bun) | 1.01× (0.99–1.01) | 5.02× (4.85–5.04) |
+| ascii | 80 × 24 | 4 KiB | 1127 | 1073 | 87 (Node) | 1.06× (0.90–1.15) | 13.06× (11.17–13.68) |
+| ascii | 80 × 24 | Whole | 1162 | 1052 | 88 (Node) | 1.09× (1.08–1.13) | 12.90× (12.59–13.94) |
+| ascii | 240 × 60 | 4 KiB | 1413 | 1126 | 118 (Bun) | 1.25× (1.23–1.30) | 11.80× (11.51–11.96) |
+| ascii | 240 × 60 | Whole | 1450 | 1123 | 123 (Bun) | 1.29× (1.27–1.43) | 11.73× (11.50–12.05) |
+| sgr | 80 × 24 | 4 KiB | 220 | 160 | 72 (Node) | 1.38× (1.36–1.49) | 3.08× (2.98–3.08) |
+| sgr | 80 × 24 | Whole | 220 | 158 | 72 (Node) | 1.38× (1.32–1.40) | 3.02× (2.93–3.06) |
+| sgr | 240 × 60 | 4 KiB | 211 | 142 | 70 (Node) | 1.50× (1.43–1.55) | 3.02× (2.85–3.09) |
+| sgr | 240 × 60 | Whole | 221 | 144 | 72 (Node) | 1.54× (1.53–1.55) | 3.08× (3.05–3.15) |
+| wide | 80 × 24 | 4 KiB | 275 | 350 | 82 (Node) | 0.78× (0.77–0.81) | 3.31× (3.27–3.38) |
+| wide | 80 × 24 | Whole | 275 | 353 | 83 (Node) | 0.78× (0.77–0.79) | 3.28× (3.15–3.31) |
+| wide | 240 × 60 | 4 KiB | 287 | 351 | 90 (Bun) | 0.81× (0.81–0.88) | 3.19× (3.17–3.28) |
+| wide | 240 × 60 | Whole | 285 | 347 | 89 (Bun) | 0.82× (0.81–0.86) | 3.11× (3.08–3.20) |
+| cursor | 80 × 24 | 4 KiB | 176 | 176 | 46 (Bun) | 1.00× (0.98–1.01) | 3.72× (3.70–3.83) |
+| cursor | 80 × 24 | Whole | 179 | 177 | 46 (Bun) | 1.00× (0.99–1.01) | 3.77× (3.71–3.89) |
+| cursor | 240 × 60 | 4 KiB | 162 | 106 | 11 (Bun) | 1.52× (1.48–1.55) | 14.99× (14.71–15.25) |
+| cursor | 240 × 60 | Whole | 163 | 106 | 11 (Bun) | 1.53× (1.52–1.57) | 15.21× (14.94–15.57) |
+| scroll | 80 × 24 | 4 KiB | 431 | 414 | 62 (Bun) | 1.07× (1.02–1.18) | 7.19× (6.42–7.97) |
+| scroll | 80 × 24 | Whole | 408 | 416 | 63 (Bun) | 0.96× (0.94–1.23) | 6.44× (6.01–6.61) |
+| scroll | 240 × 60 | 4 KiB | 444 | 311 | 52 (Node) | 1.45× (1.39–1.48) | 8.39× (8.34–8.74) |
+| scroll | 240 × 60 | Whole | 417 | 316 | 51 (Node) | 1.33× (1.28–1.35) | 7.94× (7.83–8.25) |
+| region | 80 × 24 | 4 KiB | 328 | 482 | 44 (Bun) | 0.68× (0.68–1.04) | 7.40× (7.13–7.67) |
+| region | 80 × 24 | Whole | 324 | 461 | 42 (Bun) | 0.68× (0.68–0.72) | 7.51× (7.35–8.19) |
+| region | 240 × 60 | 4 KiB | 326 | 344 | 31 (Bun) | 0.92× (0.90–0.96) | 9.99× (9.06–11.50) |
+| region | 240 × 60 | Whole | 321 | 353 | 31 (Bun) | 0.92× (0.90–0.92) | 9.60× (9.27–11.69) |
 
 ## Change since the previous report
 
-Both reports used the same host, toolchain, workload digests and benchmark settings. The rows compare 15-pass medians at 80 × 24 in 4 KiB chunks. Across all 36 conditions Thrush ran 0.99–1.23× as fast as in the previous report, while libghostty-vt's own rates moved by 0.95–1.07×. In between, clearing a row began resetting its length, so a recycled row is overwritten in place, and a non-ASCII run began storing its cells through one span. [Storage](../docs/emulator.md#storage) · [Previous report at c528777](https://github.com/lostintangent/thrush/blob/0abf2fa1977a7658b564ff526ff0d9045a467e13/Benchmarks/comparison.json)
+Both reports used the same host, toolchain, workload digests and benchmark settings. The rows compare 15-pass medians at 80 × 24 in 4 KiB chunks. Across all 36 conditions Thrush ran 1.02–1.27× as fast as in the previous report, while libghostty-vt's own rates moved by 1.01–1.09×. In between, the ASCII scanner began reading where printable ASCII ends from the vector block that holds the end, and printable ASCII began continuing a non-ASCII run that appends cells. In 24 alternating ThrushBench pairs on the second change, the shell log ran 1.14× and the shell workflow 1.10× as fast. The hardware-keys and pointer-input replays ran 0.988× (0.980–0.998) and 0.982× (0.972–0.992). They carry 10 and 42 bytes of mode changes and no text, so they never reach the changed code, and the dip is code layout rather than work. [The hot path](../docs/emulator.md#the-hot-path) · [Previous report at 0929ef1](https://github.com/lostintangent/thrush/blob/c12f36758edbdc77ba7bde7cf228811816a3def0/Benchmarks/comparison.json)
 
-| Workload | c528777 MiB/s | 0929ef1 MiB/s | Change | c528777 ÷ libghostty-vt | 0929ef1 ÷ libghostty-vt |
+| Workload | 0929ef1 MiB/s | 6d664e6 MiB/s | Change | 0929ef1 ÷ libghostty-vt | 6d664e6 ÷ libghostty-vt |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| shell | 175.7 | 179.4 | 1.02× | 0.59× | 0.62× |
-| vim | 393.1 | 414.8 | 1.06× | 1.14× | 1.21× |
-| codex | 231.1 | 228.2 | 0.99× | 0.87× | 0.86× |
-| ascii | 857.3 | 1042.9 | 1.22× | 0.85× | 1.00× |
-| sgr | 206.4 | 209.8 | 1.02× | 1.41× | 1.41× |
-| wide | 196.6 | 224.6 | 1.14× | 0.58× | 0.66× |
-| cursor | 160.8 | 164.0 | 1.02× | 0.95× | 0.97× |
-| scroll | 302.7 | 365.7 | 1.21× | 0.76× | 0.90× |
-| region | 269.3 | 308.6 | 1.15× | 0.59× | 0.67× |
+| shell | 179.4 | 217.1 | 1.21× | 0.62× | 0.71× |
+| vim | 414.8 | 439.4 | 1.06× | 1.21× | 1.22× |
+| codex | 228.2 | 242.9 | 1.06× | 0.86× | 0.88× |
+| ascii | 1042.9 | 1127.0 | 1.08× | 1.00× | 1.06× |
+| sgr | 209.8 | 219.8 | 1.05× | 1.41× | 1.38× |
+| wide | 224.6 | 274.6 | 1.22× | 0.66× | 0.78× |
+| cursor | 164.0 | 176.5 | 1.08× | 0.97× | 1.00× |
+| scroll | 365.7 | 430.7 | 1.18× | 0.90× | 1.07× |
+| region | 308.6 | 327.9 | 1.06× | 0.67× | 0.68× |
 
 ## Screens
 
@@ -140,19 +140,19 @@ xterm and Thrush finish with `a` on row 9 and ` b` on row 10. libghostty-vt fini
 
 ## Where Thrush spends its time
 
-Shares of all samples in the [recorded profile](comparison-profile.json), taken at `0929ef1` with 2,037 to 2,239 samples per workload. Each of the 20 functions with the most self time in a workload belongs to at most one category. Unclassified functions and the rest of the samples account for the remainder.
+Shares of all samples in the [recorded profile](comparison-profile.json), taken at `6d664e6` with 1,596 to 2,040 samples per workload. Each of the 20 functions with the most self time in a workload belongs to at most one category. Unclassified functions and the rest of the samples account for the remainder.
 
 | Workload | Scrolling | Allocation and ownership | Cell writes | Parsing and dispatch | Receive, decode and scan | Top functions |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| shell | 4% | 20% | 25% | 5% | 19% | `receive` 8%, `Row.writeASCII` 7%, `TextScanner.endOfASCII` 6% |
-| vim | 0% | 12% | 19% | 29% | 19% | `EscapeParser.consumeEscape` 17%, `receive` 11%, `TextScanner.endOfASCII` 8% |
-| codex | 0% | 3% | 6% | 58% | 15% | `EscapeParser.consumeEscape` 34%, `apply` 11%, `receive` 11% |
-| ascii | 18% | 9% | 33% | 0% | 32% | `TextScanner.endOfASCII` 25%, `Row.writeASCII` 23%, `History.append` 10% |
-| sgr | 0% | 6% | 19% | 54% | 13% | `Style.applySGR` 29%, `EscapeParser.consumeEscape` 25%, `receive` 9% |
-| wide | 2% | 4% | 28% | 0% | 63% | `closure #1 in writeNonASCII` 35%, `Screen.writeRun` 16%, `writeNonASCII` 12% |
-| cursor | 0% | 4% | 40% | 38% | 17% | `EscapeParser.consumeEscape` 28%, `Row.set` 13%, `TextScanner.endOfASCII` 11% |
-| scroll | 15% | 8% | 28% | 0% | 46% | `TextScanner.endOfASCII` 28%, `receive` 18%, `Row.writeASCII` 14% |
-| region | 45% | 4% | 18% | 2% | 27% | `_platform_memmove` 27%, `TextScanner.endOfASCII` 14%, `receive` 13% |
+| shell | 6% | 18% | 18% | 7% | 15% | `Row.writeASCII` 7%, `Hasher._hash` 7%, `receive` 6% |
+| vim | 1% | 7% | 23% | 28% | 17% | `EscapeParser.consumeEscape` 17%, `receive` 12%, `Row.writeASCII` 10% |
+| codex | 0% | 2% | 9% | 57% | 12% | `EscapeParser.consumeEscape` 35%, `receive` 10%, `apply` 9% |
+| ascii | 18% | 10% | 37% | 0% | 26% | `Row.writeASCII` 27%, `TextScanner.endOfASCII` 17%, `Buffer.advanceLine` 10% |
+| sgr | 0% | 5% | 18% | 54% | 12% | `Style.applySGR` 31%, `EscapeParser.consumeEscape` 24%, `receive` 9% |
+| wide | 3% | 2% | 24% | 0% | 68% | `closure #1 in writeNonASCII` 61%, `Screen.writeRun` 22%, `receive` 4% |
+| cursor | 0% | 5% | 47% | 38% | 9% | `EscapeParser.consumeEscape` 29%, `Row.writeASCII` 14%, `Row.set` 14% |
+| scroll | 23% | 9% | 38% | 0% | 25% | `Row.writeASCII` 27%, `receive` 19%, `History.append` 12% |
+| region | 46% | 4% | 30% | 2% | 15% | `_platform_memmove` 26%, `Row.writeASCII` 20%, `receive` 12% |
 
 - **Scrolling** advances lines, appends history, clears recycled rows and rotates scroll regions. On the scroll region most of it is the memory move that rotating row values compiles to.
 - **Allocation and ownership** is malloc, free, retain, release, uniqueness checks and hashing. On the shell recording most of it comes from rows' cluster tables.
@@ -180,20 +180,17 @@ A row allocates its cells once, on its first write. A line feed, an erase or a r
 
 ## Where Thrush loses time
 
-At 80 × 24 in 4 KiB chunks Thrush trails libghostty-vt on six of the nine workloads. The profile and the code trace each gap to one or two costs. The [performance plan](../docs/plan.md#closing-the-libghostty-vt-gap) turns each cost into a change.
+At 80 × 24 in 4 KiB chunks Thrush trails libghostty-vt on five of the nine workloads. The profile and the code trace each gap to one or two costs. The [performance plan](../docs/plan.md#closing-the-libghostty-vt-gap) turns each cost into a change.
 
 | Workload | Thrush ÷ libghostty-vt | Where Thrush loses time |
 | --- | ---: | --- |
-| shell | 0.62× | Cluster tables and switching runs |
-| codex | 0.86× | Reading control parameters twice |
-| wide | 0.66× | Decoding one scalar per call and switching runs |
-| cursor | 0.97× | Reading control parameters twice and finding line endings |
-| scroll | 0.90× | Finding line endings |
-| region | 0.67× | Rotating row values |
+| shell | 0.71× | Cluster tables and decoding one scalar per call |
+| codex | 0.88× | Reading control parameters twice |
+| wide | 0.78× | Decoding one scalar per call |
+| cursor | 0.999× | Reading control parameters twice |
+| region | 0.68× | Rotating row values |
 
-- **Finding line endings.** `TextScanner.endOfASCII` checks 16 bytes at a time, but in the block that holds the line ending it walks one byte at a time. Short lines end inside their first block, so the scan takes 28% of samples on scrolling and 11% on cursor addressing.
-- **Cluster tables.** The shell recording puts a combining accent on 18,634 lines. Clearing a row releases its `[Int: String]` cluster table, so the next accent on that row allocates a new table and grows it again, and adding a mark looks its base up twice. Hashing, allocation and freeing take about 20% of shell samples.
-- **Switching runs.** The wide workload alternates runs of about five CJK or emoji scalars with ASCII runs of about four bytes, mostly single spaces, and the shell recording's accented paths mix them too. Each switch ends a run and starts the next, so the style and the row's write position are found again.
-- **Decoding one scalar per call.** On wide text the per-scalar closure in `Terminal.writeNonASCII` takes 35% of samples and `Screen.writeRun` 16%. For each scalar the closure decodes it and looks up its width, then hands it to the run through a call that isn't inlined. libghostty-vt decodes a whole printable run to UTF-32 and then fills the row.
-- **Rotating row values.** Scrolling a region rotates the 64-byte `Row` values between its margins, and the memory move and `Array.rotate` take 39% of samples on the scroll region. libghostty-vt moves 8-byte row offsets instead.
-- **Reading control parameters twice.** Parsing and dispatch take 58% of samples on Codex and 38% on cursor addressing, with `EscapeParser.consumeEscape` alone at 34% on Codex. The parser scans a complete header once to find its final byte. SGR borrows those bytes, but every other final, such as cursor position or erase, sends them through `ControlParameters.append` again one byte at a time, switching on its destination for each digit.
+- **Rotating row values.** Scrolling a region rotates the 64-byte `Row` values between its margins, and the memory move and `Array.rotate` take 38% of samples on the scroll region. libghostty-vt moves 8-byte row offsets instead.
+- **Cluster tables.** The shell recording puts a combining accent on 18,634 lines. Clearing a row releases its `[Int: String]` cluster table, so the next accent on that row allocates a new table and grows it again, and adding a mark looks its base up twice. Hashing, allocation and freeing take about 18% of shell samples.
+- **Decoding one scalar per call.** On wide text the closure in `Terminal.writeNonASCII` takes 61% of samples and `Screen.writeRun` 22%. For each scalar the closure decodes it, looks up its width and hands it to the run through a call that isn't inlined. libghostty-vt decodes a whole printable run to UTF-32 and then fills the row. The shell recording's accented paths take the same route.
+- **Reading control parameters twice.** Parsing and dispatch take 57% of samples on Codex and 38% on cursor addressing, with `EscapeParser.consumeEscape` alone at 35% on Codex. The parser scans a complete header once to find its final byte. SGR borrows those bytes, but every other final, such as cursor position or erase, sends them through `ControlParameters.append` again one byte at a time, switching on its destination for each digit.

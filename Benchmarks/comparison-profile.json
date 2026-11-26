@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T23:44:10+00:00",
+  "recordedAt": "2026-11-26T00:07:34+00:00",
   "environment": {
-    "commit": "0929ef1bd2183365745a10ef6dbfede7a3fd8303",
+    "commit": "6d664e6a962362e53437be45453923436664be34",
     "worktreeDirty": false,
     "processor": "Apple M1 (Virtual)",
     "coreCount": 3,
     "os": "27.0.1",
     "loadAverage": {
-      "oneMinute": 4.83935546875,
-      "fiveMinutes": 3.013671875,
-      "fifteenMinutes": 6.18017578125
+      "oneMinute": 3.9169921875,
+      "fiveMinutes": 9.41455078125,
+      "fifteenMinutes": 13.2783203125
     },
     "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
   },
@@ -79,877 +79,877 @@
   ],
   "profile": {
     "shell": {
-      "samples": 2037,
+      "samples": 1601,
       "functions": [
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.0780559646539028
-        },
         {
           "name": "Terminal.Row.writeASCII(_:at:style:)",
           "image": "ThrushBench",
-          "share": 0.07461953853706431
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.06381934216985763
+          "share": 0.07370393504059962
         },
         {
           "name": "specialized static Hasher._hash(seed:_:)",
           "image": "libswiftCore.dylib",
-          "share": 0.062346588119784
+          "share": 0.07058088694565896
         },
         {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "name": "Terminal.receive(_:)",
           "image": "ThrushBench",
-          "share": 0.060382916053019146
+          "share": 0.05746408494690818
         },
         {
           "name": "specialized Terminal.Screen.writeRun(startingWith:style:joinsPrevious:next:)",
           "image": "ThrushBench",
-          "share": 0.05891016200294551
+          "share": 0.05496564647095565
         },
         {
-          "name": "Terminal.writeNonASCII(in:index:replies:)",
+          "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
           "image": "ThrushBench",
-          "share": 0.048109965635738834
+          "share": 0.046845721424109935
         },
         {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.038782523318605794
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "name": "Terminal.Screen.writeASCII(_:style:)",
           "image": "ThrushBench",
-          "share": 0.027491408934707903
-        },
-        {
-          "name": "Terminal.Style.applySGR(_:)",
-          "image": "ThrushBench",
-          "share": 0.027491408934707903
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.025527736867943053
-        },
-        {
-          "name": "_xzm_free_tc",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.024545900834560628
+          "share": 0.03935040599625234
         },
         {
           "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
           "image": "ThrushBench",
-          "share": 0.023073146784486992
+          "share": 0.038101186758276076
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.038101186758276076
+        },
+        {
+          "name": "Terminal.Style.applySGR(_:)",
+          "image": "ThrushBench",
+          "share": 0.027482823235477825
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.026858213616489695
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.02623360399750156
+        },
+        {
+          "name": "_xzm_free_tc",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.024359775140537165
+        },
+        {
+          "name": "Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.023735165521549032
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.021861336664584636
+        },
+        {
+          "name": "_DictionaryStorage.deinit",
+          "image": "libswiftCore.dylib",
+          "share": 0.019987507807620236
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.018738288569643973
         },
         {
           "name": "Terminal.Row.appendCombining(_:before:)",
           "image": "ThrushBench",
-          "share": 0.021600392734413353
+          "share": 0.016864459712679577
         },
         {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.016200294550810016
-        },
-        {
-          "name": "Terminal.Row.position(of:)",
-          "image": "ThrushBench",
-          "share": 0.015709376534118802
-        },
-        {
-          "name": "specialized _NativeDictionary.filter<A>(_:)",
-          "image": "ThrushBench",
-          "share": 0.015709376534118802
-        },
-        {
-          "name": "_xzm_malloc_tc",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.01521845851742759
-        },
-        {
-          "name": "swift_release",
+          "name": "static _DictionaryStorage.allocate(scale:age:seed:)",
           "image": "libswiftCore.dylib",
-          "share": 0.01521845851742759
+          "share": 0.016864459712679577
         },
         {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.014727540500736377
+          "name": "_free",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.01561524047470331
+        },
+        {
+          "name": "specialized static String._uncheckedFromUTF8(_:isASCII:precalculatedUTF16Count:)",
+          "image": "libswiftCore.dylib",
+          "share": 0.01561524047470331
         }
       ]
     },
     "vim": {
-      "samples": 2125,
+      "samples": 1596,
       "functions": [
         {
           "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
           "image": "ThrushBench",
-          "share": 0.16847058823529412
+          "share": 0.16604010025062657
         },
         {
           "name": "Terminal.receive(_:)",
           "image": "ThrushBench",
-          "share": 0.1068235294117647
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.08235294117647059
+          "share": 0.11842105263157894
         },
         {
           "name": "Terminal.Row.writeASCII(_:at:style:)",
           "image": "ThrushBench",
-          "share": 0.07529411764705882
+          "share": 0.09649122807017543
         },
         {
           "name": "Terminal.Style.applySGR(_:)",
           "image": "ThrushBench",
-          "share": 0.06635294117647059
+          "share": 0.06328320802005012
         },
         {
           "name": "Terminal.Screen.writeASCII(_:style:)",
           "image": "ThrushBench",
-          "share": 0.05552941176470588
+          "share": 0.05889724310776942
         },
         {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.03152941176470588
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.04887218045112782
         },
         {
           "name": "Terminal.apply(_:replies:)",
           "image": "ThrushBench",
-          "share": 0.025411764705882352
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.024
-        },
-        {
-          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
-          "image": "ThrushBench",
-          "share": 0.02258823529411765
-        },
-        {
-          "name": "Terminal.Screen.eraseDisplay(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.020705882352941178
+          "share": 0.03070175438596491
         },
         {
           "name": "Terminal.Row.position(of:)",
           "image": "ThrushBench",
-          "share": 0.01976470588235294
+          "share": 0.02819548872180451
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.02443609022556391
+        },
+        {
+          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
+          "image": "ThrushBench",
+          "share": 0.023182957393483708
         },
         {
           "name": "Terminal.Row.clearWideEdges(_:style:)",
           "image": "ThrushBench",
-          "share": 0.016941176470588234
+          "share": 0.022556390977443608
         },
         {
-          "name": "specialized TerminalControlFunction.init(_:)",
+          "name": "Terminal.Screen.eraseDisplay(_:style:)",
           "image": "ThrushBench",
-          "share": 0.015058823529411765
+          "share": 0.022556390977443608
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.016290726817042606
         },
         {
           "name": "xzm_malloc_zone_size",
           "image": "libsystem_malloc.dylib",
-          "share": 0.013647058823529411
-        },
-        {
-          "name": "_xzm_free_tc",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.012705882352941176
+          "share": 0.013157894736842105
         },
         {
           "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
           "image": "ThrushBench",
-          "share": 0.012705882352941176
+          "share": 0.012531328320802004
         },
         {
-          "name": "swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
-          "image": "libswiftCore.dylib",
-          "share": 0.012705882352941176
+          "name": "_free",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.011278195488721804
+        },
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.010651629072681704
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.010651629072681704
         },
         {
           "name": "swift_release",
           "image": "libswiftCore.dylib",
-          "share": 0.012705882352941176
+          "share": 0.010651629072681704
         },
         {
-          "name": "_xzm_xzone_malloc_tiny",
+          "name": "_xzm_free_tc",
           "image": "libsystem_malloc.dylib",
-          "share": 0.011764705882352941
+          "share": 0.009398496240601503
         }
       ]
     },
     "codex": {
-      "samples": 2157,
+      "samples": 1820,
       "functions": [
         {
           "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
           "image": "ThrushBench",
-          "share": 0.3370421882243857
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.11265646731571627
+          "share": 0.3456043956043956
         },
         {
           "name": "Terminal.receive(_:)",
           "image": "ThrushBench",
-          "share": 0.10755679184051924
+          "share": 0.0967032967032967
+        },
+        {
+          "name": "Terminal.apply(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.0945054945054945
         },
         {
           "name": "Terminal.Style.applySGR(_:)",
           "image": "ThrushBench",
-          "share": 0.08066759388038942
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.0449698655540102
+          "share": 0.08351648351648351
         },
         {
           "name": "Terminal.Row.writeASCII(_:at:style:)",
           "image": "ThrushBench",
-          "share": 0.027816411682892908
+          "share": 0.043406593406593405
         },
         {
           "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
           "image": "ThrushBench",
-          "share": 0.025034770514603615
+          "share": 0.025824175824175823
         },
         {
-          "name": "specialized TerminalControlFunction.init(_:)",
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
           "image": "ThrushBench",
-          "share": 0.02364394993045897
+          "share": 0.024725274725274724
         },
         {
           "name": "Terminal.Screen.writeASCII(_:style:)",
           "image": "ThrushBench",
-          "share": 0.021789522484932777
+          "share": 0.022527472527472527
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.020879120879120878
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.015384615384615385
         },
         {
           "name": "specialized _SmallString.init(_:appending:)",
           "image": "libswiftCore.dylib",
-          "share": 0.009735744089012517
-        },
-        {
-          "name": "specialized Terminal.PrivateMode.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.00927213722763097
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.00927213722763097
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.00880853036624942
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.007881316643486324
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.007881316643486324
-        },
-        {
-          "name": "Terminal.setPrivateMode(_:enabled:)",
-          "image": "ThrushBench",
-          "share": 0.007417709782104775
-        },
-        {
-          "name": "_xzm_xzone_malloc_tiny",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.006954102920723227
-        },
-        {
-          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
-          "image": "ThrushBench",
-          "share": 0.006954102920723227
-        },
-        {
-          "name": "Terminal.Row.set(_:to:)",
-          "image": "ThrushBench",
-          "share": 0.006490496059341678
+          "share": 0.014835164835164835
         },
         {
           "name": "Terminal.consume(_:replies:)",
           "image": "ThrushBench",
-          "share": 0.006490496059341678
-        }
-      ]
-    },
-    "ascii": {
-      "samples": 2173,
-      "functions": [
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.24528301886792453
+          "share": 0.01098901098901099
         },
         {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "name": "specialized Terminal.PrivateMode.init(rawValue:)",
           "image": "ThrushBench",
-          "share": 0.23377818683847215
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.09710078232857801
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.07639208467556374
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.07593189139438564
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.06994937873907041
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.028992176714219973
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.026691210308329497
+          "share": 0.00934065934065934
         },
         {
           "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
           "image": "ThrushBench",
-          "share": 0.020708697653014266
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.018867924528301886
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.010124252185918085
-        },
-        {
-          "name": "_xzm_free_tc",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.006442705936493327
-        },
-        {
-          "name": "_platform_memset",
-          "image": "libsystem_platform.dylib",
-          "share": 0.005982512655315232
-        },
-        {
-          "name": "_xzm_xzone_malloc_tiny",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.005982512655315232
-        },
-        {
-          "name": "Terminal.Row.position(of:)",
-          "image": "ThrushBench",
-          "share": 0.005522319374137137
-        },
-        {
-          "name": "swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int)",
-          "image": "libswiftCore.dylib",
-          "share": 0.0050621260929590425
-        },
-        {
-          "name": "xzm_malloc_zone_size",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.0050621260929590425
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.004601932811780948
-        },
-        {
-          "name": "swift_retain",
-          "image": "libswiftCore.dylib",
-          "share": 0.0041417395306028535
-        },
-        {
-          "name": "destroy for Terminal.Row",
-          "image": "ThrushBench",
-          "share": 0.0036815462494247586
-        }
-      ]
-    },
-    "sgr": {
-      "samples": 2203,
-      "functions": [
-        {
-          "name": "Terminal.Style.applySGR(_:)",
-          "image": "ThrushBench",
-          "share": 0.2873354516568316
-        },
-        {
-          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
-          "image": "ThrushBench",
-          "share": 0.2528370403994553
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.08624602814344076
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.0699046754425783
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.05220154334997731
-        },
-        {
-          "name": "Terminal.Row.position(of:)",
-          "image": "ThrushBench",
-          "share": 0.04312301407172038
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.041307308216069
-        },
-        {
-          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
-          "image": "ThrushBench",
-          "share": 0.03949160236041761
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.026781661370857923
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.025873808443032227
+          "share": 0.007692307692307693
         },
         {
           "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
           "image": "ThrushBench",
-          "share": 0.023604176123467997
-        },
-        {
-          "name": "_xzm_xzone_malloc_tiny",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.003631411711302769
-        },
-        {
-          "name": "specialized Span<>.count.getter",
-          "image": "ThrushBench",
-          "share": 0.0031774852473899226
-        },
-        {
-          "name": "malloc_size",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.0027235587834770767
-        },
-        {
-          "name": "specialized Span<A>.subscript.getter",
-          "image": "ThrushBench",
-          "share": 0.0027235587834770767
-        },
-        {
-          "name": "specialized _ArrayBuffer._consumeAndCreateNew(bufferIsUnique:minimumCapacity:growForAppend:)",
-          "image": "ThrushBench",
-          "share": 0.0027235587834770767
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.0027235587834770767
-        },
-        {
-          "name": "__xzm_xzone_free_to_freelist_chunk",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.0022696323195642307
-        },
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.0022696323195642307
-        },
-        {
-          "name": "swift_retain",
-          "image": "libswiftCore.dylib",
-          "share": 0.0022696323195642307
-        }
-      ]
-    },
-    "wide": {
-      "samples": 2239,
-      "functions": [
-        {
-          "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
-          "image": "ThrushBench",
-          "share": 0.34658329611433675
-        },
-        {
-          "name": "specialized Terminal.Screen.writeRun(startingWith:style:joinsPrevious:next:)",
-          "image": "ThrushBench",
-          "share": 0.15676641357748994
-        },
-        {
-          "name": "Terminal.writeNonASCII(in:index:replies:)",
-          "image": "ThrushBench",
-          "share": 0.11656989727556945
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.08887896382313533
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.07548012505582849
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.04778919160339437
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.04421616793211255
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.020991514068780706
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.01563197856185797
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.015185350602947744
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.014738722644037517
-        },
-        {
-          "name": "Terminal.Row.clearWideLead(before:style:)",
-          "image": "ThrushBench",
-          "share": 0.01027244305493524
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.00982581509602501
+          "share": 0.007142857142857143
         },
         {
           "name": "Terminal.Row.position(of:)",
           "image": "ThrushBench",
-          "share": 0.009379187137114784
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.005359535506922733
-        },
-        {
-          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
-          "image": "ThrushBench",
-          "share": 0.0026797677534613666
-        }
-      ]
-    },
-    "cursor": {
-      "samples": 2216,
-      "functions": [
-        {
-          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
-          "image": "ThrushBench",
-          "share": 0.2833935018050541
-        },
-        {
-          "name": "Terminal.Row.set(_:to:)",
-          "image": "ThrushBench",
-          "share": 0.13176895306859207
-        },
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.11462093862815885
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.07445848375451264
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.06904332129963899
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.060018050541516245
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.0582129963898917
-        },
-        {
-          "name": "Terminal.apply(_:replies:)",
-          "image": "ThrushBench",
-          "share": 0.04557761732851986
-        },
-        {
-          "name": "Terminal.Screen.eraseDisplay(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.0351985559566787
-        },
-        {
-          "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
-          "image": "ThrushBench",
-          "share": 0.034747292418772564
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.021209386281588447
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.019855595667870037
-        },
-        {
-          "name": "specialized TerminalControlFunction.init(_:)",
-          "image": "ThrushBench",
-          "share": 0.01444043321299639
-        },
-        {
-          "name": "Terminal.Row.blankUnusedCells(before:)",
-          "image": "ThrushBench",
-          "share": 0.010379061371841155
-        },
-        {
-          "name": "Terminal.Screen.eraseLine(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.009025270758122744
-        },
-        {
-          "name": "Terminal.Row.position(of:)",
-          "image": "ThrushBench",
-          "share": 0.007220216606498195
-        },
-        {
-          "name": "Terminal.Row.fillWithBlanks(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.004963898916967509
-        }
-      ]
-    },
-    "scroll": {
-      "samples": 2225,
-      "functions": [
-        {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
-          "image": "ThrushBench",
-          "share": 0.28359550561797753
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.17573033707865168
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.14382022471910114
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.09617977528089888
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.09617977528089888
-        },
-        {
-          "name": "Terminal.History.append(_:)",
-          "image": "ThrushBench",
-          "share": 0.05438202247191011
-        },
-        {
-          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
-          "image": "ThrushBench",
-          "share": 0.0350561797752809
-        },
-        {
-          "name": "swift_isUniquelyReferenced_nonNull_native",
-          "image": "libswiftCore.dylib",
-          "share": 0.03460674157303371
-        },
-        {
-          "name": "Terminal.Row.clearWideEdges(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.019775280898876403
-        },
-        {
-          "name": "Terminal.Row.position(of:)",
-          "image": "ThrushBench",
-          "share": 0.015280898876404495
-        },
-        {
-          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
-          "image": "ThrushBench",
-          "share": 0.005842696629213483
-        },
-        {
-          "name": "swift_release",
-          "image": "libswiftCore.dylib",
-          "share": 0.005393258426966292
-        },
-        {
-          "name": "__xzm_xzone_free_to_freelist_chunk",
-          "image": "libsystem_malloc.dylib",
-          "share": 0.0035955056179775282
-        },
-        {
-          "name": "swift_bridgeObjectRelease",
-          "image": "libswiftCore.dylib",
-          "share": 0.002696629213483146
-        },
-        {
-          "name": "_platform_memset",
-          "image": "libsystem_platform.dylib",
-          "share": 0.0022471910112359553
+          "share": 0.007142857142857143
         },
         {
           "name": "_xzm_malloc_tc",
           "image": "libsystem_malloc.dylib",
-          "share": 0.0022471910112359553
-        }
-      ]
-    },
-    "region": {
-      "samples": 2066,
-      "functions": [
-        {
-          "name": "_platform_memmove",
-          "image": "libsystem_platform.dylib",
-          "share": 0.2691190706679574
+          "share": 0.006593406593406593
         },
         {
-          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "name": "_allASCII(_:)",
+          "image": "libswiftCore.dylib",
+          "share": 0.006043956043956044
+        },
+        {
+          "name": "specialized Terminal.Screen.writeRun(startingWith:style:joinsPrevious:next:)",
           "image": "ThrushBench",
-          "share": 0.14133591481122942
-        },
-        {
-          "name": "Terminal.receive(_:)",
-          "image": "ThrushBench",
-          "share": 0.1335914811229429
-        },
-        {
-          "name": "Terminal.Row.writeASCII(_:at:style:)",
-          "image": "ThrushBench",
-          "share": 0.0909970958373669
-        },
-        {
-          "name": "specialized Array.rotate(_:by:)",
-          "image": "ThrushBench",
-          "share": 0.06727976766698936
-        },
-        {
-          "name": "Terminal.Screen.writeASCII(_:style:)",
-          "image": "ThrushBench",
-          "share": 0.06679574056147145
-        },
-        {
-          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
-          "image": "ThrushBench",
-          "share": 0.06098741529525654
-        },
-        {
-          "name": "Terminal.Buffer.rotate(_:by:)",
-          "image": "ThrushBench",
-          "share": 0.03823814133591481
-        },
-        {
-          "name": "___chkstk_darwin",
-          "image": "libsystem_pthread.dylib",
-          "share": 0.02758954501452081
+          "share": 0.006043956043956044
         },
         {
           "name": "swift_isUniquelyReferenced_nonNull_native",
           "image": "libswiftCore.dylib",
-          "share": 0.024685382381413358
+          "share": 0.005494505494505495
+        }
+      ]
+    },
+    "ascii": {
+      "samples": 1808,
+      "functions": [
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.2665929203539823
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.16924778761061948
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.0956858407079646
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.09292035398230089
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.08517699115044247
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.06858407079646017
         },
         {
           "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
           "image": "ThrushBench",
-          "share": 0.017909002904162634
+          "share": 0.03595132743362832
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.030973451327433628
+        },
+        {
+          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
+          "image": "ThrushBench",
+          "share": 0.02101769911504425
         },
         {
           "name": "Terminal.Row.clearWideEdges(_:style:)",
           "image": "ThrushBench",
-          "share": 0.015004840271055178
-        },
-        {
-          "name": "DYLD-STUB$$memmove",
-          "image": "ThrushBench",
-          "share": 0.013552758954501452
-        },
-        {
-          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
-          "image": "ThrushBench",
-          "share": 0.011616650532429816
+          "share": 0.012721238938053098
         },
         {
           "name": "Terminal.Row.position(of:)",
           "image": "ThrushBench",
-          "share": 0.008712487899322363
+          "share": 0.010508849557522125
+        },
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.010508849557522125
+        },
+        {
+          "name": "_platform_memset",
+          "image": "libsystem_platform.dylib",
+          "share": 0.008849557522123894
+        },
+        {
+          "name": "getrusage",
+          "image": "libsystem_kernel.dylib",
+          "share": 0.008296460176991151
+        },
+        {
+          "name": "_xzm_free_tc",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.00663716814159292
+        },
+        {
+          "name": "xzm_malloc_zone_size",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.006084070796460177
+        },
+        {
+          "name": "swift_retain",
+          "image": "libswiftCore.dylib",
+          "share": 0.0055309734513274336
+        },
+        {
+          "name": "__xzm_xzone_free_to_freelist_chunk",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0038716814159292035
+        },
+        {
+          "name": "destroy for Terminal.Row",
+          "image": "ThrushBench",
+          "share": 0.0038716814159292035
+        },
+        {
+          "name": "swift_bridgeObjectRelease",
+          "image": "libswiftCore.dylib",
+          "share": 0.0038716814159292035
+        }
+      ]
+    },
+    "sgr": {
+      "samples": 1912,
+      "functions": [
+        {
+          "name": "Terminal.Style.applySGR(_:)",
+          "image": "ThrushBench",
+          "share": 0.3091004184100418
+        },
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.23535564853556484
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.0899581589958159
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.06746861924686193
+        },
+        {
+          "name": "Terminal.Row.position(of:)",
+          "image": "ThrushBench",
+          "share": 0.04445606694560669
+        },
+        {
+          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
+          "image": "ThrushBench",
+          "share": 0.043410041841004186
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.03765690376569038
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.03399581589958159
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.03347280334728033
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.021966527196652718
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.014121338912133892
+        },
+        {
+          "name": "_xzm_malloc_tc",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0041841004184100415
+        },
+        {
+          "name": "specialized Span<>.count.getter",
+          "image": "ThrushBench",
+          "share": 0.0041841004184100415
+        },
+        {
+          "name": "_xzm_free_tc",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0036610878661087866
+        },
+        {
+          "name": "_xzm_xzone_malloc_tiny",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0036610878661087866
+        },
+        {
+          "name": "specialized Span<A>.subscript.getter",
+          "image": "ThrushBench",
+          "share": 0.0036610878661087866
+        },
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.0036610878661087866
+        },
+        {
+          "name": "xzm_malloc_zone_size",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0036610878661087866
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.0031380753138075313
+        },
+        {
+          "name": "specialized _ArrayBuffer._consumeAndCreateNew(bufferIsUnique:minimumCapacity:growForAppend:)",
+          "image": "ThrushBench",
+          "share": 0.0031380753138075313
+        }
+      ]
+    },
+    "wide": {
+      "samples": 1908,
+      "functions": [
+        {
+          "name": "closure #1 in Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.6058700209643606
+        },
+        {
+          "name": "specialized Terminal.Screen.writeRun(startingWith:style:joinsPrevious:next:)",
+          "image": "ThrushBench",
+          "share": 0.21540880503144655
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.036163522012578615
+        },
+        {
+          "name": "Terminal.writeNonASCII(in:index:replies:)",
+          "image": "ThrushBench",
+          "share": 0.03039832285115304
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.014150943396226415
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.01310272536687631
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.011530398322851153
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.008385744234800839
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.006813417190775681
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.005241090146750524
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.0041928721174004195
+        },
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.0041928721174004195
+        },
+        {
+          "name": "_platform_memset",
+          "image": "libsystem_platform.dylib",
+          "share": 0.003668763102725367
+        },
+        {
+          "name": "xzm_malloc_zone_size",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.0031446540880503146
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.002620545073375262
+        },
+        {
+          "name": "_xzm_xzone_malloc_tiny",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.002620545073375262
+        },
+        {
+          "name": "getrusage",
+          "image": "libsystem_kernel.dylib",
+          "share": 0.002620545073375262
+        }
+      ]
+    },
+    "cursor": {
+      "samples": 2040,
+      "functions": [
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.2926470588235294
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.13725490196078433
+        },
+        {
+          "name": "Terminal.Row.set(_:to:)",
+          "image": "ThrushBench",
+          "share": 0.13676470588235295
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.07009803921568628
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.06715686274509804
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.05588235294117647
         },
         {
           "name": "Terminal.apply(_:replies:)",
           "image": "ThrushBench",
-          "share": 0.003872216844143272
+          "share": 0.050980392156862744
+        },
+        {
+          "name": "Terminal.Screen.eraseDisplay(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.03284313725490196
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.029901960784313727
         },
         {
           "name": "specialized TerminalControlFunction.CSI.init(rawValue:)",
           "image": "ThrushBench",
-          "share": 0.002904162633107454
+          "share": 0.022549019607843137
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.022058823529411766
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.016666666666666666
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.015196078431372549
+        },
+        {
+          "name": "Terminal.Screen.eraseLine(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.013235294117647059
+        },
+        {
+          "name": "Terminal.Row.blankUnusedCells(before:)",
+          "image": "ThrushBench",
+          "share": 0.012254901960784314
+        },
+        {
+          "name": "Terminal.Row.position(of:)",
+          "image": "ThrushBench",
+          "share": 0.00980392156862745
+        },
+        {
+          "name": "Terminal.Row.clearWideLead(before:style:)",
+          "image": "ThrushBench",
+          "share": 0.00392156862745098
+        },
+        {
+          "name": "Terminal.Row.fillWithBlanks(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.003431372549019608
+        }
+      ]
+    },
+    "scroll": {
+      "samples": 1790,
+      "functions": [
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.2687150837988827
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.19050279329608938
+        },
+        {
+          "name": "Terminal.History.append(_:)",
+          "image": "ThrushBench",
+          "share": 0.12067039106145251
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.1122905027932961
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.08324022346368715
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.06201117318435754
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.04692737430167598
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.03798882681564246
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.013966480446927373
+        },
+        {
+          "name": "Terminal.Row.position(of:)",
+          "image": "ThrushBench",
+          "share": 0.010614525139664804
+        },
+        {
+          "name": "getrusage",
+          "image": "libsystem_kernel.dylib",
+          "share": 0.006145251396648044
+        },
+        {
+          "name": "_xzm_xzone_malloc_tiny",
+          "image": "libsystem_malloc.dylib",
+          "share": 0.00558659217877095
+        },
+        {
+          "name": "swift_release",
+          "image": "libswiftCore.dylib",
+          "share": 0.003910614525139665
+        },
+        {
+          "name": "specialized Array.append<A>(addingCapacity:initializingWith:)",
+          "image": "ThrushBench",
+          "share": 0.002793296089385475
+        }
+      ]
+    },
+    "region": {
+      "samples": 1813,
+      "functions": [
+        {
+          "name": "_platform_memmove",
+          "image": "libsystem_platform.dylib",
+          "share": 0.25703254274682846
+        },
+        {
+          "name": "Terminal.Row.writeASCII(_:at:style:)",
+          "image": "ThrushBench",
+          "share": 0.20463320463320464
+        },
+        {
+          "name": "Terminal.receive(_:)",
+          "image": "ThrushBench",
+          "share": 0.11638168781025923
+        },
+        {
+          "name": "specialized Array.rotate(_:by:)",
+          "image": "ThrushBench",
+          "share": 0.08163265306122448
+        },
+        {
+          "name": "Terminal.Buffer.advanceLine(wrapped:eraseStyle:generation:)",
+          "image": "ThrushBench",
+          "share": 0.075565361279647
+        },
+        {
+          "name": "Terminal.Screen.writeASCII(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.0694980694980695
+        },
+        {
+          "name": "specialized static TextScanner.endOfASCII(in:from:)",
+          "image": "ThrushBench",
+          "share": 0.03695532266960838
+        },
+        {
+          "name": "Terminal.Buffer.rotate(_:by:)",
+          "image": "ThrushBench",
+          "share": 0.028681742967457253
+        },
+        {
+          "name": "___chkstk_darwin",
+          "image": "libsystem_pthread.dylib",
+          "share": 0.02702702702702703
+        },
+        {
+          "name": "DYLD-STUB$$swift_isUniquelyReferenced_nonNull_native",
+          "image": "ThrushBench",
+          "share": 0.02151130722559294
+        },
+        {
+          "name": "swift_isUniquelyReferenced_nonNull_native",
+          "image": "libswiftCore.dylib",
+          "share": 0.015995587424158852
+        },
+        {
+          "name": "EscapeParser.consumeEscape(in:index:borrowingParametersFor:borrowedParameters:)",
+          "image": "ThrushBench",
+          "share": 0.013789299503585218
+        },
+        {
+          "name": "DYLD-STUB$$memmove",
+          "image": "ThrushBench",
+          "share": 0.0126861555432984
+        },
+        {
+          "name": "Terminal.Row.clearWideEdges(_:style:)",
+          "image": "ThrushBench",
+          "share": 0.012134583563154992
+        },
+        {
+          "name": "Terminal.Row.position(of:)",
+          "image": "ThrushBench",
+          "share": 0.009376723662437948
+        },
+        {
+          "name": "Terminal.apply(_:replies:)",
+          "image": "ThrushBench",
+          "share": 0.00441257584114727
+        },
+        {
+          "name": "specialized TerminalControlFunction.init(_:)",
+          "image": "ThrushBench",
+          "share": 0.003861003861003861
         }
       ]
     }
