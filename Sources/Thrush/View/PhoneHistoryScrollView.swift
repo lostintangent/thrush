@@ -5,7 +5,8 @@ import UIKit
 /// The scroll view supplies UIKit's pan velocity, deceleration, scroll indicator and VoiceOver
 /// paging. Metal draws only the current rows, so a full history needs no offscreen views.
 /// When the program takes scrolling, swipes and trackpad scrolls go to it as rows instead.
-final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate,
+    UIContextMenuInteractionDelegate {
     unowned let terminal: TerminalMetalView
     private let scroll = UIScrollView()
     private let latest = UIButton(type: .system)
@@ -33,6 +34,23 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var pageSentToProgram: (generation: UInt64, deadline: CFTimeInterval)?
     private let reading = PhoneAccessibleText()
     private var panStart: CGFloat = 0
+    private weak var pressGesture: UILongPressGestureRecognizer?
+    private weak var mouseGesture: TerminalPointerGesture?
+    /// The link under a finger since it touched down, which stays pressed while the finger stays on it.
+    private var touchedLink: UInt32?
+    /// The link a ⌘-click pressed with a trackpad or mouse.
+    private var clickedLink: UInt32?
+    /// The link the Links rotor last moved to. A rotor result holds its element weakly.
+    private var rotorLink: PhoneLinkElement?
+    /// Where a tap on a link that doesn't open directly shows the link's menu. It sits behind the scroll
+    /// view, so it never takes a touch.
+    private lazy var linkMenuAnchor: UIButton = {
+        let anchor = UIButton(type: .custom)
+        anchor.showsMenuAsPrimaryAction = true
+        anchor.isAccessibilityElement = false
+        insertSubview(anchor, belowSubview: scroll)
+        return anchor
+    }()
     /// UIKit's measure of the last pan as the finger lifted: seconds since 1970, the points the content moved
     /// under the finger, and the velocity in points per second that UIKit's deceleration glides on from.
     private(set) var lastRelease: (time: Double, travel: CGFloat, velocity: CGFloat)?
@@ -65,9 +83,16 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
             scroll.addGestureRecognizer(recognizer)
         }
         tap.require(toFail: press)
+        pressGesture = press
+        let touch = LinkTouchGesture(target: self, action: #selector(touchedLink(_:)))
+        touch.allowedTouchTypes = tap.allowedTouchTypes
+        scroll.addGestureRecognizer(touch)
+        addInteraction(UIContextMenuInteraction(delegate: self))
 
         let mouse = TerminalPointerGesture(target: self, action: #selector(pointer(_:)))
         mouse.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
+        mouse.delegate = self
+        mouseGesture = mouse
         scroll.addGestureRecognizer(mouse)
         // UIKit distinguishes a single trackpad click from multi-click word or line selection.
         doubleClick.numberOfTapsRequired = 2
@@ -234,6 +259,10 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     /// A program scrolls where the pan began, as a wheel would there, from a whole row of travel.
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        if touchedLink != nil {
+            touchedLink = nil
+            terminal.engagedLink = nil
+        }
         programRemainder = 0
         programCell = terminal.cell(at: scrollView.panGestureRecognizer.location(in: self)) ?? programCell
         programModifiers = terminalModifiers(scrollView.panGestureRecognizer.modifierFlags)
@@ -278,13 +307,17 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
                                  .first(where: { $0.accessibilityTraits.contains(.selected) }))
     }
 
-    @objc private func tapped(_ gesture: UITapGestureRecognizer) {
+    @objc func tapped(_ gesture: UITapGestureRecognizer) {
         let cell = terminal.cell(at: gesture.location(in: self))
         if let cell, !terminal.isPointerReporting, let range = terminal.selection, let width = terminal.snapshot?.size.columns,
            range.columns(in: cell.row, width: width)?.contains(cell.column) == true {
             selectionControls.beginSelection()
             selectionControls.showMenu()
             return
+        }
+        // A link is the reader's unless the program tracks taps, and it leaves the keyboard and selection as they are.
+        if !terminal.isPointerReporting, let hit = terminal.link(at: gesture.location(in: self)) {
+            return activate(hit, at: gesture.location(in: self))
         }
         if gesture.modifierFlags.intersection([.shift, .alternate, .command, .control]).isEmpty,
            terminal.tapDisplacedGrid() { return }
@@ -327,6 +360,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     }
 
     @objc private func pointer(_ gesture: TerminalPointerGesture) {
+        if clickLink(gesture) { return }
         if gesture.state == .began {
             displacedPointerClick = terminal.onDisplacedTap != nil && gesture.clicks == 1 && gesture.pressedButton == .left
                 && gesture.flags.intersection([.shift, .alternate, .command, .control]).isEmpty
@@ -402,6 +436,12 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     }
 
     @objc private func hovered(_ gesture: UIHoverGestureRecognizer) {
+        if clickedLink == nil, touchedLink == nil {
+            let hovering = gesture.state == .began || gesture.state == .changed
+            let number = hovering && gesture.modifierFlags.contains(.command)
+                ? terminal.link(at: gesture.location(in: self))?.number : nil
+            terminal.engagedLink = number.map { .init(number: $0, pressed: false) }
+        }
         guard gesture.state == .changed, !remotePress, terminal.isPointerReporting, !gesture.modifierFlags.contains(.shift),
               let cell = terminal.cell(at: gesture.location(in: self)) else { return }
         _ = terminal.reportPointer(.move, button: .none, row: cell.row, column: cell.column,
@@ -412,6 +452,11 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         if gestureRecognizer === wheelGesture {
             return terminal.programTakesScrolling && !gestureRecognizer.modifierFlags.contains(.shift)
         }
+        // A long press or a secondary click on a link shows the link's menu instead.
+        let point = gestureRecognizer.location(in: self)
+        if gestureRecognizer === pressGesture, terminal.link(at: point) != nil { return false }
+        if gestureRecognizer === mouseGesture, mouseGesture?.pressedButton == .right, !terminal.isPointerReporting,
+           terminal.link(at: point) != nil { return false }
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 
@@ -457,6 +502,144 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         return result
     }
 
+    // MARK: - Links
+
+    /// A web link opens. Any other link shows its menu at the link first, since it can launch an app.
+    private func activate(_ hit: (number: UInt32, link: Terminal.Link), at point: CGPoint) {
+        guard !terminal.openWebLink(hit.link) else { return }
+        let runs = terminal.linkRuns(of: hit.number)
+        guard let run = runs.first(where: { terminal.rect(of: $0).contains(point) }) ?? runs.first else { return }
+        linkMenuAnchor.frame = terminal.rect(of: run)
+        linkMenuAnchor.menu = menu(for: hit.link, at: linkMenuAnchor.frame)
+        linkMenuAnchor.performPrimaryAction()
+    }
+
+    private func menu(for link: Terminal.Link, at rect: CGRect) -> UIMenu {
+        var actions: [UIMenuElement] = []
+        if let url = link.openableURL {
+            let symbol = link.destination == .web(url) ? "safari" : "arrow.up.forward.app"
+            actions.append(UIAction(title: "Open Link", image: UIImage(systemName: symbol)) { [weak self] _ in
+                self?.terminal.openURL(url)
+            })
+        }
+        actions.append(UIAction(title: link.copyTitle, image: UIImage(systemName: "doc.on.doc")) { _ in
+            UIPasteboard.general.string = link.copiedText
+        })
+        if case .web(let url) = link.destination {
+            actions.append(UIAction(title: "Share…", image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+                self?.share(url, from: rect)
+            })
+        }
+        return UIMenu(title: link.displayedDestination, children: actions)
+    }
+
+    private func share(_ url: URL, from rect: CGRect) {
+        var presenter = sequence(first: self as UIResponder, next: \.next).lazy.compactMap { $0 as? UIViewController }.first
+        while let presented = presenter?.presentedViewController { presenter = presented }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        sheet.popoverPresentationController?.sourceView = self
+        sheet.popoverPresentationController?.sourceRect = rect
+        presenter?.present(sheet, animated: true)
+    }
+
+    /// A finger on a link presses it until the finger lifts, slides off or starts a scroll. While a program
+    /// tracks taps, the tap is the program's and only a long press reaches the link.
+    @objc private func touchedLink(_ gesture: UIGestureRecognizer) {
+        let point = gesture.location(in: self)
+        switch gesture.state {
+        case .began:
+            guard !terminal.isPointerReporting, !scroll.isDecelerating, let hit = terminal.link(at: point) else { return }
+            touchedLink = hit.number
+            terminal.engagedLink = .init(number: hit.number, pressed: true)
+        case .changed:
+            guard let number = touchedLink else { return }
+            terminal.engagedLink = terminal.link(at: point)?.number == number ? .init(number: number, pressed: true) : nil
+        default:
+            guard touchedLink != nil else { return }
+            touchedLink = nil
+            terminal.engagedLink = nil
+        }
+    }
+
+    /// With a trackpad or mouse, a ⌘-click opens a link on release over the same link, as on the Mac.
+    private func clickLink(_ gesture: TerminalPointerGesture) -> Bool {
+        let hit = terminal.link(at: gesture.location(in: self))
+        if gesture.state == .began {
+            guard gesture.pressedButton == .left, gesture.flags.contains(.command), let hit else { return false }
+            clickedLink = hit.number
+        }
+        guard let number = clickedLink else { return false }
+        switch gesture.state {
+        case .began, .changed:
+            terminal.engagedLink = .init(number: number, pressed: hit?.number == number)
+        case .ended:
+            clickedLink = nil
+            terminal.engagedLink = hit.map { .init(number: $0.number, pressed: false) }
+            if gesture.clicks == 1, let hit, hit.number == number { activate(hit, at: gesture.location(in: self)) }
+        default:
+            clickedLink = nil
+            terminal.engagedLink = nil
+        }
+        return true
+    }
+
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
+        // A click the program or a selection already took doesn't also open the menu.
+        if let mouse = mouseGesture, mouse.state == .began || mouse.state == .changed { return nil }
+        guard let hit = terminal.link(at: location) else { return nil }
+        let runs = terminal.linkRuns(of: hit.number)
+        let rect = runs.map { terminal.rect(of: $0) }.first { $0.contains(location) } ?? .init(origin: location, size: .zero)
+        return UIContextMenuConfiguration(identifier: NSNumber(value: hit.number), previewProvider: nil) { [weak self] _ in
+            self?.menu(for: hit.link, at: rect)
+        }
+    }
+
+    /// The link lifts from the grid as its own preview, row by row.
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
+                                highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
+        guard let number = (identifier as? NSNumber)?.uint32Value else { return nil }
+        let rects = terminal.linkRuns(of: number).map { NSValue(cgRect: terminal.rect(of: $0)) }
+        guard !rects.isEmpty else { return nil }
+        let parameters = UIPreviewParameters(textLineRects: rects)
+        parameters.backgroundColor = UIColor(terminalColor: terminal.color(.background))
+        return UITargetedPreview(view: terminal, parameters: parameters)
+    }
+
+    override var accessibilityCustomRotors: [UIAccessibilityCustomRotor]? {
+        get {
+            [UIAccessibilityCustomRotor(systemType: .link) { [weak self] search in
+                MainActor.assumeIsolated { self?.link(after: search) }
+            }]
+        }
+        set { super.accessibilityCustomRotors = newValue }
+    }
+
+    /// Links in the rotor read by their text, with the destination as their hint. Activating one does
+    /// what a tap does.
+    private func link(after search: UIAccessibilityCustomRotorSearchPredicate) -> UIAccessibilityCustomRotorItemResult? {
+        let links = terminal.visibleLinks()
+        // Output can rebuild the elements between searches, and a link keeps its number while it's visible.
+        let current = (search.currentItem.targetElement as? PhoneLinkElement).flatMap { item in
+            links.firstIndex { $0.number == item.number }
+        }
+        let next = search.searchDirection == .previous ? (current ?? links.count) - 1 : (current ?? -1) + 1
+        guard links.indices.contains(next) else { return nil }
+        let (number, link, runs) = links[next]
+        let element = PhoneLinkElement(accessibilityContainer: self)
+        element.number = number
+        element.accessibilityLabel = terminal.linkText(runs)
+        element.accessibilityHint = link.displayedDestination
+        element.accessibilityTraits = .link
+        element.accessibilityFrameInContainerSpace = runs.dropFirst().reduce(terminal.rect(of: runs[0])) {
+            $0.union(terminal.rect(of: $1))
+        }
+        let point = CGPoint(x: terminal.rect(of: runs[0]).midX, y: terminal.rect(of: runs[0]).midY)
+        element.activate = { [weak self] in self?.activate((number, link), at: point) }
+        rotorLink = element
+        return UIAccessibilityCustomRotorItemResult(targetElement: element, targetRange: nil)
+    }
+
     override var accessibilityElements: [Any]? {
         get { reading.elements(in: self, latest: latest) }
         set { super.accessibilityElements = newValue }
@@ -487,6 +670,41 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         UIAccessibility.post(notification: .pageScrolled, argument: text)
         if let text { terminal.onAccessibilityAnnouncement?(text) }
     }
+}
+
+private final class PhoneLinkElement: UIAccessibilityElement {
+    var number: UInt32 = 0
+    var activate: () -> Void = {}
+
+    override func accessibilityActivate() -> Bool {
+        activate()
+        return true
+    }
+}
+
+/// Follows one finger from the moment it touches down, without delaying, claiming or preventing any
+/// other gesture, so a link can show it's pressed before a tap, long press or scroll decides.
+private final class LinkTouchGesture: UIGestureRecognizer {
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+        cancelsTouchesInView = false
+    }
+
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if state == .possible, event.allTouches?.count == 1 { state = .began }
+        else if state == .began || state == .changed { state = .cancelled }
+        else { state = .failed }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        if state == .began || state == .changed { state = .changed }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) { state = state == .possible ? .failed : .ended }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) { state = state == .possible ? .failed : .cancelled }
 }
 
 private final class TerminalPointerGesture: UIGestureRecognizer {

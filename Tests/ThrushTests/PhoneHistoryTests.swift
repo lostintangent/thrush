@@ -258,4 +258,97 @@ import UIKit
     #expect(sent == Array(repeating: "\u{1b}[<64;13;4M", count: 5))
     #expect(read == ["page two"] && view.historyOffset == 0)
 }
+
+/// A tap at one point, as UIKit hands it to the history's tap action.
+private final class PointTap: UITapGestureRecognizer {
+    let point: CGPoint
+    init(_ point: CGPoint) {
+        self.point = point
+        super.init(target: nil, action: nil)
+    }
+    override func location(in view: UIView?) -> CGPoint { point }
+}
+
+/// A tap on a link opens it and leaves the keyboard and selection alone, a tap beside it raises the
+/// keyboard, and a program that tracks taps still gets them.
+@MainActor
+@Test func phoneTapsOpenLinksOnlyOnTheirOwnCells() throws {
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
+    let window = try #require(mountTestView(view) as? UIWindow)
+    defer { withExtendedLifetime(window) {} }
+    window.makeKeyAndVisible()
+    defer { window.isHidden = true }
+    view.layoutIfNeeded()
+    var terminal = Terminal(size: .init(columns: 12, rows: 4))
+    _ = terminal.write("see \u{1B}]8;;https://example.com/docs\u{1B}\\the docs\u{1B}]8;;\u{1B}\\\r\nrun.log".utf8)
+    view.display(terminal)
+    var opened: [URL] = []
+    var sent: [String] = []
+    view.openURL = { opened.append($0) }
+    view.onInput = { sent.append(String(decoding: terminal.encode($0), as: UTF8.self)) }
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
+    func tap(row: Int, column: Int) {
+        let cell = view.cellRect(row: row, column: column)
+        history.perform(#selector(PhoneHistoryScrollView.tapped(_:)), with: PointTap(CGPoint(x: cell.midX, y: cell.midY)))
+    }
+
+    view.selection = .init(anchorRow: 1, anchorColumn: 0, headRow: 1, headColumn: 2)
+    tap(row: 0, column: 11)
+    #expect(opened == [URL(string: "https://example.com/docs")!])
+    #expect(!view.hasInputFocus && view.selection != nil && sent.isEmpty)
+    tap(row: 0, column: 3)
+    #expect(opened.count == 1 && view.hasInputFocus && view.selection == nil)
+
+    _ = terminal.write("\u{1B}[?1000;1006h".utf8)
+    view.display(terminal)
+    tap(row: 0, column: 5)
+    #expect(opened.count == 1 && sent == ["\u{1B}[<0;6;1M", "\u{1B}[<0;6;1m"])
+}
+
+/// The Links rotor reads each visible link once in reading order, a wrapped link as one, and
+/// activating one does what a tap does. A link that could launch an app shows its menu first.
+@MainActor
+@Test func phoneLinksReadInTheRotorAndExplainThemselvesInMenus() throws {
+    let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    view.layoutIfNeeded()
+    var terminal = Terminal(size: .init(columns: 12, rows: 4))
+    _ = terminal.write("see \u{1B}]8;;https://example.com/docs\u{1B}\\the long docs\u{1B}]8;;\u{1B}\\\r\n".utf8)
+    _ = terminal.write("\u{1B}]8;;file://devbox/tmp/run.log\u{1B}\\run.log\u{1B}]8;;\u{1B}\\".utf8)
+    view.display(terminal)
+    var opened: [URL] = []
+    view.openURL = { opened.append($0) }
+    let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
+    let rotor = try #require(history.accessibilityCustomRotors?.first)
+    #expect(rotor.systemRotorType == .link)
+    func search(_ direction: UIAccessibilityCustomRotor.Direction, from item: NSObject?) -> UIAccessibilityElement? {
+        let predicate = UIAccessibilityCustomRotorSearchPredicate()
+        predicate.searchDirection = direction
+        predicate.currentItem = UIAccessibilityCustomRotorItemResult(targetElement: item ?? history, targetRange: nil)
+        return rotor.itemSearchBlock(predicate)?.targetElement as? UIAccessibilityElement
+    }
+
+    let docs = try #require(search(.next, from: nil))
+    let log = try #require(search(.next, from: docs))
+    #expect(search(.next, from: log) == nil)
+    #expect(search(.previous, from: nil)?.accessibilityLabel == "run.log")
+    #expect(search(.previous, from: log)?.accessibilityLabel == "the long docs")
+    #expect(docs.accessibilityLabel == "the long docs" && docs.accessibilityHint == "https://example.com/docs")
+    #expect(docs.accessibilityTraits == .link && log.accessibilityHint == "file://devbox/tmp/run.log")
+    #expect(docs.accessibilityFrameInContainerSpace == view.cellRect(row: 1, column: 0).union(view.cellRect(row: 0, column: 11)))
+    #expect(docs.accessibilityActivate() && opened == [URL(string: "https://example.com/docs")!])
+
+    #expect(log.accessibilityActivate() && opened.count == 1)
+    let anchor = try #require(history.subviews.compactMap { $0 as? UIButton }.first { $0.showsMenuAsPrimaryAction })
+    #expect(anchor.menu?.title == "file://devbox/tmp/run.log")
+    #expect(anchor.menu?.children.map(\.title) == ["Copy Path"])
+    #expect(anchor.frame == view.cellRect(row: 2, column: 0).union(view.cellRect(row: 2, column: 6)))
+
+    let menus = try #require(history.interactions.compactMap { $0 as? UIContextMenuInteraction }.first)
+    let beside = view.cellRect(row: 0, column: 2)
+    #expect(history.contextMenuInteraction(menus, configurationForMenuAtLocation: CGPoint(x: beside.midX, y: beside.midY)) == nil)
+    let onDocs = view.cellRect(row: 1, column: 1)
+    #expect(history.contextMenuInteraction(menus, configurationForMenuAtLocation: CGPoint(x: onDocs.midX, y: onDocs.midY)) != nil)
+}
 #endif
