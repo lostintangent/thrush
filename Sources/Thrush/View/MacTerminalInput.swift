@@ -350,6 +350,8 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
+        // AppKit's plug-ins would add AutoFill, which has nothing to fill in a terminal.
+        menu.allowsContextMenuPlugIns = false
         if let link = terminal.link(at: convert(event.locationInWindow, from: nil))?.link {
             addItems(for: link, to: menu)
             menu.addItem(.separator())
