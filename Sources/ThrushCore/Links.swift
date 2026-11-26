@@ -7,6 +7,11 @@ extension Terminal {
         package let id: String?
         package let uri: String
 
+        package init(id: String?, uri: String) {
+            self.id = id
+            self.uri = uri
+        }
+
         /// What `OSC 8 ; params ; uri` asks for: a link to open or the current one to close.
         enum Command {
             case open(Link), close
@@ -33,7 +38,7 @@ extension Terminal {
     /// opens, as in the reference.
     package struct Links: Sendable {
         /// The URI and id lengths VTE and iTerm2 accept. A longer one opens no link.
-        static let uriLimit = 2083
+        package static let uriLimit = 2083
         static let idLimit = 250
         /// A link that would pass either limit, even after a sweep, prints as plain text.
         static let countLimit = 65_536

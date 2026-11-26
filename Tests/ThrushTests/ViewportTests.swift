@@ -239,3 +239,67 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
     let edge = view.cellRect(row: 0, column: 9)
     #expect(view.link(at: CGPoint(x: edge.maxX + 2, y: edge.midY)) == nil)
 }
+
+@MainActor @Test func plainURLsOpenLikeLinksAcrossSoftWrapsButNotLineBreaks() throws {
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 300))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var terminal = Terminal(size: .init(columns: 20, rows: 12))
+    _ = terminal.write("see https://example.com/a/long/path ok\r\n".utf8)
+    _ = terminal.write("(https://x.y/z). https://ab.c\r\nd\r\n".utf8)
+    _ = terminal.write(#"{"u":"https://x.y/q?a=1"} <https://x.y/w>"#.utf8)
+    _ = terminal.write("\r\n\u{1b}]8;;https://x.y/sent\u{1b}\\https://x.y/shown\u{1b}]8;;\u{1b}\\ https://en.m/w/A_(b)\r\n".utf8)
+    _ = terminal.write("www.x.y ftp://x.y https:// http://".utf8)
+    view.display(terminal)
+
+    let links = view.visibleLinks()
+    #expect(links.map(\.link.uri) == ["https://example.com/a/long/path", "https://x.y/z", "https://ab.c",
+                                      "https://x.y/q?a=1", "https://x.y/w", "https://x.y/sent", "https://en.m/w/A_(b)"])
+    #expect(links.map { LinkFinder.isFound($0.number) } == [true, true, true, true, true, false, true])
+    let wrapped = links[0]
+    #expect(wrapped.runs.map(\.row) == [0, 1] && wrapped.runs.map(\.columns) == [4..<20, 0..<15])
+    #expect(view.linkText(wrapped.runs) == "https://example.com/a/long/path")
+    #expect(view.link(row: 1, column: 14)?.number == wrapped.number && view.link(row: 1, column: 15) == nil)
+    #expect(view.linkRuns(of: wrapped.number) == wrapped.runs)
+    #expect(view.linkRuns().map(\.row) == [0, 1, 2, 2, 3, 5, 6, 6, 8, 8, 9])
+    #expect(links[1].link.destination == .web(try #require(URL(string: "https://x.y/z"))))
+}
+
+@MainActor @Test func aURLAProgramMayHaveCutShortIsNotFound() throws {
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 300))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var terminal = Terminal(size: .init(columns: 20, rows: 8))
+    _ = terminal.write("https://a.example/xy\r\nz\r\n".utf8)
+    _ = terminal.write("https://b.ex/c│more\r\nhttps://c.ex/d… ok\r\nhttps://d.ex/e|ok\r\n".utf8)
+    _ = terminal.write("“https://e.ex/f” ok\r\nhttps://f.ex/é ok".utf8)
+    view.display(terminal)
+
+    #expect(view.visibleLinks().map(\.link.uri) == ["https://e.ex/f", "https://f.ex/é"])
+}
+
+@MainActor @Test func aFoundURLReadsWholeAcrossTheViewportsEdgeAndKeepsItsNumberWhileItsLineDoes() throws {
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 200))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var terminal = Terminal(size: .init(columns: 10, rows: 3))
+    _ = terminal.write("https://a.example/xyz\r\n".utf8)
+    view.display(terminal)
+    let number = try #require(view.link(row: 0, column: 0)?.number)
+
+    _ = terminal.write("one\r\ntwo".utf8)
+    view.display(terminal)
+    let top = try #require(view.link(row: 0, column: 0))
+    #expect(top.number == number && top.link.uri == "https://a.example/xyz")
+    #expect(view.linkRuns().map(\.columns) == [0..<1])
+
+    view.setHistoryOffset(2)
+    #expect(view.link(row: 0, column: 0)?.number == number)
+    #expect(view.linkRuns().map(\.row) == [0, 1, 2])
+
+    _ = terminal.write("\u{1b}[2J\u{1b}[Hhttps://b.example".utf8)
+    view.setHistoryOffset(0)
+    view.display(terminal)
+    let replaced = view.visibleLinks()
+    #expect(replaced.map(\.link.uri) == ["https://b.example"] && replaced.first?.number != number)
+}

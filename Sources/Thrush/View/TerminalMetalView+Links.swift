@@ -91,12 +91,25 @@ extension TerminalMetalView {
             return nil
         }
         let style = snapshot.rows[row][column].style
-        return snapshot.link(for: style).map { (style.link, $0) }
+        if let link = snapshot.link(for: style) { return (style.link, link) }
+        return foundLinks.first { $0.runs.contains { $0.row == row && $0.columns.contains(column) } }
+            .map { ($0.number, $0.link) }
+    }
+
+    /// The URLs found in the viewport's plain text, read the first time something asks after it changes.
+    var foundLinks: [LinkFinder.Found] {
+        if let found { return found }
+        guard let source = viewport.source, let snapshot else { return [] }
+        let links = finder.find(in: source, top: source.history.count - viewport.offset, count: snapshot.rows.count)
+        found = links
+        return links
     }
 
     /// The visible runs of linked text, top to bottom and left to right, or only the runs of `number`.
-    /// A link a program wraps or redraws across rows with one id has one number, so it has a run on each row.
+    /// A link a program wraps or redraws across rows with one id has one number, so it has a run on each row,
+    /// and so does a URL found across soft-wrapped rows.
     func linkRuns(of number: UInt32? = nil) -> [LinkRun] {
+        if let number, LinkFinder.isFound(number) { return foundLinks.first { $0.number == number }?.runs ?? [] }
         guard let snapshot else { return [] }
         var runs: [LinkRun] = []
         for (y, row) in snapshot.rows.enumerated() {
@@ -112,7 +125,8 @@ extension TerminalMetalView {
                 x = next
             }
         }
-        return runs
+        guard number == nil, !foundLinks.isEmpty else { return runs }
+        return (runs + foundLinks.flatMap(\.runs)).sorted { ($0.row, $0.columns.lowerBound) < ($1.row, $1.columns.lowerBound) }
     }
 
     /// Each visible link once, in reading order of its first run, with all of its runs.

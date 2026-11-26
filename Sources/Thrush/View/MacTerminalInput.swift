@@ -530,10 +530,11 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     /// ⌘ over a link engages the whole link and shows the pointing hand. A ⌘-click keeps its link engaged
     /// until the button comes up, pressed only while the pointer is over it, like a button.
     private func updateLink(at point: CGPoint?, flags: NSEvent.ModifierFlags) {
-        let hovered = point.flatMap { terminal.link(at: $0)?.number }
+        // Only a press or ⌘ asks what's under the pointer, so output under a resting pointer doesn't.
+        func hovered() -> UInt32? { point.flatMap { terminal.link(at: $0)?.number } }
         let engaged: TerminalMetalView.EngagedLink? = if let pressedLink {
-            .init(number: pressedLink, pressed: hovered == pressedLink)
-        } else if flags.contains(.command), let hovered {
+            .init(number: pressedLink, pressed: hovered() == pressedLink)
+        } else if flags.contains(.command), let hovered = hovered() {
             .init(number: hovered, pressed: false)
         } else {
             nil

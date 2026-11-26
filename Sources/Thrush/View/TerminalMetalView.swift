@@ -113,6 +113,10 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         UIApplication.shared.open(url)
         #endif
     }
+    /// Reads plain text for URLs, keeping what it found in lines that haven't changed.
+    var finder = LinkFinder()
+    /// The links found in the displayed snapshot's text, read when something first asks for them.
+    var found: [LinkFinder.Found]?
     /// The link the renderer draws engaged. Input sets it while ⌘ is held over a link or one is pressed.
     var engagedLink: EngagedLink? {
         didSet { if engagedLink != oldValue { invalidateFrame() } }
@@ -245,6 +249,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     var viewport = Viewport()
     package private(set) var snapshot: Terminal.Snapshot? {
         didSet {
+            found = nil
             let colors = snapshot?.programColors ?? .init()
             guard colors != programColors else { return }
             let background = color(.background)
