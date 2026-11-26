@@ -409,7 +409,7 @@ extension Terminal {
             }
         }
 
-        /// DECSTR restores the full-screen region and leaves the cursor where it is.
+        /// Restores the full-screen region, as DECSTR and DECALN do, and leaves the cursor where it is.
         mutating func resetScrollRegion() {
             active.scrollTop = 0
             active.scrollBottom = size.rows - 1
@@ -471,7 +471,28 @@ extension Terminal {
             active.column = 0
         }
 
-        mutating func backspace() { active.column = max(0, min(column, size.columns - 1) - 1) }
+        /// BS moves one column left. With reverse wraparound, it moves from a pending wrap to the last column,
+        /// and from the start of a soft-wrapped row inside the region to the end of the row above.
+        mutating func backspace(reverseWraparound: Bool) {
+            guard reverseWraparound else {
+                active.column = max(0, min(column, size.columns - 1) - 1)
+                return
+            }
+            guard column == 0 else {
+                active.column = min(column, size.columns) - 1
+                return
+            }
+            let index = active.index(of: row)
+            guard row > scrollTop, row <= scrollBottom, active.rows[index].isWrapped else { return }
+            revision &+= 1
+            active.rows[index].isWrapped = false
+            active.rows[index].generation = revision
+            active.row -= 1
+            active.column = size.columns - 1
+            // An empty last cell is the blank a wide character leaves when it wraps early.
+            let last = active.rows[active.index(of: row)][column]
+            if last.width == 1, last.text.isEmpty { active.column -= 1 }
+        }
 
         // HT, CHT and CBT keep a pending wrap until the next print.
         mutating func horizontalTab(_ count: Int = 1) {
@@ -558,6 +579,34 @@ extension Terminal {
                 }
             }
             return count
+        }
+
+        /// REP prints the character left of the cursor again, with its combining marks, in the current style.
+        /// It writes at most 65,535 scalars, so a hostile count or cluster can't stall the reader.
+        mutating func repeatPrecedingCharacter(_ count: Int, style: Style, wraparound: Bool, insert: Bool) {
+            var source = min(column, size.columns) - 1
+            guard source >= 0 else { return }
+            let line = active.rows[active.index(of: row)]
+            if source > 0, line[source].width == 0, line[source].text.isEmpty { source -= 1 }
+            let scalars = Array(line[source].text.unicodeScalars)
+            guard !scalars.isEmpty else { return }
+            for _ in 0..<min(count, 65_535 / scalars.count) {
+                for scalar in scalars {
+                    write(scalar, width: ColumnWidth.of(scalar), style: style, wraparound: wraparound, insert: insert)
+                }
+            }
+        }
+
+        /// DECALN fills every row with E in the current style. The cursor and margins are the caller's.
+        mutating func fillWithAlignmentPattern(style: Style) {
+            revision &+= 1
+            for line in 0..<size.rows {
+                let index = active.index(of: line)
+                let pattern = [UInt8](repeating: UInt8(ascii: "E"), count: active.rows[index].storageColumns)
+                active.rows[index].writeASCII(pattern.span, at: 0, style: style)
+                active.rows[index].isWrapped = false
+                active.rows[index].generation = revision
+            }
         }
 
         /// Writes a run of printable ASCII with autowrap on and insert mode off.

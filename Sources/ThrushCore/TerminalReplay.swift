@@ -30,7 +30,7 @@ extension Terminal {
             writer.restoreSaved(buffer.saved)
         }
         writer.position(row: buffer.row, column: buffer.column, in: buffer)
-        if !hasCombiningBase && buffer.column == size.columns {
+        if !followsText && buffer.column == size.columns {
             // A style or character-set control can leave the cursor just past the margin.
             // Paint the edge in replace mode with ASCII still active, then apply the controls.
             writer.finishGlyph(in: buffer, insert: false)
@@ -38,11 +38,11 @@ extension Terminal {
         writer.setModes(modes)
         if !restoredSet { writer.setCharacterSets(characterSets) }
         writer.setStyle(style)
-        if hasCombiningBase {
+        if followsText {
             writer.finishGlyph(in: buffer, insert: modes.insert)
             writer.setStyle(style)
         } else {
-            // An ignored SGR preserves the current style and pending wrap while breaking the combining run.
+            // An ignored SGR preserves the current style and pending wrap while ending the run of text.
             writer.output += "\u{1b}[999m"
         }
         return Array((writer.output + parser.replayPrefix(string: stringHandler)).utf8) + scanner.replayPrefix
@@ -203,10 +203,10 @@ extension Terminal {
             if !modes.wraparound { output += csi + "?7l" }
             if !modes.cursorVisible { output += csi + "?25l" }
             for (enabled, code) in [(modes.applicationCursorKeys, 1), (modes.cursorBlink, 12),
-                                    (modes.mouseTracking == .press, 1000), (modes.mouseTracking == .drag, 1002),
-                                    (modes.mouseTracking == .all, 1003), (modes.sendFocus, 1004),
-                                    (modes.mouseSGR, 1006), (modes.bracketedPaste, 2004),
-                                    (modes.synchronizedOutput, 2026)] where enabled {
+                                    (modes.reverseWraparound, 45), (modes.mouseTracking == .press, 1000),
+                                    (modes.mouseTracking == .drag, 1002), (modes.mouseTracking == .all, 1003),
+                                    (modes.sendFocus, 1004), (modes.mouseSGR, 1006),
+                                    (modes.bracketedPaste, 2004), (modes.synchronizedOutput, 2026)] where enabled {
                 output += csi + "?\(code)h"
             }
             if let blink = modes.cursorBlinkOverride {

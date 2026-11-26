@@ -92,6 +92,22 @@ for (const [subject, [final, places]] of Object.entries(counted)) {
 probe('REP', 'after a wide character', `${CSI}3;10H界`, `${CSI}3b`);
 probe('REP', 'after a combining mark', `${CSI}5;1He\u0301`, `${CSI}2b`);
 probe('REP', 'after a control', `${CSI}2;6H\r`, `${CSI}3b`);
+// REP repeats only a character printed right before it, so any control or sequence in between cancels it.
+probe('REP', 'after a character', `${CSI}2;6Hx`, `${CSI}3b`);
+probe('REP', 'in a style', `${CSI}2;6H${CSI}1;32mx`, `${CSI}3b`);
+probe('REP', 'past the right margin', `${CSI}2;18Hx`, `${CSI}4b`);
+probe('REP', 'after a wide character at the right margin', `${CSI}2;19H界`, `${CSI}2b`);
+probe('REP', 'scrolling the screen', `${CSI}8;6Hx`, `${CSI}40b`);
+probe('REP', 'without wraparound', `${CSI}?7l${CSI}2;18Hx`, `${CSI}4b`);
+probe('REP', 'in insert mode', `${CSI}4h${CSI}2;6Hx`, `${CSI}3b`);
+probe('REP', 'after a line-drawing character', `${ESC}(0${CSI}2;6Hq`, `${CSI}3b`);
+probe('REP', 'after DEL', `${CSI}2;6Hx\x7f`, `${CSI}3b`);
+probe('REP', 'after SGR', `${CSI}2;6Hx${CSI}1m`, `${CSI}3b`);
+probe('REP', 'twice', `${CSI}2;6Hx`, `${CSI}2b${CSI}2b`);
+probe('REP', 'with a C0 inside', `${CSI}2;6Hx`, `${CSI}2\rb`);
+probe('REP', 'split across writes', `${CSI}2;6Hx${CSI}`, `3b`);
+probe('REP', 'after an ignored sequence', `${CSI}2;6Hx${CSI}1<2m`, `${CSI}3b`);
+probe('REP', 'as an 8-bit CSI', `${CSI}2;6Hx`, '\u009b3b');
 probe('ICH', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}3@`);
 probe('DCH', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}3P`);
 probe('ECH', 'with a background color', `${positions.middle}${CSI}42m`, `${CSI}3X`);
@@ -221,6 +237,13 @@ probe('DECSET 47', 'in origin mode with a region', `${CSI}4;7r${CSI}?6h`, `${CSI
 probe('DECRST 7', 'then a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;20H界`);
 probe('DECRST 7', 'then a combining mark after a dropped wide character', positions.middle, `${CSI}?7l${CSI}2;19Ha界\u0301`);
 probe('DECSET 45', 'then BS across a wrap', '', `${CSI}2;1H${CSI}?7h${CSI}?45h${CSI}1;20Hxy\b\b\b`);
+probe('DECSET 45', 'then BS from a pending wrap', '', `${CSI}?45h${CSI}2;20Ht\b`);
+probe('DECSET 45', 'then BS across a wrap without wraparound', '', `${CSI}?45h${CSI}2;20Hxy${CSI}?7l\b\b`);
+probe('DECSET 45', 'then BS at the top margin', '', `${CSI}3;6r${CSI}?45h${CSI}2;20Hxy\b\b`);
+probe('DECSET 45', 'then BS on an unwrapped row', '', `${CSI}?45h${CSI}3;1H\b`);
+probe('DECSET 45', 'then BS after an early-wrapped wide character', '', `${CSI}?45h${CSI}2;20H界\b\b\b`);
+probe('DECSET 45', 'then BS onto an erased last cell', '', `${CSI}?45h${CSI}2;20Hxy${CSI}2;20H${CSI}X${CSI}3;2H\b\b`);
+probe('DECSET 45', 'then DECSTR', '', `${CSI}?45h${CSI}!p`);
 // Focus reports answer DECSET 1004 at once, then follow the host's focus while the mode is set.
 const [focusIn, focusOut] = [{ focus: true }, { focus: false }];
 add('DECSET 1004', 'while focused', focusIn, canvas + positions.middle, `${CSI}?1004h`, { checkpoint: 'subject' }, '*');
@@ -330,6 +353,10 @@ probe('DECSTR', '', `${positions.middle}${CSI}1;31m${CSI}?25l${CSI}4h${CSI}?6h${
 probe('RIS', '', `${positions.middle}${CSI}1;31m${CSI}?25l${CSI}3;6r${OSC}2;title${BEL}${CSI}?1049h`, `${ESC}c`, '*');
 probe('DECALN', '', positions.middle, `${ESC}#8`);
 probe('DECALN', 'inside a scroll region', `${CSI}3;6r`, `${ESC}#8`);
+probe('DECALN', 'in origin mode with a region', `${CSI}3;6r${CSI}?6h`, `${ESC}#8`);
+probe('DECALN', 'then a request for the margins', `${CSI}3;6r`, `${ESC}#8${DCS}$qr${ST}`);
+probe('DECALN', 'over soft wraps', `${CSI}2;20Hxy`, `${ESC}#8`);
+probe('DECALN', 'in a style', `${positions.middle}${CSI}1;31;44m`, `${ESC}#8`);
 
 // Scrolling regions.
 for (const parameters of ['', '2;5', '5;2', '3;3', '0;0', '2', ';5', '1;99', '2;8']) {
@@ -423,6 +450,7 @@ const texts = {
   'combining mark after a wrap': [`${CSI}2;20H`, 'xy\u0301'],
   'combining mark on a wide character': [positions.middle, '界\u0301'],
   'combining mark after a cursor move': [positions.middle, `e${CSI}C\u0301`],
+  'combining mark after an ignored sequence': [positions.middle, `e${CSI}1<2m\u0301`],
   'combining mark at a pending wrap': [`${CSI}2;20H`, 'e\u0301'],
   'emoji': [positions.middle, '😀x'],
   'emoji with VS16': [positions.middle, '☺\ufe0fx'],

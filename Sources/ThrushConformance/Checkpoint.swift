@@ -113,7 +113,7 @@ extension Checkpoint {
         self.modes = Modes(
             applicationCursorKeys: modes.applicationCursorKeys, applicationKeypad: modes.applicationKeypad,
             bracketedPaste: modes.bracketedPaste, insert: modes.insert, origin: modes.origin,
-            wraparound: modes.wraparound, reverseWraparound: false, cursorBlink: modes.cursorBlink,
+            wraparound: modes.wraparound, reverseWraparound: modes.reverseWraparound, cursorBlink: modes.cursorBlink,
             sendFocus: modes.sendFocus, synchronizedOutput: modes.synchronizedOutput,
             mouseTracking: "\(modes.mouseTracking)", mouseEncoding: modes.mouseSGR ? "sgr" : "default")
         title = terminal.title

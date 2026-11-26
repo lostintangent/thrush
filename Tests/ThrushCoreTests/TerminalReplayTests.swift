@@ -69,6 +69,18 @@ private struct ReplayFailure: Error, CustomStringConvertible {
          e + "[6n" + e + "[?1049l" + e + "[6nZ"),
         (6, e + "[?1049h" + e + "[2;3r" + e + "[?6h" + e + "[1;3HQ",
          e + "[6n" + e + "[?1049l" + e + "[6n" + e + "[HZ"),
+        (6, "ab", e + "[2bZ"),
+        (6, "ab" + e + "[", "2bZ"),
+        (6, "ab" + e, "[2bZ"),
+        (6, "a\u{0301}", e + "[2bZ"),
+        (6, "ab" + e + "[1m", "\u{0301}Z"),
+        (6, "ab" + e + "[1m", e + "[2bZ"),
+        (6, "ab" + e + "[1<2m", e + "[2bZ"),
+        (6, "ab" + e + "[1<2m", "\u{0301}Z"),
+        (6, "ab\u{9b}", "2bZ"),
+        (4, "ABCD" + e + "[", "2b"),
+        (4, e + "[?45hABCD", "\u{8}Z"),
+        (4, e + "[?45hABCDE", "\u{8}\u{8}Z"),
     ]
     func assertContinuation(_ columns: Int, prefix: [UInt8], suffix: [UInt8]) {
         var before = Terminal(size: .init(columns: columns, rows: 3))

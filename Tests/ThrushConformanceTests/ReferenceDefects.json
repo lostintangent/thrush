@@ -1,4 +1,62 @@
 {
+  "DECALN · in origin mode with a region": {
+    "reason": "DEC STD 070 has DECALN fill the whole screen, reset the margins and home the cursor. In origin mode the reference fills only from the top margin down and homes to the margin. Thrush fills every row and homes to the top left.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "cursor.row",
+        "reference": "2",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "\"E\""
+      },
+      {
+        "checkpoint": "subject",
+        "path": "active.visible[1][0]",
+        "reference": "\"a\"",
+        "thrush": "\"E\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "cursor.row",
+        "reference": "2",
+        "thrush": "0"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"A\"",
+        "thrush": "\"*\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"a\"",
+        "thrush": "\"E\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][0]",
+        "reference": "\"*\"",
+        "thrush": "\"E\""
+      }
+    ]
+  },
+  "DECALN · then a request for the margins": {
+    "reason": "DEC STD 070 has DECALN reset the margins to the full screen. The reference keeps them, so its DECRQSS reply still reports the old region.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESCP1$r3;6r ESC\\",
+        "thrush": "ESCP1$r1;8r ESC\\"
+      }
+    ]
+  },
   "DECRQSS m · after a rendition": {
     "reason": "The reference always reports the default rendition. Thrush reports the rendition the program set, so a program that saves its rendition this way can restore it.",
     "differences": [

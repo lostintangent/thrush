@@ -41,6 +41,8 @@ public struct Terminal: Sendable {
         package var insert = false
         /// DECAWM moves printing to the next row at the right margin. Off, it overwrites the last column.
         package var wraparound = true
+        /// Reverse wraparound lets BS reach the last column from a pending wrap and back over a soft wrap.
+        package var reverseWraparound = false
         /// LNM makes LF, VT and FF also return to the first column.
         var newLine = false
     }
@@ -73,8 +75,9 @@ public struct Terminal: Sendable {
     private(set) var style = Style()
     private(set) var characterSets = CharacterSets()
     private var generation: UInt64 = 0
-    // A preceding printable cell can accept a combining mark until an intervening control breaks the run.
-    private(set) var hasCombiningBase = false
+    // Printed text runs up to the cursor until a control function runs. Until then a combining mark
+    // joins the last character and REP repeats it. A sequence that is incomplete or ignored keeps the run.
+    private(set) var followsText = false
 
     /// Creates a terminal with a blank normal screen and the host theme's colors.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
@@ -126,11 +129,10 @@ public struct Terminal: Sendable {
                 let start = index
                 index = TextScanner.endOfASCII(in: bytes, from: start)
                 screen.writeASCII(bytes.extracting(start..<index), style: style)
-                hasCombiningBase = true
+                followsText = true
                 generation &+= 1
             } else if byte == EscapeParser.escape, scanner.isComplete {
                 // Test ESC before C0 so each escape sequence skips a second control lookup.
-                hasCombiningBase = false
                 var borrowedParameters: Range<Int>?
                 let action = parser.consumeEscape(
                     in: bytes, index: &index, borrowingParametersFor: TerminalControlFunction.CSI.graphicRendition.rawValue,
@@ -138,6 +140,7 @@ public struct Terminal: Sendable {
                 )
                 if let borrowedParameters {
                     style.applySGR(bytes.extracting(borrowedParameters))
+                    followsText = false
                 } else {
                     dispatch(action, replies: &replies)
                 }
@@ -145,7 +148,7 @@ public struct Terminal: Sendable {
                 writeNonASCII(in: bytes, index: &index, replies: &replies)
             } else if let control = TerminalControlFunction.C0(rawValue: byte), parser.isGround, scanner.isComplete {
                 // A single-byte C0 in ground state leaves the parser in ground state.
-                hasCombiningBase = false
+                followsText = false
                 apply(.execute(control), replies: &replies)
                 index += 1
             } else if TextScanner.isPrintableASCII(byte), scanner.isComplete, parser.discardsASCII || stringHandler.isCollecting {
@@ -194,7 +197,7 @@ public struct Terminal: Sendable {
         } else {
             var decoder = scanner
             let written = screen.writeRun(startingWith: (first, ColumnWidth.of(first)), style: style,
-                                          joinsPrevious: &hasCombiningBase) { appending in
+                                          joinsPrevious: &followsText) { appending in
                 // Printable ASCII continues a run that appends cells, so mixed text stays in one run.
                 // Overwriting cells, the run ends instead and ASCII takes the vector path.
                 if appending, index < bytes.count, TextScanner.isPrintableASCII(bytes[index]) {
@@ -212,7 +215,6 @@ public struct Terminal: Sendable {
             generation &+= written
         }
         if let control {
-            hasCombiningBase = false
             let action = parser.consume(control)
             dispatch(action, replies: &replies)
         }
@@ -223,7 +225,6 @@ public struct Terminal: Sendable {
         if byte < 0x80, !parser.isGround || !TextScanner.isPrintableASCII(byte) {
             // An ASCII control also terminates any incomplete UTF-8 character.
             if !scanner.isComplete { scanner = TextScanner() }
-            if byte != TextScanner.delete.value { hasCombiningBase = false }
             let action = parser.consume(ascii: byte)
             dispatch(action, replies: &replies)
             return
@@ -232,20 +233,20 @@ public struct Terminal: Sendable {
         if parser.isGround, TextScanner.isPrintable(scalar) {
             let scalar = characterSets.active.translate(scalar)
             let width = ColumnWidth.of(scalar)
-            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert, joinsPrevious: hasCombiningBase)
-            hasCombiningBase = width > 0 || hasCombiningBase
+            screen.write(scalar, width: width, style: style, wraparound: modes.wraparound, insert: modes.insert, joinsPrevious: followsText)
+            followsText = width > 0 || followsText
             generation &+= 1
             return
         }
-        if scalar != TextScanner.delete { hasCombiningBase = false }
         let action = parser.consume(scalar)
         dispatch(action, replies: &replies)
     }
 
     @inline(__always)
     private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
-        if let action, let function = TerminalControlFunction(action) {
-            apply(function, replies: &replies)
+        if let action {
+            if let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
+            followsText = false
         }
         if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
             apply(function, replies: &replies)
@@ -255,7 +256,7 @@ public struct Terminal: Sendable {
     /// Applies one named VT function. Screen operations advance the frame generation together below.
     private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
         switch function {
-        case .execute(.backspace): screen.backspace()
+        case .execute(.backspace): screen.backspace(reverseWraparound: modes.reverseWraparound)
         case .execute(.horizontalTab): screen.horizontalTab()
         case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed):
             if modes.newLine { screen.carriageReturn() }
@@ -298,6 +299,11 @@ public struct Terminal: Sendable {
             screen.setTabStop()
             return
         case .escape(.reverseIndex): screen.reverseIndex(style: style)
+        case .escape(.screenAlignmentPattern):
+            // As DEC specifies, DECALN fills the whole screen and resets the margins before homing.
+            screen.fillWithAlignmentPattern(style: style)
+            screen.resetScrollRegion()
+            position(row: 0, column: 0)
         case .escape(.fullReset): fullReset()
         case .control(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
         case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
@@ -308,6 +314,11 @@ public struct Terminal: Sendable {
         case .control(.cursorPrecedingLine): screen.cursorPrecedingLine(parser.parameters[0, default: 1])
         case .control(.cursorColumn), .control(.columnAbsolute):
             screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
+        case .control(.repeatPrecedingCharacter):
+            // REP repeats a character only when it was printed right before the sequence.
+            guard followsText else { return }
+            screen.repeatPrecedingCharacter(parser.parameters[0, default: 1], style: style,
+                                            wraparound: modes.wraparound, insert: modes.insert)
         case .control(.rowAbsolute):
             position(row: parser.parameters[0, default: 1] - 1, column: screen.column)
         case .control(.rowRelative):
@@ -500,8 +511,8 @@ public struct Terminal: Sendable {
     private func privateModeState(_ mode: Int) -> ModeState {
         guard let mode = PrivateMode(rawValue: mode) else {
             return switch mode {
-            // X10 mouse reports, reverse wraparound and pixel mouse coordinates stay off.
-            case 9, 45, 1016: .reset
+            // X10 mouse reports and pixel mouse coordinates stay off.
+            case 9, 1016: .reset
             // Keys always autorepeat (DECARM, 8). Backspace sends DEL, and the UTF-8 and urxvt mouse encodings are unsupported.
             case 8: .permanentlySet
             case 67, 1005, 1015: .permanentlyReset
@@ -513,6 +524,7 @@ public struct Terminal: Sendable {
         case .ansi: .unrecognized
         case .origin: ModeState(modes.origin)
         case .wraparound: ModeState(modes.wraparound)
+        case .reverseWraparound: ModeState(modes.reverseWraparound)
         case .cursorBlink: ModeState(modes.cursorBlink)
         case .cursorVisible: ModeState(modes.cursorVisible)
         case .applicationKeypad: ModeState(modes.applicationKeypad)
@@ -562,6 +574,7 @@ public struct Terminal: Sendable {
             position(row: 0, column: 0)
             generation &+= 1
         case .wraparound: modes.wraparound = enabled
+        case .reverseWraparound: modes.reverseWraparound = enabled
         case .cursorBlink:
             modes.cursorBlink = enabled
             generation &+= 1

@@ -49,6 +49,8 @@ enum TerminalControlFunction {
         case lockingShift2Right = 0x7d
         /// LS1R, ESC ~, prints with G1.
         case lockingShift1Right = 0x7e
+        /// DECALN, ESC # 8, fills the screen with E.
+        case screenAlignmentPattern = 0x23_38
         /// DOCS, ESC % @, returns to ASCII in G0.
         case selectDefaultCharacterSet = 0x25_40
         /// DOCS, ESC % G. Input is always UTF-8, so this also returns to ASCII in G0.
@@ -112,6 +114,8 @@ enum TerminalControlFunction {
         case columnAbsolute = 0x60
         /// HPR, CSI Ps a.
         case columnRelative = 0x61
+        /// REP, CSI Ps b.
+        case repeatPrecedingCharacter = 0x62
         /// DA1, CSI Ps c.
         case primaryDeviceAttributes = 0x63
         /// DA2, CSI > Ps c.
@@ -341,6 +345,7 @@ extension Terminal {
         case origin = 6
         case wraparound = 7
         case cursorBlink = 12
+        case reverseWraparound = 45
         case cursorVisible = 25
         /// Switches screens without saving the cursor or clearing the alternate screen first.
         case alternateScreenOnly = 47

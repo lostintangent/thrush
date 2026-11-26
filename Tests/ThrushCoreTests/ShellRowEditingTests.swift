@@ -39,6 +39,15 @@ private let csi = "\u{1b}["
     #expect((1..<8).allSatisfy { clipped.rows[0][$0] == blank })
 }
 
+@Test(arguments: [("x", 65_535), ("e\u{301}", 32_767)])
+func repeatWritesAtMostSixtyFiveThousandScalars(text: String, repeats: Int) {
+    var terminal = Terminal(size: .init(columns: 10, rows: 2))
+    _ = terminal.receive((text + csi + "2147483647b").utf8)
+    let snapshot = terminal.snapshot()
+    #expect(snapshot.cursorRow == 1 && snapshot.cursorColumn == (1 + repeats) % 10)
+    #expect(snapshot.rows[1][snapshot.cursorColumn - 1].text == text)
+}
+
 @Test func insertionAndDeletionRepairWideCellBoundaries() {
     var terminal = Terminal(size: .init(columns: 6, rows: 2))
     _ = terminal.receive(("A界BCD" + csi + "1;3H" + csi + "0@").utf8)
