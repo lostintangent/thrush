@@ -280,7 +280,7 @@ const reports = {
   'OSC 10 ? and 11 ?': `${OSC}10;?;?${BEL}`,
   'DECRQSS m': `${DCS}$qm${ST}`, 'DECRQSS r': `${DCS}$qr${ST}`, 'DECRQSS SP q': `${DCS}$q q${ST}`,
   'DECRQSS " q': `${DCS}$q"q${ST}`, 'DECRQSS " p': `${DCS}$q"p${ST}`, 'DECRQSS unknown': `${DCS}$qz${ST}`,
-  'XTGETTCAP': `${DCS}+q544e${ST}`,
+  'XTGETTCAP': `${DCS}+q544e${ST}`, 'XTGETTCAP Ms': `${DCS}+q4d73${ST}`, 'XTGETTCAP several': `${DCS}+q544e;4D73${ST}`,
 };
 for (const [subject, sequence] of Object.entries(reports)) probe(subject, '', positions.middle, sequence);
 probe('DSR 6', 'at a pending wrap', positions['pending wrap'], `${CSI}6n`);

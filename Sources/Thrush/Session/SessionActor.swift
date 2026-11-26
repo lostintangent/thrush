@@ -185,11 +185,12 @@ package actor SessionActor {
         guard let observer else { return }
         let title = title ?? reportedTitle
         let hasEnded = hasEnded ?? reportedEnd
-        guard title != reportedTitle || hasEnded != reportedEnd else { return }
+        let copiedText = terminal.copiedText.take()
+        guard title != reportedTitle || hasEnded != reportedEnd || copiedText != nil else { return }
         reportedTitle = title
         reportedEnd = hasEnded
         metadataRevision &+= 1
-        await observer.apply(title: title, hasEnded: hasEnded, revision: metadataRevision)
+        await observer.apply(title: title, hasEnded: hasEnded, copiedText: copiedText, revision: metadataRevision)
     }
 
     /// Keystrokes, terminal replies and resizes reach the transport in the order accepted.

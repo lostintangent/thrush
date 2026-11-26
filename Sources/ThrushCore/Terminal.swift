@@ -82,6 +82,9 @@ public struct Terminal: Sendable {
     private(set) var parser = EscapeParser()
     /// The completed window title. An empty title asks the app to use its default.
     package private(set) var title = ""
+    /// Text the program copied with OSC 52 that the app hasn't put on the pasteboard yet. Each copy
+    /// replaces the one before, so the app takes it after applying output.
+    package var copiedText: String?
     private(set) var stringHandler = ControlStringHandler()
     private(set) var screen: Screen
     private(set) var style = Style()
@@ -462,6 +465,8 @@ public struct Terminal: Sendable {
                 case .close: style.link = 0
                 case nil: break
                 }
+            case .osc(.clipboard):
+                if let text = Self.clipboardText(string.payload) { copiedText = text }
             case .osc(let command):
                 if programColors.apply(command, payload: string.payload, palette: palette,
                                        cursor: cursorColor, replies: &replies) {
@@ -472,6 +477,7 @@ public struct Terminal: Sendable {
                                                        blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
                 replies += Reply.statusString(string.payload, style: style, cursorStyle: cursorStyle,
                                               scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
+            case .dcs(.requestCapabilities): replies += Reply.capabilities(string.payload).utf8
             }
             return
         }

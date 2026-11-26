@@ -177,6 +177,8 @@ enum TerminalControlFunction {
         case backgroundColor = 11
         /// OSC 12 sets or queries the cursor color.
         case cursorColor = 12
+        /// OSC 52 copies text to the pasteboard.
+        case clipboard = 52
         /// OSC 104 restores the listed indexed colors, or all of them.
         case restoreIndexedColors = 104
         /// OSC 110 restores the default foreground.
@@ -191,6 +193,8 @@ enum TerminalControlFunction {
     enum DCS: UInt32 {
         /// DECRQSS, DCS $ q, asks for the setting of the control function its payload names.
         case requestStatusString = 0x2471
+        /// XTGETTCAP, DCS + q, asks for the terminal capabilities its payload names.
+        case requestCapabilities = 0x2b71
     }
 
     /// A control string the terminal acts on once its payload is complete.
@@ -298,6 +302,15 @@ extension Terminal {
             default: nil
             }
             return setting.map { "\u{1b}P1$r\($0)\u{1b}\\" } ?? "\u{1b}P0$r\u{1b}\\"
+        }
+
+        /// XTGETTCAP names capabilities in hex, separated by semicolons. The terminal answers only Ms, which
+        /// tells a program it can copy with OSC 52, and leaves every other name unanswered, as Ghostty does.
+        static func capabilities(_ payload: String) -> String {
+            // Ms is `ESC ] 52 ; %p1%s ; %p2%s BEL`, which takes the selections and then the text.
+            payload.split(separator: ";").filter { $0.lowercased() == "4d73" }.map { name in
+                "\u{1b}P1+r\(name)=1B5D35323B25703125733B257032257307\u{1b}\\"
+            }.joined()
         }
     }
 

@@ -56,6 +56,7 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         (6, e + "[?47h" + e + "[2;3H" + e + "7" + e + "[?47l", e + "[?47h" + e + "8Z"),
         (6, e + "[" + String(repeating: "0;", count: 32), "31mZ"),
         (6, e + "]2;title", " end\u{07}Z"),
+        (6, e + "]52;c;aGVs", "bG8=\u{07}Z"),
         (6, e + "[38:2::1:2", ":3mZ"),
         (6, e + "]4;16;?;2", ";?\u{07}Z"),
         (6, e + "]4;1;#12", "34\u{07}" + e + "]4;1;?\u{07}Z"),
@@ -90,7 +91,7 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         #expect(before.receive(suffix) == resumed.receive(suffix))
         let a = before.snapshot(), b = resumed.snapshot()
         #expect(a.cursorColumn == b.cursorColumn && a.cursorRow == b.cursorRow)
-        #expect(a.modes == b.modes && before.title == resumed.title)
+        #expect(a.modes == b.modes && before.title == resumed.title && before.copiedText == resumed.copiedText)
         #expect(a.programColors == b.programColors)
         for row in 0..<a.size.rows {
             for col in 0..<columns { #expect(a.rows[row][col] == b.rows[row][col]) }
@@ -171,7 +172,7 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     #expect(terminal.encode(.appearance(.light)).isEmpty)
 }
 
-@Test func partialStatusRequestGetsTheSameAnswerAfterReplay() {
+@Test func partialRequestsGetTheSameAnswerAfterReplay() {
     let e = "\u{1b}"
     let cases = [
         (e + "[2;3r" + e + "P$", "qr" + e + "\\", e + "P1$r2;3r" + e + "\\"),
@@ -179,6 +180,7 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         (e + "P$q\"", "p" + e + "\\", e + "P1$r61;1\"p" + e + "\\"),
         (e + "P$qm\u{07}", e + "\\", e + "P0$r" + e + "\\"),
         (e + "P+q544e", e + "\\", ""),
+        (e + "P+q4d", "73" + e + "\\", e + "P1+r4d73=1B5D35323B25703125733B257032257307" + e + "\\"),
     ]
     for (prefix, suffix, reply) in cases {
         var original = Terminal(size: .init(columns: 6, rows: 3))

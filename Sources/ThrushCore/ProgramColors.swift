@@ -102,7 +102,7 @@ extension Terminal {
                 case .restoreForegroundColor: set(.foreground, nil)
                 case .restoreBackgroundColor: set(.background, nil)
                 case .restoreCursorColor: set(.cursor, nil)
-                case .setIconAndWindowTitle, .setWindowTitle, .hyperlink: break
+                case .setIconAndWindowTitle, .setWindowTitle, .hyperlink, .clipboard: break
                 }
                 return changed
             }

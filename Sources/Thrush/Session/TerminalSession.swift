@@ -1,6 +1,11 @@
 import Foundation
 import Observation
 import ThrushCore
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 /// A terminal session an app can observe and display in a ``TerminalView``.
 ///
@@ -70,11 +75,22 @@ import ThrushCore
         fileprivate weak var session: TerminalSession?
         private var latestRevision: UInt64 = 0
 
-        func apply(title: String, hasEnded: Bool, revision: UInt64) {
+        func apply(title: String, hasEnded: Bool, copiedText: String?, revision: UInt64) {
             guard let session, revision > latestRevision else { return }
             latestRevision = revision
             if session.title != title { session.title = title }
             if session.hasEnded != hasEnded { session.hasEnded = hasEnded }
+            if let copiedText { Self.copyToPasteboard(copiedText) }
+        }
+
+        /// A program copies with OSC 52, such as a yank in Neovim or tmux.
+        private static func copyToPasteboard(_ text: String) {
+            #if os(macOS)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            #else
+            UIPasteboard.general.string = text
+            #endif
         }
     }
 }
