@@ -31,7 +31,7 @@ def styled_frames(fixture):
             rows.append((line["text"], cells))
         assert len(rows) == checkpoint["rows"]
         result[event["name"]] = rows
-    expected = {"Styled Swift buffer": (80, 24), "Styled Swift portrait": (47, 25),
+    expected = {"Styled Swift buffer": (80, 24), "Styled Swift portrait": (47, 24),
                 "Styled Swift landscape": (90, 9)}
     assert {name: (len(rows[0][1]), len(rows)) for name, rows in result.items()} == expected
     return result
@@ -120,8 +120,8 @@ if archived:
 else:
     fixtures = available
 assert len(replays) == len(fixtures) and {r["name"] for r in replays} == fixtures.keys()
-if not archived or "vim-swift-dark" in fixtures or "vim-swift-light" in fixtures:
-    check_swift_pair(fixtures)
+# Check the styled Vim pair as checked in. An archived report's older bytes passed at their own commit.
+check_swift_pair(available)
 
 for replay in replays:
     data = fixtures[replay["name"]]

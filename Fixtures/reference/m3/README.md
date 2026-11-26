@@ -2,20 +2,20 @@
 
 `vim-swift-dark` and `vim-swift-light` show the same `Prompt.swift` in Vim 9.1, patches 1–1752. The source fits 40 columns including its three-column line-number gutter. Both sessions use the same `styled.vim`, Swift runtime syntax, `laststatus=2`, keyboard input and resize sequence. Vim chooses its own background and syntax colors. The host supplies the foreground, background and 16 ANSI slots from the Slate design. [Slate palettes](../../../docs/design/README.md)
 
-The recorder sends actual PTY reads into the pinned xterm emulator and returns its browser color replies to Vim. For OSC 11, Slate Dark returns `rgb:1313/1d1d/2727` and Slate Light returns `rgb:fbfb/fdfd/fefe`. For OSC 10, they return `rgb:e3e3/eaea/f0f0` and `rgb:2323/3434/4242`. After the replies, the same Vim command in both sessions writes `&background`, `&filetype`, `b:current_syntax` and `&t_Co` to a temporary file. The recorder checks and retains these observations and the hashes of the source and vimrc. The generated replay header reports Vim's measured `vimBackground`.
+The recorder sends actual PTY reads into the pinned xterm emulator and returns its browser color replies to Vim. For OSC 11, Slate Dark returns `rgb:1313/1d1d/2727` and Slate Light returns `rgb:fbfb/fdfd/fefe`. For OSC 10, they return `rgb:e3e3/eaea/f0f0` and `rgb:2323/3434/4242`. When Vim turns on focus reporting, the reference has no focus, like a browser terminal nobody has clicked, and answers `ESC [ O`. After the replies, the same Vim command in both sessions writes `&background`, `&filetype`, `b:current_syntax` and `&t_Co` to a temporary file. The recorder checks and retains these observations and the hashes of the source and vimrc. The generated replay header reports Vim's measured `vimBackground`.
 
 | Checkpoint | Grid | Zero-based cursor (row, column) | Status row |
 | --- | --- | --- | --- |
 | Styled Swift buffer | 80 × 24 | (4, 20) | 22 |
-| Styled Swift portrait | 47 × 25 | (4, 20) | 23 |
+| Styled Swift portrait | 47 × 24 | (4, 20) | 22 |
 | Styled Swift landscape | 90 × 9 | (1, 20) | 7 |
 
-Both iPhone checkpoints were recorded with the packaged Slate Dark prompt on the iPhone 17 simulator running iOS 27.2 at 3× scale, with a 44 pt key row in each keyboard measurement. Landscape matches today's pane at 90 × 9. Today's portrait pane floats a 60 pt key row and measures 47 × 24, so the portrait checkpoint stays a recorded 47 × 25 workload.
+Both iPhone checkpoints match today's panes on the iPhone 17 simulator running iOS 27.2 at 3× scale, with the packaged Slate Dark prompt. Portrait floats a 60 pt key row and landscape a 44 pt one. The iPhone proof measured both.
 
 | Orientation | Window (pt) | Terminal view origin and size (pt) | Keyboard layout guide height (pt) |
 | --- | --- | --- | --- |
-| [Portrait measurement](https://github.com/lostintangent/thrush/actions/runs/45561741803) | 402 × 874 | (0, 62), 402 × 467 | 345 |
-| [Landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563) | 874 × 402 | (62, 0), 750 × 178 | 224 |
+| [Portrait](https://github.com/lostintangent/thrush/actions/runs/45746437903) | 402 × 874 | (0, 62), 402 × 451 | 361 |
+| [Landscape](https://github.com/lostintangent/thrush/actions/runs/45746437903) | 874 × 402 | (62, 0), 750 × 194 | 208 |
 
 For the complete session, apply the palette, PTY output and grid changes in recorded order. For a stand-alone renderer frame, start with a clean terminal at the checkpoint's grid and its recorded host palette. The two `Paint Swift buffer` output chunks come from a real Ctrl-L repaint at 80 × 24. For portrait or landscape, use the `Redraw after resize` output chunks between the corresponding resize and styled checkpoint. These are Vim's responses to the PTY's native size change. The generator separately replays each paint on a fresh target-sized grid and checks every visible row, cell, style, wrap flag and cursor position against the continuous session.
 

@@ -121,7 +121,7 @@ type EditorRecording = {
 const recordings = new Map<Appearance, Promise<EditorRecording>>();
 const layouts = [
     { columns: 80, rows: 24, checkpoint: "Styled Swift buffer" },
-    { columns: 47, rows: 25, checkpoint: "Styled Swift portrait" },
+    { columns: 47, rows: 24, checkpoint: "Styled Swift portrait" },
     { columns: 90, rows: 9, checkpoint: "Styled Swift landscape" },
 ];
 
