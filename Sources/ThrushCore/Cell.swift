@@ -239,8 +239,14 @@ extension Terminal {
         /// Returns the position a cell stores for `style`. Text changes style far less often than
         /// it prints a cell, so the default style and the last one added cover nearly every lookup.
         /// Any other style is appended, even if an older entry matches.
+        @inline(__always)
         private mutating func position(of style: Style) -> UInt32 {
-            if style.isDefault { return 0 }
+            style.isDefault ? 0 : listedPosition(of: style)
+        }
+
+        // Out of line, so default text pays only the check above.
+        @inline(never)
+        private mutating func listedPosition(of style: Style) -> UInt32 {
             if styles.last == style { return UInt32(styles.count) }
             if styles.count == styles.capacity { makeRoomForStyle() }
             styles.append(style)
