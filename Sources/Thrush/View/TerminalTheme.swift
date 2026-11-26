@@ -107,9 +107,9 @@ extension Terminal.RGB {
     var isDark: Bool { contrast(with: .init(red: 255, green: 255, blue: 255)) > contrast(with: .init(red: 0, green: 0, blue: 0)) }
 }
 
-// Opaque backing for native chrome when Reduce Transparency is enabled.
+// Colors for native controls beside the canvas. The opaque backing replaces glass under Reduce Transparency.
 package extension TerminalTheme {
-    var hostBacking: Terminal.RGB {
+    var opaqueBacking: Terminal.RGB {
         if self == .slateDark { return .init(red: 0x1D, green: 0x29, blue: 0x34) }
         if self == .slateLight { return .init(red: 0xE8, green: 0xEE, blue: 0xF1) }
         return .init(red: 0x2A, green: 0x27, blue: 0x24)

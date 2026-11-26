@@ -119,7 +119,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
 
     private func applyChrome(_ theme: TerminalTheme) {
-        let rgb = theme.hostBacking
+        let rgb = theme.opaqueBacking
         window.backgroundColor = NSColor(srgbRed: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255,
                                         blue: CGFloat(rgb.blue) / 255, alpha: 1)
     }

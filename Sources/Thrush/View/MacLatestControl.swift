@@ -79,7 +79,7 @@ private final class LatestButton: NSButton {
         }
         let capsule = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
                                    xRadius: bounds.height / 2, yRadius: bounds.height / 2)
-        color(isHighlighted ? theme.selection : theme.hostBacking).setFill()
+        color(isHighlighted ? theme.selection : theme.opaqueBacking).setFill()
         capsule.fill()
         color(theme.palette.ansi[8]).setStroke()
         capsule.lineWidth = 1

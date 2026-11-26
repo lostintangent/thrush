@@ -148,7 +148,7 @@ final class PhoneTranscriptView: UIView, UIScrollViewDelegate, UIGestureRecogniz
         config.imagePadding = 5
         config.preferredSymbolConfigurationForImage = .init(textStyle: .footnote, scale: .small)
         if reduced {
-            config.baseBackgroundColor = UIColor(terminalColor: theme.hostBacking)
+            config.baseBackgroundColor = UIColor(terminalColor: theme.opaqueBacking)
             config.baseForegroundColor = UIColor(terminalColor: theme.palette.foreground)
             config.background.strokeColor = UIColor(terminalColor: theme.palette[index: 8])
             config.background.strokeWidth = 1 / max(1, traitCollection.displayScale)

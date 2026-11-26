@@ -1,6 +1,6 @@
 # Thrush on Mac and iPhone
 
-**Thrush draws in Slate on Mac and iPhone.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. A host can supply a custom theme.
+**Thrush draws in Slate on Mac and iPhone.** Slate Dark and Slate Light follow the system appearance by default. They share the same font, grid geometry, native controls and interactions. An app can supply a custom theme.
 
 ## Slate Dark
 
@@ -19,7 +19,7 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Cursor / glyph under block | `#FD9A01` / `#131D27` |
 | Selected background / text | `#466B85` / `#F8FBFE` |
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
-| Host backing / separator | `#1D2934` / `#35424E` |
+| Opaque backing / separator | `#1D2934` / `#35424E` |
 | iPhone 17 grid, keyboard open | 47 × 24 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
 
 ## Slate Light
@@ -33,7 +33,7 @@ Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a t
 | Default foreground / background | `#233442` / `#FBFDFE` | 12.54:1 |
 | Cursor / glyph under block | `#995500` / `#FFFFFF` | Cursor on canvas 5.63:1, block glyph 5.75:1 |
 | Selected background / text | `#7391A6` / `#101C25` | Selected text 5.21:1, highlight against canvas 3.25:1 |
-| Host backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar, key row dividers and the key row's opaque backing |
+| Opaque backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar, key row dividers, and the key row and Latest under Reduce Transparency |
 
 The ratios below use WCAG relative luminance for opaque sRGB against `#FBFDFE`. Yellows are ochres. The white slots use a cool gray and a neutral gray so ordinary and bright white text both remain readable. Those two inks also reach 4.53:1 and 4.56:1 on the theme’s ANSI black. [W3C contrast calculation](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
 
@@ -73,7 +73,7 @@ On a system appearance change or a user theme edit, apply one resolved palette t
 
 ## Ember, a custom theme
 
-A host can replace the palette and keep Slate's type and grid. The sample apps show this with `--theme custom`, which uses Ember, a warm palette. Default text reaches 13.80:1 and selected text 5.22:1. Its ANSI colors are in the next table.
+An app can replace the palette and keep Slate's type and grid. The sample apps show this with `--theme custom`, which uses Ember, a warm palette. Default text reaches 13.80:1 and selected text 5.22:1. Its ANSI colors are in the next table.
 
 | Token | sRGB value |
 | --- | --- |
@@ -94,7 +94,7 @@ A host can replace the palette and keep Slate's type and grid. The sample apps s
 | Cyan | 36 / 96 | `#78C4CE` | `#9CE0E4` | `#88B9B0` | `#A6D4CB` |
 | White | 37 / 97 | `#C1CDD4` | `#F4F7F9` | `#CFC2AD` | `#F8EEDD` |
 
-Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. The transcript uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
+Use the same colors for the corresponding SGR background indexes. ANSI black is available to programs for deliberate black text or fills. Shell output often uses bright black for secondary text. Slate keeps index 8 readable in that role at 5.66:1 in Dark and 5.29:1 in Light. The 80-column, 256-color Codex recording also puts the default foreground on an index-8 background. Its prompt band reaches only 2.48:1 and 2.37:1 respectively. With these foregrounds and canvases, the best equal contrast for those two uses is 3.75:1 in Dark and 3.54:1 in Light. Keep one faithful color per ANSI slot. For the production Codex workflow, check the actual truecolor background received from the PTY against the displayed ink.
 
 Use a 0.70 blend of foreground over background for SGR 2 dim text. In the real-PTY Codex composer, the dim placeholder measures 4.72:1 in Slate Light (`#616D77` on `#F0F2F3`) and 5.73:1 in Slate Dark (`#ACB5BB` on `#2F3840`). Dim applies to the glyph and to its underline and strikethrough.
 
@@ -106,7 +106,7 @@ SGR 8 concealed text keeps its cells, background, selection and cursor and draws
 
 The Mac images show active AppKit title bars on macOS 27.2.1. The iPhone images show the English software keyboard with predictions off. In the packaged iPhone 17 simulator app, the keyboard covers 301 pt of the 402 × 874 pt portrait window. The key row's 48 pt capsule floats 12 pt above it, from y = 513 to 561 pt, leaving room for 47 × 24 cells. In landscape the keyboard covers 180 pt of the 874 × 402 pt window. The capsule slims to 36 pt and floats 8 pt above it, from y = 178 to 214 pt, leaving room for 90 × 9 cells. Size the grid from the actual keyboard guide on each device. [Key row captures](keyboard-capsule.png)
 
-Shell output and Vim content in the images are examples. When an app embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, key row and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. [Glass in Thrush](glass.md) specifies the key row and Latest materials and shows why the grid stays opaque.
+Shell output and Vim content in the images are examples. When an app embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, key row and edit menu. Respect Reduce Transparency with the opaque backing. The Metal grid uses solid cell colors. [Glass in Thrush](glass.md) specifies the key row and Latest materials and shows why the grid stays opaque.
 
 | Moment | Behavior |
 | --- | --- |
@@ -116,14 +116,14 @@ Shell output and Vim content in the images are examples. When an app embeds the 
 | Open the keyboard | Tapping the terminal brings up the keyboard with the key row floating above it. Esc, Ctrl, Tab, the four arrows and Hide Keyboard each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Fill the key in the selection colors and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
 | Move with the keyboard | The terminal, key row and keyboard move together on the keyboard’s own curve, whether it rises, hides, turns with the device or changes height for predictions, emoji or a hardware keyboard. A prompt on the bottom row rides the key row’s top edge the whole way, and a prompt higher up stays where it is. While the terminal waits for its new grid, rows above the grid come from history, so no frame shows a blank band. At a shell prompt the settled grid replaces the moving frame without a visible change, and a full-screen program redraws once. With Reduce Motion, update geometry directly. |
 | Put the keyboard away | Hide Keyboard on the key row ends input and clears the latch. Swiping through history scrolls it and leaves the keyboard up. |
-| Rotate | Let the system transition coordinator move the host and controls. Keep the visible logical row or live prompt anchored as the keyboard turns. Send the shell one whole-cell grid when the keyboard and pane reach their destination. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
-| Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. A settled or backgrounded terminal requests zero further frames. Visible blinking text requests frames only during its fades, at up to 60 Hz, and none while it is fully shown or hidden, while the view is hidden or suspended, or with Reduce Motion. Keep the first-echo presentation time independent of host transitions. |
+| Rotate | Let the system transition coordinator move the pane and its controls. Keep the visible logical row or live prompt anchored as the keyboard turns. Send the shell one whole-cell grid when the keyboard and pane reach their destination. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
+| Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. A settled or backgrounded terminal requests zero further frames. Visible blinking text requests frames only during its fades, at up to 60 Hz, and none while it is fully shown or hidden, while the view is hidden or suspended, or with Reduce Motion. Keep the first-echo presentation time independent of the app's transitions. |
 
 ## Rendering
 
 - Use the system monospaced face. Ask Core Text for the digit advance at the chosen size. Snap boundaries from cumulative advances to backing pixels. Keep incomplete columns and rows in the trailing and bottom inset. The listed sizes are defaults. Recompute advances, baselines and grid size when the user changes text size or moves to a display with a different scale.
 - Shape **A翼🐦Z** into six terminal columns. The ideograph spans two cells and the Unicode 11 bird emoji spans two. Core Text supplies the CJK fallback and Apple Color Emoji glyph. Keep the emoji’s intrinsic color and extend a selection through both halves of a wide character.
 - The Mac images use a 720 × 486 pt window with a 32 pt system title bar, which fits 80 × 24 cells. The portrait image uses 402 × 874 pt with a 62 pt top safe area. With the keyboard open, it begins at y = 573 pt and the key row’s capsule runs from y = 513 to 561 pt. The landscape image uses 874 × 402 pt with 62 pt left and 62 pt right safe areas. Its keyboard begins at y = 222 pt and the capsule runs from y = 178 to 214 pt. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and key row geometry. Deduct the key row height once. With a hardware keyboard, use the lower safe area and the controls actually on screen.
-- Keep marked text local to the input view, anchor it at the cursor, and send only the single committed string. Expose accessible terminal lines, selections, modifier state and the return-to-latest action through the native host.
+- Keep marked text local to the input view, anchor it at the cursor, and send only the single committed string. Expose accessible terminal lines, selections, modifier state and the return-to-latest action through each platform's accessibility API.
 
 Sign-off compares the palette, cell boundaries, cursor ink and baseline placement against captures of the running Mac and iPhone panes. Keyboard timing, VoiceOver, physical-device legibility and idle-frame counts are checked in the running apps.

@@ -41,7 +41,7 @@ swift run -c release ThrushBench
 python3 scripts/check-benchmark-report.py
 ```
 
-The separate app consumer builds the README integration using only the `Thrush` library product. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/first-bytes.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
+The SwiftUI example in `examples/app-consumer` builds the README integration using only the `Thrush` library product. The Release benchmark writes `.build/benchmarks/first-bytes.json` and `.build/benchmarks/headless.json`. See [the first-bytes procedure](Benchmarks/first-bytes.md), [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
 
 To measure ThrushCore against libghostty-vt and @xterm/headless on the same workloads, run `python3 scripts/comparison/run.py`. It downloads and builds the pinned libghostty-vt with Zig on first use, checks that every core ends on the same screen, and writes `.build/benchmarks/comparison.json`. To see where ThrushCore spends its time on those workloads, run the Comparison profile workflow, which samples it on a hosted Mac with `scripts/comparison/profile.py`. See [the comparison report](Benchmarks/comparison.md).
 
@@ -51,4 +51,4 @@ Some apps build for Mac with only Command Line Tools, so Thrush must build witho
 
 The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
 
-Build the native Release demos with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the mock-backed hosts](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).
+Build the Release sample apps with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the sample apps](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).

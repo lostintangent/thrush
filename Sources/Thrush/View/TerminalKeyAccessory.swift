@@ -150,7 +150,7 @@ final class TerminalKeyAccessory: UIView {
             effect.isInteractive = true
             glass.effect = effect
         }
-        glass.backgroundColor = opaque ? UIColor(terminalColor: theme.hostBacking) : nil
+        glass.backgroundColor = opaque ? UIColor(terminalColor: theme.opaqueBacking) : nil
         for divider in dividers { divider.backgroundColor = UIColor(terminalColor: theme.separator) }
     }
 
