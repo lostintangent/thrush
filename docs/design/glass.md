@@ -6,7 +6,9 @@
 
 ![Slate Dark and Light comparisons of the native Mac title bar and the Latest button, with an opaque alternative](glass-controls.png)
 
-![The iPhone key row in Slate Dark and Light, in portrait and landscape above the keyboard, at rest, with Ctrl armed and under Reduce Transparency](keyboard-capsule.png)
+![The iPhone key row in Slate Dark and Light, in portrait and landscape above the keyboard, at rest and under Reduce Transparency](keyboard-capsule.png)
+
+![The modifier chooser in Slate Dark and Light above the iPhone key row, with Ctrl, Shift and Option armed, in landscape and under Reduce Transparency](modifier-chooser.png)
 
 | Surface | Treatment |
 | --- | --- |
