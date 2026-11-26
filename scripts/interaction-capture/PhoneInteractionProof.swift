@@ -168,8 +168,11 @@ final class PhoneInteractionProof: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 6), .completed)
         }
         Thread.sleep(forTimeInterval: 0.75)
-        // Terminal lines span the grid's width. The log fills the grid down to its prompt.
-        let lines = app.staticTexts.allElementsBoundByIndex.filter { $0.frame.width > app.frame.width * 0.8 }
+        // Terminal lines span the grid's columns, wider than any other text, even where the status bar insets the
+        // grid from the window. The log fills the grid down to its prompt.
+        let texts = app.staticTexts.allElementsBoundByIndex
+        let columns = texts.map(\.frame.width).max() ?? 0
+        let lines = texts.filter { $0.frame.width > columns - 1 }
         let last = try XCTUnwrap(lines.max { $0.frame.maxY < $1.frame.maxY }, app.debugDescription)
         // Within a row of the grid's 8-point bottom inset, below the home indicator's safe area.
         XCTAssertGreaterThanOrEqual(app.frame.maxY - last.frame.maxY, 7.5, last.label)
