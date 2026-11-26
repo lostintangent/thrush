@@ -57,7 +57,7 @@ private struct OffscreenTerminal {
     }
 
     func draw(_ snapshot: Terminal.Snapshot, theme: TerminalTheme, width: Int = Probe.canvasWidth,
-              selection: TerminalMetalView.Selection? = nil, blinkOpacity: Float = 1) throws -> Pixels {
+              selection: TerminalMetalView.Selection? = nil, links: [RowLinks] = [], blinkOpacity: Float = 1) throws -> Pixels {
         view.theme = theme
         let height = Probe.canvasHeight
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width,
@@ -72,7 +72,7 @@ private struct OffscreenTerminal {
         attachment.storeAction = .store
         attachment.clearColor = view.clearColor
         let frame = try renderer.encode(snapshot: snapshot, metrics: .init(scale: 2), theme: view.resolvedTheme,
-                                        pass: pass, selection: selection, blinkOpacity: blinkOpacity)
+                                        pass: pass, selection: selection, links: links, blinkOpacity: blinkOpacity)
 
         let size = width * height * 4
         let memory = try #require(device.makeBuffer(length: size, options: .storageModeShared))
@@ -478,6 +478,44 @@ func underlineStylesDrawInTheirOwnColorAndRunOnAcrossCells() async throws {
     let struck = rows(ink, x: Probe.edges[0] + 1, row: 2)
     #expect(struck.first! < Probe.height / 4 && runs((0..<Probe.height).map(struck.contains)) == 2)
     #expect(shot.colors(in: 1..<2, row: 2).contains(0xf8fbfe) && !shot.colors(in: 1..<2, row: 2).contains(red))
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func linksCarryAQuietMarkUntilEngagedOrPressed() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 3))
+    // A program's link, then a plain address the view found. Below them, a link the program underlines in red.
+    let link = "\u{1b}]8;;https://example.com\u{1b}\\"
+    _ = terminal.write((link + "HHHH\u{1b}]8;;\u{1b}\\ HHH\r\n" + escape + "4;58:2::255:0:0m" + link + "HHHH").utf8)
+    let snapshot = terminal.snapshot()
+    let ink: UInt32 = 0xe3eaf0, paper: UInt32 = 0x131d27, red: UInt32 = 0xff0000
+    func line(_ shot: Pixels, _ columns: Range<Int>, row: Int = 0) -> [UInt32] {
+        (Probe.edges[columns.lowerBound]..<Probe.edges[columns.upperBound]).map { shot[$0, Probe.top + row * Probe.height + Probe.underline] }
+    }
+    func runs(_ on: [Bool]) -> Int { zip([false] + on, on).filter { !$0 && $1 }.count }
+
+    let resting = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8])])
+    // Dashes in the text's ink at half strength, bridging cells like a dashed underline.
+    let mark = line(resting, 0..<4)
+    let faint = try #require(mark.first { $0 != paper })
+    let channels = [faint >> 16, faint >> 8 & 255, faint & 255].map(Int.init)
+    #expect(zip(channels, [123, 132, 140]).allSatisfy { abs($0 - $1) <= 1 }, "Measured \(channels)")
+    #expect(Set(mark) == [faint, paper] && runs(mark.map { $0 == faint }) == 5)
+    #expect(Set(line(resting, 5..<8)) == [faint, paper] && Set(line(resting, 4..<5)).count == 1)
+    // The program's own underline wins.
+    #expect(Set(line(resting, 0..<4, row: 1)) == [red])
+
+    let engaged = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8], engaged: [0..<4]), RowLinks(engaged: [0..<4])])
+    #expect(engaged.rowsPrepared == 2)
+    #expect(Set(line(engaged, 0..<4)) == [ink] && Set(line(engaged, 0..<4, row: 1)) == [ink])
+    #expect(line(engaged, 5..<8) == line(resting, 5..<8))
+
+    let pressed = try host.draw(snapshot, theme: .dark, links: [RowLinks(found: [5..<8], engaged: [5..<8], pressed: true)])
+    let wash = pressed[Probe.edges[5] + 1, Probe.top + 2]
+    #expect(wash != paper && pressed[Probe.edges[4] + 1, Probe.top + 2] == paper)
+    #expect(Set(line(pressed, 5..<8)) == [ink] && pressed.colors(in: 5..<6).contains(ink))
+    #expect(line(pressed, 0..<4) == mark)
 }
 
 @MainActor

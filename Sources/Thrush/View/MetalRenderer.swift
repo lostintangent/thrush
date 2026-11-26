@@ -23,6 +23,7 @@ final class MetalRenderer {
         let revision: UInt64
         let columns: Int
         let selection: Range<Int>?
+        let links: RowLinks
     }
     private var cached: [RowKey: RowGeometry] = [:]
     private var priorSize: Terminal.Size?
@@ -50,10 +51,11 @@ final class MetalRenderer {
         let blinks: Bool
     }
 
-    /// Encode one frame. Blinking ink takes `blinkOpacity`, so a blink reuses every cached row.
+    /// Encode one frame. Blinking ink takes `blinkOpacity`, so a blink reuses every cached row. `links` holds
+    /// each row's found addresses and engaged link, which its cells' styles don't carry.
     func encode(snapshot: Terminal.Snapshot?, metrics: GridMetrics, theme: TerminalTheme,
                 pass: MTLRenderPassDescriptor, selection: TerminalMetalView.Selection? = nil,
-                showsCursor: Bool = true, blinkOpacity: Float = 1) throws -> Prepared {
+                links: [RowLinks] = [], showsCursor: Bool = true, blinkOpacity: Float = 1) throws -> Prepared {
         guard let target = pass.colorAttachments[0].texture else { throw RendererFailure.missingRenderTarget }
         let viewport = CGSize(width: target.width, height: target.height)
         // Rows keep color tokens, so a theme or program color change rebuilds only this table.
@@ -81,9 +83,13 @@ final class MetalRenderer {
             let columns = snapshot.size.columns
             let area = metrics.size(in: CGSize(width: viewport.width / metrics.scale, height: viewport.height / metrics.scale))
             let count = min(columns, area.columns)
+            func mark(_ cell: Terminal.Cell, column: Int, in marks: RowLinks) -> LinkMark {
+                marks.mark(at: column, inProgramLink: cell.style.link != 0 && snapshot.link(for: cell.style) != nil)
+            }
             for (y, row) in snapshot.rows.prefix(area.rows).enumerated() {
                 let range = selection?.columns(in: y, width: count)
-                let key = RowKey(revision: row.generation, columns: count, selection: range)
+                let marks = links.indices.contains(y) ? links[y] : RowLinks()
+                let key = RowKey(revision: row.generation, columns: count, selection: range, links: marks)
                 let geo: RowGeometry
                 if let existing = cached[key] ?? next[key] {
                     geo = existing
@@ -93,7 +99,8 @@ final class MetalRenderer {
                     while col < count {
                         let cell = row[col]
                         let span = col..<(col + max(1, cell.width))
-                        try builder.cell(cell, column: col, availableWidth: count - col, selected: range?.overlaps(span) == true)
+                        try builder.cell(cell, column: col, availableWidth: count - col, selected: range?.overlaps(span) == true,
+                                         link: mark(cell, column: col, in: marks))
                         col += max(1, cell.width)
                     }
                     geo = try builder.finish(device: device)
@@ -118,7 +125,10 @@ final class MetalRenderer {
                     let selected = selection?.columns(in: snapshot.cursorRow, width: count)?.overlaps(x..<(x + max(1, row[x].width))) == true
                     let cursorPaint = selected ? Paint.selectionInk : Paint.cursor
                     switch snapshot.cursorShape {
-                    case .block: try cursor.cell(row[x], column: x, availableWidth: count - x, underCursor: true, selected: selected)
+                    case .block:
+                        let marks = links.indices.contains(snapshot.cursorRow) ? links[snapshot.cursorRow] : RowLinks()
+                        try cursor.cell(row[x], column: x, availableWidth: count - x, underCursor: true, selected: selected,
+                                        link: mark(row[x], column: x, in: marks))
                     case .bar: cursor.fill(x: left, y: 0, width: min(thickness, right - left), height: height, color: cursorPaint)
                     case .underline: cursor.fill(x: left, y: height - thickness, width: right - left, height: thickness, color: cursorPaint)
                     }

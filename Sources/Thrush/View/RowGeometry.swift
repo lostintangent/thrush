@@ -25,6 +25,34 @@ enum Effect {
     static let dim: UInt32 = 1
     /// The quad takes the frame's blink opacity, so a blink redraws no rows.
     static let blink: UInt32 = 2
+    /// A link's resting mark, quieter than the text it marks.
+    static let linkMark: UInt32 = 4
+    /// The wash a pressed link lays over its cells.
+    static let press: UInt32 = 8
+}
+
+/// How a cell shows the link its text belongs to.
+enum LinkMark {
+    case none
+    /// A quiet dashed underline, unless the program underlines the text itself.
+    case resting
+    /// A solid underline in the text's full ink, as under the pointer with ⌘ held.
+    case engaged
+    /// Engaged, with a wash over the cell while a finger or click holds the link down.
+    case pressed
+}
+
+/// The links on one row that its cells' styles don't name: the addresses found in its text, and the
+/// columns of the engaged link.
+struct RowLinks: Hashable {
+    var found: [Range<Int>] = []
+    var engaged: [Range<Int>] = []
+    var pressed = false
+
+    func mark(at column: Int, inProgramLink: Bool) -> LinkMark {
+        if engaged.contains(where: { $0.contains(column) }) { return pressed ? .pressed : .engaged }
+        return inProgramLink || found.contains(where: { $0.contains(column) }) ? .resting : .none
+    }
 }
 
 struct RowGeometry {
@@ -54,7 +82,8 @@ struct RowBuilder {
         self.solid = solid
     }
 
-    mutating func cell(_ cell: Terminal.Cell, column: Int, availableWidth: Int, underCursor: Bool = false, selected: Bool = false) throws {
+    mutating func cell(_ cell: Terminal.Cell, column: Int, availableWidth: Int, underCursor: Bool = false, selected: Bool = false,
+                       link: LinkMark = .none) throws {
         let x = metrics.x(column)
         let columns = min(max(1, cell.width), availableWidth)
         let width = metrics.x(column + columns) - x
@@ -66,10 +95,12 @@ struct RowBuilder {
         var underline = Paint.token(style.underlineColor, default: ink)
         if selected { ink = Paint.selectionInk; paper = Paint.selection }
         if underCursor { ink = selected ? Paint.selection : Paint.cursorInk; paper = selected ? Paint.selectionInk : Paint.cursor }
-        if selected || underCursor { underline = ink }
+        let engaged = link == .engaged || link == .pressed
+        if selected || underCursor || engaged { underline = ink }
         if paper != Paint.background {
             fill(x: x, y: 0, width: width, height: height, color: paper)
         }
+        if link == .pressed { fill(x: x, y: 0, width: width, height: height, color: Paint.foreground, effects: Effect.press) }
         // Concealed text keeps its background, selection and cursor. Copy still includes it.
         guard !style.invisible else { return }
         // The cell being edited stays legible, so the cursor holds its glyph steady.
@@ -87,8 +118,9 @@ struct RowBuilder {
                    texture: glyph.texture)
         }
         let line = metrics.decorations
-        switch style.underline {
-        case .none: break
+        switch engaged ? .single : style.underline {
+        case .none:
+            if link == .resting { dashes(column..<(column + columns), color: underline, effects: effects | Effect.linkMark) }
         case .single:
             fill(x: x, y: line.underline, width: width, height: line.thickness, color: underline, effects: effects)
         case .double:
@@ -100,15 +132,7 @@ struct RowBuilder {
         case .dotted:
             pattern(Material.dots, x: x, y: line.underline, width: width, height: line.thickness, color: underline, effects: effects)
         case .dashed:
-            // Each column clears its middle third, so every dash bridges two cells rather than sitting under
-            // one like an underscore, and the dashes keep the grid's rhythm.
-            for c in column..<(column + columns) {
-                let left = metrics.x(c), right = metrics.x(c + 1)
-                let gap = ((right - left) / 3).rounded(), start = left + ((right - left - gap) / 2).rounded()
-                for (from, to) in [(left, start), (start + gap, right)] {
-                    fill(x: from, y: line.underline, width: to - from, height: line.thickness, color: underline, effects: effects)
-                }
-            }
+            dashes(column..<(column + columns), color: underline, effects: effects)
         }
         if style.strikethrough {
             fill(x: x, y: line.strikethrough, width: width, height: line.thickness, color: ink, effects: effects)
@@ -118,6 +142,19 @@ struct RowBuilder {
 
     mutating func fill(x: Float, y: Float, width: Float, height: Float, color: UInt32, effects: UInt32 = 0) {
         append(Quad(rect: SIMD4(x, y, width, height), paint: SIMD4(color, Material.solid, effects, 0)), texture: nil)
+    }
+
+    /// An underline whose columns each clear their middle third, so every dash bridges two cells rather than
+    /// sitting under one like an underscore, and the dashes keep the grid's rhythm.
+    private mutating func dashes(_ columns: Range<Int>, color: UInt32, effects: UInt32) {
+        let line = metrics.decorations
+        for c in columns {
+            let left = metrics.x(c), right = metrics.x(c + 1)
+            let gap = ((right - left) / 3).rounded(), start = left + ((right - left - gap) / 2).rounded()
+            for (from, to) in [(left, start), (start + gap, right)] {
+                fill(x: from, y: line.underline, width: to - from, height: line.thickness, color: color, effects: effects)
+            }
+        }
     }
 
     /// A curl or dots across one band of the row. The shader reads each pixel's offset from the grid's

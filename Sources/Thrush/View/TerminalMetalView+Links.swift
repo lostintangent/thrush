@@ -105,6 +105,47 @@ extension TerminalMetalView {
         return links
     }
 
+    /// What each row of `drawn` shows of the links its cells' styles don't name: the addresses found in
+    /// its text, and the engaged link's columns. `drawn` holds the viewport and any rows held around it.
+    func drawnLinks(in drawn: Terminal.Snapshot) -> [RowLinks] {
+        var links = Array(repeating: RowLinks(), count: drawn.rows.count)
+        var found = foundLinks
+        #if os(iOS)
+        if heldRowsAround > 0, let source = viewport.source {
+            // The held rows read on from the same lines, so the viewport's links keep their numbers.
+            let top = source.history.count - min(max(0, viewport.offset), source.history.count) - heldRowsAround
+            let first = max(0, top)
+            found = finder.find(in: source, top: first, count: drawn.rows.count - (first - top)).map { link in
+                LinkFinder.Found(number: link.number, link: link.link, runs: link.runs.map {
+                    LinkRun(number: $0.number, row: $0.row + first - top, columns: $0.columns)
+                })
+            }
+        }
+        #endif
+        let engaged = engagedLink
+        for link in found {
+            for run in link.runs where links.indices.contains(run.row) {
+                links[run.row].found.append(run.columns)
+                if link.number == engaged?.number { links[run.row].engaged.append(run.columns) }
+            }
+        }
+        guard let engaged else { return links }
+        if !LinkFinder.isFound(engaged.number) {
+            for (y, row) in drawn.rows.enumerated() {
+                let end = row.trimmedLength
+                var x = 0
+                while x < end {
+                    var next = x + 1
+                    while next < end, row[next].style.link == row[x].style.link { next += 1 }
+                    if row[x].style.link == engaged.number { links[y].engaged.append(x..<next) }
+                    x = next
+                }
+            }
+        }
+        for y in links.indices where !links[y].engaged.isEmpty { links[y].pressed = engaged.pressed }
+        return links
+    }
+
     /// The visible runs of linked text, top to bottom and left to right, or only the runs of `number`.
     /// A link a program wraps or redraws across rows with one id has one number, so it has a run on each row,
     /// and so does a URL found across soft-wrapped rows.

@@ -945,7 +945,8 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         let (drawn, drawnSelection) = drawnContent
         do {
             let frame = try renderer.encode(snapshot: drawn, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, selection: drawnSelection, showsCursor: acceptsTerminalInput && cursorSpinner == nil,
+                                            pass: pass, selection: drawnSelection, links: drawn.map(drawnLinks) ?? [],
+                                            showsCursor: acceptsTerminalInput && cursorSpinner == nil,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent
