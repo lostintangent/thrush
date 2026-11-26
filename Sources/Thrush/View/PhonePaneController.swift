@@ -161,8 +161,9 @@ import UIKit
         }
     }
 
-    /// A connection that is replaying or reconnecting may not answer a resize with a frame.
-    static let frameWait = Duration.milliseconds(250)
+    /// A connection that is replaying or reconnecting may not answer a resize with a frame, and a
+    /// loaded system can take a few hundred milliseconds to draw one.
+    static let frameWait = Duration.seconds(1)
     /// A loaded system can keep the keyboard in the source orientation for well over a second.
     static let staleGuideWait: TimeInterval = 3
 
