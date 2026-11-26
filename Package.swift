@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Thrush",
-    platforms: [.macOS("27.0"), .iOS("27.0")],
+    platforms: [.macOS("27.0"), .iOS("27.2")],
     products: [
         .library(name: "Thrush", targets: ["Thrush"]),
     ],

@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftUIExample",
-    platforms: [.macOS("27.0"), .iOS("27.0")],
+    platforms: [.macOS("27.0"), .iOS("27.2")],
     dependencies: [.package(name: "thrush", path: "../..")],
     targets: [
         .executableTarget(name: "SwiftUIExample", dependencies: [.product(name: "Thrush", package: "thrush")]),

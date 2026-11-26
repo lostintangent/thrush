@@ -3,13 +3,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 platform=${1:-}
-minimum=27.0
 case "$platform" in
-    mac) sdk=macosx; binary_platform=macos; triple="$(uname -m)-apple-macosx$minimum" ;;
+    mac) sdk=macosx; minimum=27.0; triple="$(uname -m)-apple-macosx$minimum" ;;
     simulator)
         export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
         sdk=iphonesimulator
-        binary_platform=iossim
+        # SwiftPM records the minimum as the app's SDK too, and the Duo's vertical status bar needs 27.1.
+        minimum=27.2
         triple="$(uname -m)-apple-ios$minimum-simulator"
         ;;
     *) echo "Usage: scripts/build-demo.sh mac|simulator" >&2; exit 2 ;;
@@ -35,11 +35,7 @@ else
     resources="$app"
 fi
 mkdir -p "$executable" "$resources"
-# SwiftPM's link records the deployment target as the SDK the executable was built with. Record
-# the real SDK, as Xcode does, because the system adopts newer behavior by it. On the iPhone Duo,
-# an app that seems built before iOS 27.1 is letterboxed beside the vertical bar.
-xcrun vtool -set-build-version "$binary_platform" "$minimum" "$sdk_version" -replace \
-    -output "$executable/ThrushDemo" "$bin/ThrushDemo"
+cp "$bin/ThrushDemo" "$executable/"
 if [[ "$platform" == mac ]]; then
     iconset="$stage/thrush.iconset"
     mkdir "$iconset"

@@ -11,7 +11,7 @@ Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no de
 
 ## Add a terminal to an app
 
-Add the package and link the `Thrush` product to your app target. Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
+Add the package and link the `Thrush` product to your app target. Thrush needs macOS 27 or iOS 27.2 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ```swift
 .package(url: "https://github.com/lostintangent/thrush", from: "0.3.0")

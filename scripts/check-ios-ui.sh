@@ -22,7 +22,7 @@ import PackageDescription
 
 let package = Package(
     name: "ThrushVerification",
-    platforms: [.iOS("27.0")],
+    platforms: [.iOS("27.2")],
     products: [.library(name: "Thrush", targets: ["Thrush"])],
     targets: [
         .target(name: "ThrushCore"),

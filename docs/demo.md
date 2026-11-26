@@ -13,7 +13,7 @@ scripts/build-demo.sh mac
 open .build/demo/mac/Thrush.app
 ```
 
-Build the iPhone app, then install it on a booted iOS 27 simulator. Use the device identifier from `simctl list devices` in place of `$udid`.
+Build the iPhone app, then install it on a booted iOS 27.2 simulator. Use the device identifier from `simctl list devices` in place of `$udid`.
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -100,7 +100,7 @@ python3 scripts/pty/check-window.py --output /tmp/thrush-window-proof
 
 ## Check the iPhone interactions
 
-Run the UIKit, Metal and recorded workflow tests on a designated iOS 27 simulator. Use its identifier from `xcrun simctl list devices available`.
+Run the UIKit, Metal and recorded workflow tests on a designated iOS 27.2 simulator. Use its identifier from `xcrun simctl list devices available`.
 
 ```sh
 scripts/check-ios-ui.sh "$udid"

@@ -90,7 +90,7 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift"), *, mac=False
     for key, kind, files in [("COMPILE", "PBXSourcesBuildPhase", ["TEST"]), ("LINK", "PBXFrameworksBuildPhase", [])]:
         item(key, kind, buildActionMask="2147483647", files=files, runOnlyForDeploymentPostprocessing="0")
     platform = dict(SDKROOT="macosx", MACOSX_DEPLOYMENT_TARGET="27.0") if mac else dict(
-        SDKROOT="iphoneos", IPHONEOS_DEPLOYMENT_TARGET="27.0", TARGETED_DEVICE_FAMILY="1")
+        SDKROOT="iphoneos", IPHONEOS_DEPLOYMENT_TARGET="27.2", TARGETED_DEVICE_FAMILY="1")
     for key, debug, settings in [
         ("CFG", "DEBUG", dict(**platform, SWIFT_VERSION="5.0", CLANG_ENABLE_MODULES="YES")),
         ("TARGETCFG", "TARGETDEBUG", dict(PRODUCT_NAME=name, PRODUCT_BUNDLE_IDENTIFIER=BUNDLE_ID,
