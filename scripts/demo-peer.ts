@@ -66,7 +66,55 @@ function buildColors(host: Appearance) {
     return prompt + setPalette(host === "dark" ? "paper" : "night") + buildTranscript();
 }
 
-type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors";
+// An rg search, then Claude Code's trust prompt laid out as Claude lays it out at this width. The links
+// are the ones these programs send: rg's file names point at the machine the shell runs on, and Claude's
+// "Security guide" says something other than where it goes. On the iPhone, the longer file names wrap.
+function buildLinks(cols: number) {
+    const files = ["MacTerminalInput.swift", "PhoneHistoryScrollView.swift", "TerminalMetalView+Links.swift"].map(name => {
+        const path = "Sources/Thrush/View/" + name;
+        return `\x1b]8;;file://devbox/home/robin/thrush/${path.replace("+", "%2B")}\x1b\\${reset}${esc}35m${path}${reset}\x1b]8;;\x1b\\`;
+    });
+    // Claude pads its box by a column on each side and places each word with a column move.
+    const words = (text: string, style = "", unstyle = "") => {
+        const rows: string[] = [];
+        let row = "", column = 2;
+        for (const word of text.split(" ")) {
+            if (row && column + word.length - 1 > cols - 1) {
+                rows.push(row + unstyle);
+                row = "";
+                column = 2;
+            }
+            row += `${esc}${column}G${row ? "" : style}${word}`;
+            column += word.length + 1;
+        }
+        return [...rows, row + unstyle];
+    };
+    const amber = esc + "38;2;255;193;7m", gray = esc + "38;2;153;153;153m", violet = esc + "38;2;177;185;249m";
+    const trust = [
+        amber + "─".repeat(cols) + esc + "39m",
+        ...words("Accessing workspace:", amber + esc + "1m", esc + "22m" + esc + "39m"),
+        "",
+        `${esc}2G${esc}1m/home/robin/thrush${esc}22m`,
+        "",
+        ...words("Quick safety check: Is this a project you created or one you trust? (Like your own code, a " +
+            "well-known open source project, or work from your team). If not, take a moment to review what's in this folder first."),
+        "",
+        ...words("Claude Code'll be able to read, edit, and execute files here."),
+        "",
+        `${esc}2G\x1b]8;id=zaxmda;https://code.claude.com/docs/en/security\x07${gray}Security guide${esc}39m\x1b]8;;\x07`,
+        "",
+        `${esc}2G${violet}❯${esc}4GNo,${esc}8Gexit${esc}39m`,
+        `${esc}4GYes,${esc}9GI${esc}11Gtrust${esc}17Gthis${esc}22Gfolder`,
+        "",
+        ...words("Enter to confirm · Esc to cancel", gray, esc + "39m"),
+    ];
+    return [prompt + "rg -l openWebLink Sources", ...files, prompt + "claude"].join("\r\n") +
+        "\x1b]2;claude\x07" + esc + "?25l" + esc + "?2004h" + esc + "?1004h\r\n" + trust.join("\r\n") +
+        // Claude parks its hidden cursor on the chosen answer.
+        "\r\n" + esc + "1C" + esc + "4A";
+}
+
+type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors" | "links";
 type Appearance = "light" | "dark";
 type Session = { scene: Scene; cols: number; rows: number; input: string; appearance?: Appearance };
 type Socket = ServerWebSocket<Session>;
@@ -93,6 +141,7 @@ async function draw(socket: Socket) {
         case "log": for (const part of log) socket.sendBinary(part); return;
         case "vim": for (const part of vim) socket.sendBinary(part); return;
         case "styles": socket.sendBinary(encode(buildStyles())); return;
+        case "links": socket.sendBinary(encode(buildLinks(cols))); return;
         case "colors":
             socket.sendBinary(encode(socket.data.appearance ? buildColors(socket.data.appearance) : "\x1b]11;?\x1b\\"));
             return;
@@ -151,7 +200,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
         >= 32768 ? "light" : "dark";
 }
 
-const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors"]);
+const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors", "links"]);
 const colorScenes = new Set<Socket>();
 const args = process.argv.slice(2);
 if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
@@ -195,10 +244,13 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
                 if (control.type === "close") { socket.close(1000); return; }
                 if (control.type === "resize" && Number.isSafeInteger(control.cols) && Number.isSafeInteger(control.rows)
                         && control.cols >= 2 && control.rows > 0) {
+                    const widthChanged = control.cols !== state.cols;
                     state.cols = control.cols;
                     state.rows = control.rows;
                     recordGrid("resize", state);
                     if (state.scene === "editor") await draw(socket);
+                    // Claude lays its prompt out again at a new width. The scene starts over with it.
+                    if (state.scene === "links" && widthChanged) socket.sendBinary(encode(esc + "H" + esc + "2J" + esc + "3J" + buildLinks(state.cols)));
                 }
                 return;
             }
@@ -209,7 +261,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
                 if (state.appearance) await draw(socket);
                 return;
             }
-            if (state.scene === "vim" || state.scene === "editor" || state.scene === "glyphs") return;
+            if (state.scene === "vim" || state.scene === "editor" || state.scene === "glyphs" || state.scene === "links") return;
             const text = message.toString("utf8");
             if (text === "\r") {
                 socket.sendBinary(encode("\r\n"));

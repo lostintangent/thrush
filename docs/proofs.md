@@ -11,9 +11,9 @@ The Mac app is `.build/proofs/mac/Thrush.app`. The iPhone app at `.build/proofs/
 
 ## Scenes and appearance
 
-For the recorded scenes, start the mock peer with `bun scripts/demo-peer.ts`. It listens on port 9138 by default, so stop any shell server there first. Pass `--scene` to open one. The shell scene shows the numbered build log from the design study. The others are the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, and a program that sets its own colors. That program asks for the terminal’s background, then sets the opposite canvas. The proofs put the scene in the endpoint's path, where the peer reads it.
+For the recorded scenes, start the mock peer with `bun scripts/demo-peer.ts`. It listens on port 9138 by default, so stop any shell server there first. Pass `--scene` to open one. The shell scene shows the numbered build log from the design study. The others are the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, a program that sets its own colors, and the links an `rg` search and Claude Code’s trust prompt send. The colors program asks for the terminal’s background, then sets the opposite canvas. The proofs put the scene in the endpoint's path, where the peer reads it.
 
-Pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
+Pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors|links` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
 
 ```sh
 open -n .build/proofs/mac/Thrush.app --args --scene editor --appearance light

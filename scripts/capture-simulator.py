@@ -23,7 +23,7 @@ APP_ID = "app.thrush.proofs"
 ORACLE = ROOT / "scripts/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
-TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
+TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors", "links"}
 PANE_CHECKER = ROOT / ".build/proofs/check-pane-capture"
 PHONE = "iPhone Duo"
 

@@ -3,7 +3,7 @@ import Thrush
 
 struct ProofOptions {
     enum Scene: String, CaseIterable {
-        case shell, editor, log, vim, prompt, glyphs, styles, colors
+        case shell, editor, log, vim, prompt, glyphs, styles, colors, links
         case spinnerOpening = "spinner-opening", spinnerReconnecting = "spinner-reconnecting"
         case displaced = "shell-displaced", ended = "shell-ended", reconnectTyping = "reconnect-typing"
 
