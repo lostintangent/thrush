@@ -75,7 +75,8 @@ extension Terminal {
             }
             func setOrReport(_ slot: ColorSlot, _ specification: Field) {
                 if specification.elementsEqual("?".utf8) {
-                    reply += (slot.setting(resolve(slot, palette: palette, cursor: cursor), sixteenBit: true) + "\u{1b}\\").utf8
+                    slot.setting(resolve(slot, palette: palette, cursor: cursor), sixteenBit: true, to: &reply)
+                    reply += "\u{1b}\\".utf8
                 } else if let color = RGB(specification: specification) {
                     set(slot, color)
                 }
@@ -121,20 +122,32 @@ extension Terminal {
 }
 
 extension Terminal.ColorSlot {
-    /// The OSC that sets this slot to `color`, without its terminator. A report replicates each 8-bit
-    /// channel into the four hex digits of a 16-bit one, and a replay writes just the two it keeps.
-    func setting(_ color: Terminal.RGB, sixteenBit: Bool) -> String {
-        let number = switch self {
-        case .indexed(let index): "4;\(index)"
-        case .foreground: "10"
-        case .background: "11"
-        case .cursor: "12"
+    /// Appends the OSC that sets this slot to `color`, without its terminator. A report replicates each
+    /// 8-bit channel into the four hex digits of a 16-bit one, and a replay writes just the two it keeps.
+    func setting(_ color: Terminal.RGB, sixteenBit: Bool, to output: inout [UInt8]) {
+        switch self {
+        case .indexed(let index):
+            output += "\u{1b}]4;".utf8
+            output += String(index).utf8
+        case .foreground: output += "\u{1b}]10".utf8
+        case .background: output += "\u{1b}]11".utf8
+        case .cursor: output += "\u{1b}]12".utf8
         }
-        func channel(_ value: UInt8) -> String {
-            let hex = (value < 16 ? "0" : "") + String(value, radix: 16)
-            return sixteenBit ? hex + hex : hex
+        func channel(_ value: UInt8, after separator: Unicode.Scalar) {
+            func hex(_ digit: UInt8) -> UInt8 { digit < 10 ? 0x30 + digit : 0x57 + digit }
+            let high = hex(value >> 4), low = hex(value & 15)
+            output.append(UInt8(ascii: separator))
+            output.append(high)
+            output.append(low)
+            if sixteenBit {
+                output.append(high)
+                output.append(low)
+            }
         }
-        return "\u{1b}]\(number);rgb:\(channel(color.red))/\(channel(color.green))/\(channel(color.blue))"
+        output += ";rgb".utf8
+        channel(color.red, after: ":")
+        channel(color.green, after: "/")
+        channel(color.blue, after: "/")
     }
 }
 

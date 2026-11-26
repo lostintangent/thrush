@@ -8,9 +8,14 @@ extension Terminal {
         writer.output += "\u{1b}]2;" + title + "\u{7}"
         writer.output += "\u{1b}]104\u{7}\u{1b}]110\u{7}\u{1b}]111\u{7}\u{1b}]112\u{7}"
         if !programColors.isEmpty {
+            var settings: [UInt8] = []
             for slot in (0...255).map(ColorSlot.indexed) + [.foreground, .background, .cursor] {
-                if let color = programColors[slot] { writer.output += slot.setting(color, sixteenBit: false) + "\u{7}" }
+                if let color = programColors[slot] {
+                    slot.setting(color, sixteenBit: false, to: &settings)
+                    settings.append(0x07)
+                }
             }
+            writer.output += String(decoding: settings, as: UTF8.self)
         }
         // The client starts on the normal screen. Each screen's keyboard flags are pushed while it's active.
         writer.push(modes.normalKeyboard)
