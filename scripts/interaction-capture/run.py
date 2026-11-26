@@ -21,7 +21,7 @@ BUNDLE_ID = "app.thrush.review.interactions"
 APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "word-{}-menu",
         "line-{}-selected", "history-{}-latest")
-CLIPS = ("control", "rotate", "select", "history")
+CLIPS = ("control", "rotate", "keyboard", "select", "history")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
 ROUND_TRIPS = 2
 DISPLAY_FRAME = 1 / 60
@@ -225,7 +225,7 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
         attempt("gesture attachments", export_attachments, result, out, work, frame_times)
         for appearance in APPEARANCES:
             attempt(f"{appearance} rotation layouts", save_rotation_layouts, out, appearance, spans, frame_times)
-    gestures = ("rotate",) if rotation_only else CLIPS
+    gestures = ("rotate", "keyboard") if rotation_only else CLIPS
     names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in gestures]
     for name in names:
         attempt(name + ".mp4", export_clip, name, video_start, out, work)
@@ -482,7 +482,8 @@ def main():
     scope.add_argument("--accessibility-only", action="store_true",
                        help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
     scope.add_argument("--rotation-only", action="store_true",
-                       help="Capture keyboard-open rotation in both appearances and check the shell resize sequence.")
+                       help="Capture keyboard-open rotation and the keyboard hiding and returning in both appearances, "
+                            "and check the shell resize sequence.")
     options = parser.parse_args()
     if options.accessibility_only and options.trace_rotation_layout:
         parser.error("--trace-rotation-layout applies to shell gestures.")

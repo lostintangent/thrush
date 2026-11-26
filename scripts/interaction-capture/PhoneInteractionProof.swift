@@ -6,6 +6,7 @@ import XCTest
 @MainActor
 final class PhoneInteractionProof: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private static let wrappedText = "1024  compile units/café/界/e\u{301}/long-dependency/with/nested-source-folders/unit-1024.h"
 
     func testDarkInteractions() throws { try capture(appearance: "dark") }
     func testLightInteractions() throws { try capture(appearance: "light") }
@@ -48,11 +49,16 @@ final class PhoneInteractionProof: XCTestCase {
         try finishClip("rotate-\(appearance)", since: rotate)
         // Keep the settled portrait on screen through the movie's post-gesture padding.
         Thread.sleep(forTimeInterval: 0.75)
-
-        if !rotationOnly {
-            try captureTranscript(appearance: appearance)
-        }
         XCTAssertTrue(retainedBuild, "Rotation should keep the build completion line visible above the prompt.")
+
+        // The log fills the screen down to its prompt, so the grid travels with the keyboard.
+        try launch(scene: "log")
+        let wrapped = app.staticTexts[Self.wrappedText]
+        XCTAssertTrue(wrapped.waitForExistence(timeout: 30), app.debugDescription)
+        try captureKeyboard(appearance: appearance, keeping: wrapped)
+        if !rotationOnly {
+            try captureTranscript(appearance: appearance, wrapped: wrapped)
+        }
     }
 
     private func captureControl(appearance: String) throws {
@@ -66,11 +72,27 @@ final class PhoneInteractionProof: XCTestCase {
         try finishClip("control-\(appearance)", since: start)
     }
 
-    private func captureTranscript(appearance: String) throws {
-        try launch(scene: "log")
-        let wrappedText = "1024  compile units/café/界/e\u{301}/long-dependency/with/nested-source-folders/unit-1024.h"
-        let wrapped = app.staticTexts[wrappedText]
-        XCTAssertTrue(wrapped.waitForExistence(timeout: 30), app.debugDescription)
+    /// Hides the keyboard with the key row's button, then taps the transcript to bring it back.
+    private func captureKeyboard(appearance: String, keeping line: XCUIElement) throws {
+        try assertKeyboard()
+        // Let the launch's keyboard settle before the clip begins.
+        Thread.sleep(forTimeInterval: 0.75)
+        let keyboard = app.keyboards.firstMatch
+        let start = Date.now.timeIntervalSince1970
+        app.buttons["Hide Keyboard"].tap()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 6), .completed)
+        // Let the taller grid settle on screen before the keyboard returns.
+        Thread.sleep(forTimeInterval: 0.75)
+        XCTAssertTrue(line.exists, "Hiding the keyboard should keep the wrapped line in view.")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        try assertKeyboard()
+        XCTAssertTrue(line.exists, "Showing the keyboard should keep the wrapped line in view.")
+        try finishClip("keyboard-\(appearance)", since: start)
+        Thread.sleep(forTimeInterval: 0.75)
+    }
+
+    private func captureTranscript(appearance: String, wrapped: XCUIElement) throws {
         let transcript = app.coordinate(withNormalizedOffset: .zero)
         let wordPoint = transcript.withOffset(CGVector(dx: wrapped.frame.minX + 8,
                                                        dy: wrapped.frame.minY + 8))
@@ -83,7 +105,7 @@ final class PhoneInteractionProof: XCTestCase {
         XCTAssertTrue(selectLine.waitForExistence(timeout: 6), app.debugDescription)
         try screenshot("word-\(appearance)-menu")
         selectLine.tap()
-        let full = NSPredicate(format: "value == %@", wrappedText)
+        let full = NSPredicate(format: "value == %@", Self.wrappedText)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: full, object: selected)], timeout: 5), .completed)
         try screenshot("line-\(appearance)-selected")
         let copy = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Copy'")).firstMatch
