@@ -16,6 +16,59 @@ extension Terminal.Style {
         }
     }
 
+    /// The color after 38, 48 or 58. It comes from a colon group or from the semicolon operands that
+    /// follow, which it takes one at a time.
+    private struct ExtendedColor {
+        private var mode: Int?
+        private var values = InlineArray<3, Int>(repeating: 0)
+        private var fields = 0
+        private var isComplete = false
+
+        init(_ selector: Operand) {
+            // A colon group contains the whole color, including any omitted components.
+            if selector.components != nil { take(group: selector, mode: selector[0] ?? 0, first: 1) }
+        }
+
+        /// 38;5;n takes one field and 38;2;r;g;b three. Unrecognized modes consume four fields, and
+        /// mode zero also a color-space field.
+        var needsField: Bool {
+            guard !isComplete else { return false }
+            guard let mode else { return true }
+            return fields < (mode == 5 ? 1 : mode == 2 ? 3 : mode == 0 ? 5 : 4)
+        }
+
+        mutating func take(_ field: Operand) {
+            guard mode != nil else {
+                // 38;2::r:g:b puts the colon group on the mode instead of the selector.
+                if field.components != nil { take(group: field, mode: field.value, first: 0) } else { mode = field.value }
+                return
+            }
+            if fields < values.count { values[fields] = field.value }
+            fields += 1
+            // A colon group ends the fields. In 38;2;r:g:b and 38;2;r;g:b it supplies the rest of the triple.
+            guard field.components != nil else { return }
+            for ordinal in 0..<max(0, values.count - fields) { values[fields + ordinal] = field[ordinal] ?? 0 }
+            isComplete = true
+        }
+
+        private mutating func take(group: Operand, mode: Int, first: Int) {
+            self.mode = mode
+            // 38:2:cs:r:g:b includes a color-space identifier, which can be empty.
+            let start = mode == 2 ? first + 1 : first
+            for ordinal in 0..<values.count { values[ordinal] = group[start + ordinal] ?? 0 }
+            isComplete = true
+        }
+
+        var color: Terminal.Color? {
+            let byte = { UInt8(truncatingIfNeeded: values[$0]) }
+            return switch mode {
+            case 5: .indexed(byte(0))
+            case 2: .rgb(byte(0), byte(1), byte(2))
+            default: nil
+            }
+        }
+    }
+
     mutating func applySGR(_ parameters: ControlParameters) {
         var index = 0
         applyRenditions {
@@ -87,22 +140,22 @@ extension Terminal.Style {
         while let operand = next() {
             let parameter = operand.value
             switch parameter {
-            case 0: self = .init()
+            case 0: resetRenditions()
             case 1: bold = true
             case 2: dim = true
             case 3: italic = true
-            // 4:0 removes the underline. The other underline styles draw as a single line.
-            case 4: underline = operand[0] != 0
+            // 4:1 through 4:5 choose the style and 4:0 removes it. Any other style is single.
+            case 4: underline = Terminal.Underline(rawValue: UInt8(clamping: operand[0] ?? 1)) ?? .single
             case 5: blink = true
             case 7: inverse = true
             case 8: invisible = true
             case 9: strikethrough = true
-            case 21: underline = true
+            case 21: underline = .double
             case 22:
                 bold = false
                 dim = false
             case 23: italic = false
-            case 24: underline = false
+            case 24: underline = .none
             case 25: blink = false
             case 27: inverse = false
             case 28: invisible = false
@@ -114,65 +167,37 @@ extension Terminal.Style {
             case 39: foreground = .default
             case 49: background = .default
             case 38, 48, 58:
-                // Consume underline color (58) as one operand even though the grid does not display it.
-                if let color = Self.extendedColor(operand, next: next) {
-                    if parameter == 38 { foreground = color }
-                    if parameter == 48 { background = color }
+                var fields = ExtendedColor(operand)
+                while fields.needsField, let field = next() { fields.take(field) }
+                if let color = fields.color {
+                    switch parameter {
+                    case 38: foreground = color
+                    case 48: background = color
+                    default: underlineColor = color
+                    }
                 }
+            case 53: overline = true
+            case 55: overline = false
+            case 59: underlineColor = .default
             default: break
             }
         }
     }
 
-    @inline(__always)
-    private static func extendedColor(_ operand: Operand, next: () -> Operand?) -> Terminal.Color? {
-        // A colon group contains the whole color, including any omitted components.
-        if operand.components != nil {
-            return colonColor(operand[0] ?? 0, operand, first: 1)
-        }
-        // 38;2::r:g:b puts the colon group on the mode instead of the selector.
-        let mode = next() ?? Operand(0)
-        if mode.components != nil { return colonColor(mode.value, mode, first: 0) }
-        switch mode.value {
-        case 5: return .indexed(byte(next()?.value))
-        case 2:
-            // In 38;2;r;g;b, a colon group on red or green supplies the rest of the RGB triple.
-            let red = next() ?? Operand(0)
-            if red.components != nil { return .rgb(byte(red.value), byte(red[0]), byte(red[1])) }
-            let green = next() ?? Operand(0)
-            if green.components != nil { return .rgb(byte(red.value), byte(green.value), byte(green[0])) }
-            return .rgb(byte(red.value), byte(green.value), byte(next()?.value))
-        default:
-            // Unrecognized modes consume four fields. Mode zero also takes a color-space field.
-            for _ in 0..<(mode.value == 0 ? 5 : 4) {
-                guard let field = next(), field.components == nil else { break }
-            }
-            return nil
-        }
-    }
-
-    @inline(__always)
-    private static func colonColor(_ mode: Int, _ field: Operand, first: Int) -> Terminal.Color? {
-        switch mode {
-        case 5: return .indexed(byte(field[first]))
-        // 38:2:cs:r:g:b includes a color-space identifier, which can be empty.
-        case 2: return .rgb(byte(field[first + 1]), byte(field[first + 2]), byte(field[first + 3]))
-        default: return nil
-        }
-    }
-
-    private static func byte(_ value: Int?) -> UInt8 {
-        UInt8(truncatingIfNeeded: value ?? 0)
-    }
-
-    /// The SGR parameters that select this style, starting from the default with 0.
+    /// The SGR parameters that select this style, starting from the default with 0. The link is not
+    /// a rendition, so OSC 8 sets it separately.
     var renditionParameters: String {
         var parameters = ["0"]
-        for (set, code) in [(bold, "1"), (dim, "2"), (italic, "3"), (underline, "4"), (blink, "5"),
-                            (inverse, "7"), (invisible, "8"), (strikethrough, "9")] where set {
+        let underlineCode = switch underline {
+        case .none: ""
+        case .single: "4"
+        default: "4:\(underline.rawValue)"
+        }
+        for (set, code) in [(bold, "1"), (dim, "2"), (italic, "3"), (!underlineCode.isEmpty, underlineCode), (blink, "5"),
+                            (inverse, "7"), (invisible, "8"), (strikethrough, "9"), (overline, "53")] where set {
             parameters.append(code)
         }
-        for (color, prefix) in [(foreground, "38"), (background, "48")] {
+        for (color, prefix) in [(foreground, "38"), (background, "48"), (underlineColor, "58")] {
             switch color {
             case .default: break
             case .indexed(let index): parameters.append("\(prefix);5;\(index)")

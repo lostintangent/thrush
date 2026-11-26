@@ -29,6 +29,7 @@ struct Checkpoint: Codable, Equatable, Sendable {
     }
 
     /// One grid cell. Styles are space-separated attributes such as `fg=1 bold`, or empty for the default.
+    /// `link=n` names the checkpoint's `n`th link.
     struct Cell: Codable, Hashable, Sendable {
         static let blank = Cell(text: "", width: 1, style: "")
 
@@ -97,6 +98,9 @@ struct Checkpoint: Codable, Equatable, Sendable {
     var active: Screen
     /// The normal screen while the alternate screen is active, as the user returns to it.
     var normal: Screen?
+    /// Each link's id and URI as `id;uri`, numbered from 1 in the order the screens above show them.
+    /// Absent without links.
+    var links: [String]?
     /// What the reference threw while processing the writes before this checkpoint. Thrush never sets it.
     var error: String?
 }
@@ -118,37 +122,56 @@ extension Checkpoint {
             mouseTracking: "\(modes.mouseTracking)", mouseEncoding: modes.mouseSGR ? "sgr" : "default")
         title = terminal.title
         self.replies = String(String.UnicodeScalarView(replies.map(Unicode.Scalar.init)))
-        active = Screen(snapshot, includesHistory: includesHistory)
+        var links = Links()
+        active = Screen(snapshot, includesHistory: includesHistory, links: &links)
         if snapshot.isAlternate && includesHistory {
             // Leaving the alternate screen on a copy reveals the normal screen as the user returns to it.
             var normal = terminal
             _ = normal.receive(Array("\u{1b}[?1049l".utf8))
-            self.normal = Screen(normal.snapshot(), includesHistory: true)
+            self.normal = Screen(normal.snapshot(), includesHistory: true, links: &links)
+        }
+        self.links = links.targets.isEmpty ? nil : links.targets
+    }
+
+    /// Numbers links in the order they first appear, so checkpoints agree whatever numbers each
+    /// emulator uses inside.
+    struct Links {
+        private var numbers: [UInt32: Int] = [:]
+        private(set) var targets: [String] = []
+
+        mutating func number(of style: Terminal.Style, in snapshot: Terminal.Snapshot) -> Int? {
+            guard let link = snapshot.link(for: style) else { return nil }
+            if let number = numbers[style.link] { return number }
+            targets.append("\(link.id ?? "");\(link.uri)")
+            numbers[style.link] = targets.count
+            return targets.count
         }
     }
 }
 
 extension Checkpoint.Screen {
-    init(_ snapshot: Terminal.Snapshot, includesHistory: Bool) {
-        let columns = snapshot.size.columns
-        visible = snapshot.rows.map { Checkpoint.Line($0, columns: columns) }
-        history = includesHistory ? snapshot.history.map { Checkpoint.Line($0, columns: columns) } : nil
+    init(_ snapshot: Terminal.Snapshot, includesHistory: Bool, links: inout Checkpoint.Links) {
+        history = includesHistory ? snapshot.history.map { Checkpoint.Line($0, in: snapshot, links: &links) } : nil
+        visible = snapshot.rows.map { Checkpoint.Line($0, in: snapshot, links: &links) }
     }
 }
 
 extension Checkpoint.Line {
-    init(_ row: Terminal.Row, columns: Int) {
+    init(_ row: Terminal.Row, in snapshot: Terminal.Snapshot, links: inout Checkpoint.Links) {
         wrapped = row.isWrapped
-        cells = (0..<columns).map { column in
+        cells = (0..<snapshot.size.columns).map { column in
             let cell = row[column]
-            return Checkpoint.Cell(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style))
+            let link = links.number(of: cell.style, in: snapshot)
+            return Checkpoint.Cell(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style, link: link))
         }
         while cells.last == .blank { cells.removeLast() }
     }
 }
 
 extension Checkpoint {
-    static func style(_ style: Terminal.Style) -> String {
+    /// The attributes in the order the reference's tooling lists them. The underline color is listed
+    /// only with an underline, since it shows only then.
+    static func style(_ style: Terminal.Style, link: Int? = nil) -> String {
         func color(_ color: Terminal.Color, _ kind: String) -> String? {
             switch color {
             case .default: nil
@@ -156,13 +179,19 @@ extension Checkpoint {
             case .rgb(let red, let green, let blue): "\(kind)=#" + [red, green, blue].map(hex).joined()
             }
         }
-        let attributes = [
-            (style.bold, "bold"), (style.dim, "dim"), (style.italic, "italic"), (style.underline, "underline"),
-            (style.blink, "blink"), (style.inverse, "inverse"), (style.invisible, "invisible"),
-            (style.strikethrough, "strikethrough"),
+        let underline: [String?] = switch style.underline {
+        case .none: []
+        case .single: ["underline", color(style.underlineColor, "underlineColor")]
+        default: ["underline=\(style.underline.rawValue)", color(style.underlineColor, "underlineColor")]
+        }
+        let attributes: [String?] = [
+            color(style.foreground, "fg"), color(style.background, "bg"), style.bold ? "bold" : nil,
+            style.dim ? "dim" : nil, style.italic ? "italic" : nil,
+        ] + underline + [
+            style.blink ? "blink" : nil, style.inverse ? "inverse" : nil, style.invisible ? "invisible" : nil,
+            style.strikethrough ? "strikethrough" : nil, style.overline ? "overline" : nil, link.map { "link=\($0)" },
         ]
-        let colors = [color(style.foreground, "fg"), color(style.background, "bg")].compactMap(\.self)
-        return (colors + attributes.filter(\.0).map(\.1)).joined(separator: " ")
+        return attributes.compactMap(\.self).joined(separator: " ")
     }
 
     private static func hex(_ value: UInt8) -> String {

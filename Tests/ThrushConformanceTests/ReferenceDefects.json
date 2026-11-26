@@ -57,6 +57,17 @@
       }
     ]
   },
+  "DECRC · after an underline style and color": {
+    "reason": "DECSC saves the whole rendition, but the reference's DECRC restores only the colors and flags, and keeps the current underline style and color. Thrush restores the saved underline too.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][5]",
+        "reference": "\"*\" {underline=3 underlineColor=3}",
+        "thrush": "\"*\" {underline}"
+      }
+    ]
+  },
   "DECRQSS m · after a rendition": {
     "reason": "The reference always reports the default rendition. Thrush reports the rendition the program set, so a program that saves its rendition this way can restore it.",
     "differences": [
@@ -405,6 +416,62 @@
       }
     ]
   },
+  "OSC 8 · out of the alternate screen": {
+    "reason": "Leaving the alternate screen restores the cursor as DECRC does, so the reference drops the open link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][5]",
+        "reference": "\"*\"",
+        "thrush": "\"*\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";https://a.example\""
+      }
+    ]
+  },
+  "OSC 8 · then DECRC": {
+    "reason": "The reference's DECRC restores flags that say the text has no link, while the open link stays current, so the text that follows shows no link until the next SGR. DECSC saves only the rendition, so Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][5]",
+        "reference": "\"*\"",
+        "thrush": "\"*\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";https://a.example\""
+      }
+    ]
+  },
+  "OSC 8 · then DL": {
+    "reason": "The reference forgets an open link's target once the row it opened on is deleted, as in OSC 8 · then ED 2. Thrush keeps a target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";https://a.example\""
+      }
+    ]
+  },
+  "OSC 8 · then ED 2": {
+    "reason": "The reference forgets an open link's target once the row it opened on is erased, though the pen still carries the link and the text that follows uses it. Thrush keeps a target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";https://a.example\""
+      }
+    ]
+  },
   "resize · narrower above text": {
     "reason": "Narrowing makes room for added rows by removing rows from the bottom while the cursor is above it. The reference's bottom-up pass keeps its starting index and goes on to reflow rows it has already removed, so the c of abc returns without the row that held ab. Thrush reflows only the rows that remain.",
     "differences": [
@@ -546,6 +613,328 @@
       }
     ]
   },
+  "SGR 4;58;2;7;8;9;59": {
+    "reason": "SGR 59 turns the reference's underline white, because it stores the default as -1 in a field that keeps only a color's mode and value. Thrush draws the underline in the text's own color again, as SGR 59 asks.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][5]",
+        "reference": "\"*\" {fg=1 bg=4 underline underlineColor=#ffffff}",
+        "thrush": "\"*\" {fg=1 bg=4 underline}"
+      }
+    ]
+  },
+  "stream 103": {
+    "reason": "The stream sets an underline color, then restores a cursor saved without one. The reference keeps the underline color, as in DECRC · after an underline style and color, and Thrush restores the saved rendition.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][1]",
+        "reference": "\"a\" {fg=11 bold underline underlineColor=9}",
+        "thrush": "\"a\" {fg=11 bold underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][4]",
+        "reference": "\"→\" {fg=11 bold underline underlineColor=9}",
+        "thrush": "\"→\" {fg=11 bold underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][0]",
+        "reference": "\"t\" {fg=11 bold underline underlineColor=9}",
+        "thrush": "\"t\" {fg=11 bold underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7][8]",
+        "reference": "\"\\u{200D}\" width 0 {fg=11 bold underline underlineColor=9}",
+        "thrush": "\"\\u{200D}\" width 0 {fg=11 bold underline}"
+      }
+    ]
+  },
+  "stream 11": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;│\""
+      }
+    ]
+  },
+  "stream 110": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC, and it erases the row the link opened on, so the reference forgets its target, as in OSC 8 · then ED 2.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;thrush$\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"S\"",
+        "thrush": "\"S\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;thrush$\""
+      }
+    ]
+  },
+  "stream 112": {
+    "reason": "The stream sets an underline color, then restores a cursor saved without one. The reference keeps the underline color, as in DECRC · after an underline style and color, and Thrush restores the saved rendition.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[4][1]",
+        "reference": "\"g\" {fg=1 italic underline=2 underlineColor=9 overline}",
+        "thrush": "\"g\" {fg=1 italic underline=2 overline}"
+      }
+    ]
+  },
+  "stream 114": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[0][0]",
+        "reference": "\"x\"",
+        "thrush": "\"x\" {link=1}"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[1][0]",
+        "reference": "\"x\"",
+        "thrush": "\"x\" {link=1}"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[2][0]",
+        "reference": "\" \" {fg=196}",
+        "thrush": "\" \" {fg=196 link=1}"
+      }
+    ]
+  },
+  "stream 116": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;git\""
+      }
+    ]
+  },
+  "stream 118": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;3m ESC\\"
+      }
+    ]
+  },
+  "stream 125": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;7;38;2;10;20;30m ESC\\"
+      }
+    ]
+  },
+  "stream 133": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;2m ESC\\"
+      }
+    ]
+  },
+  "stream 150": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.history[0][0]",
+        "reference": "\"x\"",
+        "thrush": "\"x\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"x\"",
+        "thrush": "\"x\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[8][39]",
+        "reference": "\"±\" {bg=2 link=1}",
+        "thrush": "\"±\" {bg=2 link=2}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[9][0]",
+        "reference": "\" \" {bg=2 link=1}",
+        "thrush": "\" \" {bg=2 link=2}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";;ls\"",
+        "thrush": "\";;0.2.0\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[2]",
+        "reference": "none",
+        "thrush": "\";;ls\""
+      }
+    ]
+  },
+  "stream 154": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;…\""
+      }
+    ]
+  },
+  "stream 174": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"█\" {fg=11 bold underline=3 underlineColor=#ffffff inverse invisible}",
+        "thrush": "\"█\" {fg=11 bold underline=3 inverse invisible}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][3]",
+        "reference": "\"4\" {fg=11 bold underline=3 underlineColor=#ffffff inverse invisible}",
+        "thrush": "\"4\" {fg=11 bold underline=3 inverse invisible}"
+      }
+    ]
+  },
+  "stream 184": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7][1]",
+        "reference": "\"x\" {bg=22 underline underlineColor=#ffffff}",
+        "thrush": "\"x\" {bg=22 underline}"
+      }
+    ]
+  },
+  "stream 190": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;53;38;5;196m ESC\\"
+      }
+    ]
+  },
+  "stream 195": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][7]",
+        "reference": "\"x\" {fg=196 underline=2 underlineColor=#ffffff inverse invisible}",
+        "thrush": "\"x\" {fg=196 underline=2 inverse invisible}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[9][35]",
+        "reference": "\"0\" {fg=196 underline=2 underlineColor=#ffffff inverse invisible}",
+        "thrush": "\"0\" {fg=196 underline=2 inverse invisible}"
+      }
+    ]
+  },
+  "stream 196": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[4][26]",
+        "reference": "\"🙂\" width 2 {bg=#c86400 italic underline underlineColor=#ffffff}",
+        "thrush": "\"🙂\" width 2 {bg=#c86400 italic underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][26]",
+        "reference": "\"🙂\" width 2 {bg=#c86400 italic underline underlineColor=#ffffff}",
+        "thrush": "\"🙂\" width 2 {bg=#c86400 italic underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][39]",
+        "reference": "\"S\" {bg=#c86400 italic underline underlineColor=#ffffff}",
+        "thrush": "\"S\" {bg=#c86400 italic underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][0]",
+        "reference": "\"u\" {bg=#c86400 italic underline underlineColor=#ffffff}",
+        "thrush": "\"u\" {bg=#c86400 italic underline}"
+      }
+    ]
+  },
+  "stream 211": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][4]",
+        "reference": "\"e\" {underline=3 underlineColor=#ffffff overline}",
+        "thrush": "\"e\" {underline=3 overline}"
+      }
+    ]
+  },
+  "stream 212": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;5;9;48;5;22m ESC\\"
+      }
+    ]
+  },
+  "stream 213": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "replies",
+        "reference": "ESC[?1;2c ESCP1$r0m ESC\\",
+        "thrush": "ESC[?1;2c ESCP1$r0;4:2m ESC\\"
+      }
+    ]
+  },
   "stream 216": {
     "reason": "An ED 1 at the bottom right margin makes the reference throw before it erases the rows above, as in ED 1 · at the bottom right corner. Thrush completes the erase and keeps processing output normally.",
     "differences": [
@@ -595,7 +984,7 @@
         "checkpoint": "end",
         "path": "active.visible[1][0]",
         "reference": "\"→\"",
-        "thrush": "\"h\""
+        "thrush": "\"h\" {link=1}"
       },
       {
         "checkpoint": "end",
@@ -632,6 +1021,29 @@
         "path": "active.visible[4][0]",
         "reference": "\"x\"",
         "thrush": "blank"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;café\""
+      }
+    ]
+  },
+  "stream 226": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;→\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;→\""
       }
     ]
   },
@@ -688,6 +1100,17 @@
       }
     ]
   },
+  "stream 239": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;7m ESC\\"
+      }
+    ]
+  },
   "stream 244": {
     "reason": "The stream asks DECRQSS for the rendition after setting a color. The reference always reports the default rendition, and Thrush reports the one the program set.",
     "differences": [
@@ -707,6 +1130,29 @@
         "path": "replies",
         "reference": "ESCP1$r0m ESC\\",
         "thrush": "ESCP1$r0;38;5;196m ESC\\"
+      }
+    ]
+  },
+  "stream 25": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][12]",
+        "reference": "\"x\" {fg=1 bg=2 dim underline=2 underlineColor=#ffffff}",
+        "thrush": "\"x\" {fg=1 bg=2 dim underline=2}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][0]",
+        "reference": "\"x\" {fg=1 bg=2 dim underline=2 underlineColor=#ffffff}",
+        "thrush": "\"x\" {fg=1 bg=2 dim underline=2}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][0]",
+        "reference": "\"x\" {fg=1 bg=#c86400 dim underline=2 underlineColor=#ffffff}",
+        "thrush": "\"x\" {fg=1 bg=#c86400 dim underline=2}"
       }
     ]
   },
@@ -747,7 +1193,391 @@
         "checkpoint": "end",
         "path": "active.visible[1][0]",
         "reference": "blank",
-        "thrush": "\"R\" {bg=12 inverse}"
+        "thrush": "\"R\" {bg=12 inverse link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;→\""
+      }
+    ]
+  },
+  "stream 262": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][6]",
+        "reference": "\"│\" {fg=196 dim underline=2 underlineColor=#ffffff overline}",
+        "thrush": "\"│\" {fg=196 dim underline=2 overline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"＿\" width 2 {fg=196 dim underline=2 underlineColor=#ffffff overline}",
+        "thrush": "\"＿\" width 2 {fg=196 dim underline=2 overline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][0]",
+        "reference": "\"x\" {fg=196 dim underline=2 underlineColor=#ffffff overline}",
+        "thrush": "\"x\" {fg=196 dim underline=2 overline}"
+      }
+    ]
+  },
+  "stream 263": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][0]",
+        "reference": "\"＿\" width 2",
+        "thrush": "\"＿\" width 2 {link=1}"
+      }
+    ]
+  },
+  "stream 274": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][9]",
+        "reference": "\"翼\" width 2",
+        "thrush": "\"翼\" width 2 {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;café\""
+      }
+    ]
+  },
+  "stream 298": {
+    "reason": "The stream restores the cursor while a link is open, so the reference drops the link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[0][0]",
+        "reference": "\"界\" width 2",
+        "thrush": "\"界\" width 2 {link=1}"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;±\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][0]",
+        "reference": "\"m\"",
+        "thrush": "\"m\" {link=1}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "none",
+        "thrush": "\";;±\""
+      }
+    ]
+  },
+  "stream 309": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][7]",
+        "reference": "\"g\" {bg=2 dim underline=3 underlineColor=#ffffff inverse strikethrough}",
+        "thrush": "\"g\" {bg=2 dim underline=3 inverse strikethrough}"
+      }
+    ]
+  },
+  "stream 314": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[3][1]",
+        "reference": "\"…\" {fg=1 bg=#c86400 underline=2 underlineColor=#ffffff}",
+        "thrush": "\"…\" {fg=1 bg=#c86400 underline=2}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][4]",
+        "reference": "\"m\" {fg=1 bg=#c86400 underline=2 underlineColor=#ffffff}",
+        "thrush": "\"m\" {fg=1 bg=#c86400 underline=2}"
+      }
+    ]
+  },
+  "stream 360": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;Sources\""
+      }
+    ]
+  },
+  "stream 363": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;error:\""
+      },
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;error:\""
+      }
+    ]
+  },
+  "stream 377": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[2][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[3][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][0]",
+        "reference": "\"e\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"e\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[0][7]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[1][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[2][0]",
+        "reference": "\"s\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"s\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[3][0]",
+        "reference": "\"x\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"x\" {underline=3 strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[4][1]",
+        "reference": "\"│\" {underline=3 underlineColor=#ffffff strikethrough}",
+        "thrush": "\"│\" {underline=3 strikethrough}"
+      }
+    ]
+  },
+  "stream 381": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][5]",
+        "reference": "\"✓\" {fg=#0a141e underline=3 underlineColor=#ffffff blink strikethrough}",
+        "thrush": "\"✓\" {fg=#0a141e underline=3 blink strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][0]",
+        "reference": "\"日\" width 2 {fg=#0a141e italic underline underlineColor=#ffffff blink strikethrough}",
+        "thrush": "\"日\" width 2 {fg=#0a141e italic underline blink strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[2][7]",
+        "reference": "\"x\" {fg=#0a141e underline=3 underlineColor=#ffffff blink strikethrough}",
+        "thrush": "\"x\" {fg=#0a141e underline=3 blink strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[3][0]",
+        "reference": "\"x\" {fg=#0a141e underline=3 underlineColor=#ffffff blink strikethrough}",
+        "thrush": "\"x\" {fg=#0a141e underline=3 blink strikethrough}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "normal.visible[4][0]",
+        "reference": "\"x\" {fg=#0a141e underline=3 underlineColor=#ffffff blink strikethrough}",
+        "thrush": "\"x\" {fg=#0a141e underline=3 blink strikethrough}"
+      }
+    ]
+  },
+  "stream 383": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][25]",
+        "reference": "\"t\" {underline=2 underlineColor=#ffffff inverse}",
+        "thrush": "\"t\" {underline=2 inverse}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][39]",
+        "reference": "\"e\" {underline=2 underlineColor=#ffffff inverse}",
+        "thrush": "\"e\" {underline=2 inverse}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][0]",
+        "reference": "\"r\" {underline=2 underlineColor=#ffffff inverse}",
+        "thrush": "\"r\" {underline=2 inverse}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[9][14]",
+        "reference": "\"界\" width 2 {underline=2 underlineColor=#ffffff inverse}",
+        "thrush": "\"界\" width 2 {underline=2 inverse}"
+      }
+    ]
+  },
+  "stream 388": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;├──\""
+      }
+    ]
+  },
+  "stream 389": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][8]",
+        "reference": "\"├\" {fg=#0a141e bg=12 underline=3 underlineColor=#ffffff}",
+        "thrush": "\"├\" {fg=#0a141e bg=12 underline=3}"
+      }
+    ]
+  },
+  "stream 396": {
+    "reason": "The stream sets an underline color, then restores a cursor saved without one. The reference keeps the underline color, as in DECRC · after an underline style and color, and Thrush restores the saved rendition.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[1][13]",
+        "reference": "\"x\" {underline underlineColor=9}",
+        "thrush": "\"x\" {underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[2][0]",
+        "reference": "\"x\" {underline underlineColor=9}",
+        "thrush": "\"x\" {underline}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[3][0]",
+        "reference": "\"g\" {underline underlineColor=9}",
+        "thrush": "\"g\" {underline}"
+      }
+    ]
+  },
+  "stream 45": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "active.visible[0][7]",
+        "reference": "\"±\" {underline=3 underlineColor=#ffffff blink}",
+        "thrush": "\"±\" {underline=3 blink}"
+      }
+    ]
+  },
+  "stream 72": {
+    "reason": "SGR 59 resets the underline color, which the reference turns white, as in SGR 4;58;2;7;8;9;59. Thrush draws the underline in the text's own color again.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "active.visible[0][0]",
+        "reference": "\"中\" width 2 {underline underlineColor=#ffffff blink}",
+        "thrush": "\"中\" width 2 {underline blink}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[4][7]",
+        "reference": "\"x\" {fg=#0a141e bg=2 underline underlineColor=#ffffff blink}",
+        "thrush": "\"x\" {fg=#0a141e bg=2 underline blink}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[5][0]",
+        "reference": "\"x\" {fg=#0a141e bg=2 underline underlineColor=#ffffff blink}",
+        "thrush": "\"x\" {fg=#0a141e bg=2 underline blink}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[6][0]",
+        "reference": "\"x\" {fg=#0a141e bg=2 underline underlineColor=#ffffff blink}",
+        "thrush": "\"x\" {fg=#0a141e bg=2 underline blink}"
+      },
+      {
+        "checkpoint": "end",
+        "path": "active.visible[7][8]",
+        "reference": "\"r\" {fg=#0a141e bg=2 underline underlineColor=#ffffff blink}",
+        "thrush": "\"r\" {fg=#0a141e bg=2 underline blink}"
+      }
+    ]
+  },
+  "stream 80": {
+    "reason": "The stream asks DECRQSS for the rendition after setting one. The reference always reports the default rendition, and Thrush reports the one the program set.",
+    "differences": [
+      {
+        "checkpoint": "middle",
+        "path": "replies",
+        "reference": "ESCP1$r0m ESC\\",
+        "thrush": "ESCP1$r0;38;5;196m ESC\\"
+      }
+    ]
+  },
+  "stream 94": {
+    "reason": "The stream erases or deletes the row a link opened on while the link is still open, so the reference forgets its target, as in OSC 8 · then ED 2. Thrush keeps the target while the pen or any cell uses it.",
+    "differences": [
+      {
+        "checkpoint": "end",
+        "path": "links[1]",
+        "reference": "\";\"",
+        "thrush": "\";;README.md\""
       }
     ]
   }

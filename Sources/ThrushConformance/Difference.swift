@@ -31,6 +31,11 @@ extension Checkpoint {
             result += Self.differences(in: "normal", expected, normal ?? Screen(history: [], visible: []),
                                        checkpoint: reference.name)
         }
+        let expectedLinks = reference.links ?? [], actualLinks = links ?? []
+        for index in 0..<max(expectedLinks.count, actualLinks.count) {
+            func target(_ links: [String]) -> String { index < links.count ? links[index].debugDescription : "none" }
+            compare("links[\(index + 1)]", target(expectedLinks), target(actualLinks))
+        }
         return result
     }
 

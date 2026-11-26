@@ -82,6 +82,8 @@ extension Terminal {
         package let cursorShape: CursorShape
         package let isAlternate: Bool
         package let generation: UInt64
+        // Number `n` is `links[n - 1]`.
+        let links: [Link?]
         /// A presenter can coalesce these snapshots and release the most recent one on reset or timeout.
         package var synchronizedOutputID: UInt64? { modes.synchronizedOutputID }
 
@@ -90,6 +92,11 @@ extension Terminal {
             index < history.count ? history[index] : rows[index - history.count]
         }
         package var mouseTracking: MouseTracking { modes.mouseTracking }
+
+        /// The link a cell's text belongs to.
+        package func link(for style: Style) -> Link? {
+            style.link == 0 || style.link > links.count ? nil : links[Int(style.link) - 1]
+        }
 
         /// Show retained rows in the same immutable generation; the live case shares its row array.
         package func viewport(rowsFromBottom offset: Int) -> Self {
@@ -281,6 +288,9 @@ extension Terminal {
         private(set) var normalWhileAlternate: Buffer?
         // The reference keeps one alternate buffer, so its saved cursor outlasts each visit.
         private(set) var alternateSaved = SavedCursor()
+        // Both buffers and every shell in history share one table, so a style's link means the same
+        // wherever its row goes.
+        private(set) var links = Links()
         // The reference retains its empty alternate buffer’s row capacity across an inactive shrink.
         private var alternateCapacity: Int
         private var revision: UInt64 = 0
@@ -311,6 +321,7 @@ extension Terminal {
                 earlier = earlier.retainingPreviousShells()
             }
             var next = Self(size: size, generation: revision &+ 1)
+            next.links = links
             next.active.prependPreviousShells(earlier, fromColumns: normal.size.columns, revision: &next.revision)
             return next
         }
@@ -321,7 +332,25 @@ extension Terminal {
                      normalHistoryCount: normalWhileAlternate?.history.count ?? active.history.count,
                      cursorRow: row, cursorColumn: column, cursorVisible: modes.cursorVisible,
                      cursorBlink: modes.cursorBlinkOverride ?? modes.cursorBlink, cursorShape: modes.cursorShape,
-                     isAlternate: isAlternate, generation: generation)
+                     isAlternate: isAlternate, generation: generation, links: links.entries)
+        }
+
+        /// Returns the number that styles store for `link`, or zero when the table has no room for it.
+        /// From time to time the table first frees the numbers that no row or `pen` holds.
+        mutating func number(for link: Link, pen: Style) -> UInt32 {
+            if links.needsSweep(before: link) { links.sweep(keeping: linksInUse(pen: pen)) }
+            return links.number(for: link)
+        }
+
+        private func linksInUse(pen: Style) -> Links.NumberSet {
+            var used = Links.NumberSet(through: links.entries.count)
+            used.insert(pen.link)
+            for buffer in [active, normalWhileAlternate] {
+                guard let buffer else { continue }
+                for row in buffer.history { row.insertLinks(into: &used) }
+                for row in buffer.rows { row.insertLinks(into: &used) }
+            }
+            return used
         }
 
         func text(inRow row: Int) -> String {
@@ -350,7 +379,10 @@ extension Terminal {
         }
 
         /// The column may be just past the right margin, so a restore can bring back a pending wrap.
+        /// A restore keeps the open link, so the saved style leaves it out.
         mutating func saveCursor(style: Style, characterSet: CharacterSet) {
+            var style = style
+            style.link = 0
             active.saved = SavedCursor(row: active.history.currentShellCount + row, column: column, style: style, characterSet: characterSet)
         }
 
@@ -369,6 +401,7 @@ extension Terminal {
             normalWhileAlternate = nil
             alternateSaved = SavedCursor()
             alternateCapacity = size.rows
+            links = Links()
         }
 
         /// DECSTR returns a later restore to the top of the screen with the default style and ASCII.

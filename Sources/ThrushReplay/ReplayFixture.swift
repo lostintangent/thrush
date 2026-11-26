@@ -110,7 +110,7 @@ package struct ReplayFixture: Sendable {
             s.bold = flags & 1 != 0
             s.dim = flags & 2 != 0
             s.italic = flags & 4 != 0
-            s.underline = flags & 8 != 0
+            s.underline = flags & 8 != 0 ? .single : .none
             s.blink = flags & 16 != 0
             s.inverse = flags & 32 != 0
             s.invisible = flags & 64 != 0

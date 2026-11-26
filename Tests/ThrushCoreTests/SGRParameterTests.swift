@@ -65,11 +65,11 @@ import ThrushCore
     initial.foreground = .rgb(9, 8, 7)
     initial.background = .indexed(42)
     initial.bold = true
-    initial.underline = true
+    initial.underline = .single
     var changed = initial
     changed.italic = true
     changed.inverse = true
-    changed.underline = false // The zero in 4:0 is the 32nd colon field.
+    changed.underline = .none // The zero in 4:0 is the 32nd colon field.
     var unbold = changed
     unbold.bold = false // Operand 32 is 22. The following reset is past the limit.
     // CAN cancels the reset before B. The empty SGR before E resets all attributes.

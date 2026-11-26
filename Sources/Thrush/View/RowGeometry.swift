@@ -73,7 +73,7 @@ struct RowBuilder {
                    texture: glyph.texture)
         }
         let rule = max(1, Float(metrics.scale.rounded()))
-        if style.underline { fill(x: x, y: height - rule, width: width, height: rule, color: ink, effects: effects) }
+        if style.underline != .none { fill(x: x, y: height - rule, width: width, height: rule, color: ink, effects: effects) }
         if style.strikethrough { fill(x: x, y: (height * 0.52).rounded(), width: width, height: rule, color: ink, effects: effects) }
     }
 

@@ -127,37 +127,61 @@ function color(mode, value, kind) {
   return `${kind}=${value}`;
 }
 
-function style(cell) {
+// The reference's cell flags. A cell's extended attributes hold its underline style, underline color
+// and link, and are only its own while it has the extended flag.
+const UNDERLINE = 0x10000000, HAS_EXTENDED = 0x10000000, COLOR_MODE = 0x3000000, COLOR = 0xffffff;
+
+function style(cell, links) {
   const parts = [color(cell.getFgColorMode(), cell.getFgColor(), 'fg'), color(cell.getBgColorMode(), cell.getBgColor(), 'bg')];
   if (cell.isBold()) parts.push('bold');
   if (cell.isDim()) parts.push('dim');
   if (cell.isItalic()) parts.push('italic');
-  if (cell.isUnderline()) {
-    const kind = cell.getUnderlineStyle();
-    parts.push(kind > 1 ? `underline=${kind}` : 'underline');
-    if (!cell.isUnderlineColorDefault()) parts.push(color(cell.getUnderlineColorMode(), cell.getUnderlineColor(), 'underlineColor'));
+  // The style getters report a link as a dashed underline, so read the underline the program chose.
+  const extended = cell.bg & HAS_EXTENDED ? cell.extended : undefined;
+  const underline = cell.fg & UNDERLINE ? (extended ? extended._ext >> 26 & 7 : 1) : 0;
+  if (underline) {
+    parts.push(underline > 1 ? `underline=${underline}` : 'underline');
+    // Like the color getters, a palette color is only the low byte.
+    const underlineColor = extended?.underlineColor ?? 0, mode = underlineColor & COLOR_MODE;
+    parts.push(color(mode, underlineColor & (mode === COLOR_MODE ? COLOR : 0xff), 'underlineColor'));
   }
   if (cell.isBlink()) parts.push('blink');
   if (cell.isInverse()) parts.push('inverse');
   if (cell.isInvisible()) parts.push('invisible');
   if (cell.isStrikethrough()) parts.push('strikethrough');
   if (cell.isOverline()) parts.push('overline');
+  if (extended?.urlId) parts.push(`link=${links.number(extended.urlId)}`);
   return parts.filter(Boolean).join(' ');
 }
 
-function line(bufferLine, columns, scratch) {
+/** Numbers links in the order they first appear, with each one's target as `id;uri`. */
+class Links {
+  targets = [];
+  #numbers = new Map();
+  constructor(core) { this.core = core; }
+  number(urlId) {
+    if (!this.#numbers.has(urlId)) {
+      const link = this.core._oscLinkService.getLinkData(urlId);
+      this.targets.push(`${link?.id ?? ''};${link?.uri ?? ''}`);
+      this.#numbers.set(urlId, this.targets.length);
+    }
+    return this.#numbers.get(urlId);
+  }
+}
+
+function line(bufferLine, columns, scratch, links) {
   const cells = [];
   for (let column = 0; column < columns; column++) {
     const cell = bufferLine.getCell(column, scratch);
-    cells.push([cell.getChars(), cell.getWidth(), style(cell)]);
+    cells.push([cell.getChars(), cell.getWidth(), style(cell, links)]);
   }
   while (cells.length && emptyLine.isBlank(cells.at(-1))) cells.pop();
   return { wrapped: bufferLine.isWrapped, cells };
 }
 
-function screen(t, buffer, withHistory) {
+function screen(t, buffer, withHistory, links) {
   const scratch = buffer.getNullCell();
-  const lines = (start, count) => Array.from({ length: count }, (_, row) => line(buffer.getLine(start + row), t.cols, scratch));
+  const lines = (start, count) => Array.from({ length: count }, (_, row) => line(buffer.getLine(start + row), t.cols, scratch, links));
   return { ...(withHistory && { history: lines(0, buffer.baseY) }), visible: lines(buffer.baseY, t.rows) };
 }
 
@@ -167,6 +191,9 @@ export function state(t, name, scope, replies) {
   const buffer = t.buffer.active;
   const alternate = buffer.type === 'alternate';
   const full = scope !== 'visible';
+  const links = new Links(core);
+  const active = screen(t, buffer, full, links);
+  const normal = alternate && full ? screen(t, t.buffer.normal, true, links) : undefined;
   return {
     name,
     size: [t.cols, t.rows],
@@ -184,7 +211,8 @@ export function state(t, name, scope, replies) {
     },
     title: core._inputHandler._windowTitle,
     replies,
-    active: screen(t, buffer, full),
-    ...(alternate && full && { normal: screen(t, t.buffer.normal, true) }),
+    active,
+    ...(normal && { normal }),
+    ...(links.targets.length && { links: links.targets }),
   };
 }

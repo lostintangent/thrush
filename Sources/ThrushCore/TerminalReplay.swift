@@ -2,7 +2,7 @@
 // starts with a blank terminal of the same size. This path runs only when a reader resumes.
 extension Terminal {
     package func replayBytes() -> [UInt8] {
-        var writer = ReplayWriter()
+        var writer = ReplayWriter(links: screen.links)
         writer.output += "\u{1b}]2;" + title + "\u{1b}\\"
         if !programColors.isEmpty {
             var reports: [UInt8] = []
@@ -49,6 +49,7 @@ extension Terminal {
     }
 
     private struct ReplayWriter {
+        let links: Links
         var output = ""
         private var currentStyle = Style()
         private var originTop = 0
@@ -57,13 +58,15 @@ extension Terminal {
 
         mutating func restoreSaved(_ saved: SavedCursor) {
             output += escape + "8"
+            let link = currentStyle.link
             currentStyle = saved.style
+            currentStyle.link = link
         }
 
         mutating func saveInactiveAlternate(_ saved: SavedCursor, size: Size) {
             guard saved.row != 0 || saved.column != 0 || saved.style != .init() || saved.characterSet != .ascii else { return }
             output += csi + "?47h" + csi + "\(min(saved.row, size.rows - 1) + 1);\(min(saved.column, size.columns - 1) + 1)H"
-            setStyle(saved.style)
+            setRendition(saved.style)
             designate(saved.characterSet, slot: 0)
             output += escape + "7" + csi + "?47l"
             designate(.ascii, slot: 0)
@@ -90,7 +93,7 @@ extension Terminal {
                     if row.isWrapped {
                         beginWrappedLine(after: previous, columns: buffer.size.columns)
                     } else {
-                        setStyle(.init())
+                        setRendition(.init())
                         output += "\r\n"
                     }
                 }
@@ -98,7 +101,7 @@ extension Terminal {
                 // A saved cursor can have scrolled into history. Save it while its row is visible.
                 if index == min(buffer.saved.row, count + rows.count - 1) {
                     let saved = buffer.saved
-                    setStyle(saved.style)
+                    setRendition(saved.style)
                     output += csi + "\(min(saved.column, buffer.size.columns - 1) + 1)G"
                     designate(saved.characterSet, slot: 0)
                     output += escape + "7"
@@ -160,10 +163,10 @@ extension Terminal {
                 setStyle(cell.style)
                 if cell.width == 0 { output += csi + "999m" }
                 output += cell.text
-                setStyle(.init())
+                setRendition(.init())
                 output += "x"
             }
-            setStyle(.init())
+            setRendition(.init())
             output += "\r" + csi + "2X"
         }
 
@@ -191,6 +194,19 @@ extension Terminal {
         }
 
         mutating func setStyle(_ style: Style) {
+            guard currentStyle != style else { return }
+            setRendition(style)
+            guard currentStyle.link != style.link else { return }
+            currentStyle.link = style.link
+            let link = links[style.link]
+            output += escape + "]8;" + (link?.id.map { "id=" + $0 } ?? "") + ";" + (link?.uri ?? "") + escape + "\\"
+        }
+
+        /// Changes the rendition and keeps the open link. A receiver gives a link without an id a new
+        /// number each time it opens, so a link that wraps or passes the saved cursor stays one link.
+        private mutating func setRendition(_ style: Style) {
+            var style = style
+            style.link = currentStyle.link
             guard currentStyle != style else { return }
             currentStyle = style
             output += csi + style.renditionParameters + "m"

@@ -181,7 +181,7 @@ const renditions = [
   '38;3;1;2;3', '38;4;1;2;3;4', '38;9', '48;5;2', '48;2;10;20;30', '38;5;1;1', '38;2;1;2;3;4',
   '38:5:1', '38:2::1:2:3', '38:2:0:1:2:3', '38:2:1:2:3', '48:5:200', '48:2::40:50:60', '38:5:1;1',
   '58;5;3', '58;2;7;8;9', '58:5:3', '58:2::7:8:9', '4;58;5;3', '4;58;2;7;8;9;59', '4:3;58:2::7:8:9',
-  '4;58;5;3;24;4', '1:2',
+  '4;58;5;3;24;4', '58;5;3;4', '4;58;5;3;0;4', '4:3;58;2;1;2;3;24;4', '1:2',
 ];
 for (const parameters of renditions) {
   probe(`SGR ${parameters || '(empty)'}`.replace(/^SGR (\d+)$/, 'SGR $1'), '', `${positions.middle}${CSI}31;44m`, `${CSI}${parameters}m`, '*x');
@@ -506,6 +506,42 @@ for (const [subject, sequence] of Object.entries(strings)) {
   const family = name === 'OSC' && /^\d+$/.test(rest[0]) ? `OSC ${rest.shift()}` : name;
   probe(family, rest.join(' ') || '', positions.middle, sequence, 'after');
 }
+
+// Links. Each one opens on a target, and the marker shows whether the pen still carries it.
+const link = (target = 'https://a.example', parameters = '') => `${OSC}8;${parameters};${target}${BEL}`;
+const unlink = `${OSC}8;;${BEL}`;
+const links = {
+  'without a parameter separator': `${OSC}8;https://a.example${BEL}ab`,
+  'with parameters and no target': `${link(undefined, 'id=a')}ab${OSC}8;id=a;${BEL}cd`,
+  'with a repeated id': `${link(undefined, 'id=a')}ab${unlink} ${link(undefined, 'id=a')}cd`,
+  'with a repeated target and no id': `${link()}ab${unlink} ${link()}cd`,
+  'with the same id and another target': `${link(undefined, 'id=a')}ab${link('https://b.example', 'id=a')}cd`,
+  'with an empty id': `${link(undefined, 'id=')}ab${unlink} ${link(undefined, 'id=')}cd`,
+  'with other parameters': `${link(undefined, 'x=1:id=b:y')}ab`,
+  'with spaced parameters': `${link(undefined, ' id=a ')}ab${unlink}${link(undefined, 'id=a')}cd`,
+  'with a long target': `${link(`https://a.example/${'a'.repeat(2065)}`)}ab`,
+  'reopened without closing': `${link()}ab${link('https://b.example')}cd`,
+  'with UTF-8 in the target': `${link('https://a.example/日本')}ab`,
+  'across a wrap': `${CSI}2;18H${link()}wrapped`,
+  'with wide text': `${link()}界界`,
+  'then SGR 0': `${link()}${CSI}1;4mab${CSI}0m`,
+  'then EL': `${link()}ab${CSI}K`,
+  'then ICH and IL': `${link()}ab${CSI}2@${CSI}L`,
+  'then ECH': `${link()}${CSI}3X`,
+  'then scrolled into history': `${link()}ab${'\n'.repeat(9)}`,
+  'then DECSC and DECRC': `${link()}${ESC}7${unlink}${ESC}8`,
+  'then DECRC': `${ESC}7${link()}${ESC}8`,
+  'then ED 2': `${link()}ab${CSI}2J`,
+  'then DL': `${link()}ab${CSI}M`,
+  'then DECALN': `${link()}${ESC}#8`,
+  'then DECSTR': `${link()}${CSI}!p`,
+  'then RIS': `${link()}${ESC}c`,
+  'into the alternate screen': `${link()}${CSI}?1049h`,
+  'out of the alternate screen': `${CSI}?1049h${link()}ab${CSI}?1049l`,
+};
+for (const [variant, sequence] of Object.entries(links)) probe('OSC 8', variant, positions.middle, sequence, '*x');
+probe('DECRC', 'after an underline style and color', positions.middle, `${CSI}4m${ESC}7${CSI}4:3;58;5;3m${ESC}8`, '*x');
+probe('DECALN', 'with an underline', positions.middle, `${CSI}4:3;58;5;3;53m${ESC}#8`);
 
 // Resizing. Each resize records a checkpoint so reflow is compared step by step, and a string
 // between sizes is written there.

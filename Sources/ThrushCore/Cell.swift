@@ -26,14 +26,24 @@ extension Terminal {
         }
     }
 
-    /// A style packs both colors and the rendition flags into one integer, so the default style
-    /// is zero and comparing two styles is a single compare.
+    /// How text is underlined. SGR 4 with a colon subparameter selects each one.
+    package enum Underline: UInt8, Sendable {
+        case none, single, double, curly, dotted, dashed
+    }
+
+    /// A style packs both colors and the rendition flags into one integer, and the underline color and
+    /// link into a second, so the default style is zero and comparing two styles is a pair of compares.
     package struct Style: Equatable, Sendable {
-        // The foreground in the low 26 bits, the background in the next 26 and the flags above them.
+        // The foreground in the low 26 bits, the background in the next 26, eight flags above them
+        // and then the underline in three bits.
         private var bits: UInt64 = 0
+        // The underline color in the low 26 bits and the link's number in the high 32.
+        private var decoration: UInt64 = 0
         private static let color: UInt64 = 1 << 26 - 1
         private static let background = 26
         private static let flags = 52
+        private static let underline = 60
+        private static let link = 32
 
         package init() {}
 
@@ -55,18 +65,48 @@ extension Terminal {
         package var bold: Bool { get { self[1] } set { self[1] = newValue } }
         package var dim: Bool { get { self[2] } set { self[2] = newValue } }
         package var italic: Bool { get { self[4] } set { self[4] = newValue } }
-        package var underline: Bool { get { self[8] } set { self[8] = newValue } }
-        package var blink: Bool { get { self[16] } set { self[16] = newValue } }
-        package var inverse: Bool { get { self[32] } set { self[32] = newValue } }
-        package var invisible: Bool { get { self[64] } set { self[64] = newValue } }
-        package var strikethrough: Bool { get { self[128] } set { self[128] = newValue } }
+        package var blink: Bool { get { self[8] } set { self[8] = newValue } }
+        package var inverse: Bool { get { self[16] } set { self[16] = newValue } }
+        package var invisible: Bool { get { self[32] } set { self[32] = newValue } }
+        package var strikethrough: Bool { get { self[64] } set { self[64] = newValue } }
+        package var overline: Bool { get { self[128] } set { self[128] = newValue } }
 
-        var isDefault: Bool { bits == 0 }
+        package var underline: Underline {
+            get { Underline(rawValue: UInt8(truncatingIfNeeded: bits >> Self.underline & 7)) ?? .none }
+            set { bits = bits & ~(7 << Self.underline) | UInt64(newValue.rawValue) << Self.underline }
+        }
 
-        /// Erased cells use the current background color with default rendition.
+        /// The default draws the underline in the text's own color.
+        package var underlineColor: Color {
+            get { Color(bits: UInt32(truncatingIfNeeded: decoration & Self.color)) }
+            set { decoration = decoration & ~Self.color | UInt64(newValue.bits) }
+        }
+
+        /// The number of the text's link in the screen's link table, or zero without one.
+        package var link: UInt32 {
+            get { UInt32(truncatingIfNeeded: decoration >> Self.link) }
+            set { decoration = decoration & Self.color | UInt64(newValue) << Self.link }
+        }
+
+        var isDefault: Bool { bits | decoration == 0 }
+
+        /// SGR 0 returns every rendition to its default. The link is not a rendition, so it stays.
+        mutating func resetRenditions() {
+            bits = 0
+            decoration &= ~Self.color
+        }
+
+        /// Erased cells use the current background color with default rendition and no link.
         var eraseStyle: Self {
             var result = Self()
             result.bits = bits & Self.color << Self.background
+            return result
+        }
+
+        /// DECALN's test pattern keeps the colors and flags, but is neither underlined nor a link.
+        var alignmentStyle: Self {
+            var result = Self()
+            result.bits = bits & ~(7 << Self.underline)
             return result
         }
     }
@@ -147,8 +187,13 @@ extension Terminal {
         }
 
         // Default blanks stay implied. A blank row in any other style stores every column.
+        @inline(__always)
         private mutating func fill(with style: Style) {
-            guard style != Style() else { return }
+            if !style.isDefault { fillColumns(with: style) }
+        }
+
+        @inline(never)
+        private mutating func fillColumns(with style: Style) {
             styles.append(style)
             prepareToWrite(0..<columns)
             set(0..<columns, to: StoredCell(stylePosition: 1))
@@ -156,6 +201,11 @@ extension Terminal {
 
         func stored(at column: Int) -> StoredCell {
             column < length ? cells[column] : StoredCell()
+        }
+
+        /// Adds the links of the styles this row holds, including any no cell uses anymore.
+        func insertLinks(into links: inout Links.NumberSet) {
+            for style in styles where style.link != 0 { links.insert(style.link) }
         }
 
         func style(of cell: StoredCell) -> Style {

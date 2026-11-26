@@ -169,6 +169,8 @@ enum TerminalControlFunction {
         case setWindowTitle = 2
         /// OSC 4 sets or queries indexed colors.
         case indexedColor = 4
+        /// OSC 8 makes the text after it a link, or ends the link with an empty URI.
+        case hyperlink = 8
         /// OSC 10 sets or queries the default foreground, then the colors after it.
         case foregroundColor = 10
         /// OSC 11 sets or queries the default background, then the cursor color.

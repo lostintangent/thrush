@@ -7,8 +7,9 @@ programs/<name>.capture.json, and harness.mjs replays them through the reference
 
     python3 Fixtures/reference/conformance/capture-programs.py [--only NAME ...]
 
-Process monitors only list the recorder's own processes, and git uses a fixed identity and clock,
-so nothing about the recording machine beyond its load and memory ends up in a capture.
+Process monitors only list the recorder's own processes, git uses a fixed identity and clock, and rg
+links to a fixed host and folder, so nothing about the recording machine beyond its load and memory
+ends up in a capture.
 """
 import argparse
 import base64
@@ -59,6 +60,38 @@ LAZYGIT = """update:
 disableStartupPopups: true
 gui:
   showRandomTip: false
+"""
+# rg links each file to its real path on its host, so the decorations project sits at a fixed path
+# and rg asks a script for the host.
+PROJECT = Path("/tmp/thrush-decorations")
+RIPGREPRC = """--hyperlink-format=default
+--hostname-bin={home}/.ripgrep-host
+"""
+# Vim leaves underline styles and colors off for xterm-256color, so configurations turn them on.
+SPELL = r"""set spell spelllang=en_us
+let &t_Cs = "\e[4:3m"
+let &t_Ce = "\e[4:0m"
+let &t_Us = "\e[4:2m"
+let &t_ds = "\e[4:4m"
+let &t_Ds = "\e[4:5m"
+let &t_AU = "\e[58:5:%dm"
+hi SpellBad cterm=undercurl ctermul=196
+hi SpellCap cterm=underdouble ctermul=33
+hi SpellRare cterm=underdotted ctermul=129
+hi SpellLocal cterm=underdashed ctermul=34
+"""
+TRUE_COLOR_SPELL = r"""let &t_8u = "\e[58:2::%lu:%lu:%lum"
+set termguicolors
+hi SpellBad gui=undercurl guisp=#e5534b
+hi SpellCap gui=underdouble guisp=#539bf5
+hi SpellRare gui=underdotted guisp=#b083f0
+hi SpellLocal gui=underdashed guisp=#57ab5a
+"""
+SPELLING = """# Spelling
+
+A termnial draws a curly line under each mispelled word.
+it marks a sentence that starts in lowercase, and the colour of a word from another region.
+Wide text keeps its line: 界面 recieve ✓ 🙂 seperate.
 """
 
 
@@ -504,6 +537,21 @@ def python(session, home):
     session.type("Exit", "exit()\r")
 
 
+def decorations(session, home):
+    shell(session)
+    run(session, f"cd {PROJECT}")
+    run(session, "rg needle")
+    session.checkpoint("Linked matches")
+    run(session, "rg -i -m 2 terminal")
+    session.checkpoint("Linked files")
+    session.type("Open Vim with spell checking", "vim -S ~/spell.vim spelling.md\r", until=b"spelling.md")
+    session.checkpoint("Spelling in 256 colors")
+    session.type("True color", ":source ~/true-color-spell.vim\r")
+    session.checkpoint("Spelling in true color")
+    session.type("Quit", ":q\r", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
 def lazygit(session, home):
     session.read("Start", until=b"Commits", timeout=60)
     session.read("Settle", seconds=1)
@@ -534,6 +582,7 @@ SCENARIOS = {
     "multiplexers": (["/bin/zsh", "-i"], multiplexers, "tmux -V; screen --version"),
     "python": (["python3.14", "-q"], python, "python3.14 --version"),
     "lazygit": (["lazygit", "-p", "repo"], lazygit, "lazygit --version"),
+    "decorations": (["/bin/zsh", "-i"], decorations, "rg --version | head -1; vim --version | head -1"),
 }
 
 
@@ -556,12 +605,32 @@ def capture(name, destination):
             environ.update(PS1="thrush$ ", PROMPT="thrush$ ", RPS1="")
         if name == "bash":
             environ.update(PS1=r"\[\e[1;32m\]\W\[\e[0m\] ❯ ", INPUTRC="/dev/null", HISTFILE="/dev/null")
+        if name == "decorations":
+            ripgrep = shutil.which("rg")
+            if ripgrep is None:
+                raise FileNotFoundError("Recapturing decorations requires ripgrep's rg on the PATH")
+            commands = home / "bin"
+            commands.mkdir(exist_ok=True)
+            (commands / "rg").symlink_to(ripgrep)
+            (home / ".ripgrep-host").write_text("#!/bin/sh\necho thrush\n")
+            (home / ".ripgrep-host").chmod(0o755)
+            (home / ".ripgreprc").write_text(RIPGREPRC.format(home=home))
+            (home / "spell.vim").write_text(SPELL)
+            (home / "true-color-spell.vim").write_text(TRUE_COLOR_SPELL)
+            shutil.rmtree(PROJECT, ignore_errors=True)
+            PROJECT.mkdir()
+            for file in ("story.txt", "notes.md", "Screen.swift"):
+                shutil.copyfile(home / file, PROJECT / file)
+            (PROJECT / "spelling.md").write_text(SPELLING)
+            environ.update(RIPGREP_CONFIG_PATH=str(home / ".ripgreprc"))
         session = Session(home, argv, environ)
         try:
             scenario(session, home)
             session.read("Exit", timeout=5)
         finally:
             session.close()
+            if name == "decorations":
+                shutil.rmtree(PROJECT, ignore_errors=True)
             if name == "multiplexers":
                 subprocess.run(["tmux", "-L", "thrush", "kill-server"], env=environ, stderr=subprocess.DEVNULL)
                 subprocess.run(["screen", "-wipe"], env=environ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -1,8 +1,9 @@
 // The canonical terminal state both emulators report, and how it is stored.
 //
-// A checkpoint is { name, size, cursor, buffer, modes, title, replies, active, normal? }.
+// A checkpoint is { name, size, cursor, buffer, modes, title, replies, active, normal?, links? }.
 // A screen is { history?, visible } and a line is { wrapped, cells } where each cell is
 // [text, width, style]. Trailing blank cells are omitted. Replies are bytes in a latin1 string.
+// A style's `link=n` names the nth entry of links, each an `id;uri` numbered by first appearance.
 // Sources/ThrushConformance/Checkpoint.swift decodes the same shape and owns comparison.
 
 export const emptyLine = { isBlank: cell => cell[0] === '' && cell[1] === 1 && cell[2] === '' };

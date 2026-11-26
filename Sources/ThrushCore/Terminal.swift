@@ -299,7 +299,7 @@ public struct Terminal: Sendable {
         case .escape(.reverseIndex): screen.reverseIndex(style: style)
         case .escape(.screenAlignmentPattern):
             // As DEC specifies, DECALN fills the whole screen and resets the margins before homing.
-            screen.fillWithAlignmentPattern(style: style)
+            screen.fillWithAlignmentPattern(style: style.alignmentStyle)
             screen.resetScrollRegion()
             position(row: 0, column: 0)
         case .escape(.fullReset): fullReset()
@@ -425,6 +425,12 @@ public struct Terminal: Sendable {
             guard let string = stringHandler.finish(success: success) else { return }
             switch string.command {
             case .osc(.setIconAndWindowTitle), .osc(.setWindowTitle): title = string.payload
+            case .osc(.hyperlink):
+                switch Link.command(string.payload) {
+                case .open(let link): style.link = screen.number(for: link, pen: style)
+                case .close: style.link = 0
+                case nil: break
+                }
             case .osc(let command):
                 if programColors.apply(command, payload: string.payload, palette: palette,
                                        cursor: cursorColor, replies: &replies) {
@@ -454,9 +460,12 @@ public struct Terminal: Sendable {
     /// reference does, since no workflow needs it.
     private mutating func saveCursor() { screen.saveCursor(style: style, characterSet: characterSets.active) }
 
+    /// The link stays open across a restore, as it does across SGR 0, since it isn't a rendition.
     private mutating func restoreCursor() {
         let saved = screen.restoreCursor()
+        let link = style.link
         style = saved.style
+        style.link = link
         characterSets.active = saved.characterSet
         if modes.origin { screen.moveIntoScrollRegion() }
     }
