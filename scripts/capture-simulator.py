@@ -268,9 +268,17 @@ class Phone:
 
     def pin_status_bar(self):
         # Pin the status bar so captures from separate runs and builds can match pixel for pixel.
-        sim("status_bar", self.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode", "active",
-            "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState", "charged",
-            "--batteryLevel", "100")
+        for attempt in (1, 2):
+            try:
+                sim("status_bar", self.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode",
+                    "active", "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState",
+                    "charged", "--batteryLevel", "100")
+                return
+            except subprocess.TimeoutExpired:
+                # A starved runner can stall the client while SpringBoard applies the override.
+                print(f"Status bar override timed out (attempt {attempt})", file=sys.stderr, flush=True)
+                if attempt == 2:
+                    raise
 
     def state(self):
         try:
