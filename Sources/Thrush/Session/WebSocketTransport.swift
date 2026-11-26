@@ -2,7 +2,7 @@ import Foundation
 import ThrushCore
 
 /// Manages a session's WebSocket attachments on its session actor.
-final class WebSocketTransport {
+final class WebSocketTransport: SessionActor.Transport {
     private typealias TransportError = SessionActor.TransportError
 
     private struct ServerControl: Decodable {
@@ -78,7 +78,7 @@ final class WebSocketTransport {
         }
     }
 
-    func attach(to session: isolated SessionActor, userInitiated: Bool) -> Bool {
+    func show(userInitiated: Bool, in session: isolated SessionActor) -> Bool {
         guard session.beginOpening(userInitiated: userInitiated) else { return false }
         pendingEvent = nil
         isReading = false
@@ -323,11 +323,14 @@ final class WebSocketTransport {
         try await writeControl(.close, to: current, in: session)
     }
 
-    func detach(from session: isolated SessionActor) {
+    /// Ends the attachment. The server keeps the shell for the next one.
+    func hide(in session: isolated SessionActor) {
         frameTrace?.record("detach", attachment: socketAttempts)
         guard session.state != .displaced, session.state != .ended, session.state != .closing else { return }
         park(as: socket?.closeCode.rawValue == 4000 ? .displaced : .idle, in: session)
     }
+
+    func release(in session: isolated SessionActor) async { hide(in: session) }
 
     private func discardHeldInput() {
         heldInput.removeAll()
@@ -389,7 +392,7 @@ final class WebSocketTransport {
     private func write(_ message: URLSessionWebSocketTask.Message, to current: URLSessionWebSocketTask,
                        in session: isolated SessionActor, tracedAs event: String? = nil) async throws {
         let next = session.orderWrite { session in
-            guard case .webSocket(let active) = session.transport, active.socket === current else { throw CancellationError() }
+            guard let active = session.webSocket, active.socket === current else { throw CancellationError() }
             if let event { active.frameTrace?.record(event, attachment: active.socketAttempts, message: message) }
             try await current.send(message)
         }
@@ -418,13 +421,10 @@ extension SessionActor {
     private init(socket: WebSocketTransport, size: Terminal.Size?, palette: Terminal.Palette,
                  observer: TerminalSession.MetadataObserver?) {
         let state = size.map { socket.open(at: $0) } ?? .idle
-        self.init(transport: .webSocket(socket), size: size, palette: palette, state: state, observer: observer)
+        self.init(transport: socket, size: size, palette: palette, state: state, observer: observer)
     }
 
-    private var webSocket: WebSocketTransport? {
-        if case .webSocket(let socket) = transport { return socket }
-        return nil
-    }
+    fileprivate var webSocket: WebSocketTransport? { transport as? WebSocketTransport }
 
     /// Includes failed opens and retries.
     package var socketAttempts: Int { webSocket?.socketAttempts ?? 0 }

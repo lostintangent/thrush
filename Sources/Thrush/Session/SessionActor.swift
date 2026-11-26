@@ -34,12 +34,22 @@ package actor SessionActor {
         case unexpectedMessage, concurrentRead, inactiveTransport, inputBufferFull
     }
 
-    enum Transport {
-        case webSocket(WebSocketTransport)
-        case app(AppTransport)
+    /// Carries the shell's output in and the session's writes out. Each transport runs on its
+    /// session's actor.
+    protocol Transport: AnyObject {
+        /// Returns true when it starts opening.
+        func show(userInitiated: Bool, in session: isolated SessionActor) -> Bool
+        func hide(in session: isolated SessionActor)
+        func nextEvent(in session: isolated SessionActor) async throws -> Event
+        func send(_ input: Terminal.Input, in session: isolated SessionActor) async throws
+        /// Applies the session's requested size once the shell can take it.
+        func resize(in session: isolated SessionActor) async throws
+        func close(in session: isolated SessionActor) async throws
+        /// The app released the session while a suspended reader may still hold its actor.
+        func release(in session: isolated SessionActor) async
     }
 
-    let transport: Transport
+    let transport: any Transport
     var terminal: Terminal
     var requestedSize: Terminal.Size
     var lifetime: UInt64 = 0
@@ -58,7 +68,7 @@ package actor SessionActor {
     private var reportedEnd = false
     private var metadataRevision: UInt64 = 0
 
-    init(transport: Transport, size: Terminal.Size?, palette: Terminal.Palette, state: State,
+    init(transport: any Transport, size: Terminal.Size?, palette: Terminal.Palette, state: State,
          observer: TerminalSession.MetadataObserver?) {
         self.transport = transport
         self.state = state
@@ -71,12 +81,7 @@ package actor SessionActor {
     /// Shows the session. Returns true when it starts opening a transport.
     /// Only a user action can reclaim a displaced shell. An ended session stays ended.
     @discardableResult
-    package func show(userInitiated: Bool = false) -> Bool {
-        switch transport {
-        case .webSocket(let socket): socket.attach(to: self, userInitiated: userInitiated)
-        case .app(let app): app.show(in: self)
-        }
-    }
+    package func show(userInitiated: Bool = false) -> Bool { transport.show(userInitiated: userInitiated, in: self) }
 
     func beginOpening(userInitiated: Bool = false) -> Bool {
         switch state {
@@ -91,51 +96,26 @@ package actor SessionActor {
     /// The view owns one event reader while visible.
     package func nextEvent() async throws -> Event {
         try Task.checkCancellation()
-        return switch transport {
-        case .webSocket(let socket): try await socket.nextEvent(in: self)
-        case .app(let app): try await app.nextEvent(in: self)
-        }
+        return try await transport.nextEvent(in: self)
     }
 
     /// Encodes input using the program's current modes.
     package func send(_ input: Terminal.Input, forShell revision: UInt64? = nil) async throws {
         if let revision, revision != shellRevision { return }
-        switch transport {
-        case .webSocket(let socket): try await socket.send(input, in: self)
-        case .app(let app): try await app.send(input, in: self)
-        }
+        try await transport.send(input, in: self)
     }
 
     /// Remembers the latest measured grid, including while the transport is opening.
     package func sendResize(to size: Terminal.Size) async throws {
         requestedSize = size
-        switch transport {
-        case .webSocket(let socket): try await socket.resize(in: self)
-        case .app(let app): try await app.resize(in: self)
-        }
+        try await transport.resize(in: self)
     }
 
-    package func hide() {
-        switch transport {
-        case .webSocket(let socket): socket.detach(from: self)
-        case .app(let app): app.hide(in: self)
-        }
-    }
+    package func hide() { transport.hide(in: self) }
 
-    package func closeShell() async throws {
-        switch transport {
-        case .webSocket(let socket): try await socket.close(in: self)
-        case .app(let app): await app.close(in: self)
-        }
-    }
+    package func closeShell() async throws { try await transport.close(in: self) }
 
-    func releaseSession() async {
-        switch transport {
-        // A suspended reader may still own this actor after the app releases its session.
-        case .webSocket(let socket): socket.detach(from: self)
-        case .app(let app): await app.close(in: self)
-        }
-    }
+    func releaseSession() async { await transport.release(in: self) }
 
     func recordReceipt(of bytes: Data) {
         lastReceiptTime = CACurrentMediaTime()

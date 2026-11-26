@@ -2,7 +2,7 @@ import Foundation
 import ThrushCore
 
 /// Drives the transport supplied by the app. Its view subscribes to screen changes while visible.
-final class AppTransport {
+final class AppTransport: SessionActor.Transport {
     typealias Open = @Sendable (Terminal.Size) async throws -> any TerminalTransport
 
     private let open: Open
@@ -23,7 +23,7 @@ final class AppTransport {
         var isReading = false
     }
 
-    func show(in session: isolated SessionActor) -> Bool {
+    func show(userInitiated _: Bool, in session: isolated SessionActor) -> Bool {
         if subscription == nil, session.state == .live || session.state == .connecting || session.state == .closing {
             subscription = Subscription()
             if session.state == .live {
@@ -158,6 +158,8 @@ final class AppTransport {
         }
     }
 
+    func release(in session: isolated SessionActor) async { await close(in: session) }
+
     func close(in session: isolated SessionActor) async {
         if session.state == .ended || session.state == .closing {
             await closing?.value
@@ -186,24 +188,24 @@ final class AppTransport {
 
 extension SessionActor {
     init(observer: TerminalSession.MetadataObserver, openTransport: @escaping AppTransport.Open) {
-        self.init(transport: .app(AppTransport(open: openTransport)), size: nil,
+        self.init(transport: AppTransport(open: openTransport), size: nil,
                   palette: .default, state: .idle, observer: observer)
     }
 
     // The reader borrows the session for each callback and releases it before its next read.
     fileprivate func acceptAppTransport(_ transport: any TerminalTransport, size: Terminal.Size, stamp: UInt64) async throws -> Bool {
-        guard lifetime == stamp, state == .connecting, case .app(let app) = self.transport else { return false }
+        guard lifetime == stamp, state == .connecting, let app = self.transport as? AppTransport else { return false }
         try await app.opened(transport, size: size, stamp: stamp, in: self)
         return true
     }
 
     fileprivate func receiveAppBytes(_ bytes: Data, stamp: UInt64) async throws {
-        guard lifetime == stamp, case .app(let app) = transport else { throw CancellationError() }
+        guard lifetime == stamp, let app = transport as? AppTransport else { throw CancellationError() }
         try await app.received(bytes, stamp: stamp, in: self)
     }
 
     fileprivate func appTransportEnded(stamp: UInt64) async {
-        guard lifetime == stamp, case .app(let app) = transport else { return }
+        guard lifetime == stamp, let app = transport as? AppTransport else { return }
         await app.close(in: self)
     }
 }
