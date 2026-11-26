@@ -349,6 +349,18 @@ private final class PointTap: UITapGestureRecognizer {
     let beside = view.cellRect(row: 0, column: 2)
     #expect(history.contextMenuInteraction(menus, configurationForMenuAtLocation: CGPoint(x: beside.midX, y: beside.midY)) == nil)
     let onDocs = view.cellRect(row: 1, column: 1)
-    #expect(history.contextMenuInteraction(menus, configurationForMenuAtLocation: CGPoint(x: onDocs.midX, y: onDocs.midY)) != nil)
+    let configuration = try #require(history.contextMenuInteraction(menus, configurationForMenuAtLocation: CGPoint(x: onDocs.midX, y: onDocs.midY)))
+
+    // The link lifts alone, so the preview's margin can't show part of a neighboring glyph, and it stays
+    // pressed until its menu closes.
+    let lifted = try #require(history.contextMenuInteraction(menus, configuration: configuration,
+                                                             highlightPreviewForItemWithIdentifier: configuration.identifier))
+    let cells = docs.accessibilityFrameInContainerSpace
+    #expect(lifted.view.bounds.size == cells.size && lifted.target.container === view)
+    #expect(lifted.target.center == CGPoint(x: cells.midX, y: cells.midY))
+    history.contextMenuInteraction(menus, willDisplayMenuFor: configuration, animator: nil)
+    #expect(view.engagedLink?.pressed == true)
+    history.contextMenuInteraction(menus, willEndFor: configuration, animator: nil)
+    #expect(view.engagedLink == nil)
 }
 #endif

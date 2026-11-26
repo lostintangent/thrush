@@ -40,6 +40,8 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var touchedLink: UInt32?
     /// The link a ⌘-click pressed with a trackpad or mouse.
     private var clickedLink: UInt32?
+    /// The link whose context menu is up, which stays pressed until the menu has closed.
+    private var menuLink: UInt32?
     /// The link the Links rotor last moved to. A rotor result holds its element weakly.
     private var rotorLink: PhoneLinkElement?
     /// Where a tap on a link that doesn't open directly shows the link's menu. It sits behind the scroll
@@ -557,7 +559,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         default:
             guard touchedLink != nil else { return }
             touchedLink = nil
-            terminal.engagedLink = nil
+            if menuLink == nil { terminal.engagedLink = nil }
         }
     }
 
@@ -595,15 +597,55 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         }
     }
 
-    /// The link lifts from the grid as its own preview, row by row.
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willDisplayMenuFor configuration: UIContextMenuConfiguration,
+                                animator: (any UIContextMenuInteractionAnimating)?) {
+        guard let number = (configuration.identifier as? NSNumber)?.uint32Value else { return }
+        menuLink = number
+        terminal.engagedLink = .init(number: number, pressed: true)
+    }
+
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willEndFor configuration: UIContextMenuConfiguration,
+                                animator: (any UIContextMenuInteractionAnimating)?) {
+        let close = { [weak self] in
+            guard let self, menuLink != nil else { return }
+            menuLink = nil
+            if touchedLink == nil { terminal.engagedLink = nil }
+        }
+        if let animator { animator.addCompletion(close) } else { close() }
+    }
+
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
                                 highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-        guard let number = (identifier as? NSNumber)?.uint32Value else { return nil }
-        let rects = terminal.linkRuns(of: number).map { NSValue(cgRect: terminal.rect(of: $0)) }
-        guard !rects.isEmpty else { return nil }
-        let parameters = UIPreviewParameters(textLineRects: rects)
-        parameters.backgroundColor = UIColor(terminalColor: terminal.color(.background))
-        return UITargetedPreview(view: terminal, parameters: parameters)
+        (identifier as? NSNumber).flatMap { linkPreview($0.uint32Value) }
+    }
+
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
+                                dismissalPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
+        (identifier as? NSNumber).flatMap { linkPreview($0.uint32Value) }
+    }
+
+    /// The link lifts from the grid as its own preview, row by row. The preview holds only the link's
+    /// cells on the canvas color, so the platter's margin never shows part of a neighboring glyph.
+    private func linkPreview(_ number: UInt32) -> UITargetedPreview? {
+        let rects = terminal.linkRuns(of: number).map { terminal.rect(of: $0) }
+        guard let first = rects.first else { return nil }
+        let bounds = rects.dropFirst().reduce(first) { $0.union($1) }
+        let background = UIColor(terminalColor: terminal.color(.background))
+        let preview = UIView(frame: CGRect(origin: .zero, size: bounds.size))
+        preview.backgroundColor = background
+        var lines: [NSValue] = []
+        for rect in rects {
+            let local = rect.offsetBy(dx: -bounds.minX, dy: -bounds.minY)
+            if let cells = terminal.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero) {
+                cells.frame = local
+                preview.addSubview(cells)
+            }
+            lines.append(NSValue(cgRect: local))
+        }
+        let parameters = UIPreviewParameters(textLineRects: lines)
+        parameters.backgroundColor = background
+        return UITargetedPreview(view: preview, parameters: parameters,
+                                 target: UIPreviewTarget(container: terminal, center: CGPoint(x: bounds.midX, y: bounds.midY)))
     }
 
     override var accessibilityCustomRotors: [UIAccessibilityCustomRotor]? {
