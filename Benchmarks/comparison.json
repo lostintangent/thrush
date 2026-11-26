@@ -1,29 +1,29 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-26T01:22:14+00:00",
+  "recordedAt": "2026-11-26T03:30:16+00:00",
   "environment": {
-    "commit": "26cf81bc064ee54912a961367472e7e8a722eb11",
+    "commit": "59093ee7522ded60f69c8548177ee99a9d8d5fcd",
     "worktreeDirty": false,
     "processor": "Apple M1 Max",
     "coreCount": 10,
     "os": "27.2.1",
     "loadAverage": {
-      "oneMinute": 3.18359375,
-      "fiveMinutes": 6.8466796875,
-      "fifteenMinutes": 7.90185546875
+      "oneMinute": 5.56103515625,
+      "fiveMinutes": 7.671875,
+      "fifteenMinutes": 9.48828125
     },
     "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
   },
   "environmentAfter": {
-    "commit": "26cf81bc064ee54912a961367472e7e8a722eb11",
+    "commit": "59093ee7522ded60f69c8548177ee99a9d8d5fcd",
     "worktreeDirty": false,
     "processor": "Apple M1 Max",
     "coreCount": 10,
     "os": "27.2.1",
     "loadAverage": {
-      "oneMinute": 4.77294921875,
-      "fiveMinutes": 6.39306640625,
-      "fifteenMinutes": 7.60986328125
+      "oneMinute": 16.7607421875,
+      "fiveMinutes": 9.9287109375,
+      "fifteenMinutes": 10.06884765625
     },
     "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)"
   },
@@ -124,64 +124,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 24811958,
-          "minimumWallNanoseconds": 21649458,
+          "medianWallNanoseconds": 25503416,
+          "minimumWallNanoseconds": 22173625,
           "roundMedianWallNanoseconds": [
-            24811958,
-            24527500,
-            25001708,
-            25555917,
-            24809000
+            25072791,
+            26616458,
+            26819167,
+            25503416,
+            25065458
           ],
-          "medianCPUNanoseconds": 42648000,
+          "medianCPUNanoseconds": 45706000,
           "samples": 15,
-          "mibPerSecond": 44.041478616398926,
+          "mibPerSecond": 42.847409840626376,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 3969542,
-          "minimumWallNanoseconds": 3796584,
+          "medianWallNanoseconds": 3442500,
+          "minimumWallNanoseconds": 3287541,
           "roundMedianWallNanoseconds": [
-            5273667,
-            3979417,
-            3809291,
-            3802375,
-            3969542
+            3442500,
+            3461042,
+            3450917,
+            3297292,
+            3290250
           ],
-          "medianCPUNanoseconds": 3970000,
+          "medianCPUNanoseconds": 3443000,
           "samples": 15,
-          "mibPerSecond": 275.28498695516714,
+          "mibPerSecond": 317.4307386166996,
           "history": 1000,
           "allocations": 3672
         },
         "xterm-node": {
-          "medianWallNanoseconds": 19432417,
-          "minimumWallNanoseconds": 18687458,
+          "medianWallNanoseconds": 19860500,
+          "minimumWallNanoseconds": 18461500,
           "roundMedianWallNanoseconds": [
-            19062500,
-            20124500,
-            19076208,
-            19448667,
-            19098458
+            20398416,
+            19860500,
+            20388916,
+            19174500,
+            19228834
           ],
-          "medianCPUNanoseconds": 20695000,
+          "medianCPUNanoseconds": 21643000,
           "samples": 15,
-          "mibPerSecond": 56.233628461554126,
+          "mibPerSecond": 55.02154113380772,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3574750,
-          "minimumWallNanoseconds": 3509708,
+          "medianWallNanoseconds": 3674875,
+          "minimumWallNanoseconds": 3504500,
           "roundMedianWallNanoseconds": [
-            3574750,
-            3682500,
-            3517750,
-            3516333,
-            3689458
+            3699041,
+            3674875,
+            3786500,
+            3513250,
+            3549583
           ],
-          "medianCPUNanoseconds": 3577000,
+          "medianCPUNanoseconds": 3675000,
           "samples": 15,
-          "mibPerSecond": 305.68719985676995,
+          "mibPerSecond": 297.35850000013284,
           "history": 784,
           "allocations": 134
         }
@@ -189,17 +189,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.9247728064696407,
+          "median": 1.0745217138707335,
           "roundRange": [
-            0.6778490185292321,
-            0.9294417340841841
+            1.0617828388098152,
+            1.097244587453132
           ]
         },
         "xterm": {
-          "median": 5.007810639827727,
+          "median": 5.844186308031305,
           "roundRange": [
-            3.6146575049202005,
-            5.114873467240869
+            5.738300777627084,
+            5.925465795206971
           ]
         }
       },
@@ -212,82 +212,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 24488083,
-          "minimumWallNanoseconds": 20088042,
+          "medianWallNanoseconds": 25219334,
+          "minimumWallNanoseconds": 19958875,
           "roundMedianWallNanoseconds": [
-            24957500,
-            24331708,
-            23902292,
-            25165583,
-            24488083
+            25178292,
+            25182625,
+            25219334,
+            24583584,
+            32963667
           ],
-          "medianCPUNanoseconds": 39926000,
+          "medianCPUNanoseconds": 42272000,
           "samples": 15,
-          "mibPerSecond": 44.62396332485431,
+          "mibPerSecond": 43.3300624706421,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3572916,
-          "minimumWallNanoseconds": 3534166,
+          "medianWallNanoseconds": 3675541,
+          "minimumWallNanoseconds": 3575791,
           "roundMedianWallNanoseconds": [
-            3627333,
-            3579041,
-            3554166,
-            3654250,
-            3560958
+            3700666,
+            3679000,
+            3634083,
+            3577916,
+            3662083
           ],
-          "medianCPUNanoseconds": 3578000,
+          "medianCPUNanoseconds": 3675000,
           "samples": 15,
-          "mibPerSecond": 305.84411099728857,
+          "mibPerSecond": 297.3046192895109,
           "history": 784,
           "allocations": 134
         },
         "thrush": {
-          "medianWallNanoseconds": 3836959,
-          "minimumWallNanoseconds": 3786250,
+          "medianWallNanoseconds": 3432667,
+          "minimumWallNanoseconds": 3285083,
           "roundMedianWallNanoseconds": [
-            4019250,
-            3836959,
-            3802667,
-            3869542,
-            3814167
+            3438834,
+            3436500,
+            3438208,
+            3385584,
+            3295042
           ],
-          "medianCPUNanoseconds": 3838000,
+          "medianCPUNanoseconds": 3436000,
           "samples": 15,
-          "mibPerSecond": 284.7972359589947,
+          "mibPerSecond": 318.3400305616561,
           "history": 1000,
           "allocations": 3629
         },
         "xterm-node": {
-          "medianWallNanoseconds": 19679375,
-          "minimumWallNanoseconds": 18324542,
+          "medianWallNanoseconds": 19695667,
+          "minimumWallNanoseconds": 18509208,
           "roundMedianWallNanoseconds": [
-            19984125,
-            19113291,
-            18913708,
-            19679375,
-            18887916
+            19865334,
+            19695667,
+            20018541,
+            19267167,
+            18831541
           ],
-          "medianCPUNanoseconds": 21087000,
+          "medianCPUNanoseconds": 21034000,
           "samples": 15,
-          "mibPerSecond": 55.52794830567476,
+          "mibPerSecond": 55.482016307850266,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.933613551792567,
+          "median": 1.0705659828313692,
           "roundRange": [
-            0.9024900167941781,
-            0.9443624077474801
+            1.056809105903147,
+            1.111391903350549
           ]
         },
         "xterm": {
-          "median": 4.97380075615351,
+          "median": 5.7313158737087155,
           "roundRange": [
-            4.9520422152464745,
-            5.085711694045445
+            5.6909434236456695,
+            5.82237636582778
           ]
         }
       },
@@ -300,82 +300,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 3945917,
-          "minimumWallNanoseconds": 3874417,
+          "medianWallNanoseconds": 3491459,
+          "minimumWallNanoseconds": 3375875,
           "roundMedianWallNanoseconds": [
-            3927875,
-            3900750,
-            3981833,
-            3945917,
-            4170542
+            3496375,
+            3491459,
+            3503334,
+            3383959,
+            3510958
           ],
-          "medianCPUNanoseconds": 3949000,
+          "medianCPUNanoseconds": 3493000,
           "samples": 15,
-          "mibPerSecond": 276.933173629346,
+          "mibPerSecond": 312.97956461410206,
           "history": 1000,
           "allocations": 3934
         },
         "xterm-node": {
-          "medianWallNanoseconds": 20797625,
-          "minimumWallNanoseconds": 20310792,
+          "medianWallNanoseconds": 22013334,
+          "minimumWallNanoseconds": 21292291,
           "roundMedianWallNanoseconds": [
-            22610667,
-            20380500,
-            20481542,
-            20797625,
-            23240166
+            22404959,
+            22012458,
+            21912375,
+            21430666,
+            27564000
           ],
-          "medianCPUNanoseconds": 22690000,
+          "medianCPUNanoseconds": 23765000,
           "samples": 15,
-          "mibPerSecond": 52.54231277311656,
+          "mibPerSecond": 49.64060953638319,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 6199291,
-          "minimumWallNanoseconds": 6013333,
+          "medianWallNanoseconds": 6293166,
+          "minimumWallNanoseconds": 6124791,
           "roundMedianWallNanoseconds": [
-            6199291,
-            6059625,
-            6133625,
-            6380750,
-            6388125
+            6312875,
+            6282875,
+            6342958,
+            6129250,
+            6321541
           ],
-          "medianCPUNanoseconds": 6200000,
+          "medianCPUNanoseconds": 6296000,
           "samples": 15,
-          "mibPerSecond": 176.271015135116,
+          "mibPerSecond": 173.64158480611957,
           "history": 843,
           "allocations": 140
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 27457584,
-          "minimumWallNanoseconds": 21002875,
+          "medianWallNanoseconds": 27604000,
+          "minimumWallNanoseconds": 22207791,
           "roundMedianWallNanoseconds": [
-            26002875,
-            27408416,
-            28205959,
-            28427166,
-            27457584
+            29591334,
+            27604000,
+            28955041,
+            23157125,
+            28829458
           ],
-          "medianCPUNanoseconds": 47481000,
+          "medianCPUNanoseconds": 49419000,
           "samples": 15,
-          "mibPerSecond": 39.79794135157661,
+          "mibPerSecond": 39.586846750035804,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.5534512593731975,
+          "median": 1.8055486039111937,
           "roundRange": [
-            1.5317253728652056,
-            1.6170512456293429
+            1.799498433176503,
+            1.8112660348426208
           ]
         },
         "xterm": {
-          "median": 5.27066965676166,
+          "median": 6.3330158550975355,
           "roundRange": [
-            5.143747113452523,
-            5.756462972981574
+            6.254720503383348,
+            7.850848685743322
           ]
         }
       },
@@ -398,64 +398,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 20627750,
-          "minimumWallNanoseconds": 20174791,
+          "medianWallNanoseconds": 21481666,
+          "minimumWallNanoseconds": 20677708,
           "roundMedianWallNanoseconds": [
-            20504500,
-            20458125,
-            21538750,
-            20594291,
-            23058375
+            21752375,
+            21707291,
+            21465083,
+            20784583,
+            21678584
           ],
-          "medianCPUNanoseconds": 22494000,
+          "medianCPUNanoseconds": 23414000,
           "samples": 15,
-          "mibPerSecond": 52.97501267409137,
+          "mibPerSecond": 50.86920715032011,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 26099875,
-          "minimumWallNanoseconds": 20394333,
+          "medianWallNanoseconds": 26371042,
+          "minimumWallNanoseconds": 20804250,
           "roundMedianWallNanoseconds": [
-            25610417,
-            25816625,
-            26396875,
-            27994791,
-            26099875
+            27255125,
+            26749584,
+            26371042,
+            26255875,
+            25945750
           ],
-          "medianCPUNanoseconds": 40525000,
+          "medianCPUNanoseconds": 44317000,
           "samples": 15,
-          "mibPerSecond": 41.86822035308553,
+          "mibPerSecond": 41.43769964372239,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 3893000,
-          "minimumWallNanoseconds": 3852458,
+          "medianWallNanoseconds": 3474833,
+          "minimumWallNanoseconds": 3366916,
           "roundMedianWallNanoseconds": [
-            3869083,
-            3880791,
-            4007083,
-            4546375,
-            3855250
+            3473417,
+            3485125,
+            3454250,
+            3377500,
+            3484958
           ],
-          "medianCPUNanoseconds": 3896000,
+          "medianCPUNanoseconds": 3476000,
           "samples": 15,
-          "mibPerSecond": 280.6974872047234,
+          "mibPerSecond": 314.4770749235973,
           "history": 1000,
           "allocations": 3891
         },
         "ghostty": {
-          "medianWallNanoseconds": 6096583,
-          "minimumWallNanoseconds": 6018166,
+          "medianWallNanoseconds": 6291750,
+          "minimumWallNanoseconds": 6083375,
           "roundMedianWallNanoseconds": [
-            6057166,
-            6096583,
-            6035125,
-            6233791,
-            6199583
+            6317791,
+            6291750,
+            6291333,
+            6103833,
+            6331250
           ],
-          "medianCPUNanoseconds": 6089000,
+          "medianCPUNanoseconds": 6292000,
           "samples": 15,
-          "mibPerSecond": 179.24062014541397,
+          "mibPerSecond": 173.68066399459425,
           "history": 843,
           "allocations": 140
         }
@@ -463,17 +463,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.5655301269060395,
+          "median": 1.8167363853452467,
           "roundRange": [
-            1.3711563608369306,
-            1.6080884508138253
+            1.80531544779599,
+            1.821331113845263
           ]
         },
         "xterm": {
-          "median": 5.299576152798997,
+          "median": 6.2206155712637,
           "roundRange": [
-            4.529826730087158,
-            5.981032358472214
+            6.1538365655070315,
+            6.2625290887906635
           ]
         }
       },
@@ -496,82 +496,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 18442708,
-          "minimumWallNanoseconds": 17246500,
+          "medianWallNanoseconds": 18425833,
+          "minimumWallNanoseconds": 15470417,
           "roundMedianWallNanoseconds": [
-            18036583,
-            17930917,
-            18442708,
-            18481042,
-            19213833
+            18722000,
+            17967667,
+            18918625,
+            18303667,
+            18079666
           ],
-          "medianCPUNanoseconds": 27794000,
+          "medianCPUNanoseconds": 31145000,
           "samples": 15,
-          "mibPerSecond": 54.72376700679783,
+          "mibPerSecond": 54.77388488034198,
           "history": 97
         },
         "xterm-node": {
-          "medianWallNanoseconds": 18281167,
-          "minimumWallNanoseconds": 17826917,
+          "medianWallNanoseconds": 18875917,
+          "minimumWallNanoseconds": 18165667,
           "roundMedianWallNanoseconds": [
-            18281167,
-            18789875,
-            18491833,
-            17863667,
-            18035167
+            18636667,
+            19036958,
+            18995250,
+            18174583,
+            18823083
           ],
-          "medianCPUNanoseconds": 19890000,
+          "medianCPUNanoseconds": 20615000,
           "samples": 15,
-          "mibPerSecond": 55.207331980852544,
+          "mibPerSecond": 53.46783711574947,
           "history": 97
         },
         "ghostty": {
-          "medianWallNanoseconds": 2800791,
-          "minimumWallNanoseconds": 2775000,
+          "medianWallNanoseconds": 2908833,
+          "minimumWallNanoseconds": 2825750,
           "roundMedianWallNanoseconds": [
-            2800791,
-            2840208,
-            2782333,
-            2812791,
-            2779458
+            3564916,
+            2901208,
+            2914916,
+            2932666,
+            2879500
           ],
-          "medianCPUNanoseconds": 2803000,
+          "medianCPUNanoseconds": 2910000,
           "samples": 15,
-          "mibPerSecond": 360.3462220374195,
+          "mibPerSecond": 346.96197944894266,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 2280958,
-          "minimumWallNanoseconds": 2268542,
+          "medianWallNanoseconds": 2357709,
+          "minimumWallNanoseconds": 2277125,
           "roundMedianWallNanoseconds": [
-            2280583,
-            2377666,
-            2280000,
-            2331291,
-            2272708
+            2761875,
+            2357709,
+            2360167,
+            2279584,
+            2340750
           ],
-          "medianCPUNanoseconds": 2283000,
+          "medianCPUNanoseconds": 2359000,
           "samples": 15,
-          "mibPerSecond": 442.46954813127036,
+          "mibPerSecond": 428.06574329843346,
           "history": 97,
           "allocations": 6822
         }
       },
-      "fastestXterm": "xterm-node",
+      "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.2203214912280702,
+          "median": 1.235046503065249,
           "roundRange": [
-            1.1945361543631443,
-            1.2281030771517634
+            1.23016127309623,
+            1.2907593573206608
           ]
         },
         "xterm": {
-          "median": 7.935540773385759,
+          "median": 7.723877389725516,
           "roundRange": [
-            7.662564218709719,
-            8.110453070175438
+            6.778728219054084,
+            8.029389134157812
           ]
         }
       },
@@ -584,64 +584,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 17825542,
-          "minimumWallNanoseconds": 14849583,
+          "medianWallNanoseconds": 18358292,
+          "minimumWallNanoseconds": 14969708,
           "roundMedianWallNanoseconds": [
-            17161000,
-            19520916,
-            17825542,
-            19058292,
-            15332417
+            16045417,
+            18785042,
+            19078458,
+            18346333,
+            18749583
           ],
-          "medianCPUNanoseconds": 24649000,
+          "medianCPUNanoseconds": 25849000,
           "samples": 15,
-          "mibPerSecond": 56.618444228310494,
+          "mibPerSecond": 54.975400520179456,
           "history": 97
         },
         "ghostty": {
-          "medianWallNanoseconds": 2788583,
-          "minimumWallNanoseconds": 2773583,
+          "medianWallNanoseconds": 2839041,
+          "minimumWallNanoseconds": 2795250,
           "roundMedianWallNanoseconds": [
-            2779708,
-            2907791,
-            2774458,
-            2781916,
-            2788583
+            2795916,
+            2879916,
+            2897958,
+            2811000,
+            2839041
           ],
-          "medianCPUNanoseconds": 2790000,
+          "medianCPUNanoseconds": 2839000,
           "samples": 15,
-          "mibPerSecond": 361.92376399282585,
+          "mibPerSecond": 355.4913280809986,
           "history": 97,
           "allocations": 1330
         },
         "xterm-node": {
-          "medianWallNanoseconds": 18225750,
-          "minimumWallNanoseconds": 17723125,
+          "medianWallNanoseconds": 18698708,
+          "minimumWallNanoseconds": 17942167,
           "roundMedianWallNanoseconds": [
-            17856000,
-            18619500,
-            18439792,
-            17905208,
-            17862583
+            18697458,
+            18752167,
+            18698708,
+            18019834,
+            31849166
           ],
-          "medianCPUNanoseconds": 19231000,
+          "medianCPUNanoseconds": 20176000,
           "samples": 15,
-          "mibPerSecond": 55.375194741857335,
+          "mibPerSecond": 53.97455565199511,
           "history": 97
         },
         "thrush": {
-          "medianWallNanoseconds": 2240084,
-          "minimumWallNanoseconds": 2222667,
+          "medianWallNanoseconds": 2311917,
+          "minimumWallNanoseconds": 2276250,
           "roundMedianWallNanoseconds": [
-            2232625,
-            2442291,
-            2231834,
-            2225375,
-            2251375
+            2686166,
+            2312500,
+            2302042,
+            2307417,
+            2304917
           ],
-          "medianCPUNanoseconds": 2242000,
+          "medianCPUNanoseconds": 2313000,
           "samples": 15,
-          "mibPerSecond": 450.5431294390774,
+          "mibPerSecond": 436.5444155505609,
           "history": 97,
           "allocations": 6290
         }
@@ -649,17 +649,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.2431291933002186,
+          "median": 1.2317324224690087,
           "roundRange": [
-            1.190599727878455,
-            1.2500886367466157
+            1.0408574898200633,
+            1.2588640867542817
           ]
         },
         "xterm": {
-          "median": 7.986947954014501,
+          "median": 8.123261405405405,
           "roundRange": [
-            6.8102457387152295,
-            8.564081109925294
+            5.973352726525464,
+            8.28762377054806
           ]
         }
       },
@@ -672,82 +672,82 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 4170083,
-          "minimumWallNanoseconds": 4101541,
+          "medianWallNanoseconds": 4275125,
+          "minimumWallNanoseconds": 4138750,
           "roundMedianWallNanoseconds": [
-            4157000,
-            4317208,
-            4150041,
-            4182750,
-            4102625
+            4512041,
+            4275125,
+            4263750,
+            4144375,
+            4388416
           ],
-          "medianCPUNanoseconds": 4174000,
+          "medianCPUNanoseconds": 4276000,
           "samples": 15,
-          "mibPerSecond": 242.02263014103227,
+          "mibPerSecond": 236.07601077545246,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 2474500,
-          "minimumWallNanoseconds": 2458166,
+          "medianWallNanoseconds": 2551375,
+          "minimumWallNanoseconds": 2464917,
           "roundMedianWallNanoseconds": [
-            2461250,
-            2583459,
-            2468000,
-            2521209,
-            2474500
+            2573833,
+            2561625,
+            2551375,
+            2467208,
+            2550042
           ],
-          "medianCPUNanoseconds": 2477000,
+          "medianCPUNanoseconds": 2553000,
           "samples": 15,
-          "mibPerSecond": 407.8619743650864,
+          "mibPerSecond": 395.57276196811773,
           "history": 61,
           "allocations": 7661
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 30791834,
-          "minimumWallNanoseconds": 29200500,
+          "medianWallNanoseconds": 31151125,
+          "minimumWallNanoseconds": 29102625,
           "roundMedianWallNanoseconds": [
-            29730916,
-            30791834,
-            30993833,
-            31183333,
-            30045916
+            29578833,
+            30793000,
+            31151125,
+            30866833,
+            70141125
           ],
-          "medianCPUNanoseconds": 43560000,
+          "medianCPUNanoseconds": 43614000,
           "samples": 15,
-          "mibPerSecond": 32.77669188416663,
+          "mibPerSecond": 32.39865191277703,
           "history": 61
         },
         "xterm-node": {
-          "medianWallNanoseconds": 35686458,
-          "minimumWallNanoseconds": 34558791,
+          "medianWallNanoseconds": 36702917,
+          "minimumWallNanoseconds": 35998791,
           "roundMedianWallNanoseconds": [
-            34861583,
-            37574208,
-            35686458,
-            36396500,
-            34945166
+            36312583,
+            36791708,
+            36702917,
+            36556750,
+            49825916
           ],
-          "medianCPUNanoseconds": 37777000,
+          "medianCPUNanoseconds": 39487000,
           "samples": 15,
-          "mibPerSecond": 28.281160757573822,
+          "mibPerSecond": 27.497935806203255,
           "history": 61
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.6710959995881491,
+          "median": 1.6797833826738564,
           "roundRange": [
-            1.6579612042836938,
-            1.6889791772473337
+            1.6689113355780023,
+            1.7530434181238643
           ]
         },
         "xterm": {
-          "median": 12.142217013538088,
+          "median": 12.209543873401596,
           "roundRange": [
-            11.918839819017837,
-            12.558279173419773
+            11.492133716523178,
+            27.505870491544844
           ]
         }
       },
@@ -781,64 +781,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 35598541,
-          "minimumWallNanoseconds": 34546834,
+          "medianWallNanoseconds": 36790459,
+          "minimumWallNanoseconds": 35116833,
           "roundMedianWallNanoseconds": [
-            35689667,
-            34612875,
-            35280292,
-            37528000,
-            35598541
+            35574834,
+            37322750,
+            36360500,
+            36648667,
+            37245125
           ],
-          "medianCPUNanoseconds": 39336000,
+          "medianCPUNanoseconds": 41631000,
           "samples": 15,
-          "mibPerSecond": 28.351006170910384,
+          "mibPerSecond": 27.43250513853079,
           "history": 61
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 29961791,
-          "minimumWallNanoseconds": 28501458,
+          "medianWallNanoseconds": 31181500,
+          "minimumWallNanoseconds": 26973500,
           "roundMedianWallNanoseconds": [
-            29961791,
-            30043417,
-            29683750,
-            29948166,
-            30343041
+            30746792,
+            31865000,
+            31181500,
+            31441167,
+            28329416
           ],
-          "medianCPUNanoseconds": 44098000,
+          "medianCPUNanoseconds": 38908000,
           "samples": 15,
-          "mibPerSecond": 33.68471716415104,
+          "mibPerSecond": 32.36709124212774,
           "history": 61
         },
         "ghostty": {
-          "medianWallNanoseconds": 4115625,
-          "minimumWallNanoseconds": 4096000,
+          "medianWallNanoseconds": 4288666,
+          "minimumWallNanoseconds": 4139208,
           "roundMedianWallNanoseconds": [
-            4103375,
-            4318333,
-            4151541,
-            4114333,
-            4111958
+            4494916,
+            4345083,
+            4270875,
+            4203666,
+            4288666
           ],
-          "medianCPUNanoseconds": 4116000,
+          "medianCPUNanoseconds": 4290000,
           "samples": 15,
-          "mibPerSecond": 245.2250765233485,
+          "mibPerSecond": 235.33062625217406,
           "history": 97,
           "allocations": 1330
         },
         "thrush": {
-          "medianWallNanoseconds": 2441833,
-          "minimumWallNanoseconds": 2404333,
+          "medianWallNanoseconds": 2502708,
+          "minimumWallNanoseconds": 2494000,
           "roundMedianWallNanoseconds": [
-            2408041,
-            2448417,
-            2454959,
-            2450375,
-            2421125
+            2557167,
+            2497667,
+            2502125,
+            2507583,
+            2509625
           ],
-          "medianCPUNanoseconds": 2443000,
+          "medianCPUNanoseconds": 2506000,
           "samples": 15,
-          "mibPerSecond": 413.3183782700972,
+          "mibPerSecond": 403.26496561580745,
           "history": 61,
           "allocations": 7129
         }
@@ -846,17 +846,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.6983666683876297,
+          "median": 1.70888718434029,
           "roundRange": [
-            1.6790625924603377,
-            1.7637244799394873
+            1.6763815993329034,
+            1.7577717841658367
           ]
         },
         "xterm": {
-          "median": 12.270547459848547,
+          "median": 12.46200729380027,
           "roundRange": [
-            12.091342462338474,
-            12.532620579276163
+            11.288306420281915,
+            12.757905677578316
           ]
         }
       },
@@ -890,64 +890,64 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 3720375,
-          "minimumWallNanoseconds": 3681916,
+          "medianWallNanoseconds": 3842458,
+          "minimumWallNanoseconds": 3704083,
           "roundMedianWallNanoseconds": [
-            3686041,
-            3720375,
-            3750750,
-            3736708,
-            3700500
+            3843666,
+            3863750,
+            3853125,
+            3774791,
+            3837166
           ],
-          "medianCPUNanoseconds": 3721000,
+          "medianCPUNanoseconds": 3846000,
           "samples": 15,
-          "mibPerSecond": 273.296534484406,
+          "mibPerSecond": 264.6133268034216,
           "history": 267,
           "allocations": 475
         },
         "xterm-node": {
-          "medianWallNanoseconds": 16387375,
-          "minimumWallNanoseconds": 15917417,
+          "medianWallNanoseconds": 16812959,
+          "minimumWallNanoseconds": 16556875,
           "roundMedianWallNanoseconds": [
-            15990042,
-            16533166,
-            16756209,
-            16348958,
-            16121625
+            17072709,
+            16863875,
+            16991625,
+            16812959,
+            16614792
           ],
-          "medianCPUNanoseconds": 18441000,
+          "medianCPUNanoseconds": 19239000,
           "samples": 15,
-          "mibPerSecond": 62.04566591552472,
+          "mibPerSecond": 60.47511294605678,
           "history": 267
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 15768334,
-          "minimumWallNanoseconds": 15125709,
+          "medianWallNanoseconds": 16265708,
+          "minimumWallNanoseconds": 15487791,
           "roundMedianWallNanoseconds": [
-            15667750,
-            15225167,
-            16063000,
-            15727542,
-            15768334
+            16296667,
+            15728791,
+            16297500,
+            16086542,
+            16142458
           ],
-          "medianCPUNanoseconds": 29344000,
+          "medianCPUNanoseconds": 29652000,
           "samples": 15,
-          "mibPerSecond": 64.48148513865966,
+          "mibPerSecond": 62.50976560518742,
           "history": 267
         },
         "thrush": {
-          "medianWallNanoseconds": 4270041,
-          "minimumWallNanoseconds": 4151875,
+          "medianWallNanoseconds": 4330292,
+          "minimumWallNanoseconds": 4313000,
           "roundMedianWallNanoseconds": [
-            4187750,
-            4159333,
-            4338125,
-            4270041,
-            4280834
+            4773250,
+            4330292,
+            4320125,
+            4347792,
+            4318084
           ],
-          "medianCPUNanoseconds": 4271000,
+          "medianCPUNanoseconds": 4336000,
           "samples": 15,
-          "mibPerSecond": 238.1161198411027,
+          "mibPerSecond": 234.80300970059798,
           "history": 267,
           "allocations": 3838
         }
@@ -955,17 +955,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.8750988573646015,
+          "median": 0.8886269928977759,
           "roundRange": [
-            0.8644343602204617,
-            0.8944643287757917
+            0.8052513486618132,
+            0.8922608452270655
           ]
         },
         "xterm": {
-          "median": 3.6834724261674245,
+          "median": 3.6999336674799532,
           "roundRange": [
-            3.6604828226064132,
-            3.7413288758880068
+            3.414165819934007,
+            3.772460287607419
           ]
         }
       },
@@ -978,82 +978,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 3856708,
-          "minimumWallNanoseconds": 3663958,
+          "medianWallNanoseconds": 3844666,
+          "minimumWallNanoseconds": 3726250,
           "roundMedianWallNanoseconds": [
-            3690083,
-            3926958,
-            3856708,
-            3689708,
-            3876125
+            3914208,
+            3844666,
+            3756166,
+            3839875,
+            3843041
           ],
-          "medianCPUNanoseconds": 3856000,
+          "medianCPUNanoseconds": 3845000,
           "samples": 15,
-          "mibPerSecond": 263.6356173405977,
+          "mibPerSecond": 264.4613587974669,
           "history": 267,
           "allocations": 475
         },
         "thrush": {
-          "medianWallNanoseconds": 4238291,
-          "minimumWallNanoseconds": 4119708,
+          "medianWallNanoseconds": 4283042,
+          "minimumWallNanoseconds": 4160209,
           "roundMedianWallNanoseconds": [
-            4136375,
-            4296875,
-            4164750,
-            4238291,
-            4397291
+            4233208,
+            4295042,
+            4338250,
+            4283042,
+            4282292
           ],
-          "medianCPUNanoseconds": 4238000,
+          "medianCPUNanoseconds": 4285000,
           "samples": 15,
-          "mibPerSecond": 239.8999017487053,
+          "mibPerSecond": 237.3933280323709,
           "history": 267,
           "allocations": 3615
         },
         "xterm-node": {
-          "medianWallNanoseconds": 16235083,
-          "minimumWallNanoseconds": 15787625,
+          "medianWallNanoseconds": 16560125,
+          "minimumWallNanoseconds": 16219750,
           "roundMedianWallNanoseconds": [
-            15927791,
-            16235083,
-            17114291,
-            15921875,
-            16356250
+            16392333,
+            16449041,
+            16495833,
+            16560125,
+            16702209
           ],
-          "medianCPUNanoseconds": 18044000,
+          "medianCPUNanoseconds": 18270000,
           "samples": 15,
-          "mibPerSecond": 62.627680713577,
+          "mibPerSecond": 61.398425101406055,
           "history": 267
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 15066500,
-          "minimumWallNanoseconds": 14388708,
+          "medianWallNanoseconds": 15361583,
+          "minimumWallNanoseconds": 11823250,
           "roundMedianWallNanoseconds": [
-            14884875,
-            15066500,
-            15557042,
-            15060417,
-            15262875
+            14807833,
+            11856708,
+            15361583,
+            15579083,
+            15662667
           ],
-          "medianCPUNanoseconds": 31236000,
+          "medianCPUNanoseconds": 28460000,
           "samples": 15,
-          "mibPerSecond": 67.48518862923851,
+          "mibPerSecond": 66.18885530758268,
           "history": 267
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.8921055271826176,
+          "median": 0.896529849578874,
           "roundRange": [
-            0.870565046147138,
-            0.9260358965123957
+            0.8658251599147122,
+            0.9246434382624241
           ]
         },
         "xterm": {
-          "median": 3.553417403382637,
+          "median": 3.5409630611421656,
           "roundRange": [
-            3.470972241773401,
-            3.7354083678492107
+            2.760556939839005,
+            3.6575429699796276
           ]
         }
       },
@@ -1066,82 +1066,82 @@
       "chunkBytes": 4096,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 4380750,
-          "minimumWallNanoseconds": 4256166,
+          "medianWallNanoseconds": 4435250,
+          "minimumWallNanoseconds": 4254916,
           "roundMedianWallNanoseconds": [
-            4327833,
-            4310250,
-            4370458,
-            4458541,
-            4415083
+            4438000,
+            4267208,
+            4449708,
+            4434125,
+            4433875
           ],
-          "medianCPUNanoseconds": 4376000,
+          "medianCPUNanoseconds": 4436000,
           "samples": 15,
-          "mibPerSecond": 232.09852068308436,
+          "mibPerSecond": 229.2465124812405,
           "history": 231,
           "allocations": 477
         },
         "thrush": {
-          "medianWallNanoseconds": 4310667,
-          "minimumWallNanoseconds": 4204333,
+          "medianWallNanoseconds": 4401291,
+          "minimumWallNanoseconds": 4386209,
           "roundMedianWallNanoseconds": [
-            4285416,
-            4433000,
-            4288750,
-            4525583,
-            4215209
+            4404834,
+            4394833,
+            4387709,
+            4412917,
+            4401875
           ],
-          "medianCPUNanoseconds": 4312000,
+          "medianCPUNanoseconds": 4403000,
           "samples": 15,
-          "mibPerSecond": 235.871987904058,
+          "mibPerSecond": 231.0153076636882,
           "history": 231,
           "allocations": 3838
         },
         "xterm-node": {
-          "medianWallNanoseconds": 23106791,
-          "minimumWallNanoseconds": 22386292,
+          "medianWallNanoseconds": 24267833,
+          "minimumWallNanoseconds": 23555959,
           "roundMedianWallNanoseconds": [
-            23090125,
-            23763417,
-            23642334,
-            22976792,
-            22917209
+            23848417,
+            24126375,
+            24427500,
+            24267833,
+            24210917
           ],
-          "medianCPUNanoseconds": 24657000,
+          "medianCPUNanoseconds": 25645000,
           "samples": 15,
-          "mibPerSecond": 44.0028905131146,
+          "mibPerSecond": 41.89766735589543,
           "history": 231
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 21009458,
-          "minimumWallNanoseconds": 16653250,
+          "medianWallNanoseconds": 20605416,
+          "minimumWallNanoseconds": 16056625,
           "roundMedianWallNanoseconds": [
-            17302208,
-            21483208,
-            21232416,
-            17632459,
-            20437042
+            20605416,
+            21536917,
+            17293291,
+            17538459,
+            17019292
           ],
-          "medianCPUNanoseconds": 27616000,
+          "medianCPUNanoseconds": 28247000,
           "samples": 15,
-          "mibPerSecond": 48.39561279888429,
+          "mibPerSecond": 49.34457981738499,
           "history": 231
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.0098979889000275,
+          "median": 1.0072696294192816,
           "roundRange": [
-            0.9723099481163997,
-            1.0474173403975935
+            0.9709602162357478,
+            1.014130153116353
           ]
         },
         "xterm": {
-          "median": 4.8462007669749605,
+          "median": 3.974345993817695,
           "roundRange": [
-            3.89617403989718,
-            4.950723637423492
+            3.866373306829476,
+            4.900508620008997
           ]
         }
       },
@@ -1154,64 +1154,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 4230958,
-          "minimumWallNanoseconds": 4196708,
+          "medianWallNanoseconds": 4368625,
+          "minimumWallNanoseconds": 4239375,
           "roundMedianWallNanoseconds": [
-            4212917,
-            4209334,
-            4286875,
-            4245000,
-            4203042
+            4327625,
+            4297333,
+            4384292,
+            4242875,
+            4371375
           ],
-          "medianCPUNanoseconds": 4231000,
+          "medianCPUNanoseconds": 4368000,
           "samples": 15,
-          "mibPerSecond": 240.3156907921142,
+          "mibPerSecond": 232.7427038215507,
           "history": 231,
           "allocations": 3615
         },
         "xterm-node": {
-          "medianWallNanoseconds": 23046791,
-          "minimumWallNanoseconds": 22741791,
+          "medianWallNanoseconds": 23846375,
+          "minimumWallNanoseconds": 23356125,
           "roundMedianWallNanoseconds": [
-            24135542,
-            22883584,
-            22935500,
-            23091208,
-            23046791
+            23436791,
+            23838875,
+            24554167,
+            23922167,
+            23846375
           ],
-          "medianCPUNanoseconds": 24295000,
+          "medianCPUNanoseconds": 25267000,
           "samples": 15,
-          "mibPerSecond": 44.11744760832091,
+          "mibPerSecond": 42.638161753407886,
           "history": 231
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 20991208,
-          "minimumWallNanoseconds": 15398750,
+          "medianWallNanoseconds": 21770250,
+          "minimumWallNanoseconds": 16365916,
           "roundMedianWallNanoseconds": [
-            20991208,
-            20553875,
-            20711083,
-            21482500,
-            21323375
+            20678250,
+            21770250,
+            21882167,
+            22368250,
+            21662583
           ],
-          "medianCPUNanoseconds": 34973000,
+          "medianCPUNanoseconds": 37336000,
           "samples": 15,
-          "mibPerSecond": 48.437688506655824,
+          "mibPerSecond": 46.704360054773,
           "history": 231
         },
         "ghostty": {
-          "medianWallNanoseconds": 4321541,
-          "minimumWallNanoseconds": 4263333,
+          "medianWallNanoseconds": 4428791,
+          "minimumWallNanoseconds": 4284208,
           "roundMedianWallNanoseconds": [
-            4334083,
-            4304041,
-            4335041,
-            4321541,
-            4273583
+            4307333,
+            4449291,
+            4492916,
+            4314541,
+            4435791
           ],
-          "medianCPUNanoseconds": 4322000,
+          "medianCPUNanoseconds": 4436000,
           "samples": 15,
-          "mibPerSecond": 235.27847924673674,
+          "mibPerSecond": 229.5808482455871,
           "history": 231,
           "allocations": 477
         }
@@ -1219,17 +1219,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.0180308598351002,
+          "median": 1.0168909053413075,
           "roundRange": [
-            1.011235690333868,
-            1.0287605950936134
+            0.9953110539845759,
+            1.035361001812054
           ]
         },
         "xterm": {
-          "median": 4.9825828517390685,
+          "median": 4.991037777593281,
           "roundRange": [
-            4.83127756232687,
-            5.073319514770493
+            4.778198203402559,
+            5.271955926111422
           ]
         }
       },
@@ -1242,64 +1242,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 11982084,
-          "minimumWallNanoseconds": 11274458,
+          "medianWallNanoseconds": 11833583,
+          "minimumWallNanoseconds": 11331292,
           "roundMedianWallNanoseconds": [
-            12468666,
-            11632209,
-            12026459,
-            11982084,
-            11657000
+            11612792,
+            12048417,
+            11839250,
+            11833583,
+            11601000
           ],
-          "medianCPUNanoseconds": 15259000,
+          "medianCPUNanoseconds": 15017000,
           "samples": 15,
-          "mibPerSecond": 83.46255234985429,
+          "mibPerSecond": 84.50993356030473,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 862125,
-          "minimumWallNanoseconds": 848208,
+          "medianWallNanoseconds": 872083,
+          "minimumWallNanoseconds": 848666,
           "roundMedianWallNanoseconds": [
-            893041,
-            854167,
-            899084,
-            859458,
-            857209
+            859875,
+            892417,
+            858333,
+            864042,
+            881750
           ],
-          "medianCPUNanoseconds": 866000,
+          "medianCPUNanoseconds": 872000,
           "samples": 15,
-          "mibPerSecond": 1159.9887639383517,
+          "mibPerSecond": 1146.7432722692124,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 13997209,
-          "minimumWallNanoseconds": 12902042,
+          "medianWallNanoseconds": 13986417,
+          "minimumWallNanoseconds": 13469542,
           "roundMedianWallNanoseconds": [
-            14556417,
-            13601625,
-            13964750,
-            14050291,
-            14048167
+            13852250,
+            14320042,
+            13941541,
+            13986417,
+            14533417
           ],
-          "medianCPUNanoseconds": 18317000,
+          "medianCPUNanoseconds": 18763000,
           "samples": 15,
-          "mibPerSecond": 71.44676578811901,
+          "mibPerSecond": 71.50189452454846,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 935416,
-          "minimumWallNanoseconds": 917333,
+          "medianWallNanoseconds": 976375,
+          "minimumWallNanoseconds": 940500,
           "roundMedianWallNanoseconds": [
-            940916,
-            927375,
-            947875,
-            942083,
-            927125
+            982625,
+            980125,
+            989625,
+            947583,
+            972208
           ],
-          "medianCPUNanoseconds": 936000,
+          "medianCPUNanoseconds": 977000,
           "samples": 15,
-          "mibPerSecond": 1069.1022102576303,
+          "mibPerSecond": 1024.2532972580734,
           "history": 828,
           "allocations": 2
         }
@@ -1307,17 +1307,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.0815623727702346,
+          "median": 1.1025891692656649,
           "roundRange": [
-            1.0536089608427832,
-            1.0961361695394074
+            1.0966862721951016,
+            1.1529616128006264
           ]
         },
         "xterm": {
-          "median": 13.618190588023186,
+          "median": 13.50520947812182,
           "roundRange": [
-            13.376346370305777,
-            13.962030858605596
+            13.156790473490219,
+            13.793306327497604
           ]
         }
       },
@@ -1330,64 +1330,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 844083,
-          "minimumWallNanoseconds": 832417,
+          "medianWallNanoseconds": 861625,
+          "minimumWallNanoseconds": 830584,
           "roundMedianWallNanoseconds": [
-            842000,
-            845375,
-            884208,
-            838708,
-            838167
+            884417,
+            871416,
+            877333,
+            845000,
+            856041
           ],
-          "medianCPUNanoseconds": 846000,
+          "medianCPUNanoseconds": 862000,
           "samples": 15,
-          "mibPerSecond": 1184.7831470487517,
+          "mibPerSecond": 1160.6619040886135,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 11401041,
-          "minimumWallNanoseconds": 10891250,
+          "medianWallNanoseconds": 11537000,
+          "minimumWallNanoseconds": 11099083,
           "roundMedianWallNanoseconds": [
-            11090542,
-            11410834,
-            11755417,
-            11401041,
-            11093916
+            11260041,
+            11750458,
+            11580792,
+            11383667,
+            11537000
           ],
-          "medianCPUNanoseconds": 12216000,
+          "medianCPUNanoseconds": 12291000,
           "samples": 15,
-          "mibPerSecond": 87.71614040422726,
+          "mibPerSecond": 86.68244024532821,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 13666083,
-          "minimumWallNanoseconds": 12915584,
+          "medianWallNanoseconds": 13777333,
+          "minimumWallNanoseconds": 13283750,
           "roundMedianWallNanoseconds": [
-            13666083,
-            13655083,
-            14144375,
-            13521750,
-            13382708
+            13620417,
+            13777333,
+            13583750,
+            13906666,
+            13907709
           ],
-          "medianCPUNanoseconds": 20933000,
+          "medianCPUNanoseconds": 21206000,
           "samples": 15,
-          "mibPerSecond": 73.17790424003363,
+          "mibPerSecond": 72.58700309489156,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 926666,
-          "minimumWallNanoseconds": 918375,
+          "medianWallNanoseconds": 961083,
+          "minimumWallNanoseconds": 929833,
           "roundMedianWallNanoseconds": [
-            932250,
-            926666,
-            967583,
-            921583,
-            918791
+            935458,
+            961666,
+            938833,
+            961875,
+            962750
           ],
-          "medianCPUNanoseconds": 927000,
+          "medianCPUNanoseconds": 962000,
           "samples": 15,
-          "mibPerSecond": 1079.197157455169,
+          "mibPerSecond": 1040.5504135546582,
           "history": 828,
           "allocations": 2
         }
@@ -1395,17 +1395,17 @@
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.0961908545671686,
+          "median": 1.1035670678527822,
           "roundRange": [
-            1.0942934241716882,
-            1.107185273159145
+            1.0577114641622674,
+            1.1383136094674555
           ]
         },
         "xterm": {
-          "median": 13.294854830537611,
+          "median": 13.471795266272188,
           "roundRange": [
-            13.171665083135393,
-            13.593576071767528
+            12.731597199058815,
+            13.48432665913869
           ]
         }
       },
@@ -1418,64 +1418,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 10396416,
-          "minimumWallNanoseconds": 9864000,
+          "medianWallNanoseconds": 10468208,
+          "minimumWallNanoseconds": 10166250,
           "roundMedianWallNanoseconds": [
-            10033583,
-            10396416,
-            10635167,
-            10176167,
-            10055583
+            10468208,
+            10423250,
+            10458375,
+            10677042,
+            10450250
           ],
-          "medianCPUNanoseconds": 11161000,
+          "medianCPUNanoseconds": 11505000,
           "samples": 15,
-          "mibPerSecond": 96.19231407346065,
+          "mibPerSecond": 95.5326177231434,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 8462375,
-          "minimumWallNanoseconds": 6964834,
+          "medianWallNanoseconds": 8517333,
+          "minimumWallNanoseconds": 7093833,
           "roundMedianWallNanoseconds": [
-            8462375,
-            8397833,
-            8690375,
-            8629291,
-            8250209
+            8265750,
+            8719708,
+            8517333,
+            8733584,
+            8199583
           ],
-          "medianCPUNanoseconds": 14545000,
+          "medianCPUNanoseconds": 14657000,
           "samples": 15,
-          "mibPerSecond": 118.17667181026032,
+          "mibPerSecond": 117.41413810054762,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 869333,
-          "minimumWallNanoseconds": 850708,
+          "medianWallNanoseconds": 901958,
+          "minimumWallNanoseconds": 848666,
           "roundMedianWallNanoseconds": [
-            860250,
-            869333,
-            873500,
-            856083,
-            884000
+            850291,
+            911208,
+            901958,
+            867625,
+            2370166
           ],
-          "medianCPUNanoseconds": 871000,
+          "medianCPUNanoseconds": 902000,
           "samples": 15,
-          "mibPerSecond": 1150.3708166034783,
+          "mibPerSecond": 1108.7604002740168,
           "history": 964,
           "allocations": 9
         },
         "thrush": {
-          "medianWallNanoseconds": 715583,
-          "minimumWallNanoseconds": 699417,
+          "medianWallNanoseconds": 723167,
+          "minimumWallNanoseconds": 688125,
           "roundMedianWallNanoseconds": [
-            702708,
-            716291,
-            717917,
-            735542,
-            700333
+            690791,
+            705750,
+            723167,
+            743166,
+            749208
           ],
-          "medianCPUNanoseconds": 716000,
+          "medianCPUNanoseconds": 723000,
           "samples": 15,
-          "mibPerSecond": 1397.5392276093082,
+          "mibPerSecond": 1382.882948351282,
           "history": 1000,
           "allocations": 1071
         }
@@ -1483,17 +1483,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.2167144669927026,
+          "median": 1.2472333499731043,
           "roundRange": [
-            1.1638805126015916,
-            1.2622566693273056
+            1.1674713321115335,
+            3.163562054863269
           ]
         },
         "xterm": {
-          "median": 11.780408748409686,
+          "median": 11.777823103100667,
           "roundRange": [
-            11.724052096145282,
-            12.104985673831376
+            10.944334550618787,
+            12.355236273467941
           ]
         }
       },
@@ -1506,64 +1506,64 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 706708,
-          "minimumWallNanoseconds": 685875,
+          "medianWallNanoseconds": 711375,
+          "minimumWallNanoseconds": 678208,
           "roundMedianWallNanoseconds": [
-            688708,
-            709083,
-            697292,
-            706708,
-            716709
+            678417,
+            717583,
+            713708,
+            711666,
+            689042
           ],
-          "medianCPUNanoseconds": 708000,
+          "medianCPUNanoseconds": 713000,
           "samples": 15,
-          "mibPerSecond": 1415.0898434860671,
+          "mibPerSecond": 1405.8060982046763,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 8101916,
-          "minimumWallNanoseconds": 7089834,
+          "medianWallNanoseconds": 8152500,
+          "minimumWallNanoseconds": 7211541,
           "roundMedianWallNanoseconds": [
-            8025583,
-            8101916,
-            8267375,
-            8186375,
-            7978708
+            7929875,
+            8320125,
+            8580125,
+            8152500,
+            7993541
           ],
-          "medianCPUNanoseconds": 11663000,
+          "medianCPUNanoseconds": 11739000,
           "samples": 15,
-          "mibPerSecond": 123.43442132828228,
+          "mibPerSecond": 122.66854499973647,
           "history": 1000
         },
         "xterm-node": {
-          "medianWallNanoseconds": 10286125,
-          "minimumWallNanoseconds": 9752625,
+          "medianWallNanoseconds": 10318625,
+          "minimumWallNanoseconds": 9922000,
           "roundMedianWallNanoseconds": [
-            9902666,
-            10104875,
-            10286125,
-            10376750,
-            10475375
+            10108500,
+            10281875,
+            10410791,
+            10460250,
+            10216666
           ],
-          "medianCPUNanoseconds": 10978000,
+          "medianCPUNanoseconds": 10923000,
           "samples": 15,
-          "mibPerSecond": 97.22371768866813,
+          "mibPerSecond": 96.91749754549193,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 864625,
-          "minimumWallNanoseconds": 840333,
+          "medianWallNanoseconds": 904916,
+          "minimumWallNanoseconds": 880666,
           "roundMedianWallNanoseconds": [
-            867250,
-            857500,
-            879291,
-            893125,
-            846250
+            896166,
+            890458,
+            912041,
+            921875,
+            905041
           ],
-          "medianCPUNanoseconds": 866000,
+          "medianCPUNanoseconds": 905000,
           "samples": 15,
-          "mibPerSecond": 1156.6347412003488,
+          "mibPerSecond": 1105.136071315295,
           "history": 964,
           "allocations": 9
         }
@@ -1571,17 +1571,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.2592419428843573,
+          "median": 1.2953759207268578,
           "roundRange": [
-            1.1807442072026444,
-            1.2637822127385
+            1.2409128978808026,
+            1.3209663083324859
           ]
         },
         "xterm": {
-          "median": 11.583815380609813,
+          "median": 11.60094885362576,
           "roundRange": [
-            11.132423340574766,
-            11.856403056395312
+            11.455514244041446,
+            12.021898311354223
           ]
         }
       },
@@ -1594,170 +1594,170 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 17726084,
-          "minimumWallNanoseconds": 13736000,
+          "medianWallNanoseconds": 17806375,
+          "minimumWallNanoseconds": 13597125,
           "roundMedianWallNanoseconds": [
-            17193334,
-            17887625,
-            17612042,
-            17842250,
-            17726084
+            17464291,
+            17939375,
+            18127792,
+            17806375,
+            17334459
           ],
-          "medianCPUNanoseconds": 24972000,
+          "medianCPUNanoseconds": 25597000,
           "samples": 15,
-          "mibPerSecond": 56.45659562395605,
+          "mibPerSecond": 56.20202631834258,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 6260500,
-          "minimumWallNanoseconds": 6192166,
+          "medianWallNanoseconds": 6579791,
+          "minimumWallNanoseconds": 6257708,
           "roundMedianWallNanoseconds": [
-            6235875,
-            6199291,
-            6527166,
-            6217875,
-            6369375
+            6429333,
+            6637791,
+            6792875,
+            6579791,
+            6310625
           ],
-          "medianCPUNanoseconds": 6262000,
+          "medianCPUNanoseconds": 6581000,
           "samples": 15,
-          "mibPerSecond": 159.85214541718352,
+          "mibPerSecond": 152.09515870401924,
           "history": 578,
           "allocations": 6
         },
         "xterm-node": {
-          "medianWallNanoseconds": 13914459,
-          "minimumWallNanoseconds": 13417833,
+          "medianWallNanoseconds": 14202333,
+          "minimumWallNanoseconds": 13350375,
           "roundMedianWallNanoseconds": [
-            13711667,
-            13651125,
-            14289333,
-            13914459,
-            14309875
+            13887167,
+            14420709,
+            14202333,
+            14456000,
+            13922334
           ],
-          "medianCPUNanoseconds": 14441000,
+          "medianCPUNanoseconds": 15274000,
           "samples": 15,
-          "mibPerSecond": 71.9219019858607,
+          "mibPerSecond": 70.4640819493725,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 4598333,
-          "minimumWallNanoseconds": 4543375,
+          "medianWallNanoseconds": 4756167,
+          "minimumWallNanoseconds": 4538500,
           "roundMedianWallNanoseconds": [
-            4555625,
-            4598333,
-            4641042,
-            4544500,
-            4795500
+            4542000,
+            4829834,
+            4762750,
+            4769917,
+            4610833
+          ],
+          "medianCPUNanoseconds": 4759000,
+          "samples": 15,
+          "mibPerSecond": 210.4119465074034,
+          "history": 1000,
+          "allocations": 3083
+        }
+      },
+      "fastestXterm": "xterm-node",
+      "speedup": {
+        "ghostty": {
+          "median": 1.3794351138604717,
+          "roundRange": [
+            1.3686518249522375,
+            1.4262505905201828
+          ]
+        },
+        "xterm": {
+          "median": 3.0194834642677364,
+          "roundRange": [
+            2.981960631987822,
+            3.057500440334654
+          ]
+        }
+      },
+      "differences": {}
+    },
+    {
+      "workload": "sgr",
+      "columns": 80,
+      "rows": 24,
+      "chunkBytes": 0,
+      "cores": {
+        "ghostty": {
+          "medianWallNanoseconds": 6479500,
+          "minimumWallNanoseconds": 6209541,
+          "roundMedianWallNanoseconds": [
+            6240000,
+            6494666,
+            6521083,
+            6573750,
+            6309541
+          ],
+          "medianCPUNanoseconds": 6481000,
+          "samples": 15,
+          "mibPerSecond": 154.44931806223897,
+          "history": 578,
+          "allocations": 6
+        },
+        "thrush": {
+          "medianWallNanoseconds": 4618291,
+          "minimumWallNanoseconds": 4533292,
+          "roundMedianWallNanoseconds": [
+            4552417,
+            4737000,
+            4666209,
+            4621542,
+            4580417
           ],
           "medianCPUNanoseconds": 4605000,
           "samples": 15,
-          "mibPerSecond": 217.63416359456295,
-          "history": 1000,
-          "allocations": 3083
-        }
-      },
-      "fastestXterm": "xterm-node",
-      "speedup": {
-        "ghostty": {
-          "median": 1.3682198261634944,
-          "roundRange": [
-            1.328198310916484,
-            1.40640097633247
-          ]
-        },
-        "xterm": {
-          "median": 3.0098322403621895,
-          "roundRange": [
-            2.9687117048721787,
-            3.078906202529518
-          ]
-        }
-      },
-      "differences": {}
-    },
-    {
-      "workload": "sgr",
-      "columns": 80,
-      "rows": 24,
-      "chunkBytes": 0,
-      "cores": {
-        "ghostty": {
-          "medianWallNanoseconds": 6267750,
-          "minimumWallNanoseconds": 6179791,
-          "roundMedianWallNanoseconds": [
-            6206750,
-            6267750,
-            6334708,
-            6181958,
-            6322541
-          ],
-          "medianCPUNanoseconds": 6268000,
-          "samples": 15,
-          "mibPerSecond": 159.66724205405086,
-          "history": 578,
-          "allocations": 6
-        },
-        "thrush": {
-          "medianWallNanoseconds": 4539833,
-          "minimumWallNanoseconds": 4507167,
-          "roundMedianWallNanoseconds": [
-            4539833,
-            4511167,
-            4645584,
-            4525667,
-            4728833
-          ],
-          "medianCPUNanoseconds": 4541000,
-          "samples": 15,
-          "mibPerSecond": 220.43858361844528,
+          "mibPerSecond": 216.6936549438477,
           "history": 1000,
           "allocations": 3083
         },
         "xterm-node": {
-          "medianWallNanoseconds": 14036000,
-          "minimumWallNanoseconds": 13462875,
+          "medianWallNanoseconds": 14068792,
+          "minimumWallNanoseconds": 13408916,
           "roundMedianWallNanoseconds": [
-            13521209,
-            14351583,
-            14013041,
-            14149625,
-            13875083
+            13725833,
+            14356959,
+            14068792,
+            14030750,
+            13821791
           ],
-          "medianCPUNanoseconds": 14799000,
+          "medianCPUNanoseconds": 14702000,
           "samples": 15,
-          "mibPerSecond": 71.2991134500055,
+          "mibPerSecond": 71.1329271471408,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 17744000,
-          "minimumWallNanoseconds": 13712167,
+          "medianWallNanoseconds": 17532583,
+          "minimumWallNanoseconds": 13605542,
           "roundMedianWallNanoseconds": [
-            17744000,
-            17465583,
-            18019875,
-            17086792,
-            18201542
+            17321958,
+            18015875,
+            17849542,
+            17186000,
+            17532583
           ],
-          "medianCPUNanoseconds": 25495000,
+          "medianCPUNanoseconds": 25774000,
           "samples": 15,
-          "mibPerSecond": 56.399591770980464,
+          "mibPerSecond": 57.07968736747331,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.3659772139664716,
+          "median": 1.3775036203035662,
           "roundRange": [
-            1.3370193026482433,
-            1.3893854960368348
+            1.370700443302975,
+            1.4224148563401566
           ]
         },
         "xterm": {
-          "median": 3.0164218320021767,
+          "median": 3.0175835518905814,
           "roundRange": [
-            2.934145274320324,
-            3.1813459798761605
+            3.0150368318264356,
+            3.0359455783372735
           ]
         }
       },
@@ -1770,82 +1770,82 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 4620000,
-          "minimumWallNanoseconds": 4547125,
+          "medianWallNanoseconds": 4752458,
+          "minimumWallNanoseconds": 4554542,
           "roundMedianWallNanoseconds": [
-            4628750,
-            4571917,
-            4631833,
-            4552667,
-            4694541
+            4558000,
+            4739833,
+            4771708,
+            4775042,
+            4752458
           ],
-          "medianCPUNanoseconds": 4627000,
+          "medianCPUNanoseconds": 4752000,
           "samples": 15,
-          "mibPerSecond": 216.6134970528739,
+          "mibPerSecond": 210.57616003850583,
           "history": 1000,
           "allocations": 3191
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 17142500,
-          "minimumWallNanoseconds": 13258375,
+          "medianWallNanoseconds": 17088791,
+          "minimumWallNanoseconds": 13026708,
           "roundMedianWallNanoseconds": [
-            17142500,
-            17251292,
-            16948542,
-            16930500,
-            17221542
+            16827875,
+            17344958,
+            17088791,
+            17132833,
+            17000750
           ],
-          "medianCPUNanoseconds": 25528000,
+          "medianCPUNanoseconds": 25785000,
           "samples": 15,
-          "mibPerSecond": 58.37855367561775,
+          "mibPerSecond": 58.562033814111096,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 7116708,
-          "minimumWallNanoseconds": 6906375,
+          "medianWallNanoseconds": 7226750,
+          "minimumWallNanoseconds": 6898166,
           "roundMedianWallNanoseconds": [
-            7433708,
-            6931875,
-            7116708,
-            7090333,
-            7328333
+            6919416,
+            7189500,
+            7229041,
+            7303875,
+            7081833
           ],
-          "medianCPUNanoseconds": 7117000,
+          "medianCPUNanoseconds": 7228000,
           "samples": 15,
-          "mibPerSecond": 140.62040431956422,
+          "mibPerSecond": 138.47917201844223,
           "history": 935,
           "allocations": 15
         },
         "xterm-node": {
-          "medianWallNanoseconds": 14373375,
-          "minimumWallNanoseconds": 13700916,
+          "medianWallNanoseconds": 14205959,
+          "minimumWallNanoseconds": 13618125,
           "roundMedianWallNanoseconds": [
-            14478292,
-            14013083,
-            14212459,
-            14586666,
-            14297084
+            14110375,
+            14290292,
+            14476834,
+            14139208,
+            13892625
           ],
-          "medianCPUNanoseconds": 15324000,
+          "medianCPUNanoseconds": 15060000,
           "samples": 15,
-          "mibPerSecond": 69.62556507321887,
+          "mibPerSecond": 70.4460963447999,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.557402067842871,
+          "median": 1.5168255928004215,
           "roundRange": [
-            1.5161856612882518,
-            1.605986065352417
+            1.490141101720415,
+            1.5295938758235006
           ]
         },
         "xterm": {
-          "median": 3.068430791870087,
+          "median": 3.0149357582851546,
           "roundRange": [
-            3.045470047018441,
-            3.203982632597552
+            2.923250452713101,
+            3.0957382623957876
           ]
         }
       },
@@ -1858,82 +1858,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 7181041,
-          "minimumWallNanoseconds": 6960083,
+          "medianWallNanoseconds": 7192916,
+          "minimumWallNanoseconds": 6975708,
           "roundMedianWallNanoseconds": [
-            7146875,
-            6999083,
-            7412250,
-            7190791,
-            7181041
+            7037208,
+            7253666,
+            7287125,
+            7192916,
+            6990166
           ],
-          "medianCPUNanoseconds": 7186000,
+          "medianCPUNanoseconds": 7195000,
           "samples": 15,
-          "mibPerSecond": 139.3606242304253,
+          "mibPerSecond": 139.13054961079447,
           "history": 935,
           "allocations": 15
         },
         "thrush": {
-          "medianWallNanoseconds": 4653125,
-          "minimumWallNanoseconds": 4532625,
+          "medianWallNanoseconds": 4655958,
+          "minimumWallNanoseconds": 4557750,
           "roundMedianWallNanoseconds": [
-            4653125,
-            4907541,
-            4722417,
-            4603583,
-            4537666
+            4593750,
+            4737583,
+            4624375,
+            4609583,
+            4732375
           ],
-          "medianCPUNanoseconds": 4654000,
+          "medianCPUNanoseconds": 4659000,
           "samples": 15,
-          "mibPerSecond": 215.07145335323622,
+          "mibPerSecond": 214.94058932324504,
           "history": 1000,
           "allocations": 3191
         },
         "xterm-node": {
-          "medianWallNanoseconds": 14356000,
-          "minimumWallNanoseconds": 13567083,
+          "medianWallNanoseconds": 14336417,
+          "minimumWallNanoseconds": 13577000,
           "roundMedianWallNanoseconds": [
-            13828292,
-            13971250,
-            14373125,
-            14219417,
-            14559750
+            14136125,
+            14406333,
+            14335875,
+            14390833,
+            14248250
           ],
-          "medianCPUNanoseconds": 14753000,
+          "medianCPUNanoseconds": 14856000,
           "samples": 15,
-          "mibPerSecond": 69.7098325706518,
+          "mibPerSecond": 69.80505354889421,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 17538541,
-          "minimumWallNanoseconds": 13656542,
+          "medianWallNanoseconds": 17377000,
+          "minimumWallNanoseconds": 12275667,
           "roundMedianWallNanoseconds": [
-            17491125,
-            17724000,
-            17621208,
-            17538541,
-            17454042
+            17163709,
+            17681250,
+            17377000,
+            17717125,
+            14517917
           ],
-          "medianCPUNanoseconds": 25911000,
+          "medianCPUNanoseconds": 26759000,
           "samples": 15,
-          "mibPerSecond": 57.060296884688256,
+          "mibPerSecond": 57.59074387893637,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.5619987735639826,
+          "median": 1.5319092244897958,
           "roundRange": [
-            1.4261894093192498,
-            1.5825406717902992
+            1.4770946934678677,
+            1.5758075415596702
           ]
         },
         "xterm": {
-          "median": 3.0435950488912775,
+          "median": 3.077251700680272,
           "roundRange": [
-            2.8468941981330365,
-            3.20864294551428
+            3.0108032436144643,
+            3.1219381449471677
           ]
         }
       },
@@ -1946,82 +1946,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 12842208,
-          "minimumWallNanoseconds": 11785333,
+          "medianWallNanoseconds": 12540084,
+          "minimumWallNanoseconds": 11845292,
           "roundMedianWallNanoseconds": [
-            12026291,
-            13037750,
-            12383833,
-            12871542,
-            13532500
+            12269667,
+            12540084,
+            12635834,
+            12651042,
+            12250166
           ],
-          "medianCPUNanoseconds": 16091000,
+          "medianCPUNanoseconds": 15973000,
           "samples": 15,
-          "mibPerSecond": 77.87119995040231,
+          "mibPerSecond": 79.74732441765592,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 2847750,
-          "minimumWallNanoseconds": 2806125,
+          "medianWallNanoseconds": 2929458,
+          "minimumWallNanoseconds": 2818958,
           "roundMedianWallNanoseconds": [
-            2806291,
-            2847708,
-            2947791,
-            2843750,
-            2850500
+            2828083,
+            2929458,
+            2858458,
+            2938333,
+            2963500
           ],
-          "medianCPUNanoseconds": 2849000,
+          "medianCPUNanoseconds": 2929000,
           "samples": 15,
-          "mibPerSecond": 351.16781563432755,
+          "mibPerSecond": 341.3730959695126,
           "history": 671,
           "allocations": 2
         },
         "thrush": {
-          "medianWallNanoseconds": 3694417,
-          "minimumWallNanoseconds": 3643750,
+          "medianWallNanoseconds": 3033042,
+          "minimumWallNanoseconds": 2906917,
           "roundMedianWallNanoseconds": [
-            3645083,
-            3648166,
-            4036750,
-            3694417,
-            3713167
+            2909667,
+            3038292,
+            3039292,
+            3033042,
+            2946458
           ],
-          "medianCPUNanoseconds": 3695000,
+          "medianCPUNanoseconds": 3034000,
           "samples": 15,
-          "mibPerSecond": 270.68902805846125,
+          "mibPerSecond": 329.7145726873074,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 13292500,
-          "minimumWallNanoseconds": 12879958,
+          "medianWallNanoseconds": 13649625,
+          "minimumWallNanoseconds": 12887500,
           "roundMedianWallNanoseconds": [
-            13125500,
-            13024750,
-            13688208,
-            13144292,
-            13292500
+            13118750,
+            14476334,
+            13496375,
+            13649625,
+            13274583
           ],
-          "medianCPUNanoseconds": 17753000,
+          "medianCPUNanoseconds": 18015000,
           "samples": 15,
-          "mibPerSecond": 75.23326289055153,
+          "mibPerSecond": 73.264880681532,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.7697425601928531,
+          "median": 0.9687742537030479,
           "roundRange": [
-            0.7302386821081316,
-            0.7805861904310275
+            0.9405012746389619,
+            1.005783893746322
           ]
         },
         "xterm": {
-          "median": 3.4840522875463167,
+          "median": 4.15759057145902,
           "roundRange": [
-            3.067773084783551,
-            3.644463068857393
+            4.127346548652993,
+            4.216862960606832
           ]
         }
       },
@@ -2034,82 +2034,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 2937333,
-          "minimumWallNanoseconds": 2805708,
+          "medianWallNanoseconds": 2892583,
+          "minimumWallNanoseconds": 2799458,
           "roundMedianWallNanoseconds": [
-            2828000,
-            2993208,
-            2937333,
-            2853750,
-            3027666
+            2808208,
+            2951500,
+            2848416,
+            2979083,
+            2892583
           ],
-          "medianCPUNanoseconds": 2938000,
+          "medianCPUNanoseconds": 2893000,
           "samples": 15,
-          "mibPerSecond": 340.4578735106494,
+          "mibPerSecond": 345.7249617288964,
           "history": 671,
           "allocations": 2
         },
         "thrush": {
-          "medianWallNanoseconds": 3696833,
-          "minimumWallNanoseconds": 3627917,
+          "medianWallNanoseconds": 3018167,
+          "minimumWallNanoseconds": 2892459,
           "roundMedianWallNanoseconds": [
-            3637084,
-            3690083,
-            3640500,
-            3711833,
-            3854583
+            2896458,
+            3020417,
+            3031666,
+            3024166,
+            2928875
           ],
-          "medianCPUNanoseconds": 3697000,
+          "medianCPUNanoseconds": 3019000,
           "samples": 15,
-          "mibPerSecond": 270.51212401876313,
+          "mibPerSecond": 331.3395670195374,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 12202167,
-          "minimumWallNanoseconds": 11774917,
+          "medianWallNanoseconds": 12473292,
+          "minimumWallNanoseconds": 11813834,
           "roundMedianWallNanoseconds": [
-            11896000,
-            12340500,
-            12424875,
-            12121667,
-            11832208
+            11866500,
+            12192917,
+            12476834,
+            12885708,
+            12473292
           ],
-          "medianCPUNanoseconds": 14073000,
+          "medianCPUNanoseconds": 14591000,
           "samples": 15,
-          "mibPerSecond": 81.95578268783375,
+          "mibPerSecond": 80.17435549273249,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 13944417,
-          "minimumWallNanoseconds": 12184250,
+          "medianWallNanoseconds": 14049000,
+          "minimumWallNanoseconds": 12224875,
           "roundMedianWallNanoseconds": [
-            13619250,
-            14063750,
-            14548333,
-            14182750,
-            13928458
+            13705834,
+            14220542,
+            13966417,
+            17675333,
+            14266500
           ],
-          "medianCPUNanoseconds": 20671000,
+          "medianCPUNanoseconds": 21199000,
           "samples": 15,
-          "mibPerSecond": 71.71602419611061,
+          "mibPerSecond": 71.18215865703297,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 0.785471735853139,
+          "median": 0.9771829518904178,
           "roundRange": [
-            0.768824998322931,
-            0.8111492343126158
+            0.9395546870928394,
+            0.9876088941999914
           ]
         },
         "xterm": {
-          "median": 3.2707520640161185,
+          "median": 4.115504148544068,
           "roundRange": [
-            3.0696467036771553,
-            3.4129583848372476
+            4.036832331429733,
+            4.260912926076148
           ]
         }
       },
@@ -2122,152 +2122,152 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 3548417,
-          "minimumWallNanoseconds": 3499458,
+          "medianWallNanoseconds": 2824125,
+          "minimumWallNanoseconds": 2740959,
           "roundMedianWallNanoseconds": [
-            3501042,
-            3717291,
-            3548417,
-            3704250,
-            3506208
-          ],
-          "medianCPUNanoseconds": 3552000,
-          "samples": 15,
-          "mibPerSecond": 281.8265572993975,
-          "history": 1000,
-          "allocations": 1071
-        },
-        "ghostty": {
-          "medianWallNanoseconds": 2818875,
-          "minimumWallNanoseconds": 2784708,
-          "roundMedianWallNanoseconds": [
-            2793041,
-            3003666,
-            2815708,
-            3036416,
-            2814833
-          ],
-          "medianCPUNanoseconds": 2820000,
-          "samples": 15,
-          "mibPerSecond": 354.76498495770693,
-          "history": 833,
-          "allocations": 9
-        },
-        "xterm-bun": {
-          "medianWallNanoseconds": 11090416,
-          "minimumWallNanoseconds": 9407375,
-          "roundMedianWallNanoseconds": [
-            11023458,
-            11400875,
-            11072167,
-            11497458,
-            11090416
-          ],
-          "medianCPUNanoseconds": 14652000,
-          "samples": 15,
-          "mibPerSecond": 90.17138283835847,
-          "history": 1000
-        },
-        "xterm-node": {
-          "medianWallNanoseconds": 11952583,
-          "minimumWallNanoseconds": 11421500,
-          "roundMedianWallNanoseconds": [
-            11952583,
-            11884125,
-            11898958,
-            12247000,
-            11584916
-          ],
-          "medianCPUNanoseconds": 12809000,
-          "samples": 15,
-          "mibPerSecond": 83.66711588387685,
-          "history": 1000
-        }
-      },
-      "fastestXterm": "xterm-bun",
-      "speedup": {
-        "ghostty": {
-          "median": 0.8028140372733163,
-          "roundRange": [
-            0.793511021957115,
-            0.8197114125666464
-          ]
-        },
-        "xterm": {
-          "median": 3.1203116770097763,
-          "roundRange": [
-            3.0669848015665173,
-            3.1630798857341036
-          ]
-        }
-      },
-      "differences": {}
-    },
-    {
-      "workload": "wide",
-      "columns": 240,
-      "rows": 60,
-      "chunkBytes": 0,
-      "cores": {
-        "xterm-node": {
-          "medianWallNanoseconds": 11837292,
-          "minimumWallNanoseconds": 11501792,
-          "roundMedianWallNanoseconds": [
-            11659750,
-            11837292,
-            11772625,
-            12054875,
-            11662084
-          ],
-          "medianCPUNanoseconds": 12400000,
-          "samples": 15,
-          "mibPerSecond": 84.48200373638298,
-          "history": 1000
-        },
-        "xterm-bun": {
-          "medianWallNanoseconds": 10964167,
-          "minimumWallNanoseconds": 9423042,
-          "roundMedianWallNanoseconds": [
-            10885417,
-            10964167,
-            10942042,
-            11307584,
-            11029875
-          ],
-          "medianCPUNanoseconds": 17200000,
-          "samples": 15,
-          "mibPerSecond": 91.2096784892693,
-          "history": 1000
-        },
-        "ghostty": {
-          "medianWallNanoseconds": 2823708,
-          "minimumWallNanoseconds": 2792333,
-          "roundMedianWallNanoseconds": [
-            2793583,
-            2818458,
-            2827625,
-            2861041,
-            2805750
+            2741208,
+            2793000,
+            2911083,
+            2871125,
+            2824125
           ],
           "medianCPUNanoseconds": 2825000,
           "samples": 15,
-          "mibPerSecond": 354.1577765734475,
+          "mibPerSecond": 354.10548292751076,
+          "history": 1000,
+          "allocations": 1071
+        },
+        "ghostty": {
+          "medianWallNanoseconds": 3003833,
+          "minimumWallNanoseconds": 2804166,
+          "roundMedianWallNanoseconds": [
+            2815125,
+            2939291,
+            3003833,
+            6035041,
+            3049333
+          ],
+          "medianCPUNanoseconds": 3004000,
+          "samples": 15,
+          "mibPerSecond": 332.9206873260452,
+          "history": 833,
+          "allocations": 9
+        },
+        "xterm-bun": {
+          "medianWallNanoseconds": 11852542,
+          "minimumWallNanoseconds": 9628084,
+          "roundMedianWallNanoseconds": [
+            11058666,
+            12319792,
+            11765333,
+            14127000,
+            11852542
+          ],
+          "medianCPUNanoseconds": 15998000,
+          "samples": 15,
+          "mibPerSecond": 84.37330548777268,
+          "history": 1000
+        },
+        "xterm-node": {
+          "medianWallNanoseconds": 12530042,
+          "minimumWallNanoseconds": 11308750,
+          "roundMedianWallNanoseconds": [
+            11428584,
+            12268792,
+            12200625,
+            13977208,
+            12530042
+          ],
+          "medianCPUNanoseconds": 13283000,
+          "samples": 15,
+          "mibPerSecond": 79.81123662415946,
+          "history": 1000
+        }
+      },
+      "fastestXterm": "xterm-bun",
+      "speedup": {
+        "ghostty": {
+          "median": 1.0523777300393842,
+          "roundRange": [
+            1.0269651190278155,
+            2.1019777961600417
+          ]
+        },
+        "xterm": {
+          "median": 4.1968900101801445,
+          "roundRange": [
+            4.034230893824912,
+            4.920370934738125
+          ]
+        }
+      },
+      "differences": {}
+    },
+    {
+      "workload": "wide",
+      "columns": 240,
+      "rows": 60,
+      "chunkBytes": 0,
+      "cores": {
+        "xterm-node": {
+          "medianWallNanoseconds": 12369917,
+          "minimumWallNanoseconds": 11493000,
+          "roundMedianWallNanoseconds": [
+            11636625,
+            12258166,
+            12369917,
+            14488125,
+            12090667
+          ],
+          "medianCPUNanoseconds": 12982000,
+          "samples": 15,
+          "mibPerSecond": 80.84437001256,
+          "history": 1000
+        },
+        "xterm-bun": {
+          "medianWallNanoseconds": 10988292,
+          "minimumWallNanoseconds": 9384000,
+          "roundMedianWallNanoseconds": [
+            10708250,
+            10988292,
+            10908042,
+            21748625,
+            10930541
+          ],
+          "medianCPUNanoseconds": 17810000,
+          "samples": 15,
+          "mibPerSecond": 91.00942593923207,
+          "history": 1000
+        },
+        "ghostty": {
+          "medianWallNanoseconds": 2883791,
+          "minimumWallNanoseconds": 2808875,
+          "roundMedianWallNanoseconds": [
+            2826875,
+            3416500,
+            2872791,
+            3118750,
+            2840083
+          ],
+          "medianCPUNanoseconds": 2886000,
+          "samples": 15,
+          "mibPerSecond": 346.7789957637902,
           "history": 833,
           "allocations": 9
         },
         "thrush": {
-          "medianWallNanoseconds": 3512541,
-          "minimumWallNanoseconds": 3483250,
+          "medianWallNanoseconds": 2862917,
+          "minimumWallNanoseconds": 2734250,
           "roundMedianWallNanoseconds": [
-            3486333,
-            3501208,
-            3552083,
-            3742209,
-            3490208
+            2735291,
+            3193042,
+            2862917,
+            2867584,
+            2846000
           ],
-          "medianCPUNanoseconds": 3516000,
+          "medianCPUNanoseconds": 2865000,
           "samples": 15,
-          "mibPerSecond": 284.70504599737234,
+          "mibPerSecond": 349.3074186127842,
           "history": 1000,
           "allocations": 1071
         }
@@ -2275,17 +2275,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.8012955159475587,
+          "median": 1.0334823607433359,
           "roundRange": [
-            0.764532659720502,
-            0.8049958757091839
+            0.9979209416725229,
+            1.0875880183457574
           ]
         },
         "xterm": {
-          "median": 3.122311322527137,
+          "median": 3.840667955024596,
           "roundRange": [
-            3.0216334790494064,
-            3.160234289761527
+            3.441323978826461,
+            7.584302674307012
           ]
         }
       },
@@ -2298,64 +2298,64 @@
       "chunkBytes": 4096,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 5613125,
-          "minimumWallNanoseconds": 5548250,
+          "medianWallNanoseconds": 5671291,
+          "minimumWallNanoseconds": 5468250,
           "roundMedianWallNanoseconds": [
-            5759250,
-            5580958,
-            5585291,
-            5636208,
-            5617875
+            5579417,
+            6277625,
+            5660333,
+            5763958,
+            5658834
           ],
-          "medianCPUNanoseconds": 5613000,
+          "medianCPUNanoseconds": 5672000,
           "samples": 15,
-          "mibPerSecond": 178.30967942957702,
+          "mibPerSecond": 176.48089638640383,
           "history": 0,
           "allocations": 24
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 21714292,
-          "minimumWallNanoseconds": 20911500,
+          "medianWallNanoseconds": 21926584,
+          "minimumWallNanoseconds": 21180500,
           "roundMedianWallNanoseconds": [
-            21820875,
-            21031500,
-            21478166,
-            21592583,
-            21896834
+            21347583,
+            21926584,
+            21283750,
+            25805958,
+            21682250
           ],
-          "medianCPUNanoseconds": 34600000,
+          "medianCPUNanoseconds": 35178000,
           "samples": 15,
-          "mibPerSecond": 46.09289215361682,
+          "mibPerSecond": 45.64662326553669,
           "history": 0
         },
         "xterm-node": {
-          "medianWallNanoseconds": 24332375,
-          "minimumWallNanoseconds": 23831625,
+          "medianWallNanoseconds": 24641666,
+          "minimumWallNanoseconds": 24017375,
           "roundMedianWallNanoseconds": [
-            24332375,
-            23910333,
-            24024000,
-            24701917,
-            24434666
+            24071375,
+            24641666,
+            24273791,
+            26112666,
+            24727667
           ],
-          "medianCPUNanoseconds": 24466000,
+          "medianCPUNanoseconds": 24799000,
           "samples": 15,
-          "mibPerSecond": 41.13344954399825,
+          "mibPerSecond": 40.617161167112016,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 5661291,
-          "minimumWallNanoseconds": 5592916,
+          "medianWallNanoseconds": 5674666,
+          "minimumWallNanoseconds": 5605708,
           "roundMedianWallNanoseconds": [
-            5674583,
-            5629583,
-            5619208,
-            5682000,
-            5661291
+            5605750,
+            5820958,
+            5673291,
+            5946958,
+            5674666
           ],
-          "medianCPUNanoseconds": 5662000,
+          "medianCPUNanoseconds": 5677000,
           "samples": 15,
-          "mibPerSecond": 176.79262898659414,
+          "mibPerSecond": 176.37593460974523,
           "history": 0,
           "allocations": 0
         }
@@ -2363,17 +2363,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.00772818903945,
+          "median": 1.0027977495010456,
           "roundRange": [
-            0.985298953856839,
-            1.0087126618763302
+            0.9272548137233428,
+            1.0317490169081731
           ]
         },
         "xterm": {
-          "median": 3.8310479315170767,
+          "median": 3.826131475743792,
           "roundRange": [
-            3.768439038602333,
-            3.8977075851634293
+            3.492815196830011,
+            4.477124573079818
           ]
         }
       },
@@ -2386,82 +2386,82 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 21408209,
-          "minimumWallNanoseconds": 20721667,
+          "medianWallNanoseconds": 22720708,
+          "minimumWallNanoseconds": 20762250,
           "roundMedianWallNanoseconds": [
-            21408209,
-            20835958,
-            21307750,
-            21296416,
-            21658542
+            21447708,
+            22797250,
+            21866625,
+            25629666,
+            21727375
           ],
-          "medianCPUNanoseconds": 33750000,
+          "medianCPUNanoseconds": 34345000,
           "samples": 15,
-          "mibPerSecond": 46.75190340995571,
+          "mibPerSecond": 44.051202953188984,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 5645875,
-          "minimumWallNanoseconds": 5548791,
+          "medianWallNanoseconds": 5718750,
+          "minimumWallNanoseconds": 5468708,
           "roundMedianWallNanoseconds": [
-            5650875,
-            5553375,
-            5666417,
-            5552709,
-            5809833
+            5473375,
+            5766792,
+            5517084,
+            11635250,
+            5737958
           ],
-          "medianCPUNanoseconds": 5646000,
+          "medianCPUNanoseconds": 5700000,
           "samples": 15,
-          "mibPerSecond": 177.2753593283848,
+          "mibPerSecond": 175.01630939421108,
           "history": 0,
           "allocations": 24
         },
         "ghostty": {
-          "medianWallNanoseconds": 5642083,
-          "minimumWallNanoseconds": 5587208,
+          "medianWallNanoseconds": 5848166,
+          "minimumWallNanoseconds": 5599750,
           "roundMedianWallNanoseconds": [
-            5726958,
-            5596541,
-            5632958,
-            5631958,
-            6042666
+            5608291,
+            5848166,
+            5689333,
+            5924833,
+            6359166
           ],
-          "medianCPUNanoseconds": 5642000,
+          "medianCPUNanoseconds": 5841000,
           "samples": 15,
-          "mibPerSecond": 177.39450471539405,
+          "mibPerSecond": 171.14331558785173,
           "history": 0,
           "allocations": 0
         },
         "xterm-node": {
-          "medianWallNanoseconds": 24208958,
-          "minimumWallNanoseconds": 23771917,
+          "medianWallNanoseconds": 24491125,
+          "minimumWallNanoseconds": 23611833,
           "roundMedianWallNanoseconds": [
-            23982416,
-            23816125,
-            24460875,
-            24356541,
-            25471375
+            23668625,
+            24491125,
+            24163458,
+            27954125,
+            25060584
           ],
-          "medianCPUNanoseconds": 24286000,
+          "medianCPUNanoseconds": 24563000,
           "samples": 15,
-          "mibPerSecond": 41.34314741461176,
+          "mibPerSecond": 40.86682499673431,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.0134639325768133,
+          "median": 1.0246495078447941,
           "roundRange": [
-            0.9940952104301537,
-            1.0400756785952368
+            0.5092140693152274,
+            1.108262904677936
           ]
         },
         "xterm": {
-          "median": 3.7603568533695984,
+          "median": 3.9185526297759607,
           "roundRange": [
-            3.7279112841969813,
-            3.8353200212724996
+            2.2027602329129157,
+            3.9634388383428636
           ]
         }
       },
@@ -2474,82 +2474,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 135890125,
-          "minimumWallNanoseconds": 133305250,
+          "medianWallNanoseconds": 139269416,
+          "minimumWallNanoseconds": 134676791,
           "roundMedianWallNanoseconds": [
-            133864375,
-            139638208,
-            139631208,
-            134094500,
-            135890125
+            136304542,
+            139441583,
+            135378542,
+            144405833,
+            138693667
           ],
-          "medianCPUNanoseconds": 136044000,
+          "medianCPUNanoseconds": 139402000,
           "samples": 15,
-          "mibPerSecond": 7.365321941886098,
+          "mibPerSecond": 7.186606708741742,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 9666208,
-          "minimumWallNanoseconds": 9299000,
+          "medianWallNanoseconds": 9560750,
+          "minimumWallNanoseconds": 9370833,
           "roundMedianWallNanoseconds": [
-            9350541,
-            9666208,
-            9755208,
-            9398791,
-            9869666
+            9374166,
+            9560750,
+            9452541,
+            9693083,
+            9715541
           ],
-          "medianCPUNanoseconds": 9666000,
+          "medianCPUNanoseconds": 9561000,
           "samples": 15,
-          "mibPerSecond": 103.54365634881273,
+          "mibPerSecond": 104.68577458338986,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 6112125,
-          "minimumWallNanoseconds": 6008417,
+          "medianWallNanoseconds": 6147875,
+          "minimumWallNanoseconds": 6017666,
           "roundMedianWallNanoseconds": [
-            6101542,
-            6354167,
-            6080250,
-            6084000,
-            6408042
+            6056959,
+            6106625,
+            6257584,
+            6309500,
+            6071708
           ],
-          "medianCPUNanoseconds": 6113000,
+          "medianCPUNanoseconds": 6147000,
           "samples": 15,
-          "mibPerSecond": 163.75229880739423,
+          "mibPerSecond": 162.8000763431502,
           "history": 0,
           "allocations": 24
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 94450708,
-          "minimumWallNanoseconds": 92100375,
+          "medianWallNanoseconds": 96090542,
+          "minimumWallNanoseconds": 92008667,
           "roundMedianWallNanoseconds": [
-            94450708,
-            93536333,
-            93407833,
-            94947917,
-            101470541
+            96959792,
+            95519375,
+            94505625,
+            110081708,
+            95150458
           ],
-          "medianCPUNanoseconds": 106248000,
+          "medianCPUNanoseconds": 110293000,
           "samples": 15,
-          "mibPerSecond": 10.5967921314909,
+          "mibPerSecond": 10.41595248102716,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.5401999549940528,
+          "median": 1.5476687228690174,
           "roundRange": [
-            1.521239212000566,
-            1.6044090292339954
+            1.5105735696076952,
+            1.600133109167964
           ]
         },
         "xterm": {
-          "median": 15.479809530115501,
+          "median": 15.671118900974816,
           "roundRange": [
-            14.72047130646708,
-            15.834874521733784
+            15.10257393268712,
+            17.44697804897377
           ]
         }
       },
@@ -2562,82 +2562,82 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 9543500,
-          "minimumWallNanoseconds": 9292208,
+          "medianWallNanoseconds": 9689166,
+          "minimumWallNanoseconds": 9439000,
           "roundMedianWallNanoseconds": [
-            9315208,
-            9704833,
-            9543500,
-            9578125,
-            9464125
+            9465041,
+            9697833,
+            9663125,
+            9699333,
+            9715208
           ],
-          "medianCPUNanoseconds": 9543000,
+          "medianCPUNanoseconds": 9689000,
           "samples": 15,
-          "mibPerSecond": 104.87499547840358,
+          "mibPerSecond": 103.29831477220479,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 6125250,
-          "minimumWallNanoseconds": 5983625,
+          "medianWallNanoseconds": 6226834,
+          "minimumWallNanoseconds": 5947834,
           "roundMedianWallNanoseconds": [
-            6089291,
-            6434167,
-            6156042,
-            6097834,
-            6089792
+            6067500,
+            6246791,
+            6045375,
+            6289292,
+            6226834
           ],
-          "medianCPUNanoseconds": 6123000,
+          "medianCPUNanoseconds": 6232000,
           "samples": 15,
-          "mibPerSecond": 163.4014153460095,
+          "mibPerSecond": 160.73569961045123,
           "history": 0,
           "allocations": 24
         },
         "xterm-node": {
-          "medianWallNanoseconds": 136346958,
-          "minimumWallNanoseconds": 133556250,
+          "medianWallNanoseconds": 138518791,
+          "minimumWallNanoseconds": 134236708,
           "roundMedianWallNanoseconds": [
-            134288084,
-            138219583,
-            138203708,
-            137356833,
-            134022917
+            134271500,
+            138970583,
+            135887125,
+            143788125,
+            139939875
           ],
-          "medianCPUNanoseconds": 136458000,
+          "medianCPUNanoseconds": 136762000,
           "samples": 15,
-          "mibPerSecond": 7.340644294742129,
+          "mibPerSecond": 7.2255504984023755,
           "history": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 93353666,
-          "minimumWallNanoseconds": 90146333,
+          "medianWallNanoseconds": 94768084,
+          "minimumWallNanoseconds": 91206959,
           "roundMedianWallNanoseconds": [
-            92262083,
-            91362958,
-            95030083,
-            95485291,
-            93094625
+            97528250,
+            96417334,
+            94402042,
+            94958875,
+            93374333
           ],
-          "medianCPUNanoseconds": 106866000,
+          "medianCPUNanoseconds": 108845000,
           "samples": 15,
-          "mibPerSecond": 10.721319924898767,
+          "mibPerSecond": 10.56130373331326,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 1.5502655764856705,
+          "median": 1.5599573135558302,
           "roundRange": [
-            1.5083278068474133,
-            1.5707421684486655
+            1.5421979135330337,
+            1.5984326861443665
           ]
         },
         "xterm": {
-          "median": 15.286995844849873,
+          "median": 15.434698231459961,
           "roundRange": [
-            14.199655992764875,
-            15.658886581694418
+            14.995474907473044,
+            16.073877214668315
           ]
         }
       },
@@ -2650,64 +2650,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-bun": {
-          "medianWallNanoseconds": 15708583,
-          "minimumWallNanoseconds": 14518125,
+          "medianWallNanoseconds": 16106667,
+          "minimumWallNanoseconds": 15170291,
           "roundMedianWallNanoseconds": [
-            16479375,
-            15345500,
-            16333958,
-            15708583,
-            15564667
+            15997541,
+            16178916,
+            16106667,
+            16712542,
+            15614708
           ],
-          "medianCPUNanoseconds": 20267000,
+          "medianCPUNanoseconds": 21135000,
           "samples": 15,
-          "mibPerSecond": 63.66013347082168,
+          "mibPerSecond": 62.08674273935634,
           "history": 1000
         },
         "thrush": {
-          "medianWallNanoseconds": 2428000,
-          "minimumWallNanoseconds": 2399209,
+          "medianWallNanoseconds": 2362750,
+          "minimumWallNanoseconds": 2258250,
           "roundMedianWallNanoseconds": [
-            2416083,
-            2419583,
-            2515125,
-            2407166,
-            2499416
+            2362875,
+            2367208,
+            2487500,
+            2281167,
+            2270250
           ],
-          "medianCPUNanoseconds": 2429000,
+          "medianCPUNanoseconds": 2363000,
           "samples": 15,
-          "mibPerSecond": 411.8659350978091,
+          "mibPerSecond": 423.2400763591072,
           "history": 1000,
           "allocations": 1035
         },
         "xterm-node": {
-          "medianWallNanoseconds": 16525458,
-          "minimumWallNanoseconds": 15910875,
+          "medianWallNanoseconds": 16692667,
+          "minimumWallNanoseconds": 15963416,
           "roundMedianWallNanoseconds": [
-            16493750,
-            16027500,
-            16525458,
-            16059542,
-            17392791
+            16692667,
+            17142583,
+            16455542,
+            16936792,
+            16456834
           ],
-          "medianCPUNanoseconds": 19961000,
+          "medianCPUNanoseconds": 20222000,
           "samples": 15,
-          "mibPerSecond": 60.513329822234304,
+          "mibPerSecond": 59.90717303696769,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 2380041,
-          "minimumWallNanoseconds": 2335708,
+          "medianWallNanoseconds": 2466291,
+          "minimumWallNanoseconds": 2422250,
           "roundMedianWallNanoseconds": [
-            2402083,
-            2364250,
-            2398875,
-            2337125,
-            2386000
+            2474916,
+            2472041,
+            2471625,
+            2462666,
+            2458625
           ],
-          "medianCPUNanoseconds": 2380000,
+          "medianCPUNanoseconds": 2468000,
           "samples": 15,
-          "mibPerSecond": 420.1652368246936,
+          "mibPerSecond": 405.471410477304,
           "history": 680,
           "allocations": 2
         }
@@ -2715,17 +2715,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9709031284090919,
+          "median": 1.0474172353594668,
           "roundRange": [
-            0.9537796332190249,
-            0.9942054970793636
+            0.9936180904522613,
+            1.082975443233124
           ]
         },
         "xterm": {
-          "median": 6.494292728989612,
+          "median": 6.834598396085177,
           "roundRange": [
-            6.227321502302938,
-            6.8206990405544845
+            6.4750420100502515,
+            7.326312365556753
           ]
         }
       },
@@ -2738,170 +2738,170 @@
       "chunkBytes": 0,
       "cores": {
         "ghostty": {
-          "medianWallNanoseconds": 2387958,
-          "minimumWallNanoseconds": 2341125,
+          "medianWallNanoseconds": 2453666,
+          "minimumWallNanoseconds": 2392708,
           "roundMedianWallNanoseconds": [
-            2427291,
-            2341375,
-            2388000,
-            2356250,
-            2434208
+            2479041,
+            2453666,
+            2468583,
+            2404500,
+            2443375
+          ],
+          "medianCPUNanoseconds": 2455000,
+          "samples": 15,
+          "mibPerSecond": 407.5577076983911,
+          "history": 680,
+          "allocations": 2
+        },
+        "xterm-node": {
+          "medianWallNanoseconds": 16414500,
+          "minimumWallNanoseconds": 15612542,
+          "roundMedianWallNanoseconds": [
+            16818792,
+            16414500,
+            16900125,
+            15963667,
+            16338041
+          ],
+          "medianCPUNanoseconds": 19637000,
+          "samples": 15,
+          "mibPerSecond": 60.92238511179022,
+          "history": 1000
+        },
+        "xterm-bun": {
+          "medianWallNanoseconds": 16215125,
+          "minimumWallNanoseconds": 13562708,
+          "roundMedianWallNanoseconds": [
+            16527250,
+            16215125,
+            15781834,
+            15596292,
+            16677583
+          ],
+          "medianCPUNanoseconds": 23771000,
+          "samples": 15,
+          "mibPerSecond": 61.67146355131277,
+          "history": 1000
+        },
+        "thrush": {
+          "medianWallNanoseconds": 2329209,
+          "minimumWallNanoseconds": 2239166,
+          "roundMedianWallNanoseconds": [
+            2334625,
+            2333125,
+            3720667,
+            2266500,
+            2244209
+          ],
+          "medianCPUNanoseconds": 2331000,
+          "samples": 15,
+          "mibPerSecond": 429.33480439818,
+          "history": 1000,
+          "allocations": 1035
+        }
+      },
+      "fastestXterm": "xterm-bun",
+      "speedup": {
+        "ghostty": {
+          "median": 1.0608868299139642,
+          "roundRange": [
+            0.6634786182154974,
+            1.0887466363426936
+          ]
+        },
+        "xterm": {
+          "median": 6.949959817840878,
+          "roundRange": [
+            4.241667958997675,
+            7.431385846861857
+          ]
+        }
+      },
+      "differences": {}
+    },
+    {
+      "workload": "scroll",
+      "columns": 240,
+      "rows": 60,
+      "chunkBytes": 4096,
+      "cores": {
+        "thrush": {
+          "medianWallNanoseconds": 2388708,
+          "minimumWallNanoseconds": 2356375,
+          "roundMedianWallNanoseconds": [
+            2366000,
+            2385458,
+            3985708,
+            2359542,
+            2449625
           ],
           "medianCPUNanoseconds": 2389000,
           "samples": 15,
-          "mibPerSecond": 418.7722273245511,
-          "history": 680,
-          "allocations": 2
-        },
-        "xterm-node": {
-          "medianWallNanoseconds": 16204916,
-          "minimumWallNanoseconds": 15350375,
-          "roundMedianWallNanoseconds": [
-            16757959,
-            16097833,
-            16024291,
-            16204916,
-            16955000
-          ],
-          "medianCPUNanoseconds": 19299000,
-          "samples": 15,
-          "mibPerSecond": 61.71031620389026,
-          "history": 1000
-        },
-        "xterm-bun": {
-          "medianWallNanoseconds": 15593791,
-          "minimumWallNanoseconds": 13443834,
-          "roundMedianWallNanoseconds": [
-            15318958,
-            15149000,
-            16436583,
-            15898166,
-            15593791
-          ],
-          "medianCPUNanoseconds": 23357000,
-          "samples": 15,
-          "mibPerSecond": 64.12876063411909,
-          "history": 1000
-        },
-        "thrush": {
-          "medianWallNanoseconds": 2415125,
-          "minimumWallNanoseconds": 2393875,
-          "roundMedianWallNanoseconds": [
-            2400375,
-            2406500,
-            2541917,
-            2402208,
-            2484041
-          ],
-          "medianCPUNanoseconds": 2415000,
-          "samples": 15,
-          "mibPerSecond": 414.0615870472462,
-          "history": 1000,
-          "allocations": 1035
-        }
-      },
-      "fastestXterm": "xterm-bun",
-      "speedup": {
-        "ghostty": {
-          "median": 0.979938736921009,
-          "roundRange": [
-            0.9394484556340746,
-            1.0112132479300109
-          ]
-        },
-        "xterm": {
-          "median": 6.381901994480029,
-          "roundRange": [
-            6.277590023675133,
-            6.618147137966404
-          ]
-        }
-      },
-      "differences": {}
-    },
-    {
-      "workload": "scroll",
-      "columns": 240,
-      "rows": 60,
-      "chunkBytes": 4096,
-      "cores": {
-        "thrush": {
-          "medianWallNanoseconds": 2438666,
-          "minimumWallNanoseconds": 2424292,
-          "roundMedianWallNanoseconds": [
-            2440667,
-            2425917,
-            2454541,
-            2531500,
-            2427125
-          ],
-          "medianCPUNanoseconds": 2438000,
-          "samples": 15,
-          "mibPerSecond": 410.0645559570193,
+          "mibPerSecond": 418.64074236678596,
           "history": 1000,
           "allocations": 1071
         },
         "ghostty": {
-          "medianWallNanoseconds": 3079791,
-          "minimumWallNanoseconds": 3027916,
+          "medianWallNanoseconds": 3342333,
+          "minimumWallNanoseconds": 3209458,
           "roundMedianWallNanoseconds": [
-            3037833,
-            3106500,
-            3059375,
-            3093666,
-            3053791
+            3366250,
+            3264166,
+            3740750,
+            3240750,
+            3381083
           ],
-          "medianCPUNanoseconds": 3082000,
+          "medianCPUNanoseconds": 3337000,
           "samples": 15,
-          "mibPerSecond": 324.70076392114936,
+          "mibPerSecond": 299.1953496008568,
           "history": 900,
           "allocations": 9
         },
         "xterm-node": {
-          "medianWallNanoseconds": 18903292,
-          "minimumWallNanoseconds": 18523125,
+          "medianWallNanoseconds": 19516583,
+          "minimumWallNanoseconds": 18780417,
           "roundMedianWallNanoseconds": [
-            18932292,
-            18886000,
-            18903292,
-            19090167,
-            18711417
+            19748333,
+            19516583,
+            19530041,
+            19287958,
+            19046542
           ],
-          "medianCPUNanoseconds": 19469000,
+          "medianCPUNanoseconds": 20271000,
           "samples": 15,
-          "mibPerSecond": 52.901393599457734,
+          "mibPerSecond": 51.2390150682361,
           "history": 1000
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 20351042,
-          "minimumWallNanoseconds": 17644459,
+          "medianWallNanoseconds": 20733542,
+          "minimumWallNanoseconds": 18412709,
           "roundMedianWallNanoseconds": [
-            20036750,
-            20524334,
-            20351042,
-            20814667,
-            20056000
+            20384250,
+            21039625,
+            22100042,
+            20733542,
+            20246541
           ],
-          "medianCPUNanoseconds": 32541000,
+          "medianCPUNanoseconds": 34418000,
           "samples": 15,
-          "mibPerSecond": 49.13804857842072,
+          "mibPerSecond": 48.23153180568378,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.2464142990481724,
+          "median": 1.3734656980041042,
           "roundRange": [
-            1.2220683389294884,
-            1.2805466963626537
+            0.9385409066594944,
+            1.422759932375317
           ]
         },
         "xterm": {
-          "median": 7.709292681670701,
+          "median": 8.174449956813653,
           "roundRange": [
-            7.541049575350582,
-            7.785097346694054
+            4.900018014365327,
+            8.346717244294167
           ]
         }
       },
@@ -2914,82 +2914,82 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 2423208,
-          "minimumWallNanoseconds": 2404625,
+          "medianWallNanoseconds": 2315750,
+          "minimumWallNanoseconds": 2261958,
           "roundMedianWallNanoseconds": [
-            2421875,
-            2434167,
-            2421584,
-            2456875,
-            2421625
+            2312125,
+            2358833,
+            2262542,
+            2310667,
+            2354083
           ],
-          "medianCPUNanoseconds": 2424000,
+          "medianCPUNanoseconds": 2317000,
           "samples": 15,
-          "mibPerSecond": 412.68041803158474,
+          "mibPerSecond": 431.8300725110571,
           "history": 1000,
           "allocations": 1071
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 19772917,
-          "minimumWallNanoseconds": 17004666,
+          "medianWallNanoseconds": 20310375,
+          "minimumWallNanoseconds": 17029959,
           "roundMedianWallNanoseconds": [
-            19759500,
-            20255458,
-            17008792,
-            20677958,
-            19772917
+            20310375,
+            20668666,
+            20183500,
+            21055875,
+            19856041
           ],
-          "medianCPUNanoseconds": 36628000,
+          "medianCPUNanoseconds": 37814000,
           "samples": 15,
-          "mibPerSecond": 50.574757908379446,
+          "mibPerSecond": 49.2364365708403,
           "history": 1000
         },
         "ghostty": {
-          "medianWallNanoseconds": 3141666,
-          "minimumWallNanoseconds": 3043625,
+          "medianWallNanoseconds": 3189791,
+          "minimumWallNanoseconds": 3046583,
           "roundMedianWallNanoseconds": [
-            3141333,
-            3118000,
-            3260958,
-            3284041,
-            3056666
+            3249666,
+            3280916,
+            3051750,
+            3109500,
+            3200416
           ],
-          "medianCPUNanoseconds": 3143000,
+          "medianCPUNanoseconds": 3188000,
           "samples": 15,
-          "mibPerSecond": 318.305793937828,
+          "mibPerSecond": 313.50345223793045,
           "history": 900,
           "allocations": 9
         },
         "xterm-node": {
-          "medianWallNanoseconds": 18991959,
-          "minimumWallNanoseconds": 18215458,
+          "medianWallNanoseconds": 19437125,
+          "minimumWallNanoseconds": 18131541,
           "roundMedianWallNanoseconds": [
-            19500208,
-            18987416,
-            18991959,
-            19385000,
-            18958375
+            19437125,
+            19759584,
+            18637792,
+            19225375,
+            19666375
           ],
-          "medianCPUNanoseconds": 20473000,
+          "medianCPUNanoseconds": 21028000,
           "samples": 15,
-          "mibPerSecond": 52.65441497727962,
+          "mibPerSecond": 51.448477612686055,
           "history": 1000
         }
       },
       "fastestXterm": "xterm-node",
       "speedup": {
         "ghostty": {
-          "median": 1.297066529032258,
+          "median": 1.3595170603585345,
           "roundRange": [
-            1.2622375471016363,
-            1.3466218805542158
+            1.345715328084921,
+            1.4054888900902849
           ]
         },
         "xterm": {
-          "median": 7.84278348386841,
+          "median": 8.354155312280833,
           "roundRange": [
-            7.800375241304315,
-            8.051698787096774
+            8.237545203580751,
+            8.406606476725955
           ]
         }
       },
@@ -3002,64 +3002,64 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 27462333,
-          "minimumWallNanoseconds": 25907666,
+          "medianWallNanoseconds": 29190708,
+          "minimumWallNanoseconds": 25992250,
           "roundMedianWallNanoseconds": [
-            27772583,
-            28600500,
-            28639375,
-            26846125,
-            26649750
+            29190708,
+            30700917,
+            26781042,
+            28703833,
+            32914292
           ],
-          "medianCPUNanoseconds": 31999000,
+          "medianCPUNanoseconds": 34659000,
           "samples": 15,
-          "mibPerSecond": 36.45306591564478,
+          "mibPerSecond": 34.29468840037681,
           "history": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 22769625,
-          "minimumWallNanoseconds": 21502042,
+          "medianWallNanoseconds": 23041459,
+          "minimumWallNanoseconds": 21888042,
           "roundMedianWallNanoseconds": [
-            22915959,
-            22772083,
-            22243083,
-            22823208,
-            22572250
+            24109291,
+            23127625,
+            22891084,
+            22518875,
+            26646750
           ],
-          "medianCPUNanoseconds": 31336000,
+          "medianCPUNanoseconds": 33647000,
           "samples": 15,
-          "mibPerSecond": 43.965863954561684,
+          "mibPerSecond": 43.44717211902192,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2105416,
-          "minimumWallNanoseconds": 2077375,
+          "medianWallNanoseconds": 2162250,
+          "minimumWallNanoseconds": 2082041,
           "roundMedianWallNanoseconds": [
-            2083708,
-            2116833,
-            2127291,
-            2233666,
-            2079625
+            2165916,
+            2166958,
+            2083916,
+            2293291,
+            2137416
           ],
-          "medianCPUNanoseconds": 2108000,
+          "medianCPUNanoseconds": 2163000,
           "samples": 15,
-          "mibPerSecond": 475.48144169436665,
+          "mibPerSecond": 462.98357500121944,
           "history": 0,
           "allocations": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 3014542,
-          "minimumWallNanoseconds": 2997791,
+          "medianWallNanoseconds": 3148584,
+          "minimumWallNanoseconds": 3022834,
           "roundMedianWallNanoseconds": [
-            3012250,
-            3006209,
-            3020000,
-            3193458,
-            3007584
+            3149667,
+            3230208,
+            3047250,
+            3023708,
+            3148584
           ],
-          "medianCPUNanoseconds": 3015000,
+          "medianCPUNanoseconds": 3148000,
           "samples": 15,
-          "mibPerSecond": 332.0856816877611,
+          "mibPerSecond": 317.94807921477934,
           "history": 0,
           "allocations": 21
         }
@@ -3067,17 +3067,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.699450564247283,
+          "median": 0.6838677496103044,
           "roundRange": [
-            0.6914603216402269,
-            0.7044009933774834
+            0.6708416300126803,
+            0.7584366612119954
           ]
         },
         "xterm": {
-          "median": 7.50511041420622,
+          "median": 7.512046599392895,
           "roundRange": [
-            7.14686336879959,
-            7.60758867955847
+            7.159794353800127,
+            8.46309007477647
           ]
         }
       },
@@ -3090,64 +3090,64 @@
       "chunkBytes": 0,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 27721292,
-          "minimumWallNanoseconds": 25722709,
+          "medianWallNanoseconds": 28716708,
+          "minimumWallNanoseconds": 26867084,
           "roundMedianWallNanoseconds": [
-            26593542,
-            27788959,
-            29379750,
-            28034958,
-            26677084
+            33242417,
+            27887625,
+            27706500,
+            27454167,
+            93990291
           ],
-          "medianCPUNanoseconds": 31216000,
+          "medianCPUNanoseconds": 36797000,
           "samples": 15,
-          "mibPerSecond": 36.11253887612405,
+          "mibPerSecond": 34.86075893679689,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 3025000,
-          "minimumWallNanoseconds": 2985792,
+          "medianWallNanoseconds": 3051500,
+          "minimumWallNanoseconds": 3008042,
           "roundMedianWallNanoseconds": [
-            2990667,
-            3027416,
-            3051166,
-            3038958,
-            2986458
+            3139958,
+            3051500,
+            3009667,
+            3021750,
+            3136292
           ],
-          "medianCPUNanoseconds": 3028000,
+          "medianCPUNanoseconds": 3054000,
           "samples": 15,
-          "mibPerSecond": 330.9375983624419,
+          "mibPerSecond": 328.06365231734776,
           "history": 0,
           "allocations": 21
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 22610084,
-          "minimumWallNanoseconds": 21968667,
+          "medianWallNanoseconds": 23582791,
+          "minimumWallNanoseconds": 22390000,
           "roundMedianWallNanoseconds": [
-            22581833,
-            23128125,
-            23091083,
-            22427500,
-            22092750
+            23582791,
+            22957083,
+            22563542,
+            22414166,
+            60088000
           ],
-          "medianCPUNanoseconds": 36741000,
+          "medianCPUNanoseconds": 38207000,
           "samples": 15,
-          "mibPerSecond": 44.276095349596524,
+          "mibPerSecond": 42.4498624885573,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2087500,
-          "minimumWallNanoseconds": 2077291,
+          "medianWallNanoseconds": 2101791,
+          "minimumWallNanoseconds": 2072750,
           "roundMedianWallNanoseconds": [
-            2087500,
-            2078583,
-            2096958,
-            2104375,
-            2078500
+            2168083,
+            2101791,
+            2096375,
+            2074208,
+            2174166
           ],
-          "medianCPUNanoseconds": 2088000,
+          "medianCPUNanoseconds": 2102000,
           "samples": 15,
-          "mibPerSecond": 479.56226828569424,
+          "mibPerSecond": 476.3015138262495,
           "history": 0,
           "allocations": 0
         }
@@ -3155,17 +3155,17 @@
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.692465970243748,
+          "median": 0.6904815287338238,
           "roundRange": [
-            0.6865865147042891,
-            0.6980048263481022
+            0.6864260776040374,
+            0.6965471595362543
           ]
         },
         "xterm": {
-          "median": 7.5507681062451955,
+          "median": 7.5105434531289905,
           "roundRange": [
-            7.379996696236012,
-            7.639559611232814
+            7.417610987010838,
+            19.158930354699116
           ]
         }
       },
@@ -3178,82 +3178,82 @@
       "chunkBytes": 4096,
       "cores": {
         "xterm-node": {
-          "medianWallNanoseconds": 31972166,
-          "minimumWallNanoseconds": 30108750,
+          "medianWallNanoseconds": 34584750,
+          "minimumWallNanoseconds": 31074166,
           "roundMedianWallNanoseconds": [
-            31972166,
-            30882125,
-            30529083,
-            32655042,
-            32882375
+            36352959,
+            34852959,
+            32173333,
+            32121750,
+            41242500
           ],
-          "medianCPUNanoseconds": 37342000,
+          "medianCPUNanoseconds": 40989000,
           "samples": 15,
-          "mibPerSecond": 31.31117970069299,
+          "mibPerSecond": 28.945886121668853,
           "history": 0
         },
         "thrush": {
-          "medianWallNanoseconds": 3010792,
-          "minimumWallNanoseconds": 2999916,
+          "medianWallNanoseconds": 3066875,
+          "minimumWallNanoseconds": 3019833,
           "roundMedianWallNanoseconds": [
-            3008250,
-            3000334,
-            3100375,
-            3011917,
-            3011583
+            3154958,
+            3056291,
+            3066875,
+            3020083,
+            3191750
           ],
-          "medianCPUNanoseconds": 3012000,
+          "medianCPUNanoseconds": 3067000,
           "samples": 15,
-          "mibPerSecond": 332.4993008638215,
+          "mibPerSecond": 326.4189883990664,
           "history": 0,
           "allocations": 21
         },
         "ghostty": {
-          "medianWallNanoseconds": 2799500,
-          "minimumWallNanoseconds": 2783500,
+          "medianWallNanoseconds": 2904625,
+          "minimumWallNanoseconds": 2790791,
           "roundMedianWallNanoseconds": [
-            2889750,
-            2790916,
-            2828000,
-            2799500,
-            2788666
+            2909583,
+            2920000,
+            2791041,
+            2805791,
+            2915083
           ],
-          "medianCPUNanoseconds": 2800000,
+          "medianCPUNanoseconds": 2905000,
           "samples": 15,
-          "mibPerSecond": 357.59465441914153,
+          "mibPerSecond": 344.65248871933096,
           "history": 0,
           "allocations": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 30765208,
-          "minimumWallNanoseconds": 27385041,
+          "medianWallNanoseconds": 32705458,
+          "minimumWallNanoseconds": 26623167,
           "roundMedianWallNanoseconds": [
-            29152708,
-            30866167,
-            31684666,
-            29346084,
-            30610583
+            32587708,
+            32705458,
+            31870375,
+            29004292,
+            41945750
           ],
-          "medianCPUNanoseconds": 44831000,
+          "medianCPUNanoseconds": 49565000,
           "samples": 15,
-          "mibPerSecond": 32.53955686067153,
+          "mibPerSecond": 30.609148939188888,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9294744841906334,
+          "median": 0.92222558905697,
           "roundRange": [
-            0.9121477240656373,
-            0.9606083271004737
+            0.910060240472794,
+            0.9554064059999522
           ]
         },
         "xterm": {
-          "median": 10.164283368580577,
+          "median": 10.391807621764826,
           "roundRange": [
-            9.690919305243913,
-            10.287576983095882
+            9.603806253006955,
+            13.141928409179917
           ]
         }
       },
@@ -3266,82 +3266,82 @@
       "chunkBytes": 0,
       "cores": {
         "thrush": {
-          "medianWallNanoseconds": 3003375,
-          "minimumWallNanoseconds": 2990542,
+          "medianWallNanoseconds": 3061333,
+          "minimumWallNanoseconds": 3010125,
           "roundMedianWallNanoseconds": [
-            2994291,
-            3015083,
-            2991750,
-            2994833,
-            3037167
+            3125292,
+            3140709,
+            3011583,
+            3060250,
+            3111000
           ],
-          "medianCPUNanoseconds": 3007000,
+          "medianCPUNanoseconds": 3064000,
           "samples": 15,
-          "mibPerSecond": 333.32042620265094,
+          "mibPerSecond": 327.00991203713767,
           "history": 0,
           "allocations": 21
         },
         "xterm-node": {
-          "medianWallNanoseconds": 32886917,
-          "minimumWallNanoseconds": 31176375,
+          "medianWallNanoseconds": 33910584,
+          "minimumWallNanoseconds": 31334625,
           "roundMedianWallNanoseconds": [
-            34651208,
-            31806625,
-            32886917,
-            33739250,
-            32437542
+            33572083,
+            34024583,
+            31704166,
+            32283750,
+            36907416
           ],
-          "medianCPUNanoseconds": 39199000,
+          "medianCPUNanoseconds": 39249000,
           "samples": 15,
-          "mibPerSecond": 30.44025790092719,
+          "mibPerSecond": 29.521350474128866,
           "history": 0
         },
         "ghostty": {
-          "medianWallNanoseconds": 2799166,
-          "minimumWallNanoseconds": 2786375,
+          "medianWallNanoseconds": 2903166,
+          "minimumWallNanoseconds": 2781416,
           "roundMedianWallNanoseconds": [
-            2789958,
-            2795000,
-            2860500,
-            2915375,
-            2795875
+            2905833,
+            2912250,
+            2799458,
+            2784625,
+            2940916
           ],
-          "medianCPUNanoseconds": 2802000,
+          "medianCPUNanoseconds": 2903000,
           "samples": 15,
-          "mibPerSecond": 357.63732306207874,
+          "mibPerSecond": 344.82569548086013,
           "history": 0,
           "allocations": 0
         },
         "xterm-bun": {
-          "medianWallNanoseconds": 29204042,
-          "minimumWallNanoseconds": 25590584,
+          "medianWallNanoseconds": 30055875,
+          "minimumWallNanoseconds": 26433042,
           "roundMedianWallNanoseconds": [
-            29285125,
-            29212750,
-            29204042,
-            28326709,
-            28168958
+            30055875,
+            30843792,
+            28383542,
+            29534750,
+            29005583
           ],
-          "medianCPUNanoseconds": 46367000,
+          "medianCPUNanoseconds": 49329000,
           "samples": 15,
-          "mibPerSecond": 34.2790301098179,
+          "mibPerSecond": 33.30750593840261,
           "history": 0
         }
       },
       "fastestXterm": "xterm-bun",
       "speedup": {
         "ghostty": {
-          "median": 0.9317591376389269,
+          "median": 0.9295636215239627,
           "roundRange": [
-            0.9205535948467766,
-            0.9734683035748571
+            0.9099338289355445,
+            0.9453281902925105
           ]
         },
         "xterm": {
-          "median": 9.688870919971357,
+          "median": 9.616981389258987,
           "roundRange": [
-            9.274747815974559,
-            9.780320282831562
+            9.323556091288975,
+            9.82064622987994
           ]
         }
       },
