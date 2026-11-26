@@ -10,9 +10,12 @@ private enum Probe {
     #if os(macOS)
     static let edges = [24, 41, 59, 76, 93, 111, 128, 145, 162]
     static let top = 20
+    /// The first pixel row of an underline, from SF Mono's underline position below a 28-pixel baseline.
+    static let underline = 30
     #else
     static let edges = [20, 36, 52, 68, 84, 100, 116, 133, 149]
     static let top = 16
+    static let underline = 28
     #endif
     static let height = 36
     static let canvasWidth = 256
@@ -432,13 +435,60 @@ func concealedTextKeepsItsCellsAndCopyButDrawsNoInk() async throws {
 
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
+func underlineStylesDrawInTheirOwnColorAndRunOnAcrossCells() async throws {
+    let host = try await OffscreenTerminal()
+    var terminal = Terminal(size: .init(columns: 8, rows: 3))
+    // Red single, double and curly underlines, then dotted and dashed ones, then an overlined and struck H
+    // beside a selected curly underline.
+    _ = terminal.receive((escape + "58:2::255:0:0;4m  " + escape + "4:2m  " + escape + "4:3m    \r\n"
+                          + escape + "4:4m    " + escape + "4:5m    " + escape + "0m\r\n"
+                          + escape + "53;9mH" + escape + "0;4:3;58:2::255:0:0m ").utf8)
+    let selection = TerminalMetalView.Selection(anchorRow: 2, anchorColumn: 1, headRow: 2, headColumn: 1)
+    let shot = try host.draw(terminal.snapshot(), theme: .slateDark, selection: selection)
+    let red: UInt32 = 0xff0000, paper: UInt32 = 0x131d27
+    func rows(_ color: UInt32, x: Int, row: Int = 0) -> [Int] {
+        (0..<Probe.height).filter { shot[x, Probe.top + row * Probe.height + $0] == color }
+    }
+    func runs(_ on: [Bool]) -> Int { zip([false] + on, on).filter { !$0 && $1 }.count }
+
+    #expect(rows(red, x: Probe.edges[0] + 3) == [Probe.underline, Probe.underline + 1])
+    #expect(rows(red, x: Probe.edges[1] + 3) == rows(red, x: Probe.edges[0] + 3))
+    let double = rows(red, x: Probe.edges[2] + 3)
+    #expect(double.first == Probe.underline && runs((0..<Probe.height).map(double.contains)) == 2)
+
+    // The curl inks every pixel column across its cells, waves, and stays below the text inside its row.
+    let curl = (Probe.edges[4]..<Probe.edges[8]).map { x in
+        (0..<Probe.height).filter { shot[x, Probe.top + $0] != paper }
+    }
+    #expect(curl.allSatisfy { !$0.isEmpty && $0.first! >= Probe.underline })
+    let centers = curl.map { Double($0.reduce(0, +)) / Double($0.count) }
+    #expect(centers.max()! - centers.min()! >= 2)
+
+    let line = Probe.top + Probe.height + Probe.underline
+    // Dots and gaps are each a stroke wide, even though cells aren't a whole number of pixels.
+    let dots = (Probe.edges[0]..<Probe.edges[4]).map { shot[$0, line] == red }
+    let changes = dots.indices.dropFirst().filter { dots[$0] != dots[$0 - 1] }
+    #expect(runs(dots) >= 12 && Set(zip(changes, changes.dropFirst()).map { $1 - $0 }) == [2])
+    let dashes = (Probe.edges[4]..<Probe.edges[8]).map { shot[$0, line] == red }
+    // Dashes bridge each pair of cells, with half a dash at either end of the run.
+    #expect(runs(dashes) == 5 && dashes.first! && dashes.last!)
+
+    // Overlines and strikethroughs take the text's ink, and selection inks its curl like its text.
+    let ink: UInt32 = 0xe3eaf0
+    let struck = rows(ink, x: Probe.edges[0] + 1, row: 2)
+    #expect(struck.first! < Probe.height / 4 && runs((0..<Probe.height).map(struck.contains)) == 2)
+    #expect(shot.colors(in: 1..<2, row: 2).contains(0xf8fbfe) && !shot.colors(in: 1..<2, row: 2).contains(red))
+}
+
+@MainActor
+@Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
 func blinkingInkFadesOverSteadyCellsWithoutRebuildingRows() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     // A blinking underlined H on red, a steady H, then a blinking H under the block cursor.
     _ = terminal.receive((escape + "5;4;41mH" + escape + "0mH" + escape + "5mH" + escape + "0m" + escape + "1;3H").utf8)
     let snapshot = terminal.snapshot()
-    let underline = (x: Probe.edges[0] + 2, y: Probe.top + Probe.height - 1)
+    let underline = (x: Probe.edges[0] + 2, y: Probe.top + Probe.underline)
     let shown = try host.draw(snapshot, theme: .slateDark)
     #expect(shown.blinks)
     #expect(shown.colors(in: 0..<1).contains(0xe3eaf0))

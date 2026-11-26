@@ -9,6 +9,17 @@ struct Quad {
     var paint: SIMD4<UInt32>
 }
 
+/// What the shader draws for a quad, from its second paint component.
+enum Material {
+    static let solid: UInt32 = 0
+    /// A glyph's coverage in the atlas, colored with the quad's ink.
+    static let mask: UInt32 = 1
+    /// A color glyph, such as an emoji, drawn as the atlas holds it.
+    static let color: UInt32 = 2
+    static let curl: UInt32 = 3
+    static let dots: UInt32 = 4
+}
+
 /// Bits in a quad's third paint component. The shader turns each into an alpha multiplier.
 enum Effect {
     static let dim: UInt32 = 1
@@ -45,14 +56,17 @@ struct RowBuilder {
 
     mutating func cell(_ cell: Terminal.Cell, column: Int, availableWidth: Int, underCursor: Bool = false, selected: Bool = false) throws {
         let x = metrics.x(column)
-        let width = metrics.x(column + min(max(1, cell.width), availableWidth)) - x
+        let columns = min(max(1, cell.width), availableWidth)
+        let width = metrics.x(column + columns) - x
         let height = Float(metrics.rowHeightPixels)
         let style = cell.style
         var ink = Paint.token(style.foreground, default: Paint.foreground)
         var paper = Paint.token(style.background, default: Paint.background)
         if style.inverse { swap(&ink, &paper) }
+        var underline = Paint.token(style.underlineColor, default: ink)
         if selected { ink = Paint.selectionInk; paper = Paint.selection }
         if underCursor { ink = selected ? Paint.selection : Paint.cursorInk; paper = selected ? Paint.selectionInk : Paint.cursor }
+        if selected || underCursor { underline = ink }
         if paper != Paint.background {
             fill(x: x, y: 0, width: width, height: height, color: paper)
         }
@@ -69,16 +83,49 @@ struct RowBuilder {
             let rect = SIMD4(x, 0, drawnWidth, height)
             var uv = glyph.uv
             uv.z *= drawnWidth / glyph.pixelSize.x
-            append(Quad(rect: rect, uv: uv, paint: SIMD4(ink, glyph.isColor ? 2 : 1, effects, 0)),
+            append(Quad(rect: rect, uv: uv, paint: SIMD4(ink, glyph.isColor ? Material.color : Material.mask, effects, 0)),
                    texture: glyph.texture)
         }
-        let rule = max(1, Float(metrics.scale.rounded()))
-        if style.underline != .none { fill(x: x, y: height - rule, width: width, height: rule, color: ink, effects: effects) }
-        if style.strikethrough { fill(x: x, y: (height * 0.52).rounded(), width: width, height: rule, color: ink, effects: effects) }
+        let line = metrics.decorations
+        switch style.underline {
+        case .none: break
+        case .single:
+            fill(x: x, y: line.underline, width: width, height: line.thickness, color: underline, effects: effects)
+        case .double:
+            for y in [line.underline, line.underline + line.band - line.doubleThickness] {
+                fill(x: x, y: y, width: width, height: line.doubleThickness, color: underline, effects: effects)
+            }
+        case .curly:
+            pattern(Material.curl, x: x, y: line.underline, width: width, height: line.band, color: underline, effects: effects)
+        case .dotted:
+            pattern(Material.dots, x: x, y: line.underline, width: width, height: line.thickness, color: underline, effects: effects)
+        case .dashed:
+            // Each column clears its middle third, so every dash bridges two cells rather than sitting under
+            // one like an underscore, and the dashes keep the grid's rhythm.
+            for c in column..<(column + columns) {
+                let left = metrics.x(c), right = metrics.x(c + 1)
+                let gap = ((right - left) / 3).rounded(), start = left + ((right - left - gap) / 2).rounded()
+                for (from, to) in [(left, start), (start + gap, right)] {
+                    fill(x: from, y: line.underline, width: to - from, height: line.thickness, color: underline, effects: effects)
+                }
+            }
+        }
+        if style.strikethrough {
+            fill(x: x, y: line.strikethrough, width: width, height: line.thickness, color: ink, effects: effects)
+        }
+        if style.overline { fill(x: x, y: line.overline, width: width, height: line.thickness, color: ink, effects: effects) }
     }
 
     mutating func fill(x: Float, y: Float, width: Float, height: Float, color: UInt32, effects: UInt32 = 0) {
-        append(Quad(rect: SIMD4(x, y, width, height), paint: SIMD4(color, 0, effects, 0)), texture: nil)
+        append(Quad(rect: SIMD4(x, y, width, height), paint: SIMD4(color, Material.solid, effects, 0)), texture: nil)
+    }
+
+    /// A curl or dots across one band of the row. The shader reads each pixel's offset from the grid's
+    /// left edge and from the band's center.
+    private mutating func pattern(_ material: UInt32, x: Float, y: Float, width: Float, height: Float,
+                                  color: UInt32, effects: UInt32) {
+        let uv = SIMD4(x - metrics.x(0), -height / 2, width, height)
+        append(Quad(rect: SIMD4(x, y, width, height), uv: uv, paint: SIMD4(color, material, effects, 0)), texture: nil)
     }
 
     private mutating func append(_ quad: Quad, texture: (any MTLTexture)?) {

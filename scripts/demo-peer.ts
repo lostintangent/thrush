@@ -28,8 +28,9 @@ function buildTranscript() {
 
 // Each stored style once, with blinking and concealed text among them.
 const styles = [
-    ["plain", ""], ["bold", "1"], ["dim", "2"], ["italic", "3"], ["underline", "4"], ["strikethrough", "9"],
-    ["inverse", "7"], ["blink", "5"], ["concealed", "8"], ["blink inverse", "5;7"],
+    ["plain", ""], ["bold", "1"], ["dim", "2"], ["italic", "3"], ["underline", "4"], ["double", "4:2"],
+    ["curly", "4:3"], ["dotted", "4:4"], ["dashed", "4:5"], ["underline color", "4:3;58:5:1"], ["strikethrough", "9"],
+    ["overline", "53"], ["inverse", "7"], ["blink", "5"], ["concealed", "8"], ["blink inverse", "5;7"],
     ["blink underline", "4;5"], ["blink green", "5;32"],
 ] as const;
 

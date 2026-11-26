@@ -10,7 +10,7 @@ using namespace metal;
 struct Quad {
     float4 rect;
     float4 uv;
-    uint4 paint;  // color token, material (solid / mask / RGBA), effects (1 dim, 2 blink), unused
+    uint4 paint;  // color token, material (solid / mask / RGBA / curl / dots), effects (1 dim, 2 blink), unused
 };
 
 struct Raster {
@@ -38,8 +38,29 @@ vertex Raster terminalVertex(uint corner [[vertex_id]], uint instance [[instance
     return out;
 }
 
-fragment float4 terminalFragment(Raster in [[stage_in]], texture2d<float> atlas [[texture(0)]]) {
+// How much of a pixel a curly or dotted underline covers. Its uv is the pixel's offset from the grid's left
+// edge and from the line's center, so the pattern runs on unbroken across cells. One wave spans each cell's
+// advance.
+float decoration(uint material, float2 p, constant float4 &line) {
+    float stroke = line.x, curl = line.y, advance = line.z;
+    if (material == 3) {
+        float k = 2 * M_PI_F / advance;
+        float slope = curl * k * cos(k * p.x);
+        return saturate(stroke / 2 + 0.5 - abs(p.y - curl * sin(k * p.x)) * rsqrt(1 + slope * slope));
+    }
+    // Square dots a stroke wide and a stroke apart. The stroke is whole pixels, so every dot stays crisp and
+    // every gap matches, where fitting dots to a fractional advance would leave some gaps a pixel wider.
+    float center = (floor(p.x / (2 * stroke)) * 2 + 0.5) * stroke;
+    return saturate(stroke / 2 + 0.5 - max(abs(p.x - center), abs(p.y)));
+}
+
+fragment float4 terminalFragment(Raster in [[stage_in]], texture2d<float> atlas [[texture(0)]],
+                                 constant float4 &line [[buffer(0)]]) {  // stroke, curl, advance, unused
     if (in.material == 0) return float4(in.ink.rgb * in.ink.a, in.ink.a);
+    if (in.material > 2) {
+        float coverage = decoration(in.material, in.uv, line) * in.ink.a;
+        return float4(in.ink.rgb * coverage, coverage);
+    }
     constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::nearest);
     float4 glyph = atlas.sample(s, in.uv);
     if (in.material == 2) return glyph * in.ink.a;

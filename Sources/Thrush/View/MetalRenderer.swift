@@ -132,6 +132,9 @@ final class MetalRenderer {
         guard let enc = buffer.makeRenderCommandEncoder(descriptor: pass) else { throw RendererFailure.missingEncoder }
         enc.setRenderPipelineState(pipeline)
         enc.setVertexBuffer(colorTable, offset: 0, index: 2)
+        let decorations = metrics.decorations
+        var line = SIMD4(decorations.thickness, decorations.curl, Float(metrics.advancePixels), 0)
+        enc.setFragmentBytes(&line, length: MemoryLayout.size(ofValue: line), index: 0)
         for (index, row) in visible {
             enc.setVertexBuffer(row.buffer, offset: 0, index: 0)
             var params = SIMD4(Float(viewport.width), Float(viewport.height), metrics.y(index), blinkOpacity)

@@ -13,7 +13,7 @@ _demo = runpy.run_path(str(ROOT / "scripts/check-demo-capture.py"))
 Capture, require = _demo["Capture"], _demo["require"]
 
 # The styles scene in scripts/demo-peer.ts: one row per style, then a prompt.
-PLAIN, BLINK, CONCEALED, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN, PROMPT = 1, 8, 9, 10, 11, 12, 13
+PLAIN, BLINK, CONCEALED, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN, PROMPT = 1, 14, 15, 16, 17, 18, 19
 BLINKING = (BLINK, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN)
 SAMPLE, PROMPT_COLUMNS = 16, 11
 
