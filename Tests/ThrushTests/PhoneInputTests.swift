@@ -175,13 +175,14 @@ import UIKit
     defer { window.isHidden = true }
     window.updateTraitsIfNeeded()
     let row = try #require(view.phoneInput.inputAccessoryView as? TerminalKeyAccessory)
-    #expect(row.window == nil && row.intrinsicContentSize.height == 60)
+    #expect(row.window == nil && row.frame.height == 60 && row.intrinsicContentSize.height == 60)
 
-    // The window turns to landscape and focus arrives before the input's next layout.
+    // The window turns to landscape before focus. UIKit first sizes a row that joins the keyboard
+    // from its frame, so the detached row's frame has to shrink with it.
     window.traitOverrides.verticalSizeClass = .compact
-    #expect(view.phoneInput.traitCollection.verticalSizeClass == .regular)
-    try #require(view.focusInput())
-    #expect(row.intrinsicContentSize.height == 44)
+    window.updateTraitsIfNeeded()
+    #expect(row.window == nil && row.intrinsicContentSize.height == 44)
+    #expect(row.frame.height == 44)
 }
 
 @MainActor
