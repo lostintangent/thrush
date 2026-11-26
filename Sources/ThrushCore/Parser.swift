@@ -154,6 +154,8 @@ struct Parser: Sendable {
     /// The index after the run of parameter bytes that starts at `start`.
     @inline(never)
     private static func endOfParameters(in bytes: Span<UInt8>, from start: Int) -> Int {
+        // Checking the start once takes the bounds check's sign test out of the loop.
+        precondition(start >= 0)
         var end = start
         while end < bytes.count, isParameter(bytes[end]) { end += 1 }
         return end
