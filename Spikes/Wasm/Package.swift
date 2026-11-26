@@ -5,6 +5,7 @@ import PackageDescription
 // sources are the repository's own, linked in unchanged.
 let package = Package(
     name: "ThrushWasm",
+    platforms: [.macOS("27.0")],
     targets: [
         .target(name: "ThrushCore"),
         .executableTarget(
@@ -12,5 +13,7 @@ let package = Package(
             dependencies: ["ThrushCore"],
             linkerSettings: [.unsafeFlags(["-Xclang-linker", "-mexec-model=reactor"])]
         ),
+        // The same operations run natively, to check that both builds replay the same bytes.
+        .executableTarget(name: "NativeReplay", dependencies: ["ThrushCore"]),
     ]
 )
