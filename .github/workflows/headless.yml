@@ -6,10 +6,12 @@ on:
     paths-ignore:
       - "**.md"
       - "**.png"
+      - "Wasm/**"
   pull_request:
     paths-ignore:
       - "**.md"
       - "**.png"
+      - "Wasm/**"
   workflow_dispatch:
     inputs:
       scene:

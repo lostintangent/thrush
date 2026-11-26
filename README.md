@@ -97,8 +97,10 @@ The factory opens a shell at the view’s measured grid size. A local PTY implem
 
 A server that runs shells keeps a terminal for each one, so a client that attaches later sees the screen it missed. Thrush’s own server does this in Swift. For a server in Bun or Node 22 and later, each release attaches the same emulator built for WebAssembly as `thrush-wasm`, a package with types and no dependencies. Its replay redraws a terminal on any client that speaks VT, such as Thrush in a Mac or iPhone app or xterm.js in a browser.
 
+Install it from a release’s own URL. A lockfile records the tarball’s hash, so a URL that moves to a newer release breaks the next fresh install.
+
 ```sh
-bun add https://github.com/lostintangent/thrush/releases/latest/download/thrush-wasm.tgz
+bun add https://github.com/lostintangent/thrush/releases/download/v0.4.0/thrush-wasm.tgz
 ```
 
 ```ts
@@ -106,15 +108,17 @@ import { Terminal } from "thrush-wasm";
 
 const terminal = new Terminal(80, 24);
 
-// Write each chunk of the shell's output, and send any replies, such as a cursor position, back to it.
+// Write each chunk of the shell's output to the terminal. An attached client also receives it and
+// answers its queries, such as a cursor position request, so send the terminal's replies only when no client is attached.
 const replies = terminal.write(output);
-if (replies.length > 0) pty.write(replies);
+if (client) client.send(output);
+else if (replies.length > 0) pty.write(replies);
 
 // Resize the terminal with the shell's PTY.
 terminal.resize(120, 40);
 
 // A client that attaches at the terminal's size gets the replay, and then live output.
-socket.send(terminal.replay());
+client.send(terminal.replay());
 
 // Free the terminal when its shell ends.
 terminal.dispose();

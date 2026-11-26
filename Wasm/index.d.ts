@@ -13,7 +13,8 @@ export declare class Terminal {
 
   /**
    * Writes a program's output to this terminal, and returns the replies a terminal sends back, such
-   * as its answer to a cursor position request. Send nonempty replies to the program in order.
+   * as its answer to a cursor position request. A client that receives the same output answers it
+   * too, so send nonempty replies to the program, in order, only for output no client receives.
    * Characters and escape sequences can span writes.
    */
   write(bytes: Uint8Array): Uint8Array;
