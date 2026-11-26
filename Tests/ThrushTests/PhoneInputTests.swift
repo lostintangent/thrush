@@ -193,19 +193,25 @@ import UIKit
 @Test func theModifierKeyRaisesAChooserThatArmsOneModifier() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 402, height: 874))
     let host = UIView(frame: window.bounds)
+    // The row floats in the keyboard's own window, here lower on the screen than the terminal's.
+    let keyboard = UIWindow(frame: .init(x: 0, y: 100, width: 402, height: 874))
     let keyRow = KeyRow(host: host, onKey: { _ in }, onHide: {})
     window.addSubview(host)
-    window.addSubview(keyRow)
+    keyboard.addSubview(keyRow)
     window.isHidden = false
-    defer { window.isHidden = true }
-    keyRow.frame = .init(x: 0, y: 500, width: 402, height: KeyRow.height(compact: false))
+    keyboard.isHidden = false
+    defer { window.isHidden = true; keyboard.isHidden = true }
+    keyRow.frame = .init(x: 0, y: 400, width: 402, height: KeyRow.height(compact: false))
     keyRow.layoutIfNeeded()
     let modifier = try #require(buttonStack(keyRow)?.arrangedSubviews.first { $0.accessibilityIdentifier == "terminal.modifier" } as? UIButton)
     func choice(_ name: String) -> UIButton? {
         func find(_ view: UIView) -> UIButton? {
             view.accessibilityIdentifier == "terminal.modifier.\(name)" ? view as? UIButton : view.subviews.lazy.compactMap(find).first
         }
-        return window.subviews.lazy.filter { $0 !== keyRow }.compactMap(find).first
+        return window.subviews.lazy.compactMap(find).first
+    }
+    func onScreen(_ view: UIView) throws -> CGRect {
+        try #require(view.window).convert(view.convert(view.bounds, to: nil), to: nil as UIWindow?)
     }
     #expect(choice("shift") == nil)
 
@@ -214,8 +220,9 @@ import UIKit
     let control = try #require(choice("control")), shift = try #require(choice("shift"))
     let chooser = try #require(control.superview?.superview?.superview)
     window.layoutIfNeeded()
-    // The chooser's Ctrl sits over the modifier key, and every choice is a full target.
-    #expect(abs(control.convert(control.bounds, to: window).midX - modifier.convert(modifier.bounds, to: window).midX) < 0.5)
+    // The chooser floats 8 points over the row with its Ctrl over the modifier key, and every choice is a full target.
+    let (ctrl, key, raised) = (try onScreen(control), try onScreen(modifier), try onScreen(chooser))
+    #expect(abs(ctrl.midX - key.midX) < 0.5 && abs(raised.maxY - 492) < 0.5)
     #expect(control.accessibilityTraits.contains(.selected) && !shift.accessibilityTraits.contains(.selected))
     for button in [control, shift] { #expect(button.bounds.width >= 44 && button.bounds.height >= 44) }
 
@@ -240,7 +247,8 @@ import UIKit
     keyRow.layoutIfNeeded()
     modifier.sendActions(for: .touchUpInside)
     window.layoutIfNeeded()
-    #expect(chooser.bounds.height == 36)
+    let compact = try onScreen(chooser)
+    #expect(compact.height == 36 && abs(compact.maxY - 492) < 0.5)
     #expect(chooser.hitTest(CGPoint(x: shift.center.x, y: -3.5), with: nil) === shift)
     #expect(chooser.hitTest(CGPoint(x: shift.center.x, y: 39.5), with: nil) === shift)
     #expect(chooser.hitTest(CGPoint(x: 1, y: 18), with: nil) === control)

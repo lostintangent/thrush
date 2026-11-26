@@ -19,10 +19,9 @@ final class KeyRow: UIView {
     private let dividers = [UIView(), UIView()]
     private let onKey: (Terminal.Input.Key) -> Void
     /// UIKit sends a touch above the keyboard's accessory to the window beneath, so the chooser floats in the
-    /// terminal's window, pinned to the keyboard there, while the row stays in the keyboard's own window.
+    /// terminal's window, over the row's place in the keyboard's own window.
     private weak var host: UIView?
     private lazy var chooser = ModifierChooser { [weak self] choice in self?.arm(choice == self?.armed ? [] : choice) }
-    private var chooserPlacement: [NSLayoutConstraint] = []
     /// While a hold slides across the chooser: the modifier it would arm, and the one armed before it began.
     private var sliding: (choice: Terminal.Input.Modifiers?, before: Terminal.Input.Modifiers)?
     private let selection = UISelectionFeedbackGenerator()
@@ -117,6 +116,9 @@ final class KeyRow: UIView {
             self, selector: #selector(refreshBacking),
             name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil
         )
+        for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)), name: name, object: nil)
+        }
         registerForTraitChanges([UITraitVerticalSizeClass.self]) { (self: Self, _) in
             self.glassHeight.constant = self.capsuleHeight
             // UIKit first sizes a row that joins the keyboard from its frame, so a detached row keeps
@@ -198,12 +200,29 @@ final class KeyRow: UIView {
         return CGRect(origin: CGPoint(x: x, y: glass.frame.minY - 8 - size.height), size: size)
     }
 
-    /// The keyboard spans the window it floats over, so the row's coordinates are the keyboard guide's there.
-    private func placeChooser() {
-        guard chooserPlacement.count == 4 else { return }
-        let frame = chooserFrame
-        for (constraint, constant) in zip(chooserPlacement, [frame.minX, frame.maxY, frame.width, frame.height]) {
-            constraint.constant = constant
+    /// Places the chooser over the row as it stands, or at a frame in the terminal's window.
+    private func placeChooser(at frame: CGRect? = nil) {
+        guard let canvas = chooser.superview as? UIWindow, let window else { return }
+        let frame = frame ?? window.convert(convert(chooserFrame, to: window), to: canvas)
+        // The center and bounds, because the chooser may be mid-spring.
+        chooser.bounds.size = frame.size
+        chooser.center = CGPoint(x: frame.midX, y: frame.midY)
+    }
+
+    /// The chooser moves with the keyboard, and lands where the row does.
+    @objc private func keyboardFrameChanged(_ note: Notification) {
+        guard chooser.shown, let canvas = chooser.superview as? UIWindow else { return }
+        guard note.name == UIResponder.keyboardWillChangeFrameNotification,
+              let screen = canvas.windowScene?.screen,
+              let end = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue,
+              abs(end.width - bounds.width) <= 1 else { return placeChooser() }
+        // The keyboard's frame begins with the row. A turn changes its width, and the row places the chooser after.
+        let frame = canvas.convert(chooserFrame.offsetBy(dx: end.minX, dy: end.minY), from: screen.coordinateSpace)
+        let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval ?? 0
+        let curve = note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 0
+        UIView.animate(withDuration: duration, delay: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction, .init(rawValue: curve << 16)]) {
+            self.placeChooser(at: frame)
         }
     }
 
@@ -214,16 +233,10 @@ final class KeyRow: UIView {
             if chooser.superview !== canvas {
                 chooser.removeFromSuperview()
                 canvas.addSubview(chooser)
-                let guide = canvas.keyboardLayoutGuide
-                chooserPlacement = [chooser.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
-                                    chooser.bottomAnchor.constraint(equalTo: guide.topAnchor),
-                                    chooser.widthAnchor.constraint(equalToConstant: 0),
-                                    chooser.heightAnchor.constraint(equalToConstant: 0)]
-                NSLayoutConstraint.activate(chooserPlacement)
             }
             canvas.bringSubviewToFront(chooser)
             placeChooser()
-            canvas.layoutIfNeeded()
+            chooser.layoutIfNeeded()
         }
         chooser.shown = shows
         chooser.accessibilityElementsHidden = !shows
@@ -347,7 +360,6 @@ private final class ModifierChooser: UIView {
             return button
         }
         super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
         alpha = 0
         glass.cornerConfiguration = .capsule()
         glass.frame = bounds
