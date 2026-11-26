@@ -26,12 +26,14 @@ const canvas = [
   'UVWXYZ',
 ].join('\r\n');
 
-/** Where a subject runs. Setups use only printing, CUP and DECSTBM so they mean the same in both emulators. */
+/** Where a subject runs. Setups use only printing, SGR, CUP and DECSTBM so they mean the same in both emulators. */
 export const positions = {
   'middle': `${CSI}2;6H`,
   'line start': `${CSI}2;1H`,
   'last column': `${CSI}2;20H`,
   'pending wrap': `${CSI}2;20Ht`,
+  // After SGR a combining mark has nothing to join, so it takes a cell of its own, past the last column.
+  'beyond a pending wrap': `${CSI}2;20Ht${CSI}m\u0301`,
   'wide left half': `${CSI}3;6H`,
   'wide right half': `${CSI}3;7H`,
   'top row': `${CSI}1;6H`,
@@ -492,6 +494,28 @@ add('UTF-8', 'split after a 0x80 continuation byte', canvas + positions.middle, 
 add('CSI', 'split across writes', canvas + positions.middle, `${CSI}3`, ';4', 'H', { checkpoint: 'subject' }, '*');
 add('OSC 2', 'split across writes', canvas + positions.middle, `${OSC}2;ti`, `tle${ESC}`, '\\', { checkpoint: 'subject' }, '*');
 
+// One column beyond a pending wrap, LF, VT and FF step back a column, which keeps the pending wrap.
+// ED and EL return to the pending wrap, HT and REP do nothing, DSR reports the column, and the
+// functions that restrict the cursor clamp it to the last column.
+const beyond = positions['beyond a pending wrap'];
+for (const [subject, [final]] of Object.entries(counted)) probe(subject, 'beyond a pending wrap', beyond, `${CSI}3${final}`);
+for (const mode of ['0', '1', '2']) {
+  probe(`ED ${mode}`, 'beyond a pending wrap', beyond, `${CSI}${mode}J`);
+  probe(`EL ${mode}`, 'beyond a pending wrap', beyond, `${CSI}${mode}K`);
+}
+for (const [subject, sequence] of Object.entries({ IND: `${ESC}D`, NEL: `${ESC}E`, RI: `${ESC}M`, BS: '\b', HT: '\t', LF: '\n', VT: '\v', FF: '\f', CR: '\r' })) {
+  probe(subject, 'beyond a pending wrap', beyond, sequence);
+}
+probe('LF', 'beyond a pending wrap on the bottom row', `${CSI}8;20Ht${CSI}m\u0301`, '\n');
+probe('DECSET 45', 'then BS beyond a pending wrap', beyond, `${CSI}?45h\b`);
+probe('DECSC', 'beyond a pending wrap', beyond, `${ESC}7${CSI}1;1H${ESC}8`);
+probe('DSR 6', 'beyond a pending wrap', beyond, `${CSI}6n`);
+probe('DECSET 47', 'beyond a pending wrap', beyond, `${CSI}?47h`);
+probe('SM 4', 'beyond a pending wrap', beyond, `${CSI}4h`, 'x');
+probe('DECRST 7', 'beyond a pending wrap', beyond, `${CSI}?7l`, 'x');
+probe('print', 'wide text beyond a pending wrap', beyond, '界');
+probe('print', 'a combining mark beyond a pending wrap', beyond, '\u0301');
+
 // Operating system commands and other strings.
 const strings = {
   'OSC 0': `${OSC}0;window and icon${BEL}`, 'OSC 1': `${OSC}1;icon${BEL}`, 'OSC 2': `${OSC}2;window${BEL}`,
@@ -559,6 +583,7 @@ const resizes = {
   'shorter with the cursor at the top': [`${CSI}1;3H`, [[20, 4], [20, 8]]],
   'taller with history': [`\r\n1\r\n2\r\n3\r\n4\r\n5\r\n6`, [[20, 12], [20, 4], [20, 10]]],
   'wider and narrower at a pending wrap': [positions['pending wrap'], [[25, 8], [20, 8], [10, 8]]],
+  'wider and narrower beyond a pending wrap': [positions['beyond a pending wrap'], [[25, 8], [20, 8], [10, 8]]],
   'narrower after cutting a wide glyph': [`${CSI}7;1H${'x'.repeat(18)}${CSI}41m界${CSI}m`, [[19, 8], '\r\n', [10, 8]]],
   'narrower after cutting a wide glyph from a wrapped row': [`${CSI}7;1H${'x'.repeat(18)}界y\r${CSI}X`, [[19, 8], '\r\n', [10, 8]]],
   'narrower with combining marks': [`${CSI}6;1H${'x'.repeat(20)}abn\u0303de\u0301${CSI}8;1H`, [[18, 8]]],
