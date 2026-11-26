@@ -458,13 +458,16 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
 
     override func scrollWheel(with event: NSEvent) {
         cancelDisplacedClick()
-        if terminal.isPointerReporting, !event.modifierFlags.contains(.shift) {
+        if terminal.programTakesScrolling, !event.modifierFlags.contains(.shift) {
             if event.phase.contains(.began) { wheelRemainder = 0 }
             let divisor = event.hasPreciseScrollingDeltas ? max(1, terminal.cellRect(row: 0, column: 0).height) : 1
             wheelRemainder += event.scrollingDeltaY / divisor
-            let steps = Int(wheelRemainder)
-            wheelRemainder -= CGFloat(steps)
-            for _ in 0..<min(64, abs(steps)) { _ = report(event, .press, steps > 0 ? .wheelUp : .wheelDown) }
+            let rows = Int(wheelRemainder)
+            wheelRemainder -= CGFloat(rows)
+            if let hit = terminal.cell(at: convert(event.locationInWindow, from: nil)) {
+                terminal.scrollProgram(rows: rows, row: hit.row, column: hit.column,
+                                       modifiers: Self.modifiers(event.modifierFlags))
+            }
             return
         }
         wheelRemainder = 0

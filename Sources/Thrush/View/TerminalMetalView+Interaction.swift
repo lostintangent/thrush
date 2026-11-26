@@ -5,6 +5,8 @@ extension TerminalMetalView {
     var historyCount: Int { viewport.historyCount }
     package var historyOffset: Int { viewport.offset }
     var isPointerReporting: Bool { inputAvailability == .live && historyOffset == 0 && snapshot.map { $0.mouseTracking != .off } == true }
+    /// Wheels, trackpads and iPhone swipes scroll the program instead of history.
+    var programTakesScrolling: Bool { inputAvailability == .live && historyOffset == 0 && snapshot?.programTakesScrolling == true }
     var selectedText: String? { selection.map { viewport.text(in: $0) } }
     /// VoiceOver reads what a sighted reader sees, so concealed text is blank. Copy keeps it.
     var spokenSelectedText: String? { selection.map { viewport.text(in: $0, spoken: true) } }

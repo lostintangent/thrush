@@ -102,7 +102,7 @@ extension Terminal {
         }
     }
 
-    private func encodeKey(_ key: Input.Key, modifiers: Input.Modifiers) -> [UInt8] {
+    func encodeKey(_ key: Input.Key, modifiers: Input.Modifiers) -> [UInt8] {
         func scalar(_ byte: UInt8) -> [UInt8] { modifiers.contains(.alt) ? [0x1b, byte] : [byte] }
 
         func report(_ sequence: KeySequence) -> [UInt8] {

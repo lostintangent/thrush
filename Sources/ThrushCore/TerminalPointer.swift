@@ -1,5 +1,6 @@
 // Encodes pointer events for programs that request mouse tracking. The active tracking
 // mode selects which events to send, and the coordinate format determines their encoding.
+// Without tracking, scrolling the alternate screen becomes arrow keys.
 
 extension Terminal {
     package enum MouseTracking: Sendable { case off, press, drag, all }
@@ -56,10 +57,22 @@ extension Terminal.Input {
     }
 }
 
+extension Terminal.Snapshot {
+    /// Scrolling goes to the program when it reports the mouse, or when it draws the
+    /// alternate screen, which keeps no history to scroll.
+    package var programTakesScrolling: Bool { mouseTracking != .off || isAlternate }
+}
+
 extension Terminal {
     func encodePointer(_ event: Input.Pointer) -> [UInt8] {
-        guard modes.mouseTracking != .off, (0..<size.rows).contains(event.row),
-              (0..<size.columns).contains(event.column) else { return [] }
+        if modes.mouseTracking == .off {
+            // As in the reference, the alternate screen turns scrolling into Up and Down without
+            // modifiers or position. The reference sends one per wheel event, and Thrush one per row.
+            guard screen.isAlternate, event.action == .press, event.button == .wheelUp || event.button == .wheelDown
+            else { return [] }
+            return encodeKey(event.button == .wheelUp ? .up : .down, modifiers: [])
+        }
+        guard (0..<size.rows).contains(event.row), (0..<size.columns).contains(event.column) else { return [] }
         if event.action == .move {
             guard modes.mouseTracking == .all || (modes.mouseTracking == .drag && event.button != .none) else { return [] }
         } else if event.button == .none {

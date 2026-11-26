@@ -289,4 +289,37 @@ private struct MacInputFixture {
     #expect(host.view.historyOffset == 0 && target.isHidden)
     #expect(host.input.accessibilityString(for: host.input.accessibilityRange(forLine: 0)) == "Line 8\n")
 }
+
+/// Wheels and trackpads scroll a program that takes scrolling, and Shift keeps them local.
+@MainActor
+@Test func appKitScrollingReachesFullScreenProgramsAsWheelReportsOrArrows() throws {
+    let host = try MacInputFixture()
+    var terminal = Terminal(size: .init(columns: 20, rows: 4))
+    host.view.display(terminal)
+    var sent: [String] = []
+    host.view.onInput = { sent.append(String(decoding: terminal.encode($0), as: UTF8.self)) }
+    func scroll(_ lines: Int32, flags: CGEventFlags = []) throws {
+        let wheel = try #require(CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1,
+                                         wheel1: lines, wheel2: 0, wheel3: 0))
+        wheel.flags = flags
+        host.input.scrollWheel(with: try #require(NSEvent(cgEvent: wheel)))
+    }
+    try scroll(1)
+    #expect(sent.isEmpty)
+
+    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    host.view.display(terminal)
+    try scroll(1)
+    try scroll(-1, flags: .maskControl)
+    try scroll(1, flags: .maskShift)
+    #expect(sent == ["\u{1b}[A", "\u{1b}[B"])
+
+    sent = []
+    _ = terminal.receive("\u{1b}[?1h\u{1b}[?1049l\u{1b}[?1000;1006h".utf8)
+    host.view.display(terminal)
+    try scroll(1)
+    try scroll(-1)
+    #expect(sent.count == 2)
+    #expect(sent.first?.hasPrefix("\u{1b}[<64;") == true && sent.last?.hasPrefix("\u{1b}[<65;") == true)
+}
 #endif

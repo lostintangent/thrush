@@ -56,6 +56,8 @@ When a program asks a question, the answer comes back from the same call. If the
 
 Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key table maps Up to cursor final `A`, so it sends `ESC [ A`. If the program enabled application cursor keys with `ESC [ ? 1 h`, it sends `ESC O A` instead.
 
+Scrolling reaches a program that takes it, which is one that reports the mouse or draws the alternate screen. The view sends one wheel press per row of travel, and `encode` turns each into a wheel report. On the alternate screen without reporting it becomes Up or Down through the same key table, without modifiers or position, as in the reference. The reference sends one arrow per wheel event, and Thrush sends one per row so a long swipe moves as far as it would through history.
+
 ## The hot path
 
 Most output is text, so text never enters the state machine.

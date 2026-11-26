@@ -845,6 +845,15 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         return true
     }
 
+    /// Sends rows of scrolling to the program, toward earlier output for positive rows. The core
+    /// encodes each row as a wheel report, or as an arrow key on the alternate screen without reporting.
+    func scrollProgram(rows: Int, row: Int, column: Int, modifiers: Terminal.Input.Modifiers = []) {
+        guard programTakesScrolling, !modifiers.contains(.shift), rows != 0 else { return }
+        let pointer = Terminal.Input.Pointer(.press, button: rows > 0 ? .wheelUp : .wheelDown, row: row, column: column,
+                                             modifiers: modifiers)
+        for _ in 0..<min(64, abs(rows)) { onInput?(.pointer(pointer)) }
+    }
+
     func updateSelection(_ update: (inout Viewport) -> Void) {
         let previous = selection
         update(&viewport)
