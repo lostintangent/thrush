@@ -465,14 +465,15 @@ final class WorkflowDriver {
         }
     }
 
-    /// UIKit can resize the Metal drawable as it dismisses the keyboard and displays the toolbar.
+    /// UIKit can resize the Metal drawable as it dismisses the keyboard and displays the toolbar,
+    /// and until the keyboard stops the view holds its grid in a drawable that differs from its bounds.
     private func settledFinalLayout(generation: UInt64) async throws -> WorkflowCapture.Layout {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         var size = view.drawableSize
         var since = ContinuousClock.now
         while ContinuousClock.now < deadline {
             if size != view.drawableSize { size = view.drawableSize; since = .now }
-            if let frame = lastFrame, frame.generation == generation, frame.drawableSize == size,
+            if let frame = lastFrame, frame.generation == generation, frame.drawableSize == size, size == boundsInPixels,
                since.duration(to: .now) >= .milliseconds(300),
                let layout = WorkflowCapture.Layout(view: view, drawableGrid: frame.drawableGrid) {
                 return layout
@@ -480,7 +481,16 @@ final class WorkflowDriver {
             view.draw()
             try await Task.sleep(for: .milliseconds(25))
         }
-        throw Failure("Final framebuffer did not settle at \(view.drawableSize), last completed \(String(describing: lastFrame?.drawableSize))")
+        throw Failure("Final framebuffer did not settle at \(view.drawableSize) for a \(boundsInPixels) view, last completed \(String(describing: lastFrame?.drawableSize))")
+    }
+
+    private var boundsInPixels: CGSize {
+        #if os(macOS)
+        let scale = view.window?.backingScaleFactor ?? 1
+        #else
+        let scale = view.traitCollection.displayScale
+        #endif
+        return CGSize(width: (view.bounds.width * scale).rounded(), height: (view.bounds.height * scale).rounded())
     }
 
     private func save(_ value: some Encodable, as name: String) throws {
