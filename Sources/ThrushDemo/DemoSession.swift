@@ -27,6 +27,7 @@ struct DemoOptions {
     let checksToolbar: Bool
     let frameTraceURL: URL?
     let clearCaptureURL: URL?
+    let burstCaptureURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
         func value(after key: String) -> String? {
@@ -35,6 +36,7 @@ struct DemoOptions {
             return arguments[index + 1]
         }
         clearCaptureURL = value(after: "--clear-capture").map { URL(fileURLWithPath: $0) }
+        burstCaptureURL = value(after: "--burst-capture").map { URL(fileURLWithPath: $0) }
         checksToolbar = arguments.contains("--toolbar-proof")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
@@ -95,6 +97,7 @@ final class DemoSession: ObservableObject {
         } else {
             prepareSession()
             if let output = options.clearCaptureURL { ClearCapture.start(in: view, output: output) }
+            if let output = options.burstCaptureURL { ClearCapture.start(in: view, output: output, typesClear: false) }
         }
     }
 
@@ -134,6 +137,7 @@ final class DemoSession: ObservableObject {
         var pane = TerminalPane(session, isActive: isActive, theme: theme)
         pane.preparedView = view
         pane.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance || options.clearCaptureURL != nil
+            || options.burstCaptureURL != nil
         pane.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
         pane.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
         pane.onReady = { [weak self] resumed in
