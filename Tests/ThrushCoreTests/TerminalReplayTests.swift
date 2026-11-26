@@ -175,6 +175,22 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     #expect(terminal.encode(.appearance(.light)).isEmpty)
 }
 
+/// A resumed client can apply kitty flags ThrushCore doesn't, keep a program's colors through a reset,
+/// or have fewer rows. The replay hands on every flag the program pushed, restores the theme's colors
+/// before setting the program's, and leaves out the blank rows a shorter client would scroll by.
+@Test func replaySuitsAClientThatDiffers() {
+    let e = "\u{1b}"
+    var terminal = Terminal(size: .init(columns: 8, rows: 6))
+    let reply = terminal.receive(Array((e + "[>3u" + e + "]11;#000000\u{07}hi" + e + "[?u").utf8))
+    #expect(reply == Array((e + "[?1u").utf8))
+    let replay = String(decoding: terminal.replayBytes(), as: UTF8.self)
+    #expect(replay.contains(e + "[>3u"))
+    #expect(replay.contains(["]104", "]110", "]111", "]112", "]11;rgb:00/00/00"].map { e + $0 + "\u{7}" }.joined()))
+    var shorter = Terminal(size: .init(columns: 8, rows: 3))
+    _ = shorter.receive(terminal.replayBytes())
+    #expect(shorter.snapshot().rows[0].text == "hi")
+}
+
 @Test func partialRequestsGetTheSameAnswerAfterReplay() {
     let e = "\u{1b}"
     let cases = [

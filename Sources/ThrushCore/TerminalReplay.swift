@@ -3,13 +3,14 @@
 extension Terminal {
     package func replayBytes() -> [UInt8] {
         var writer = ReplayWriter(links: screen.links)
-        writer.output += "\u{1b}]2;" + title + "\u{1b}\\"
+        // A resumed receiver can keep the title and colors a program set through a reset, so the replay
+        // always sets the title and restores the theme's colors before setting this program's.
+        writer.output += "\u{1b}]2;" + title + "\u{7}"
+        writer.output += "\u{1b}]104\u{7}\u{1b}]110\u{7}\u{1b}]111\u{7}\u{1b}]112\u{7}"
         if !programColors.isEmpty {
-            var reports: [UInt8] = []
             for slot in (0...255).map(ColorSlot.indexed) + [.foreground, .background, .cursor] {
-                if let color = programColors[slot] { slot.report(color, to: &reports) }
+                if let color = programColors[slot] { writer.output += slot.setting(color, sixteenBit: false) + "\u{7}" }
             }
-            writer.output += String(decoding: reports, as: UTF8.self)
         }
         // The receiver starts on the normal screen. Each screen's keyboard flags are pushed while it's active.
         writer.push(modes.normalKeyboard)
@@ -88,10 +89,17 @@ extension Terminal {
             let start = history.previousShellCount
             let count = history.currentShellCount
             let rows = buffer.visible
+            // Without history to scroll into place, the receiver's rows below the last with content and
+            // the saved cursor are already blank. Leaving them out keeps a shorter receiver from scrolling.
+            var drawn = count + rows.count
+            if count == 0 {
+                let last = rows.lastIndex { $0.isWrapped || $0.hasContent } ?? 0
+                drawn = max(last, min(buffer.saved.row, rows.count - 1)) + 1
+            }
             setStyle(.init())
             output += csi + "H"
             var previous: Row?
-            for index in 0..<(count + rows.count) {
+            for index in 0..<drawn {
                 let row = index < count ? history[start + index] : rows[index - count]
                 if index == 0 && row.isWrapped {
                     // The retained history can start in the middle of an evicted soft-wrapped line.

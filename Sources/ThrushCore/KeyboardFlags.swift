@@ -3,8 +3,9 @@
 // and pops them when it exits, and it can ask which flags are in effect.
 
 extension Terminal {
-    /// The kitty keyboard protocol's enhancements that the terminal applies. A program can ask for
-    /// others, but the terminal keeps and reports only these two.
+    /// The kitty keyboard protocol's enhancements, as a program asks for them. The terminal applies
+    /// and reports two of the five, and keeps the rest so a replay can hand them to a terminal that
+    /// applies them too.
     struct KeyboardFlags: OptionSet, Sendable {
         let rawValue: UInt8
         init(rawValue: UInt8) { self.rawValue = rawValue }
@@ -13,11 +14,12 @@ extension Terminal {
         static let disambiguate = Self(rawValue: 1)
         /// A report for a chord that holds Shift adds the shifted key after a colon.
         static let alternateKeys = Self(rawValue: 4)
+        /// The flags the terminal applies.
+        static let applied: Self = [.disambiguate, .alternateKeys]
 
-        /// The flags a program's parameter asks for, keeping the ones the terminal applies.
+        /// The flags a program's parameter asks for, of the five the protocol defines.
         init(parameter: Int) {
-            let applied: Self = [.disambiguate, .alternateKeys]
-            self = Self(rawValue: UInt8(truncatingIfNeeded: parameter)).intersection(applied)
+            self.init(rawValue: UInt8(truncatingIfNeeded: parameter) & 0b1_1111)
         }
     }
 

@@ -660,7 +660,7 @@ public struct Terminal: Sendable {
     /// and set change them.
     private mutating func performKeyboard(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
         switch function {
-        case .queryKeyboardFlags: replies.append(contentsOf: Reply.keyboardFlags(keyboard.top).utf8)
+        case .queryKeyboardFlags: replies.append(contentsOf: Reply.keyboardFlags(keyboard.top.intersection(.applied)).utf8)
         case .pushKeyboardFlags: keyboard.push(KeyboardFlags(parameter: parser.parameters[0]))
         case .popKeyboardFlags: keyboard.pop(parser.parameters[0, default: 1])
         default: keyboard.update(KeyboardFlags(parameter: parser.parameters[0]), mode: parser.parameters[1, default: 1])
