@@ -32,10 +32,7 @@ export class ScrollbackBuffer {
   /** The bytes that redraw this screen, its history and its modes on a client that resets first. */
   replay() {
     const length = thrush.thrush_replay(this.#handle);
-    const bytes = new Uint8Array(length + resumedClientPrefix.length);
-    bytes.set(resumedClientPrefix);
-    bytes.set(new Uint8Array(thrush.memory.buffer, thrush.thrush_output(), length), resumedClientPrefix.length);
-    return bytes;
+    return new Uint8Array(thrush.memory.buffer, thrush.thrush_output(), length).slice();
   }
 
   /** Frees the terminal now. Otherwise it goes when this buffer is collected. */
@@ -44,12 +41,6 @@ export class ScrollbackBuffer {
     thrush.thrush_free(this.#handle);
   }
 }
-
-/**
- * ThrushCore's replay assumes a blank terminal. A resumed browser terminal keeps the colors a program
- * set through a reset, so it restores the defaults first.
- */
-const resumedClientPrefix = new TextEncoder().encode("\x1b]104\x07\x1b]110\x07\x1b]111\x07\x1b]112\x07");
 
 type ThrushExports = {
   memory: WebAssembly.Memory;
