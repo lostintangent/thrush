@@ -173,6 +173,27 @@ func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation(opaque: Bool) throws {
 }
 
 @MainActor
+@Test(arguments: [CGSize(width: 466, height: 678), CGSize(width: 678, height: 466)])
+func theKeyRowCentersOverTheKeyboardBesideTheDuosCamera(window size: CGSize) throws {
+    // The iPhone Duo's vertical status bar and camera inset one side of the safe area, while the
+    // keyboard spans the window.
+    let controller = UIViewController()
+    controller.additionalSafeAreaInsets.right = 84
+    let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+    window.rootViewController = controller
+    window.isHidden = false
+    defer { window.isHidden = true }
+    let keyRow = KeyRow(host: nil, onKey: { _ in }, onHide: {})
+    controller.view.addSubview(keyRow)
+    keyRow.frame = .init(x: 0, y: size.height / 2, width: size.width, height: keyRow.intrinsicContentSize.height)
+    controller.view.layoutIfNeeded()
+
+    #expect(keyRow.safeAreaInsets.right == 84)
+    let glass = try #require(buttonStack(keyRow)?.superview?.superview)
+    #expect(glass.frame.midX == size.width / 2 && glass.frame.width == 380)
+}
+
+@MainActor
 @Test func compactKeyRowKeysReachIntoTheFloat() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
     let keyRow = KeyRow(host: nil, onKey: { _ in }, onHide: {})

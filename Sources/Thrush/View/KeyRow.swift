@@ -43,17 +43,19 @@ final class KeyRow: UIView {
         stack.distribution = .fillEqually
         stack.semanticContentAttribute = .forceLeftToRight
         glass.contentView.addSubview(stack)
-        // Narrow screens give up the side margins before any key drops below 44 points.
-        let preferredWidth = glass.widthAnchor.constraint(equalTo: safeAreaLayoutGuide.widthAnchor, constant: -32)
+        // The capsule centers over the keyboard, which spans the window even where the iPhone Duo's
+        // status bar and camera inset one side of the safe area. Narrow screens give up the side
+        // margins before any key drops below 44 points.
+        let preferredWidth = glass.widthAnchor.constraint(equalTo: widthAnchor, constant: -32)
         preferredWidth.priority = .defaultHigh
         let margins = [
-            glass.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            glass.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            glass.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 16),
+            glass.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
         ]
         for margin in margins { margin.priority = .required - 1 }
         NSLayoutConstraint.activate(margins + [
             preferredWidth,
-            glass.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
+            glass.centerXAnchor.constraint(equalTo: centerXAnchor),
             glass.widthAnchor.constraint(lessThanOrEqualToConstant: 380),
             glass.topAnchor.constraint(equalTo: topAnchor),
             glassHeight,
