@@ -3,12 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 platform=${1:-}
+minimum=27.0
 case "$platform" in
-    mac) sdk=macosx; triple="$(uname -m)-apple-macosx27.0" ;;
+    mac) sdk=macosx; binary_platform=macos; triple="$(uname -m)-apple-macosx$minimum" ;;
     simulator)
         export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
         sdk=iphonesimulator
-        triple="$(uname -m)-apple-ios27.0-simulator"
+        binary_platform=iossim
+        triple="$(uname -m)-apple-ios$minimum-simulator"
         ;;
     *) echo "Usage: scripts/build-demo.sh mac|simulator" >&2; exit 2 ;;
 esac
@@ -19,6 +21,7 @@ stage=$(mktemp -d "$out/package.XXXXXX")
 trap 'rm -rf "$stage"' EXIT
 app="$stage/Thrush.app"
 sdk_path=$(xcrun --sdk "$sdk" --show-sdk-path)
+sdk_version=$(xcrun --sdk "$sdk" --show-sdk-version)
 build=(xcrun swift build -c release --scratch-path "$out/swiftpm" --sdk "$sdk_path" --triple "$triple" --product ThrushDemo)
 "${build[@]}"
 bin=$("${build[@]}" --show-bin-path)
@@ -32,7 +35,11 @@ else
     resources="$app"
 fi
 mkdir -p "$executable" "$resources"
-cp "$bin/ThrushDemo" "$executable/"
+# SwiftPM's link records the deployment target as the SDK the executable was built with. Record
+# the real SDK, as Xcode does, because the system adopts newer behavior by it. On the iPhone Duo,
+# an app that seems built before iOS 27.1 is letterboxed beside the vertical bar.
+xcrun vtool -set-build-version "$binary_platform" "$minimum" "$sdk_version" -replace \
+    -output "$executable/ThrushDemo" "$bin/ThrushDemo"
 if [[ "$platform" == mac ]]; then
     iconset="$stage/thrush.iconset"
     mkdir "$iconset"
@@ -51,21 +58,20 @@ commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)
 dirty=false
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then dirty=true; fi
 toolchain=$(xcrun swift --version | head -1)
-sdk_version=$(xcrun --sdk "$sdk" --show-sdk-version)
-python3 - "$bundle/Info.plist" "$platform" "$commit" "$dirty" "$toolchain" "$sdk_version" <<'PY'
+python3 - "$bundle/Info.plist" "$platform" "$commit" "$dirty" "$toolchain" "$sdk_version" "$minimum" <<'PY'
 import plistlib
 import sys
-path, platform, commit, dirty, toolchain, sdk = sys.argv[1:]
+path, platform, commit, dirty, toolchain, sdk, minimum = sys.argv[1:]
 info = dict(CFBundleDevelopmentRegion="en", CFBundleExecutable="ThrushDemo",
             CFBundleIdentifier="app.thrush.demo", CFBundleName="Thrush", CFBundleDisplayName="Thrush",
             CFBundlePackageType="APPL", CFBundleShortVersionString="0.1", CFBundleVersion="1",
             CFBundleInfoDictionaryVersion="6.0", ThrushGitCommit=commit, ThrushWorktreeDirty=dirty == "true",
             ThrushToolchain=toolchain)
 if platform == "mac":
-    info.update(LSMinimumSystemVersion="27.0", NSHighResolutionCapable=True, NSPrincipalClass="NSApplication",
+    info.update(LSMinimumSystemVersion=minimum, NSHighResolutionCapable=True, NSPrincipalClass="NSApplication",
                 CFBundleIconFile="Thrush", CFBundleSupportedPlatforms=["MacOSX"], DTSDKName="macosx"+sdk)
 else:
-    info.update(MinimumOSVersion="27.0", UIDeviceFamily=[1], LSRequiresIPhoneOS=True,
+    info.update(MinimumOSVersion=minimum, UIDeviceFamily=[1], LSRequiresIPhoneOS=True,
                 CFBundleSupportedPlatforms=["iPhoneSimulator"], DTPlatformName="iphonesimulator",
                 DTSDKName="iphonesimulator"+sdk, UILaunchScreen={},
                 CFBundleIcons={"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["Icon60"]}},
