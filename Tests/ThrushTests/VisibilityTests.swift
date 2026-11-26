@@ -14,7 +14,7 @@ import ThrushCore
 
     private var terminalView: TerminalView {
         var result = TerminalView(session, isActive: selected)
-        result.assumesVisibleForBenchmark = true
+        result.probe.assumesVisible = true
         return result
     }
 

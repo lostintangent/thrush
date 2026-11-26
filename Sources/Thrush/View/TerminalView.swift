@@ -9,15 +9,11 @@ import ThrushCore
 /// while its grid stays inside the safe area and above the iPhone keyboard.
 @MainActor public struct TerminalView: View {
     private let session: TerminalSession
-    /// Whether the app is showing the view. Set this to false when hiding a retained tab.
-    package var isActive: Bool
-    /// Overrides the system's light or dark terminal theme. Pass `nil` to follow appearance changes.
-    package var theme: TerminalTheme?
-    /// The font size in points, from 6 through 96. The default is 14 on Mac and 13 on iPhone.
-    package var fontSize: CGFloat?
+    private let isActive: Bool
+    private let theme: TerminalTheme?
+    private let fontSize: CGFloat?
     #if os(iOS)
-    /// Whether Esc, Ctrl, Tab and the arrow keys sit above the iPhone software keyboard.
-    package var showsKeyRow = true
+    private var showsKeyRow = true
     #endif
 
     /// Creates a terminal view for a session, using the system appearance unless a theme is supplied.
@@ -46,13 +42,35 @@ import ThrushCore
     }
     #endif
 
-    // Only the standalone demo and its instrumentation need direct observation of the native surface.
-    package var preparedView: TerminalMetalView?
-    package var assumesVisibleForBenchmark = false
-    package var onOutput: ((UInt64, CFTimeInterval) -> Void)?
-    package var onReady: ((Bool) -> Void)?
-    package var onResolvedTheme: ((TerminalTheme) -> Void)?
-    package var onCanvasChange: ((ColorScheme) -> Void)?
+    /// How the sample apps' benchmarks, captures and tests reach inside the view.
+    package struct Probe {
+        package enum Event {
+            /// The shell is ready, or a resumed shell awaits its replay.
+            case ready(resumed: Bool)
+            /// Output from the wire reached the screen.
+            case output(generation: UInt64, receivedAt: CFTimeInterval)
+            /// The theme the view resolved from its override and the system appearance.
+            case theme(TerminalTheme)
+            /// The scheme of the canvas under any bars.
+            case canvas(ColorScheme)
+        }
+
+        /// A native view to present instead of a new one, so a check can drive it directly.
+        package var metalView: TerminalMetalView?
+        /// Keeps the session attached when the window can't be seen, as on a headless runner.
+        package var assumesVisible = false
+        /// Called on the main actor for each event.
+        package var observe: ((Event) -> Void)?
+
+        package init(metalView: TerminalMetalView? = nil, assumesVisible: Bool = false,
+                     observe: ((Event) -> Void)? = nil) {
+            self.metalView = metalView
+            self.assumesVisible = assumesVisible
+            self.observe = observe
+        }
+    }
+
+    package var probe = Probe()
 
     // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
     // The coordinator combines appearance callbacks with actual window and scene visibility.
@@ -71,7 +89,7 @@ import ThrushCore
     }
 
     fileprivate func makeCanvas(_ coordinator: Coordinator) -> CanvasView {
-        let canvas = CanvasView(terminal: preparedView ?? TerminalMetalView(frame: .zero))
+        let canvas = CanvasView(terminal: probe.metalView ?? TerminalMetalView(frame: .zero))
         coordinator.bind(canvas)
         return canvas
     }
@@ -120,13 +138,13 @@ import ThrushCore
                     #if os(iOS)
                     self.barScheme = canvas.barScheme
                     #endif
-                    if let scheme = canvas.canvasScheme { self.view?.onCanvasChange?(scheme) }
+                    if let scheme = canvas.canvasScheme { self.view?.probe.observe?(.canvas(scheme)) }
                 }
             }
             canvas.terminal.onGridSizeChange = { [weak self] in self?.resize($0) }
             canvas.terminal.onThemeChange = { [weak self] theme in
                 guard let self else { return }
-                view?.onResolvedTheme?(theme)
+                view?.probe.observe?(.theme(theme))
                 perform { session, _ in await session.setTheme(theme) }
             }
             canvas.terminal.beforeOutputDraw = { [weak self] in self?.presentOutput() }
@@ -148,7 +166,7 @@ import ThrushCore
             guard let metalView else { return }
             let previousTheme = metalView.resolvedTheme
             if metalView.theme != next.theme { metalView.theme = next.theme }
-            if sessionChanged && previousTheme == metalView.resolvedTheme { next.onResolvedTheme?(metalView.resolvedTheme) }
+            if sessionChanged && previousTheme == metalView.resolvedTheme { next.probe.observe?(.theme(metalView.resolvedTheme)) }
             if metalView.fontSize != next.fontSize { metalView.fontSize = next.fontSize }
             #if os(iOS)
             metalView.showsKeyRow = next.showsKeyRow
@@ -163,12 +181,12 @@ import ThrushCore
 
         private func updateActivity() {
             guard let view, let canvas else { return }
-            let shouldShow = isPresented && view.isActive && (canvas.isShellPresented || view.assumesVisibleForBenchmark)
+            let shouldShow = isPresented && view.isActive && (canvas.isShellPresented || view.probe.assumesVisible)
             guard shouldShow else {
                 if active { stop() }
                 return
             }
-            let visible = canvas.isDrawingVisible || view.assumesVisibleForBenchmark
+            let visible = canvas.isDrawingVisible || view.probe.assumesVisible
             if drawingVisible != visible {
                 drawingVisible = visible
                 metalView?.setDrawingVisible(visible)
@@ -333,7 +351,7 @@ import ThrushCore
         private func present(_ frame: OutputMailbox.Frame) {
             let firstReceipt = metalView?.displayOutput(frame)
             hasScreen = true
-            if let receipt = firstReceipt { view?.onOutput?(frame.screen.generation, receipt) }
+            if let receipt = firstReceipt { view?.probe.observe?(.output(generation: frame.screen.generation, receivedAt: receipt)) }
         }
 
         @discardableResult
@@ -344,17 +362,17 @@ import ThrushCore
                 metalView?.display(screen)
                 hasScreen = true
                 becomeLive()
-                view?.onReady?(false)
+                view?.probe.observe?(.ready(resumed: false))
             case .replaced(let screen, let revision):
                 shellRevision = revision
                 metalView?.cancelPendingInput()
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil, archivingMainScreen: true)
                 hasScreen = true
                 becomeLive()
-                view?.onReady?(false)
+                view?.probe.observe?(.ready(resumed: false))
                 metalView?.announce("New shell")
             case .awaitingReplay:
-                view?.onReady?(true)
+                view?.probe.observe?(.ready(resumed: true))
             case .screen(let screen):
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil)
                 hasScreen = true
@@ -362,12 +380,12 @@ import ThrushCore
             case .output(let screen, let time):
                 metalView?.display(screen, receivedAt: time)
                 hasScreen = true
-                if let time { view?.onOutput?(screen.generation, time) }
+                if let time { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .replay(let screen, let time):
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: time)
                 hasScreen = true
                 if phase != .live { becomeLive() }
-                if let time { view?.onOutput?(screen.generation, time) }
+                if let time { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .reconnecting:
                 phase = hasScreen ? .reconnecting : .connecting
                 metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)

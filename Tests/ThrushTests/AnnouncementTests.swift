@@ -39,8 +39,7 @@ import Testing
     }
     func terminalView(_ view: TerminalMetalView) -> some View {
         var terminalView = TerminalView(session)
-        terminalView.preparedView = view
-        terminalView.assumesVisibleForBenchmark = true
+        terminalView.probe = .init(metalView: view, assumesVisible: true)
         return terminalView.id(ObjectIdentifier(view))
     }
     let view = surface()

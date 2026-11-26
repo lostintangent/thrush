@@ -16,7 +16,7 @@ func macViewFitsTheWindowContentLayout(host layout: MacWindowLayout) throws {
     }
     let terminal = TerminalMetalView(frame: .zero)
     var terminalView = TerminalView(session, isActive: false, theme: .slateDark)
-    terminalView.preparedView = terminal
+    terminalView.probe.metalView = terminal
     var style: NSWindow.StyleMask = [.titled, .closable, .resizable]
     if layout != .window { style.insert(.fullSizeContentView) }
     let window = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 720, height: 480),

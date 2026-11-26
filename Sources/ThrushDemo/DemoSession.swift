@@ -181,26 +181,26 @@ final class DemoSession: ObservableObject {
 
     func terminalView(_ session: TerminalSession) -> some View {
         var terminalView = TerminalView(session, isActive: isActive, theme: theme)
-        terminalView.preparedView = view
-        terminalView.assumesVisibleForBenchmark = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
-        terminalView.onResolvedTheme = { [weak self] in self?.onThemeChange?($0) }
-        terminalView.onCanvasChange = { [weak self] in self?.onCanvasChange?($0) }
-        terminalView.onReady = { [weak self] resumed in
+        let assumesVisible = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
+        terminalView.probe = .init(metalView: view, assumesVisible: assumesVisible) { [weak self] event in
             guard let self else { return }
-            if options.scene == .glyphs {
-                view.selection = .init(anchorRow: 1, anchorColumn: 2, headRow: 1, headColumn: 2)
+            switch event {
+            case .ready(let resumed):
+                if options.scene == .glyphs {
+                    view.selection = .init(anchorRow: 1, anchorColumn: 2, headRow: 1, headColumn: 2)
+                }
+                if !resumed { markSessionUsable(session) }
+                onReady?(resumed)
+            case .output(let generation, let receivedAt):
+                markSessionUsable(session)
+                interaction?.received(generation: generation, at: receivedAt)
+                let first = onFirstOutput
+                onFirstOutput = nil
+                first?()
+                startInteractionCheck(session)
+            case .theme(let theme): onThemeChange?(theme)
+            case .canvas(let scheme): onCanvasChange?(scheme)
             }
-            if !resumed { markSessionUsable(session) }
-            onReady?(resumed)
-        }
-        terminalView.onOutput = { [weak self] generation, receivedAt in
-            guard let self else { return }
-            markSessionUsable(session)
-            interaction?.received(generation: generation, at: receivedAt)
-            let first = onFirstOutput
-            onFirstOutput = nil
-            first?()
-            startInteractionCheck(session)
         }
         return terminalView.onChange(of: session.hasEnded) {
             guard self.terminalSession === session else { return }

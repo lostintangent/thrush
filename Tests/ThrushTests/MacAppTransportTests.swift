@@ -12,7 +12,7 @@ import Testing
     private var terminalView: TerminalView {
         var terminalView = TerminalView(session)
         // Command-line windows may be occluded. SwiftUI still mounts and removes the actual view.
-        terminalView.assumesVisibleForBenchmark = true
+        terminalView.probe.assumesVisible = true
         return terminalView
     }
 
