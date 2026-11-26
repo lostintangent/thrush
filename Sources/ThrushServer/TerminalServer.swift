@@ -10,7 +10,7 @@ private final class Shell: @unchecked Sendable {
     let id: String
     let pty: PseudoTerminal
     var terminal: Terminal
-    var peer: Peer?
+    var attachment: Attachment?
     var behind = false
     var orphan: DispatchWorkItem?
 
@@ -25,29 +25,29 @@ private final class Shell: @unchecked Sendable {
         pty.resize(columns: columns, rows: rows)
     }
 
-    func restore(on peer: Peer) {
+    func restore(on attachment: Attachment) {
         let snapshot = Data(terminal.replayBytes())
         guard snapshot.count <= 64 * 1024 * 1024 else {
-            peer.close(.protocolCode(.messageTooBig))
+            attachment.close(.protocolCode(.messageTooBig))
             return
         }
         behind = false
-        peer.send(.text, Data(#"{"type":"ready","resumed":true}"#.utf8))
-        peer.send(.binary, snapshot)
+        attachment.send(.text, Data(#"{"type":"ready","resumed":true}"#.utf8))
+        attachment.send(.binary, snapshot)
     }
 
     func output(_ bytes: Data) {
         let replies = terminal.receive(Span(viewing: bytes.bytes))
-        if let peer, !peer.closing, !behind, peer.pendingFrames < 256, peer.queuedLiveBytes + bytes.count <= 1_048_576 {
-            peer.send(.binary, bytes, live: true)
+        if let attachment, !attachment.closing, !behind, attachment.pendingFrames < 256, attachment.queuedLiveBytes + bytes.count <= 1_048_576 {
+            attachment.send(.binary, bytes, live: true)
         } else {
-            behind = peer != nil
+            behind = attachment != nil
             if !replies.isEmpty { _ = pty.write(Data(replies)) }
         }
     }
 }
 
-private final class Peer: @unchecked Sendable {
+private final class Attachment: @unchecked Sendable {
     let connection: NWConnection
     weak var shell: Shell?
     var queuedLiveBytes = 0
@@ -70,7 +70,7 @@ private final class Peer: @unchecked Sendable {
             queuedLiveBytes -= liveBytes
             pendingFrames -= 1
             if error != nil || opcode == .close { connection.cancel(); return }
-            if pendingFrames == 0, !closing, let shell, shell.peer === self, shell.behind { shell.restore(on: self) }
+            if pendingFrames == 0, !closing, let shell, shell.attachment === self, shell.behind { shell.restore(on: self) }
         })
     }
 
@@ -86,16 +86,16 @@ private final class Server: @unchecked Sendable {
     let done = DispatchSemaphore(value: 0)
     let cleanup = DispatchGroup()
     let listener: NWListener
-    let shell: String
+    let executable: String
     let directory: URL
     let environment: [String: String]
     var failure: NWError?
-    private var peers: [ObjectIdentifier: Peer] = [:]
+    private var attachments: [ObjectIdentifier: Attachment] = [:]
     private var shells: [String: Shell] = [:]
     private var signals: [DispatchSourceSignal] = []
 
-    init(port: UInt16, shell: String, directory: URL, environment: [String: String]) throws {
-        self.shell = shell
+    init(port: UInt16, executable: String, directory: URL, environment: [String: String]) throws {
+        self.executable = executable
         self.directory = directory
         self.environment = environment
         let params = NWParameters.tcp
@@ -135,117 +135,117 @@ private final class Server: @unchecked Sendable {
     private func stop() {
         listener.cancel()
         signals.forEach { $0.cancel() }
-        peers.values.forEach { $0.connection.cancel() }
+        attachments.values.forEach { $0.connection.cancel() }
         shells.values.forEach { $0.orphan?.cancel(); $0.pty.stop() }
         done.signal()
     }
 
     private func accept(_ connection: NWConnection) {
-        guard peers.count < 32 else { connection.cancel(); return }
-        let peer = Peer(connection)
-        peers[ObjectIdentifier(peer)] = peer
-        connection.stateUpdateHandler = { [weak self, weak peer] state in
-            guard let self, let peer else { return }
+        guard attachments.count < 32 else { connection.cancel(); return }
+        let attachment = Attachment(connection)
+        attachments[ObjectIdentifier(attachment)] = attachment
+        connection.stateUpdateHandler = { [weak self, weak attachment] state in
+            guard let self, let attachment else { return }
             switch state {
             case .ready:
-                guard let request = Upgrade.take(peer.connection.endpoint) else { peer.connection.cancel(); return }
-                attach(peer, request)
-            case .failed: peer.connection.cancel(); disconnect(peer)
-            case .cancelled: disconnect(peer)
+                guard let request = Upgrade.take(attachment.connection.endpoint) else { attachment.connection.cancel(); return }
+                attach(attachment, request)
+            case .failed: attachment.connection.cancel(); disconnect(attachment)
+            case .cancelled: disconnect(attachment)
             default: break
             }
         }
         connection.start(queue: queue)
-        queue.asyncAfter(deadline: .now() + 10) { [weak peer] in
-            if let peer, peer.shell == nil, !peer.closing { peer.connection.cancel() }
+        queue.asyncAfter(deadline: .now() + 10) { [weak attachment] in
+            if let attachment, attachment.shell == nil, !attachment.closing { attachment.connection.cancel() }
         }
     }
 
-    private func attach(_ peer: Peer, _ request: TerminalRequest) {
-        let session: Shell
+    private func attach(_ attachment: Attachment, _ request: TerminalRequest) {
+        let shell: Shell
         if let existing = shells[request.id] {
-            session = existing
-            session.orphan?.cancel()
-            session.orphan = nil
-            session.peer?.close(.applicationCode(4000))
-            session.peer = peer
-            session.resize(request.columns, request.rows)
-            session.restore(on: peer)
+            shell = existing
+            shell.orphan?.cancel()
+            shell.orphan = nil
+            shell.attachment?.close(.applicationCode(4000))
+            shell.attachment = attachment
+            shell.resize(request.columns, request.rows)
+            shell.restore(on: attachment)
         } else {
-            guard shells.count < 16 else { peer.close(.protocolCode(.policyViolation)); return }
+            guard shells.count < 16 else { attachment.close(.protocolCode(.policyViolation)); return }
             do {
-                let pty = try PseudoTerminal(shell: shell, directory: directory, environment: environment, request: request, queue: queue, cleanup: cleanup)
-                session = Shell(request, pty)
+                let pty = try PseudoTerminal(shell: executable, directory: directory, environment: environment, request: request, queue: queue, cleanup: cleanup)
+                shell = Shell(request, pty)
             } catch {
-                peer.close(.protocolCode(.internalServerError))
+                attachment.close(.protocolCode(.internalServerError))
                 return
             }
-            shells[session.id] = session
-            session.peer = peer
-            session.pty.onOutput = { [weak session] in session?.output($0) }
-            session.pty.onExit = { [weak self, weak session] in
-                if let session { self?.finish(session, natural: true) }
+            shells[shell.id] = shell
+            shell.attachment = attachment
+            shell.pty.onOutput = { [weak shell] in shell?.output($0) }
+            shell.pty.onExit = { [weak self, weak shell] in
+                if let shell { self?.finish(shell, natural: true) }
             }
-            peer.send(.text, Data(#"{"type":"ready","resumed":false}"#.utf8))
+            attachment.send(.text, Data(#"{"type":"ready","resumed":false}"#.utf8))
         }
-        peer.shell = session
-        read(peer)
+        attachment.shell = shell
+        read(attachment)
     }
 
-    private func read(_ peer: Peer) {
-        peer.connection.receiveMessage { [weak self, weak peer] data, context, _, error in
-            guard let self, let peer, !peer.closing, let session = peer.shell, session.peer === peer else { return }
+    private func read(_ attachment: Attachment) {
+        attachment.connection.receiveMessage { [weak self, weak attachment] data, context, _, error in
+            guard let self, let attachment, !attachment.closing, let shell = attachment.shell, shell.attachment === attachment else { return }
             guard error == nil, let metadata = context?.protocolMetadata(definition: WS.definition) as? WS.Metadata else {
-                peer.connection.cancel(); return
+                attachment.connection.cancel(); return
             }
             switch metadata.opcode {
             case .binary:
-                if let data, !session.pty.write(data) { peer.close(.protocolCode(.messageTooBig)); return }
+                if let data, !shell.pty.write(data) { attachment.close(.protocolCode(.messageTooBig)); return }
             case .text:
                 guard let data, let command = try? JSONDecoder().decode(Control.self, from: data) else {
-                    peer.close(.protocolCode(.protocolError)); return
+                    attachment.close(.protocolCode(.protocolError)); return
                 }
-                if command.type == "close" { finish(session, natural: false); return }
+                if command.type == "close" { finish(shell, natural: false); return }
                 guard command.type == "resize", let cols = command.cols, let rows = command.rows,
-                      TerminalRequest.valid(columns: cols, rows: rows) else { peer.close(.protocolCode(.protocolError)); return }
-                session.resize(cols, rows)
-            case .close: peer.close(.protocolCode(.normalClosure)); return
+                      TerminalRequest.valid(columns: cols, rows: rows) else { attachment.close(.protocolCode(.protocolError)); return }
+                shell.resize(cols, rows)
+            case .close: attachment.close(.protocolCode(.normalClosure)); return
             case .ping, .pong: break
-            default: peer.close(.protocolCode(.protocolError)); return
+            default: attachment.close(.protocolCode(.protocolError)); return
             }
-            read(peer)
+            read(attachment)
         }
     }
 
-    private func disconnect(_ peer: Peer) {
-        guard peers.removeValue(forKey: ObjectIdentifier(peer)) != nil,
-              let session = peer.shell, session.peer === peer else { return }
-        session.peer = nil
-        let orphan = DispatchWorkItem { [weak self, weak session] in
-            if let session, session.peer == nil { self?.finish(session, natural: false) }
+    private func disconnect(_ attachment: Attachment) {
+        guard attachments.removeValue(forKey: ObjectIdentifier(attachment)) != nil,
+              let shell = attachment.shell, shell.attachment === attachment else { return }
+        shell.attachment = nil
+        let orphan = DispatchWorkItem { [weak self, weak shell] in
+            if let shell, shell.attachment == nil { self?.finish(shell, natural: false) }
         }
-        session.orphan = orphan
+        shell.orphan = orphan
         queue.asyncAfter(deadline: .now() + 30, execute: orphan)
     }
 
-    private func finish(_ session: Shell, natural: Bool) {
-        guard shells[session.id] === session else { return }
-        shells.removeValue(forKey: session.id)
-        session.orphan?.cancel()
-        session.pty.stop()
-        if let peer = session.peer {
+    private func finish(_ shell: Shell, natural: Bool) {
+        guard shells[shell.id] === shell else { return }
+        shells.removeValue(forKey: shell.id)
+        shell.orphan?.cancel()
+        shell.pty.stop()
+        if let attachment = shell.attachment {
             if natural {
-                if session.behind { session.restore(on: peer) }
-                peer.send(.text, Data(#"{"type":"exit"}"#.utf8))
+                if shell.behind { shell.restore(on: attachment) }
+                attachment.send(.text, Data(#"{"type":"exit"}"#.utf8))
             }
-            peer.close(.protocolCode(.normalClosure))
+            attachment.close(.protocolCode(.normalClosure))
         }
-        session.peer = nil
+        shell.attachment = nil
     }
 }
 
 func startServer(port: UInt16, shell: String, directory: URL, environment: [String: String]) throws {
-    let server = try Server(port: port, shell: shell, directory: directory, environment: environment)
+    let server = try Server(port: port, executable: shell, directory: directory, environment: environment)
     server.run()
     if let error = server.failure { throw error }
 }
