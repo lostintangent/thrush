@@ -43,6 +43,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         tintColor = .clear
         isOpaque = false
         inputAccessoryView = accessory
+        registerForTraitChanges([UITraitVerticalSizeClass.self]) { (self: Self, _) in self.matchKeyRowToWindow() }
     }
 
     @available(*, unavailable)
@@ -61,6 +62,16 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
             inputAccessoryView = showsKeyRow ? accessory : nil
             if isFirstResponder { reloadInputViews() }
         }
+    }
+
+    /// UIKit measures the key row before the row joins the keyboard's window. A row that only then
+    /// learns it is compact changes height as the keyboard arrives, and UIKit leaves the keyboard
+    /// guide 16 points short of it. So the row takes the terminal window's size class from the start.
+    private func matchKeyRowToWindow() {
+        let sizeClass = traitCollection.verticalSizeClass
+        guard sizeClass != .unspecified else { return }
+        accessory.traitOverrides.verticalSizeClass = sizeClass
+        accessory.updateTraitsIfNeeded()
     }
 
     /// Composition draws in the terminal's ink on its paper. The key row stays on the theme.
@@ -175,7 +186,12 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     }
 
     override func becomeFirstResponder() -> Bool {
-        if !isFirstResponder, canBecomeFirstResponder { terminalView?.beforeKeyboardMove?() }
+        if !isFirstResponder, canBecomeFirstResponder {
+            terminalView?.beforeKeyboardMove?()
+            // A view takes new traits at its next layout, and this one may not have laid out since the window turned.
+            updateTraitsIfNeeded()
+            matchKeyRowToWindow()
+        }
         guard super.becomeFirstResponder() else { return false }
         terminalView?.inputFocusDidChange()
         return true
