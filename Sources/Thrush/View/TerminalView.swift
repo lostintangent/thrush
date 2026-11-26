@@ -193,6 +193,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
     var beforeOutputDraw: (() -> Void)?
+    private var takingOutput = false
     package var onFrame: ((FrameMeasurement) -> Void)?
     /// Capture the native layout at submission and match the GPU result using submittedAt.
     package var onFrameSubmitted: ((Double, Terminal.Size?, CGRect) -> Void)?
@@ -208,7 +209,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             if showsBlinkingText { invalidateFrame() }
         }
     }
-    private lazy var textBlink = TextBlink { [weak self] in self?.invalidateFrame() }
+    private lazy var textBlink: TextBlink = TextBlink(redraw: { [weak self] in self?.invalidateFrame() },
+                                                      fading: { [weak self] in self?.framePacer.isFading = $0 })
+    private lazy var framePacer: FramePacer = FramePacer(view: self, drawOutput: { [weak self] in self?.draw() },
+                                                         fadeTick: { [weak self] in self?.textBlink.tick(target: $0) })
     private var showsBlinkingText = false
     private var renderer: MetalRenderer?
     private var preparingDeviceID: UInt64?
@@ -393,6 +397,9 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         if window == nil {
             finishFinalFrame()
             textBlink.stop()
+            framePacer.stop()
+        } else {
+            framePacer.reattach()
         }
         synchronizedOutput.setActive(active && window != nil)
         updateGeometry()
@@ -544,7 +551,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             onHeldGridReady?()
         }
         #endif
-        invalidateFrame()
+        invalidateOutput()
     }
 
     /// Flush synchronized output and publish the final drawable before dismissing input.
@@ -619,6 +626,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             invalidateFrame()
         } else {
             textBlink.stop()
+            framePacer.stop()
             releaseDrawables()
         }
     }
@@ -845,6 +853,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
     }
 
+    /// Program output draws at the frame pacer's deadline, so a burst of writes shares one frame.
+    /// Output taken by the frame being drawn needs no other.
+    private func invalidateOutput() {
+        dirty = true
+        guard active, window != nil, !takingOutput else { return }
+        if !framePacer.outputChanged() { invalidateFrame() }
+    }
+
     private func invalidateFrame() {
         dirty = true
         guard active, inFlight < 3, window != nil else { return }
@@ -875,6 +891,13 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     /// Submits the pending terminal frame when MetalKit asks the view to draw.
     package func draw(in view: MTKView) {
         guard active, dirty, inFlight < 3, window != nil else { return }
+        // A frame's cost runs from when the pacer scheduled it until its GPU work ends.
+        let due = framePacer.due ?? CACurrentMediaTime()
+        // The frame takes waiting output before it measures anything, so a held grid that the
+        // output completes releases, and its layout presents with this frame.
+        takingOutput = true
+        beforeOutputDraw?()
+        takingOutput = false
         updateGeometry()
         #if os(iOS)
         if presentsWithTransaction != presentsWithLayout { presentsWithTransaction = presentsWithLayout }
@@ -883,7 +906,6 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         prepareRenderer()
         guard let renderer, let metrics, drawableSize.width > 0, drawableSize.height > 0,
               let pass = currentRenderPassDescriptor, let drawable = currentDrawable else { return }
-        beforeOutputDraw?()
         let started = CACurrentMediaTime()
         let (drawn, drawnSelection) = drawnContent
         do {
@@ -926,6 +948,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             frame.buffer.addCompletedHandler { [weak self] command in
                 let gpu = command.gpuEndTime - command.gpuStartTime
                 let completed = command.status == .completed
+                let ready = command.gpuEndTime > 0 ? command.gpuEndTime : CACurrentMediaTime()
                 Task { @MainActor in
                     if let presentation {
                         presentation.gpu = gpu > 0 ? gpu : nil
@@ -936,12 +959,14 @@ package final class TerminalView: MTKView, MTKViewDelegate {
                         presentation.resolve()
                     }
                     if let self {
+                        if completed { self.framePacer.record(cost: ready - due) }
                         self.inFlight -= 1
                         if self.dirty { self.invalidateFrame() }
                     }
                 }
             }
             dirty = false
+            framePacer.drew()
             received = nil
             inFlight += 1
             submissionCount += 1
@@ -963,7 +988,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             frame.buffer.present(drawable)
             frame.buffer.commit()
             showsBlinkingText = frame.blinks
-            textBlink.frameDrawn(blinking: frame.blinks && !reducesMotion, in: self)
+            textBlink.frameDrawn(blinking: frame.blinks && !reducesMotion)
         } catch {
             renderer.discardResources()
             NSLog("Thrush Metal frame failed: %@", String(describing: error))

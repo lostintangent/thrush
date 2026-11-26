@@ -494,6 +494,51 @@ func onlyVisibleBlinkingInkAsksForBlinkFrames() async throws {
     #expect(abs(fading - 800) <= 2 && abs(shown - 1000) <= 2 && abs(hidden - 600) <= 2)
 }
 
+@Test func outputDrawsOncePerRefreshAfterItsWritesPause() {
+    var schedule = FramePacer.Schedule()
+    let interval = 1.0 / 60
+    schedule.observe(target: 100, duration: interval)
+    schedule.observe(target: 100 + interval, duration: interval)
+    let next = 100 + 2 * interval, margin = schedule.margin, deadline = next - margin
+    func near(_ value: Double?, _ expected: Double) -> Bool { value.map { abs($0 - expected) < 1e-9 } ?? false }
+
+    // Output draws for the next refresh once its writes pause, but never past the deadline.
+    #expect(near(schedule.refresh(after: 100 + interval + 0.002, past: nil), next))
+    #expect(near(schedule.drawTime(for: next, output: 100 + interval + 0.002), 100 + interval + 0.002 + FramePacer.Schedule.quiet))
+    #expect(near(schedule.drawTime(for: next, output: deadline - 0.0001), deadline))
+    // Output past the deadline waits for the following refresh.
+    #expect(near(schedule.refresh(after: deadline + 0.0001, past: nil), next + interval))
+    // So does output for a refresh that already has a frame, which draws no earlier than that
+    // refresh's deadline, so it can't share it.
+    #expect(near(schedule.refresh(after: 100 + interval + 0.002, past: next), next + interval))
+    #expect(near(schedule.drawTime(for: next + interval, output: 100 + interval + 0.002), deadline))
+}
+
+@Test func scheduleKeepsTheDisplayCadenceWhileTheLinkPauses() {
+    var schedule = FramePacer.Schedule()
+    let interval = 1.0 / 120
+    // Each tick's own duration jitters. The interval comes from the whole run, across a pause.
+    for beat in [0, 1, 2, 50, 51] {
+        schedule.observe(target: 5 + Double(beat) * interval, duration: interval * 1.01)
+    }
+    #expect(abs(schedule.interval - interval) < 1e-9)
+    #expect(abs((schedule.refresh(after: 5 + 51 * interval, past: nil) ?? 0) - (5 + 52 * interval)) < 1e-9)
+    // A new rate starts over.
+    schedule.observe(target: 5 + 51 * interval + 1.0 / 60, duration: 1.0 / 60)
+    #expect(abs(schedule.interval - 1.0 / 60) < 1e-9)
+}
+
+@Test func outputDeadlineFollowsTheSlowestRecentFrame() {
+    var schedule = FramePacer.Schedule()
+    schedule.drew(cost: 0.008)
+    #expect(abs(schedule.margin - 0.008 - FramePacer.Schedule.slack) < 1e-9)
+    for _ in 0..<16 { schedule.drew(cost: 0.001) }
+    #expect(schedule.margin < 0.003)
+    // A frame slower than a refresh couldn't make one, so the margin stops at three quarters of it.
+    schedule.drew(cost: 0.5)
+    #expect(abs(schedule.margin - 0.75 / 60) < 1e-9)
+}
+
 #if os(macOS)
 @MainActor
 @Test(.enabled(if: MTLCreateSystemDefaultDevice() != nil, "Requires a Metal device"))
