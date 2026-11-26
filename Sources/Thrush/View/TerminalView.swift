@@ -187,6 +187,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         didSet {
             guard oldValue != reducesMotion else { return }
             textBlink.stop()
+            updateCursorSpinner()
             if showsBlinkingText { invalidateFrame() }
         }
     }
@@ -224,10 +225,15 @@ package final class TerminalView: MTKView, MTKViewDelegate {
 
     private(set) var inputAvailability: InputAvailability = .live
     var acceptsTerminalInput: Bool { inputAvailability != .blocked }
-    var noticeBottomInset: CGFloat = 0 {
-        didSet { if oldValue != noticeBottomInset { refreshInteraction() } }
+    private var cursorSpinner: CursorSpinner?
+    var onDisplacedTap: (() -> Void)? {
+        didSet {
+            #if os(macOS)
+            macInput.cancelDisplacedClick()
+            #endif
+            if (oldValue == nil) != (onDisplacedTap == nil) { refreshInteraction() }
+        }
     }
-    var onViewportInteractionChange: (() -> Void)?
     private var finalFrameRevision: UInt64 = 0
     private var finalFrameWaiter: CheckedContinuation<Void, Never>?
     private var lastPointer: Terminal.Input.Pointer?
@@ -373,6 +379,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         }
         synchronizedOutput.setActive(active && window != nil)
         updateGeometry()
+        updateCursorSpinner()
         invalidateFrame()
     }
 
@@ -384,10 +391,10 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         #endif
         let next = theme ?? (isDark ? .slateDark : .slateLight)
         guard next != resolvedTheme else { return }
-        let background = color(.background)
         resolvedTheme = next
         onThemeChange?(next)
-        if color(.background) != background { backgroundChanged() }
+        // An active program background can stay the same while the host toolbar changes theme.
+        backgroundChanged()
         refreshInteraction()
         invalidateFrame()
     }
@@ -485,10 +492,29 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             lastPointer = nil
             capturedButtons.removeAll()
         }
+        updateDisplayedFrame(receivedAt: receivedAt)
+    }
+
+    /// Install a replay, retained screen, or new shell without disturbing its native responder.
+    package func replaceDisplayedSnapshot(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?,
+                                          archivingMainScreen: Bool = false) {
+        synchronizedOutput.reset()
+        #if os(macOS)
+        macInput.invalidateTranscriptCache()
+        #endif
+        transcript.replace(next, archivingMainScreen: archivingMainScreen)
+        snapshot = next.viewport(rowsFromBottom: transcript.offset)
+        renderer?.discardGeometry()
+        lastPointer = nil
+        capturedButtons.removeAll()
+        updateDisplayedFrame(receivedAt: receivedAt)
+    }
+
+    private func updateDisplayedFrame(receivedAt: CFTimeInterval?) {
         refreshInteraction()
         received = receivedAt
         #if os(iOS)
-        if let heldGrid, next.size == heldGrid {
+        if let heldGrid, snapshot?.size == heldGrid {
             self.heldGrid = nil
             onHeldGridReady?()
         }
@@ -496,24 +522,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
-    /// An in-band replay replaces the entire source, whose generation and row IDs start over.
-    /// Keep the native responder and any committed selection that still identifies the same text.
-    package func replaceDisplayedSnapshot(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
-        synchronizedOutput.reset()
-        #if os(macOS)
-        macInput.invalidateTranscriptCache()
-        #endif
-        transcript.replace(next)
-        snapshot = next.viewport(rowsFromBottom: transcript.offset)
-        renderer?.discardGeometry()
-        lastPointer = nil
-        capturedButtons.removeAll()
-        refreshInteraction()
-        received = receivedAt
-        invalidateFrame()
-    }
-
-    /// Flush synchronized output and publish the final drawable before adding the Ended notice.
+    /// Flush synchronized output and publish the final drawable before dismissing input.
     /// Simulator provides the GPU completion callback in place of a drawable presentation handler.
     func presentFinal(_ next: Terminal.Snapshot) async {
         synchronizedOutput.reset()
@@ -579,6 +588,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
     func setDrawingVisible(_ visible: Bool) {
         guard active != visible else { return }
         active = visible
+        updateCursorSpinner()
         synchronizedOutput.setActive(visible && window != nil)
         if visible {
             invalidateFrame()
@@ -586,6 +596,148 @@ package final class TerminalView: MTKView, MTKViewDelegate {
             textBlink.stop()
             releaseDrawables()
         }
+    }
+
+    func setWaiting(_ label: String?) {
+        if let label {
+            let spinner = cursorSpinner ?? CursorSpinner()
+            #if os(macOS)
+            if spinner.accessibilityLabel() != label { spinner.setAccessibilityLabel(label) }
+            #else
+            if spinner.accessibilityLabel != label { spinner.accessibilityLabel = label }
+            #endif
+            guard cursorSpinner == nil else { return }
+            cursorSpinner = spinner
+            addSubview(spinner)
+            updateCursorSpinner()
+        } else {
+            guard let spinner = cursorSpinner else { return }
+            spinner.removeFromSuperview()
+            cursorSpinner = nil
+        }
+        invalidateFrame()
+    }
+
+    var onAccessibilityAnnouncement: ((String) -> Void)?
+
+    /// Queue speech without redirecting accessibility focus away from the transcript.
+    func announce(_ text: String) {
+        guard window != nil else { return }
+        #if os(macOS)
+        NSAccessibility.post(element: self, notification: .announcementRequested,
+                             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.low.rawValue])
+        #else
+        let speech = NSAttributedString(string: text, attributes: [
+            .accessibilitySpeechAnnouncementPriority: UIAccessibilityPriority.low.rawValue
+        ])
+        UIAccessibility.post(notification: .announcement, argument: speech)
+        #endif
+        onAccessibilityAnnouncement?(text)
+    }
+
+    private var spinnerPosition: (row: Int, column: Int) {
+        let cursor = cursorRect
+        guard let snapshot, snapshot.cursorVisible, !cursor.isEmpty, bounds.contains(cursor) else { return (0, 0) }
+        return (snapshot.cursorRow, min(snapshot.cursorColumn, snapshot.size.columns - 1))
+    }
+
+    private var visibleCursorCell: CGRect {
+        let position = spinnerPosition
+        let cell = cellRect(row: position.row, column: position.column)
+        // Grid coordinates start at the top left. AppKit's Metal view may be unflipped.
+        #if os(macOS)
+        return macInput.convert(cell, to: self)
+        #else
+        return cell
+        #endif
+    }
+
+    private func updateCursorSpinner() {
+        guard let spinner = cursorSpinner else { return }
+        let cell = visibleCursorCell
+        let side = min(16, cell.width, cell.height)
+        guard side > 0, bounds.contains(cell), active, window != nil else {
+            spinner.setAnimating(false)
+            spinner.isHidden = true
+            return
+        }
+        let rect = CGRect(x: cell.midX - side / 2, y: cell.midY - side / 2, width: side, height: side)
+        let color = spinnerInk
+        let ink = CGColor(srgbRed: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
+                          blue: CGFloat(color.blue) / 255, alpha: 1)
+        #if os(macOS)
+        spinner.ink = ink
+        #else
+        spinner.color = UIColor(cgColor: ink)
+        #endif
+        spinner.place(in: rect)
+        spinner.isHidden = false
+        spinner.setAnimating(!reducesMotion)
+    }
+
+    /// Match the painted cursor, allowing contrast headroom for antialiasing at small cell sizes.
+    private var spinnerInk: Terminal.RGB {
+        let program = snapshot?.programColors ?? .init()
+        func color(_ slot: Terminal.ColorSlot) -> Terminal.RGB {
+            program.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
+        }
+        var ink = color(.cursor)
+        var paper = color(.background)
+        if let snapshot {
+            let (y, x) = spinnerPosition
+            let row = snapshot.rows[y]
+            let start = x > 0 && row[x].width == 0 && row[x - 1].width == 2 ? x - 1 : x
+            let cell = row[start]
+            if selection?.columns(in: y, width: snapshot.size.columns)?.overlaps(start..<(start + max(1, cell.width))) == true {
+                ink = resolvedTheme.selectionInk
+                paper = resolvedTheme.selection
+            } else {
+                let style = cell.style
+                paper = switch style.inverse ? style.foreground : style.background {
+                case .default: style.inverse ? color(.foreground) : paper
+                case .indexed(let index): color(.indexed(index))
+                case let .rgb(r, g, b): .init(red: r, green: g, blue: b)
+                }
+            }
+        }
+        guard ink.contrast(with: paper) < 4.5 else { return ink }
+        return paper.isDark ? .white : .init(red: 0, green: 0, blue: 0)
+    }
+
+    /// Top-left window coordinates, measured independently from the grid and its native indicator.
+    package var cursorCellFrameInWindow: CGRect? { frameInWindow(visibleCursorCell, from: self) }
+
+    package func cellFrameInWindow(row: Int, column: Int) -> CGRect? {
+        guard let gridSize, (0..<gridSize.rows).contains(row), (0..<gridSize.columns).contains(column) else { return nil }
+        let cell = cellRect(row: row, column: column)
+        #if os(macOS)
+        return frameInWindow(cell, from: macInput)
+        #else
+        return frameInWindow(cell, from: self)
+        #endif
+    }
+
+    package var cursorSpinnerFrameInWindow: CGRect? {
+        guard let spinner = cursorSpinner, !spinner.isHidden else { return nil }
+        return frameInWindow(spinner.bounds, from: spinner)
+    }
+
+    private func frameInWindow(_ rect: CGRect, from view: PaneNativeView) -> CGRect? {
+        guard let window, !rect.isEmpty else { return nil }
+        #if os(macOS)
+        let frame = view.convert(rect, to: nil)
+        return CGRect(x: frame.minX, y: window.frame.height - frame.maxY, width: frame.width, height: frame.height)
+        #else
+        return view.convert(rect, to: window)
+        #endif
+    }
+
+    /// A deliberate primary tap may reclaim a displaced session. It sends no terminal input.
+    @discardableResult package func tapDisplacedGrid() -> Bool {
+        guard let action = onDisplacedTap else { return false }
+        onDisplacedTap = nil
+        action()
+        return true
     }
 
     /// Requests native keyboard focus for this viewport and returns whether it was granted.
@@ -631,7 +783,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
                                ink: color(.foreground), paper: color(.background))
         phoneTranscript.synchronize()
         #endif
-        onViewportInteractionChange?()
+        if cursorSpinner != nil { updateCursorSpinner() }
     }
 
     package func setHistoryOffset(_ rows: Int) {
@@ -695,7 +847,7 @@ package final class TerminalView: MTKView, MTKViewDelegate {
         let started = CACurrentMediaTime()
         do {
             let frame = try renderer.encode(snapshot: snapshot, metrics: metrics, theme: resolvedTheme,
-                                            pass: pass, selection: selection, showsCursor: acceptsTerminalInput,
+                                            pass: pass, selection: selection, showsCursor: acceptsTerminalInput && cursorSpinner == nil,
                                             blinkOpacity: reducesMotion ? 1 : textBlink.opacity)
             let submitted = CACurrentMediaTime()
             let first = snapshot != nil && !hasSubmittedContent

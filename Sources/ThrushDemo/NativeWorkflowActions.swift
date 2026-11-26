@@ -34,15 +34,82 @@ enum NativeWorkflowActions {
         }
     }
 
+    /// Drive the app's mounted toolbar item, using the same action as a person activating it.
+    static func newShellAction(in view: TerminalView) -> (@MainActor () throws -> Void)? {
+        #if os(macOS)
+        guard let toolbar = view.window?.toolbar, toolbar.isVisible else { return nil }
+        for item in toolbar.visibleItems ?? [] {
+            guard let button = item.view as? NSButton, button.window != nil, button.isEnabled,
+                  button.accessibilityIdentifier() == "demo.newShell" else { continue }
+            return { button.performClick(nil) }
+        }
+        #else
+        for bar in navigationBars(in: view) {
+            for item in trailingItems(in: bar) where item.isEnabled &&
+                    (item.accessibilityIdentifier == "demo.newShell" || item.title == "New Shell") {
+                if let action = item.action, item.primaryAction == nil {
+                    return {
+                        guard UIApplication.shared.sendAction(action, to: item.target, from: item, for: nil) else {
+                            throw Failure("The toolbar item did not send its action")
+                        }
+                    }
+                }
+            }
+            for element in descendants(of: bar) where element.accessibilityIdentifier == "demo.newShell" {
+                if let control = element as? UIControl, control.isEnabled {
+                    return { control.performPrimaryAction() }
+                }
+                return {
+                    guard element.accessibilityActivate() else { throw Failure("The toolbar item did not activate") }
+                }
+            }
+            if let element = (bar.accessibilityElements ?? []).compactMap({ $0 as? UIAccessibilityElement })
+                .first(where: { $0.accessibilityIdentifier == "demo.newShell" }) {
+                return {
+                    guard element.accessibilityActivate() else { throw Failure("The toolbar accessibility action failed") }
+                }
+            }
+        }
+        #endif
+        return nil
+    }
+
+    #if os(iOS)
+    private static func descendants(of root: UIView) -> [UIView] {
+        [root] + root.subviews.flatMap { descendants(of: $0) }
+    }
+
+    private static func navigationBars(in view: TerminalView) -> [UINavigationBar] {
+        guard let window = view.window else { return [] }
+        return descendants(of: window).compactMap { $0 as? UINavigationBar }.filter { !$0.isHidden }
+    }
+
+    private static func trailingItems(in bar: UINavigationBar) -> [UIBarButtonItem] {
+        guard let top = bar.topItem else { return [] }
+        return top.trailingItemGroups.flatMap(\.barButtonItems) + (top.rightBarButtonItems ?? [])
+    }
+
+    /// Only inspect the sample's toolbar, so a failure cannot log the terminal transcript.
+    static func toolbarDescription(in view: TerminalView) -> String {
+        let bars = navigationBars(in: view)
+        let items = bars.flatMap { trailingItems(in: $0) }.prefix(12).map { item in
+            let name = item.accessibilityIdentifier ?? item.accessibilityLabel ?? item.title ?? "(unnamed)"
+            let action = item.primaryAction != nil ? "primary action" : item.action.map(NSStringFromSelector) ?? "no action"
+            return "\(name.prefix(64)) [\(item.isEnabled ? "enabled" : "disabled"), \(action)]"
+        }
+        return "Visible navigation bars: \(bars.count). Trailing items: \(items)."
+    }
+    #endif
+
     static func verifyKeyboardDown(_ view: TerminalView) async throws {
         #if os(iOS)
-        guard let root = view.window?.rootViewController?.viewIfLoaded,
-              let input = view.subviews.compactMap({ $0 as? UITextView }).first else {
-            throw Failure("Missing the terminal's native iPhone keyboard.")
+        guard let root = view.window?.rootViewController?.viewIfLoaded else {
+            throw Failure("The iPhone terminal has no window")
         }
         let deadline = ContinuousClock.now.advanced(by: .seconds(4))
         while ContinuousClock.now < deadline {
-            if !input.isFirstResponder, input.inputAccessoryView?.window == nil,
+            let input = view.subviews.compactMap { $0 as? UITextView }.first
+            if input?.isFirstResponder != true, input?.inputAccessoryView?.window == nil,
                root.keyboardLayoutGuide.layoutFrame.height <= root.safeAreaInsets.bottom + 1 { return }
             try await Task.sleep(for: .milliseconds(20))
         }

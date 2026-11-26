@@ -34,9 +34,11 @@ def check(image, appearance, toolbar, checker):
     def near(pixel, hex, tolerance=8):
         return max(abs(a - b) for a, b in zip(pixels.rgb(pixel), bytes.fromhex(hex))) <= tolerance
 
-    def read(top, bottom, labels):
-        y, height = round(top * scale), round((bottom - top) * scale)
-        result = subprocess.run([checker, image, "--crop", "0", str(y), str(pixels.width), str(height), *labels],
+    def read(box, label, *, exact_line=False):
+        left, top, right, bottom = (round(edge * scale) for edge in box)
+        crop = [str(n) for n in (left, top, right - left, bottom - top)]
+        options = ["--exact-line"] if exact_line else []
+        result = subprocess.run([checker, image, "--crop", *crop, *options, label],
                                 capture_output=True, text=True, timeout=60)
         if result.returncode:
             raise ValueError((result.stdout + result.stderr).strip())
@@ -49,14 +51,24 @@ def check(image, appearance, toolbar, checker):
         raise ValueError("The theme's canvas shows through the program's colors.")
     if sum(below[v] for v in below if near(v, paper, 3)) < total * 0.5:
         raise ValueError(f"The {name} canvas covers less than half the window.")
-    read(0, bar, ["Terminal", "Close"] if toolbar else ["Thrush"])
+    if toolbar:
+        # Read each native control independently. A tighter vertical margin can help Vision
+        # separate 1x title strokes from the surrounding bar without changing the expected word.
+        title_left, title_right = 0.12 * WIDTH, 0.40 * WIDTH
+        try:
+            read((title_left, 0, title_right, bar), "Terminal", exact_line=True)
+        except ValueError:
+            read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
+        read((WIDTH - 54, 7, WIDTH - 9, 37), "Close", exact_line=True)
+    else:
+        read((0, 0, WIDTH, bar), "Thrush")
     # Vision reads text a person can't, so the title's strongest strokes must also reach 4.5:1
     # against the bar. The span starts after the window buttons and ends before the toolbar items.
     title = pixels.crop((round(0.12 * pixels.width), round(4 * scale), round(0.40 * pixels.width), round((bar - 4) * scale)))
     ground = luminance(max(set(title), key=title.count))
     if max((max(a, ground) + 0.05) / (min(a, ground) + 0.05) for a in map(luminance, title)) < 4.5:
         raise ValueError("The window title doesn't stand out from its bar.")
-    read(bar, bar + 48, ["palette " + name])
+    read((0, bar, WIDTH, bar + 48), "palette " + name)
     if toolbar:
         # Between the leading title and the trailing Close button, the toolbar shows the theme's canvas.
         y = round(bar / 2 * scale)

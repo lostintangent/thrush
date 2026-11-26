@@ -150,7 +150,14 @@ def live_pty(root, output, bash, codex, workflows, endpoint=None):
     # For an already running server, exec this same fixture from its ordinary interactive shell.
     # Clear the setup command from the screen, then acknowledge it on the shared local filesystem.
     executable(shell, "#!/bin/sh\nset -eu\ncd " + shlex.quote(str(work)) + "\n"
-               + """if [ "$#" -eq 1 ]; then printf '\\033c'; : > "$1"; fi\n"""
+               + """if [ "$#" -gt 0 ]; then
+    case "${2:-}" in
+        --keep-history) printf '\\033[2J\\033[H' ;;
+        *) printf '\\033c' ;;
+    esac
+    : > "$1"
+fi
+"""
                + "exec " + shlex.join(["/usr/bin/env", "-i", *(f"{k}={v}" for k, v in shell_env.items()),
                                       str(bash), "--noprofile", "--norc", "-i"]) + "\n")
     with ExitStack() as stack:
@@ -248,15 +255,21 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                 command = ["xcrun", "simctl", "launch", "--console", device, pane.BUNDLE_ID]
             else:
                 command = [app_executable, "-NSAppSleepDisabled", "YES"]
-            with pane.running([*command, *options], output / "app.log", **({} if device else {"env": env})) as host:
+            with ExitStack() as processes:
+                host = None
                 try:
+                    if device and trace:
+                        simulator = load(ROOT / "scripts/capture-simulator.py")
+                        processes.enter_context(simulator.record_screen(device, output / "lifecycle.mov"))
+                    host = processes.enter_context(pane.running([*command, *options], output / "app.log",
+                                                                **({} if device else {"env": env})))
                     if name == "recovery":
                         stall_upstream(proxy, host, log, work, output, device)
                     pane.await_report("live-" + name if name in ("lifecycle", "recovery") else name, host, proxy,
                                       driver, output, "simulator" if device else "mac", device or str(host.pid),
                                       verify_fixture=False)
                     verify_controller(name, output, driver)
-                except Exception:
+                except Exception as failure:
                     # The controller can still be waiting for the native acknowledgement that failed.
                     try:
                         with urlopen(control + "/observations?clientId=thrush-native-workflow", timeout=5) as response:
@@ -264,9 +277,15 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
                     except (OSError, ValueError) as error:
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
+                    if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
+                        try:
+                            subprocess.run([ROOT / "scripts/capture-demo.sh", "simulator", device,
+                                            output / "pane-at-failure.png"], check=True, timeout=20)
+                        except (OSError, subprocess.SubprocessError) as error:
+                            print(f"Could not retain the simulator pane image: {error}", file=sys.stderr)
                     raise
                 finally:
-                    if device and host.poll() is None:
+                    if device and host is not None and host.poll() is None:
                         # simctl --console is the console reader. Explicitly release our app
                         # before the next workflow uses this reserved device.
                         already_failed = sys.exc_info()[0] is not None
@@ -294,8 +313,12 @@ def stopped_before_attach(output, device, pane):
                                                  "queuedFrames", "queuedBytes", "exits", "explicitCloses"))
                 or not observed["wire"] or any(observed["wire"].values())):
             return False
-        app_log = (output / "app.log").read_text(errors="replace")
-        if "com.apple.CoreSimulator.SimError, code=405" not in app_log or "current state: Shutdown" not in app_log:
+        # A traced lifecycle first uses simctl to start the recorder, then to launch the app.
+        startup_log = output / "app.log"
+        if not startup_log.exists():
+            startup_log = output / "recording.log"
+        message = startup_log.read_text(errors="replace")
+        if "com.apple.CoreSimulator.SimError, code=405" not in message or "current state: Shutdown" not in message:
             return False
         inventory = json.loads(pane.simctl("list", "devices", "--json", timeout=15))["devices"]
         return any(row["udid"] == device and row["isAvailable"] and row["state"] == "Shutdown"
@@ -313,7 +336,7 @@ def main():
                         help="Use an existing disposable loopback PTY with a POSIX shell on this Mac instead of starting ThrushServer")
     parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"),
                         help="Select workflows. Defaults to shell, vim, codex and lifecycle; recovery exercises a stalled reader.")
-    parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames for the disposable lifecycle workflow")
+    parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames, plus an iPhone Simulator movie, for the lifecycle workflow")
     parser.add_argument("--device", help="Reserved booted iPhone UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")

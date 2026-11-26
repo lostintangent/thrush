@@ -18,23 +18,23 @@ The launcher builds the sample, starts a private server and removes its shell wo
 
 The default runs shell, Vim, Codex and lifecycle. Use `--workflow recovery` for a separate 8 MiB backpressure run, or select an individual flow by name. Use `--app /path/to/Thrush.app` for an existing build and `--appearance light` for the light palette. The hosted workflow verifies the Codex executable against its release checksum. [Hosted workflow](../.github/workflows/live-pty.yml)
 
-| Workflow | Checked outcome |
+| Workflow | What to check |
 | --- | --- |
 | Shell | Correct a mistyped build command, paste its arguments, run units 126 through 130, and copy the exact soft-wrapped path for unit 128 with the native pasteboard. The compiler writes a Mach-O object. |
 | Vim | Edit a scratch file, resize or rotate, detach, resume with the same client ID, save the exact Unicode text on disk and quit to the original prompt. |
 | Codex | Run the installed CLI, enter the songbird question, follow the streamed answer, navigate both transcript pages and return to Bash with `/quit`. The disposable Codex profile uses a local Responses provider serving the recorded answer without credentials. |
-| Lifecycle | Check the shell PID and environment after reactivating the pane, displace it with a second owner, reclaim with Use Here, and leave the pane inactive through the server’s real 30-second orphan expiry. Check the replacement PID, final output at exit, the New Shell button and process termination after explicit close. On iPhone, Use Here leaves the keyboard down. The driver activates the live grid before typing again. |
+| Lifecycle | Check the PID and environment after a brief detach. Reclaim a displaced shell by tapping or typing. After the 30-second orphan timeout, the same session must accept the replacement shell, keep the old main screen in history and discard held input. Verify the replacement PID. After exit, copy the final output, use the app’s New Shell button in the same pane and verify process termination after explicit close. |
 | Recovery | Suspend the upstream reader through an 8 MiB burst. The same socket repairs the silent tail, and typing a confirmation in the same pane reaches the original producer. |
 
 The Codex check records the pane’s OSC 11 reply, the CLI’s truecolor background SGRs, and the cell attributes across the editable and submitted user rows. Codex 0.166.0 uses different blends for the composer and transcript in each appearance. The expected RGB values come from the CLI’s pinned style definitions. [Composer](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L261) · [Submitted message](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/tui/src/style.rs#L68)
 
 `server.json` records the server source, CLI version and response source. `source.json` identifies the app build, executable SHA-256, platform and appearance. Each workflow directory contains its native `workflow-report.json`, independent `controller-report.json`, and original captures. Mac window capture requires a logged-in graphical session. The driver records GPU completion and any drawable presentation timestamp separately. Physical iPhone measurements require a device run.
 
-For a frame-level comparison of the finite lifecycle script, pass `--trace-lifecycle-frames` or select that option when dispatching the hosted run. The relay records the attachment, ordinal and payload of each message. The sample records what URLSession returned and which bytes the terminal received and applied in `native-wire.jsonl`. If the workflow fails, `controller-at-failure.json` retains the relay's observations before teardown.
+For a frame-level comparison of the finite lifecycle script, pass `--trace-lifecycle-frames` or select that option when dispatching the hosted run. The relay records the attachment, ordinal and payload of each message. The sample records what URLSession returned and which bytes the terminal received and applied in `native-wire.jsonl`. On iPhone Simulator, `lifecycle.mov` records the replacement prompt, scrolling back to the earlier shell and choosing New Shell after exit. If the workflow fails, `controller-at-failure.json` retains the relay's observations before teardown.
 
 ## Standalone validation
 
-Both packaged apps passed 37 checkpoints on real shells. For each platform, the first four workflows ran in one hosted job and the 8 MiB recovery check ran separately. The native app received and applied every byte forwarded by its observer. Each checkpoint verified a GPU-completed frame. Neither runner reported a compositor presentation timestamp.
+Both packaged apps passed 37 checkpoints on real shells. The four-workflow runs used revision `6b1fa7f` and captured its lifecycle controls. The cursor spinner and tap or key reclaim require separate captures. For each platform, the first four workflows ran in one hosted job and the 8 MiB recovery check ran separately. The native app received and applied every byte forwarded by its observer. Each checkpoint verified a GPU-completed frame. Neither runner reported a compositor presentation timestamp.
 
 | Platform | Shell, Vim, Codex and lifecycle | Silent recovery | Framebuffers | Vim grid before and after replay |
 | --- | --- | --- | ---: | ---: |

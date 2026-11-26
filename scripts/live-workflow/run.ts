@@ -13,7 +13,7 @@ export type WorkflowEvent = {
 };
 export type Recording = Grid & { name: string; events: WorkflowEvent[]; [key: string]: unknown };
 export type Phase = "attaching" | "layout" | "playing" | "input" | "resize" | "detach" | "resume" | "checkpoint"
-    | "close" | "completed" | "failed" | "useHere" | "newShell" | "focus";
+    | "close" | "completed" | "failed" | "reclaim" | "newShell" | "focus";
 type Downstream = ServerWebSocket<{url: string; grid: Grid}>;
 type Link = { app: Downstream; server: WebSocket; number: number; serverFrame: number; clientFrame: number; open: boolean; grid: Grid };
 type Frame = { link: Link; number: number; data: string | Uint8Array };
@@ -40,6 +40,10 @@ export class LiveRun {
     attachments = 0;
     exits = 0;
     explicitCloses = 0;
+    // The native session archives its old main screen only on an unexpected fresh ready.
+    private archiveNextFresh = false;
+    private previousScreen?: ReturnType<typeof openReference>;
+    expectReplacement() { this.archiveNextFresh = true; }
     inputBytes = 0;
     outputBytes = 0;
     grid: Grid;
@@ -47,7 +51,7 @@ export class LiveRun {
     readonly wire = { upstreamBinaryFrames: 0, upstreamBinaryBytes: 0, forwardedBinaryFrames: 0,
         forwardedBinaryBytes: 0, replayFrames: 0, replayBytes: 0, synchronizedIntermediateFrames: 0,
         upstreamControls: 0, forwardedControls: 0, clientBinaryFrames: 0, clientControls: 0 };
-    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean; endedNotice?: boolean } =
+    state: { phase: Phase; eventIndex: number; name: string; error?: string; capture?: boolean; ended?: boolean; archivedRows?: string[] } =
         { phase: "attaching", eventIndex: -1, name: "" };
     failure?: Error;
     private active?: Link;
@@ -124,7 +128,10 @@ export class LiveRun {
             this.observe(link, number, "receivedFromUpstream", raw);
             if (typeof raw === "string") this.wire.upstreamControls++;
             else { this.wire.upstreamBinaryFrames++; this.wire.upstreamBinaryBytes += raw.byteLength; totals.upstreamBytes += raw.byteLength; }
-            if (!link.open) return;
+            if (!link.open) {
+                this.fail(Error(`Received output on detached attachment ${link.number}, frame ${number}`));
+                return;
+            }
             this.queuedBytes += typeof raw === "string" ? Buffer.byteLength(raw) : raw.byteLength;
             if (this.queuedBytes > 8 * 1024 * 1024 || this.frames.length >= 4096) {
                 this.fail(Error("Native checkpoint held more than 8 MiB or 4096 upstream frames"));
@@ -197,7 +204,17 @@ export class LiveRun {
             if (control.type === "ready") {
                 assert(typeof control.resumed === "boolean");
                 this.ready.push(control.resumed);
-                this.reference.dispose();
+                if (this.archiveNextFresh) {
+                    assert.equal(control.resumed, false, "Expected a new PTY after expiry");
+                    this.previousScreen = this.reference;
+                    this.archiveNextFresh = false;
+                } else {
+                    this.reference.dispose();
+                    if (!control.resumed) {
+                        this.previousScreen?.dispose();
+                        this.previousScreen = undefined;
+                    }
+                }
                 this.reference = openReference(this.grid);
                 observeBackgrounds(this.reference, this.sgrBackgrounds);
                 this.replayNext = control.resumed;
@@ -273,11 +290,12 @@ export class LiveRun {
     async prepareFreshShell() {
         if (!this.bootstrapShell) return;
         const link = this.active;
-        assert(link?.open && this.ready.at(-1) === false, "Only a fresh shell accepts fixture setup");
+        assert(link?.open && this.ready.at(-1) === false,
+               "Only a newly allocated shell accepts fixture setup");
         const marker = ".thrush-ready-" + randomUUID();
         // This is a separate harness write. Every byte the PTY emits still reaches the native pane and reference.
         const quotedPath = "'" + this.bootstrapShell.replaceAll("'", "'\\''") + "'";
-        const command = Buffer.from("exec " + quotedPath + " " + marker + "\r");
+        const command = Buffer.from("exec " + quotedPath + " " + marker + (this.previousScreen ? " --keep-history" : "") + "\r");
         link.server.send(command);
         this.bootstrapWrites.push({ attachment: link.number, bytes: command.length });
         await this.until(() => {
@@ -301,14 +319,15 @@ export class LiveRun {
         if (!["layout", "resize", "focus"].includes(this.state.phase) || index !== this.state.eventIndex || !same(grid, this.grid)) return false;
         this.accepted = true; this.wake?.(); return true;
     }
-    async checkpoint(index: number, predicate: () => boolean, capture?: boolean, endedNotice = false) {
+    async checkpoint(index: number, predicate: () => boolean, capture?: boolean, ended = false, archivedRows?: string[]) {
         const event = this.fixture.events[index];
         this.phase("playing", index);
         await this.until(predicate, event.name);
         this.phase("checkpoint", index);
         if (capture !== undefined) this.state.capture = capture;
-        if (endedNotice) this.state.endedNotice = true;
-        this.pendingReference = referenceDocument(this.reference, this.fixture, event);
+        if (ended) this.state.ended = true;
+        if (archivedRows) this.state.archivedRows = archivedRows;
+        this.pendingReference = referenceDocument(this.reference, this.fixture, event, this.previousScreen);
         // Native framebuffer capture can retry for 160 seconds before the pane acknowledges.
         await this.until(() => this.accepted, "acknowledgement of " + event.name, 190_000, false);
     }
@@ -322,6 +341,11 @@ export class LiveRun {
         assert.equal(body.attachments, this.attachments);
         assert.equal(body.columns, ref.columns); assert.equal(body.rows, ref.rows);
         if (ref.events[0].copy) assert.equal(body.copiedText, ref.events[0].copy.text);
+        if (this.fixture.name === "live-lifecycle") {
+            assert.equal(body.sameNativePane, true, "The native view moved to a different pane or window");
+            assert.equal(body.sessionEnded, this.state.ended ?? false);
+            if (this.state.archivedRows) assert.deepEqual(body.archivedRows, this.state.archivedRows);
+        }
         this.acknowledgements.push(body); this.accepted = true; this.wake?.();
         return true;
     }

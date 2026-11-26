@@ -153,4 +153,39 @@ import UIKit
     latest.sendActions(for: .touchUpInside)
     #expect(view.historyOffset == 0 && latest.isHidden)
 }
+
+@MainActor
+@Test func growingPhoneTranscriptKeepsItsLiveOrScrolledPosition() throws {
+    let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 402, height: 467))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    let size = Terminal.Size(columns: 47, rows: 25)
+    var terminal = Terminal(size: size)
+    _ = terminal.receive((1...8).map { "Old row \($0)" }.joined(separator: "\r\n").utf8)
+    view.display(terminal)
+    terminal.startNewShell(at: size)
+    _ = terminal.receive("new prompt\r\nfinal output\r\n".utf8)
+    view.replaceDisplayedSnapshot(terminal.snapshot(), receivedAt: nil, archivingMainScreen: true)
+
+    let transcript = try #require(view.subviews.compactMap { $0 as? PhoneTranscriptView }.first)
+    let scroll = try #require(transcript.subviews.compactMap { $0 as? UIScrollView }.first)
+    let rowHeight = view.cellRect(row: 0, column: 0).height
+    func resize(_ height: CGFloat, readingFromBottom offset: Int) {
+        view.frame.size.height = height
+        view.layoutIfNeeded()
+        #expect(scroll.bounds.height == height)
+        #expect(scroll.contentSize.height == height + CGFloat(view.historyCount) * rowHeight)
+        #expect(scroll.contentOffset.y == CGFloat(view.historyCount - offset) * rowHeight)
+        #expect(view.historyOffset == offset)
+    }
+    resize(800, readingFromBottom: 0)
+    #expect(view.snapshot?.cursorRow == terminal.snapshot().cursorRow)
+    #expect(view.snapshot?.rows.first?.text == "new prompt")
+
+    resize(467, readingFromBottom: 0)
+    view.setHistoryOffset(3)
+    let first = view.snapshot?.rows.first?.text
+    resize(800, readingFromBottom: 3)
+    #expect(view.snapshot?.rows.first?.text == first)
+}
 #endif

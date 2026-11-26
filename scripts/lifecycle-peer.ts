@@ -49,8 +49,8 @@ const attachments: Attachment[] = [
     {
         name: "after expiry", resumed: false, output: ["new$ "],
         exchanges: [
-            { input: "\x1b[A", output: ["N"], observation: "Post-expiry ready to Up" },
-            { input: { type: "close" }, observation: "Up echo to explicit close" },
+            { input: "\x1b[A", output: ["N"], observation: "Post-expiry fresh ready to Up" },
+            { input: { type: "close" }, observation: "Replacement repair to explicit close" },
         ], end: "close",
     },
     {
@@ -61,7 +61,7 @@ const attachments: Attachment[] = [
         exchanges: [{ input: "once", output: ["seen"], observation: "Ready to last write before loss" }], end: "lost",
     },
     {
-        name: "automatic resume", resumed: true, output: ["\x1b[?1h\x1b[?2004h"],
+        name: "automatic resume", resumed: true, output: ["\x1b]2;Original shell\x07\x1b[?1h\x1b[?2004hsaved-main\x1b[?1049h\x1b[H"],
         exchanges: [
             { input: "\x1bOA", observation: "Recovery ready and replay to held Up" },
             { input: "\x1b[200~a\rb\x1b[201~", observation: "Held Up to bracketed paste" },
@@ -70,12 +70,12 @@ const attachments: Attachment[] = [
         ], end: "lost",
     },
     {
-        name: "automatic replacement", resumed: false, output: [],
-        exchanges: [{ input: "clean", output: ["done"], observation: "Replacement ready to fresh input" }], end: "exit",
+        name: "automatic replacement", resumed: false, output: ["new$ "],
+        exchanges: [{ input: "clean", output: ["clean"], observation: "Replacement ready to fresh input" }], end: "exit",
     },
     {
         name: "user restart", resumed: false, output: [],
-        exchanges: [{ input: "pause", observation: "User restart ready to input" }], end: "lost",
+        exchanges: [{ input: "pause", observation: "New session ready to input" }], end: "lost",
     },
     {
         name: "visible again", resumed: true, output: ["$ "],
@@ -166,6 +166,15 @@ async function checkpoint(path: string) {
         assert(checkpoints.has("/check/expire"), "Expiry must precede the fresh handshake");
         allowFreshReady.resolve();
         break;
+    case "/check/replacement-replay": {
+        const socket = shell?.owner;
+        assert.equal(socket?.data.script.name, "after expiry");
+        assert.equal(socket.data.received, 1, "Only the fresh Up may reach the replacement");
+        startInterval(socket);
+        assert(socket.sendText(JSON.stringify({ type: "ready", resumed: true })) > 0);
+        output(socket, ["new$ N"]);
+        break;
+    }
     case "/check/closed":
         await explicitlyClosed.promise;
         assert.equal(shell, undefined, "Explicit close must release the shell");
@@ -319,6 +328,7 @@ const server = Bun.serve({
                         recordInterval(socket, "Resize echo to detach");
                         detached.resolve();
                     } else {
+                        assert.equal(script.name, "reclaimed");
                         recordInterval(socket, "Reclaim echo to detach");
                         leftAfterReclaim.resolve();
                     }
@@ -346,11 +356,11 @@ try {
     assert.equal(attachmentCount, attachments.length);
     assert.equal(freshShells, 9);
     assert.equal(takeovers, 2);
-    assert.equal(checkpoints.size, 8);
+    assert.equal(checkpoints.size, 9);
     if (observe) {
         console.log(JSON.stringify({ bunVersion: Bun.version, attachmentCount, freshShells, takeovers, observations }));
     } else {
-        console.log("Lifecycle peer verified fourteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, orphan expiry, explicit close and shell restart.");
+        console.log("Lifecycle peer verified fourteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, in-place shell replacement after expiry or loss, explicit close and natural exit.");
     }
 } finally {
     clearTimeout(timeout);

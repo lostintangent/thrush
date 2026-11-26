@@ -15,7 +15,8 @@ struct LifecycleCheck {
     )
 
     func run() async throws {
-        let first = try open()
+        let tab = try await TerminalSession(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+        let first = await tab.actor
         try await expectReady(first, resumed: false)
         try await expectOutput(first, rows: ["old-only", "old", ""])
         try await expectOutput(first, rows: ["old-only", "old", ""])
@@ -47,6 +48,7 @@ struct LifecycleCheck {
 
         let beforeReclaim = await first.snapshot()
         guard await first.show(userInitiated: true) else { throw Failure("Could not reclaim the shell") }
+        try await first.send(.text("r")) // Delivered only after the same shell replays.
         try await first.sendResize(to: .init(columns: 20, rows: 3))
         try await expectReady(first, resumed: true, retaining: beforeReclaim)
         let editorSize = Terminal.Size(columns: 17, rows: 3)
@@ -56,7 +58,6 @@ struct LifecycleCheck {
         try await expectEditorReplay(first, row: "alt!A!B")
         guard await first.snapshot().size == editorSize else { throw Failure("Lost the resize during replay") }
         try await expectDisplacement(second)
-        try await first.send(.text("r"))
         try await expectOutput(first, rows: ["alt!A!BR", "", ""])
         try await expectOutput(first, rows: ["one", "two", "shell$"])
         let restored = await first.snapshot()
@@ -69,16 +70,31 @@ struct LifecycleCheck {
         try await first.sendResize(to: size)
         try await checkpoint("expire")
         guard await first.show() else { throw Failure("Could not attach after orphan expiry") }
-        // The peer withholds ready until the rejected keystroke has had a chance to queue.
-        try await rejectInput(first)
+        // The peer withholds ready. The old session may hold this input only for its original shell.
+        try await first.send(.text("stale"))
         try await checkpoint("ready")
-        try await expectReady(first, resumed: false)
+        guard try await first.nextEvent() == .replaced, await first.state == .active, await !tab.hasEnded else {
+            throw Failure("The open tab did not adopt the replacement shell after expiry")
+        }
+        let archived = ["history", "one", "two", "shell$"]
+        let fresh = await first.snapshot()
+        guard fresh.history.map(\.text) == archived, fresh.rows.allSatisfy({ $0.text.isEmpty }),
+              fresh.cursorRow == 0, fresh.cursorColumn == 0, fresh.size == size, fresh.palette == palette else {
+            throw Failure("Replacement must archive the previous screen and start at the top of a clean grid")
+        }
+        try await first.send(.key(.up)) // Immediately accepted on the fresh attachment.
         try await expectOutput(first, rows: ["new$ ", "", ""])
-        try await first.send(.key(.up))
         try await expectOutput(first, rows: ["new$ N", "", ""])
+        try await checkpoint("replacement-replay")
+        guard try await first.nextEvent() == .replay else { throw Failure("Expected the new shell's in-band replay") }
+        let repaired = await first.snapshot()
+        guard repaired.history.map(\.text) == archived, repaired.rows.map(\.text) == ["new$ N", "", ""] else {
+            throw Failure("The replacement shell's replay lost the archive or duplicated its own screen")
+        }
         try await closeWithPendingRead(first)
         try await checkpoint("closed")
-        try await expectEnded(first, closed: true)
+        guard await tab.hasEnded else { throw Failure("Explicit close did not end the tab's session") }
+        try await expectEnded(first)
 
         // The previous socket's displacement must leave the host-owned session usable.
         let observed = Mutex(Data())
@@ -92,11 +108,7 @@ struct LifecycleCheck {
               await final.appliedBytes == expected.count else {
             throw Failure("Exit must follow the final output and preserve it on screen")
         }
-        try await expectEnded(final, closed: false)
-    }
-
-    private func open() throws -> SessionActor {
-        try SessionActor(baseURL: endpoint, clientID: "thrush lifecycle", size: size, palette: palette)
+        try await expectEnded(final)
     }
 
     private func open(in session: URLSession,
@@ -133,7 +145,6 @@ struct LifecycleCheck {
             guard await session.state == .awaitingReplay, await session.awaitingReplay else {
                 throw Failure("A resumed socket must await its replay")
             }
-            try await rejectInput(session)
         }
     }
 
@@ -168,18 +179,21 @@ struct LifecycleCheck {
         guard try await session.nextEvent() == .displaced else {
             throw Failure("Expected the peer to displace the old socket with close code 4000")
         }
-        await session.hide() // The user backgrounds and returns to the displaced window.
-        guard await session.state == .displaced, await !session.show() else {
-            throw Failure("Foregrounding a displaced owner must wait for user input")
+        await session.hide()
+        let attempts = await session.socketAttempts
+        try? await session.setFocused(true)
+        try? await session.setFocused(false)
+        guard await session.state == .displaced, await !session.show(), await session.socketAttempts == attempts else {
+            throw Failure("Foreground or keyboard focus reclaimed a displaced shell without user input")
         }
         try await rejectInput(session)
     }
 
-    private func expectEnded(_ session: SessionActor, closed: Bool) async throws {
+    private func expectEnded(_ session: SessionActor) async throws {
         guard await session.state == .ended, await !session.show() else {
             throw Failure("A closed or exited shell must stay ended")
         }
-        if closed, await session.show(userInitiated: true) { throw Failure("Explicitly closed shell restarted") }
+        if await session.show(userInitiated: true) { throw Failure("Showing an ended session restarted its shell") }
         try await rejectInput(session)
     }
 

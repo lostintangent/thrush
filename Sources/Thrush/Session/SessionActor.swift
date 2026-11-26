@@ -12,6 +12,8 @@ package actor SessionActor {
         case displaced
         /// The shell opened. A resumed WebSocket delivers its replay next.
         case ready(resumed: Bool)
+        /// The old shell expired. Its main screen is in history and the new shell accepts input.
+        case replaced
         /// The app transport kept reading while hidden. Display its current screen.
         case screen
         /// The terminal applied new program output.
@@ -41,11 +43,12 @@ package actor SessionActor {
     var terminal: Terminal
     var requestedSize: Terminal.Size
     var lifetime: UInt64 = 0
+    // A native action may still be queued for the screen displayed before a replacement.
+    var shellRevision: UInt64 = 0
     var lastWrite: Task<Void, Error>?
 
     package internal(set) var state: State
     package internal(set) var hasSeenReady = false
-    package internal(set) var exitedNaturally = false
     package internal(set) var lastReceiptTime: CFTimeInterval?
     package private(set) var receivedBytes = 0
     package private(set) var appliedBytes = 0
@@ -66,23 +69,21 @@ package actor SessionActor {
     }
 
     /// Shows the session. Returns true when it starts opening a transport.
-    /// Only a user action can reclaim a displaced shell or restart an ended one.
+    /// Only a user action can reclaim a displaced shell. An ended session stays ended.
     @discardableResult
     package func show(userInitiated: Bool = false) -> Bool {
         switch transport {
         case .webSocket(let socket): socket.attach(to: self, userInitiated: userInitiated)
-        case .app(let app): app.show(in: self, userInitiated: userInitiated)
+        case .app(let app): app.show(in: self)
         }
     }
 
-    func beginOpening(userInitiated: Bool) -> Bool {
+    func beginOpening(userInitiated: Bool = false) -> Bool {
         switch state {
         case .idle: break
         case .displaced where userInitiated: break
-        case .ended where userInitiated && exitedNaturally: hasSeenReady = false
         default: return false
         }
-        exitedNaturally = false
         lifetime &+= 1
         return true
     }
@@ -97,7 +98,9 @@ package actor SessionActor {
     }
 
     /// Encodes input using the program's current modes. The latency probe runs as the write begins.
-    package func send(_ input: Terminal.Input, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
+    package func send(_ input: Terminal.Input, forShell revision: UInt64? = nil,
+                      onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
+        if let revision, revision != shellRevision { return }
         switch transport {
         case .webSocket(let socket): try await socket.send(input, in: self, notify: onWriteStarted)
         case .app(let app): try await app.send(input, in: self, notify: onWriteStarted)
@@ -131,7 +134,7 @@ package actor SessionActor {
         switch transport {
         // A suspended reader may still own this actor after the app releases its session.
         case .webSocket(let socket): socket.detach(from: self)
-        case .app(let app): await app.release(in: self)
+        case .app(let app): await app.close(in: self)
         }
     }
 
@@ -162,7 +165,7 @@ package actor SessionActor {
         try await send(.focus(focused))
     }
 
-    /// A new shell or a replay starts from a blank terminal that keeps the host's theme and focus.
+    /// A first attachment starts from a blank terminal with the host's theme and focus.
     func resetTerminal(size: Terminal.Size) {
         var next = Terminal(size: size, palette: terminal.palette, cursorColor: terminal.cursorColor)
         next.isFocused = terminal.isFocused

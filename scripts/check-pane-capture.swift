@@ -1,4 +1,4 @@
-// Independent check that the simulator framebuffer contains the visible copy of its native notice.
+// Independent check that an original framebuffer contains the expected text inside its native control.
 import CoreML
 import Foundation
 import ImageIO
@@ -21,7 +21,7 @@ func enlarged(_ region: CGImage) -> CGImage {
     return context.makeImage() ?? region
 }
 
-let usage = "Usage: check-pane-capture IMAGE [--crop X Y WIDTH HEIGHT] EXPECTED_VISIBLE_STRINGS…"
+let usage = "Usage: check-pane-capture IMAGE [--crop X Y WIDTH HEIGHT] [--exact-line] EXPECTED_VISIBLE_STRINGS…"
 var arguments = CommandLine.arguments.dropFirst()
 guard let path = arguments.popFirst() else { fail(usage) }
 let url = URL(fileURLWithPath: path)
@@ -42,6 +42,8 @@ if arguments.first == "--crop" {
 } else {
     handler = VNImageRequestHandler(url: url)
 }
+let exactLine = arguments.first == "--exact-line"
+if exactLine { arguments = arguments.dropFirst() }
 guard !arguments.isEmpty else { fail(usage) }
 
 func words(_ text: String) -> String {
@@ -50,7 +52,9 @@ func words(_ text: String) -> String {
 
 let expected = arguments.map(words)
 var attempts: [String] = []
-for level in [VNRequestTextRecognitionLevel.fast, .accurate] {
+// Short control labels use CPU recognition so the caller can try its second crop even on a GPU-less VM.
+let levels: [VNRequestTextRecognitionLevel] = exactLine ? [.fast] : [.fast, .accurate]
+for level in levels {
     let recognition = VNRecognizeTextRequest()
     recognition.recognitionLevel = level
     recognition.recognitionLanguages = ["en-US"]
@@ -68,7 +72,8 @@ for level in [VNRequestTextRecognitionLevel.fast, .accurate] {
         try handler.perform([recognition])
         let lines = (recognition.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         let text = words(lines.joined(separator: " "))
-        if expected.allSatisfy({ text.contains($0) }) { exit(0) }
+        let matched = exactLine ? arguments.allSatisfy { lines.contains($0) } : expected.allSatisfy { text.contains($0) }
+        if matched { exit(0) }
         attempts.append("Read " + lines.joined(separator: " | "))
     } catch {
         attempts.append("Vision: " + String(describing: error))

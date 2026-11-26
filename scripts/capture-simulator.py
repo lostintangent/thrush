@@ -22,13 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 APP_ID = "app.thrush.demo"
 ORACLE = ROOT / "scripts/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
-NOTICE_SCENES = {
-    "notice-connecting": ("Connecting", None, None, None),
-    "notice-reconnecting": ("Reconnecting", "Typing waits for this shell to resume.", None, None),
-    "notice-replacement": ("Previous shell ended", "New shell ready.", None, None),
-    "notice-displaced": ("Open in another window", None, "Use Here", "Use shell in this window"),
-    "notice-ended": ("Ended", None, "New Shell", "New Shell"),
-}
+SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
 
 
@@ -52,6 +46,33 @@ def wait_for(description, condition, timeout):
             return value
         time.sleep(0.25)
     raise TimeoutError(f"Timed out waiting for {description}")
+
+
+@contextlib.contextmanager
+def record_screen(device, movie):
+    log = movie.parent / "recording.log"
+    with log.open("w") as output:
+        process = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", "--codec=h264",
+                                    "--mask=black", "--force", str(movie)],
+                                   stdout=output, stderr=subprocess.STDOUT)
+        try:
+            def started():
+                if process.poll() is not None:
+                    raise RuntimeError("Simulator video recorder exited: " + log.read_text())
+                return "Recording started" in log.read_text()
+            wait_for("the first real video frame", started, 35)
+            yield
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+            try:
+                process.wait(30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise RuntimeError("Simulator did not finalize the screen recording.")
+            if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
+                raise RuntimeError("Simulator recording failed: " + log.read_text())
 
 
 def save_json(path, value):
@@ -108,10 +129,10 @@ def disposable_phone(out):
 
 
 @contextlib.contextmanager
-def peer(out, notices=False):
+def peer(out, cursor=False):
     log = out / "peer.log"
     with log.open("w") as output:
-        server = subprocess.Popen(["bun", "scripts/notice-peer.ts" if notices else "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
+        server = subprocess.Popen(["bun", "scripts/cursor-peer.ts" if cursor else "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
                                   cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
         try:
             def endpoint():
@@ -229,20 +250,10 @@ class Phone:
                     raise
                 print(f"Simulator termination: {error}", file=sys.stderr, flush=True)
 
-    def interrupt_after_focus(self, pid, keyboard):
-        def ready():
-            state = self.state()
-            if state.get("pid") != pid or state.get("scene") != "notice-reconnecting" or not state.get("gpuCompleted") or not state.get("generation"):
-                return False
-            if keyboard == "visible":
-                return (state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44 and
-                        (state.get("keyboardLanguage") or "").lower().startswith("en"))
-            return state["keyboardHeight"] < 90
-
-        wait_for("the live shell and its requested keyboard", ready, 90)
-        with urlopen(Request(self.endpoint + "/interrupt-reconnecting", method="POST"), timeout=10) as response:
+    def advance_peer(self, action):
+        with urlopen(Request(self.endpoint + "/" + action, method="POST"), timeout=10) as response:
             if response.status != 204:
-                raise RuntimeError("The notice peer did not interrupt the acknowledged terminal.")
+                raise RuntimeError(f"The cursor peer rejected {action}.")
 
     def set_appearance(self, style):
         sim("ui", self.device, "appearance", style)
@@ -270,8 +281,8 @@ class Phone:
             return upright
         return raw
 
-    def frame(self, scene, appearance, orientation, keyboard, pid, oracle, previous=None, layout_only=False):
-        name = f"{scene}-{appearance}-{orientation}"
+    def frame(self, scene, appearance, orientation, keyboard, pid, oracle, previous=None, layout_only=False, spinner=None, suffix=""):
+        name = f"{scene}-{appearance}-{orientation}{suffix}"
         path = self.out / (name + ".png")
         last_error = "The scene has not reported a GPU-completed draw."
         candidate = self.scratch / "frame.png"
@@ -284,14 +295,13 @@ class Phone:
                      state.get("appearance") == appearance and state.get("orientation") == orientation)
             if not ready or (scene in TERMINAL_SCENES and (not state.get("gpuCompleted") or not state["generation"])):
                 return False
-            if scene in NOTICE_SCENES:
-                notice = state.get("notice") or {}
-                if tuple(notice.get(k) for k in ("title", "detail", "action", "actionLabel")) != NOTICE_SCENES[scene]:
+            if spinner is not None:
+                if bool(state.get("cursorSpinner")) != spinner or not state.get("cursorCellFrame"):
                     return False
-                if scene != "notice-connecting" and (not state.get("gpuCompleted") or not state["generation"]):
+                if (not spinner or scene != "spinner-opening") and not state.get("gpuCompleted"):
                     return False
             if keyboard == "visible":
-                if scene == "notice-reconnecting" and not (state.get("keyboardLanguage") or "").lower().startswith("en"):
+                if scene == "spinner-reconnecting" and not (state.get("keyboardLanguage") or "").lower().startswith("en"):
                     return False
                 return state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44
             if keyboard == "hidden":
@@ -311,6 +321,8 @@ class Phone:
                 print(f"{name}: {state['columns']} × {state['rows']} cells, "
                       f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
                       flush=True)
+            if spinner is not None and time.monotonic() - since < 0.4:
+                return False
             if layout_only:
                 if time.monotonic() - since < 0.7:
                     return False
@@ -336,15 +348,6 @@ class Phone:
                            "--metadata", str(metadata), timeout=50, check=False)
                 if keys.returncode:
                     last_error = (keys.stdout + keys.stderr).strip()
-                    return False
-            if scene in NOTICE_SCENES:
-                checker = self.scratch / "check-pane-capture"
-                if not checker.exists():
-                    run("xcrun", "swiftc", "scripts/check-pane-capture.swift", "-o", str(checker), timeout=120)
-                labels = [label for label in NOTICE_SCENES[scene][:3] if label]
-                proof = run(str(checker), str(upright), *labels, check=False, timeout=50)
-                if proof.returncode:
-                    last_error = (proof.stdout + proof.stderr).strip()
                     return False
             if oracle:
                 command = [sys.executable, str(oracle), str(upright), scene, appearance]
@@ -379,32 +382,8 @@ class Phone:
                     pass
             raise RuntimeError(f"{name}: {last_error}") from error
 
-    @contextlib.contextmanager
     def record_switch(self, name="appearance-switch"):
-        log = self.out / "recording.log"
-        with log.open("w") as output:
-            process = subprocess.Popen(["xcrun", "simctl", "io", self.device, "recordVideo", "--codec=h264",
-                                        "--mask=black", "--force", str(self.out / (name + ".mov"))],
-                                       stdout=output, stderr=subprocess.STDOUT)
-            try:
-                def started():
-                    if process.poll() is not None:
-                        raise RuntimeError("Simulator video recorder exited: " + log.read_text())
-                    return "Recording started" in log.read_text()
-                wait_for("the first real video frame", started, 35)
-                yield
-            finally:
-                if process.poll() is None:
-                    process.send_signal(signal.SIGINT)
-                try:
-                    process.wait(30)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
-                    raise RuntimeError("Simulator did not finalize the screen recording.")
-                movie = self.out / (name + ".mov")
-                if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
-                    raise RuntimeError("Simulator recording failed: " + log.read_text())
+        return record_screen(self.device, self.out / (name + ".mov"))
 
     def suite(self):
         failures = {}
@@ -431,34 +410,41 @@ class Phone:
 
     def capture_named(self, scene, options, oracle):
         keyboard = options.keyboard
-        if scene in NOTICE_SCENES and keyboard == "any":
-            keyboard = "visible" if scene == "notice-reconnecting" else "hidden"
         pid = self.launch(scene, options.appearance, options.orientation, keyboard)
-        if scene == "notice-reconnecting":
-            self.interrupt_after_focus(pid, keyboard)
         self.frame(scene, options.appearance, options.orientation, keyboard, pid, oracle, layout_only=options.layout_only)
 
-    def capture_notices(self, options, oracle):
-        failures = {}
-        warmed_keyboard = False
-        # Four scenes use a closed keyboard. Collect them even when the system keyboard
-        # or one of the other app launches takes longer than the hosted simulator allows.
-        order = [scene for scene in NOTICE_SCENES if scene != "notice-reconnecting"] + ["notice-reconnecting"]
-        for scene in order:
-            try:
-                needs_keyboard = (options.keyboard == "visible" or
-                                  (options.keyboard == "any" and scene == "notice-reconnecting"))
-                if needs_keyboard and not warmed_keyboard and not options.layout_only:
-                    self.warm_keyboard(options.appearance)
-                    warmed_keyboard = True
-                self.capture_named(scene, options, oracle)
-            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
-                failures[scene] = str(error)
-                save_json(self.out / (scene + "-last-state.json"), self.state())
-                save_json(self.out / "failures.json", failures)
-                print(f"{scene}: {error}", file=sys.stderr, flush=True)
-        if failures:
-            raise RuntimeError("iPhone notices failed: " + ", ".join(failures))
+    def capture_spinners(self, options, toolbar=False):
+        proof = runpy.run_path(str(ROOT / "scripts/interaction-capture/spinner.py"))
+        checks = {}
+        scenes = SPINNER_SCENES if options.scene not in SPINNER_SCENES else [options.scene]
+        for scene in scenes:
+            keyboard = options.keyboard
+            if keyboard == "any":
+                keyboard = "hidden" if toolbar or scene == "spinner-opening" else "visible"
+            if keyboard == "visible":
+                self.warm_keyboard(options.appearance)
+            pid = self.launch(scene, options.appearance, options.orientation, keyboard,
+                              extra_arguments=("--toolbar-proof",) if toolbar else ())
+            first_waits = scene == "spinner-opening"
+            def capture(waiting):
+                suffix = "-waiting" if waiting else "-live"
+                native = self.frame(scene, options.appearance, options.orientation, keyboard, pid, None,
+                                    spinner=waiting, suffix=suffix)
+                image = self.out / f"{scene}-{options.appearance}-{options.orientation}{suffix}.png"
+                return image, native
+            first = capture(first_waits)
+            self.advance_peer("release-opening" if first_waits else "interrupt-reconnecting")
+            second = capture(not first_waits)
+            (wait_image, waiting), (live_image, live) = (first, second) if first_waits else (second, first)
+            row, column = (0, 0) if first_waits else (8, len("~/thrush % "))
+            label = "Connecting" if first_waits else "Reconnecting"
+            checks[scene] = proof["measure"](wait_image, waiting, options.appearance, row, column, label)
+            checks[scene].update(proof["compare"](wait_image, waiting, live_image, live, options.appearance))
+            if toolbar:
+                runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["check"](
+                    wait_image, waiting, options.appearance, scene, self.scratch)
+            save_json(self.out / "cursor-spinners.json", checks)
+            print(f"{scene}: {checks[scene]}", flush=True)
 
     def capture_scene(self, scene, appearance, orientation):
         pid = self.launch(scene, appearance, orientation, "visible")
@@ -506,7 +492,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
     parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
-    parser.add_argument("--scene", default="", help="A demo scene, 'notices' for all five mounted pane states, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the pane beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
+    parser.add_argument("--scene", default="", help="A demo scene, 'cursor-spinners' for opening and reconnecting, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the pane beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -517,7 +503,7 @@ def main():
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
     if args.layout_only and (not args.scene or args.oracle):
         parser.error("--layout-only requires a named scene and provides native metadata only.")
-    if args.scene in {"render-benchmark", "notice-reconnect-motion", "toolbar-proof", "text-blink", "program-colors", "under-bars"} and (args.layout_only or args.oracle):
+    if args.scene in {"render-benchmark", "cursor-spinners", *SPINNER_SCENES, "reconnect-typing", "toolbar-proof", "text-blink", "program-colors", "under-bars"} and (args.layout_only or args.oracle):
         parser.error("The named workload produces its own evidence.")
     oracle = None
     if args.oracle:
@@ -542,14 +528,13 @@ def main():
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
-    notices = args.scene in NOTICE_SCENES or args.scene in {"notices", "notice-reconnect-motion", "toolbar-proof"}
-    with peer(out, notices=notices) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
+    spin = args.scene in SPINNER_SCENES or args.scene in {"cursor-spinners", "toolbar-proof"}
+    with peer(out, cursor=spin or args.scene == "reconnect-typing") as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
-            opens_keyboard = (not args.scene or args.keyboard == "visible" or
-                              (args.scene in {"notices", "notice-reconnecting", "notice-reconnect-motion"} and args.keyboard == "any"))
-            if not args.layout_only and args.scene not in {"render-benchmark", "notices", "toolbar-proof", "program-colors", "under-bars"} and opens_keyboard:
+            opens_keyboard = not args.scene or args.keyboard == "visible" or args.scene == "reconnect-typing"
+            if not args.layout_only and not spin and args.scene not in {"render-benchmark", "program-colors", "under-bars"} and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")
             if args.scene == "render-benchmark":
                 phone.benchmark()
@@ -559,12 +544,10 @@ def main():
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/program-colors.py"))["capture"](phone, args, sim)
             elif args.scene == "under-bars":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/under-bars.py"))["capture"](phone, args, sim)
-            elif args.scene == "toolbar-proof":
-                runpy.run_path(str(ROOT / "scripts/interaction-capture/toolbar.py"))["capture"](phone, args, sim)
-            elif args.scene == "notice-reconnect-motion":
+            elif spin:
+                phone.capture_spinners(args, toolbar=args.scene == "toolbar-proof")
+            elif args.scene == "reconnect-typing":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
-            elif args.scene == "notices":
-                phone.capture_notices(args, oracle)
             elif args.scene:
                 phone.capture_named(args.scene, args, oracle)
             else:

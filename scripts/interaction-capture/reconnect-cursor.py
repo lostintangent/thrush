@@ -3,6 +3,7 @@ from pathlib import Path
 import gzip
 import hashlib
 import json
+import math
 import platform
 import re
 import runpy
@@ -45,39 +46,33 @@ def sample(ffmpeg, movie, time, image):
 
 
 def check(movie, views, appearance, still, work):
-    capture = runpy.run_path(str(Path(__file__).resolve().parents[1] / "check-demo-capture.py"))["Capture"]
+    measure = runpy.run_path(str(Path(__file__).with_name("spinner.py")))["measure"]
     state = views["reconnecting"]
-    start, end = views["noticeIntervalSeconds"]
-    if start < 0 or end - start < 2:
-        raise ValueError("The mounted notice did not overlap a sustained pre-replay outage.")
-    (wx, wy), (window_w, window_h) = state["windowPoints"]
-    (gx, gy), _ = state["gridFrame"]
-    (cx, cy), (grid_w, grid_h) = state["cellGridPixels"]
-    scale = state["displayScale"]
-    cell_w, cell_h = grid_w / state["columns"], grid_h / state["rows"]
-    # The peer emits eight complete rows, then “~/thrush % git”. The held suffix stays invisible.
-    left = (gx - wx) * scale + cx + len("~/thrush % git") * cell_w
-    top = (gy - wy) * scale + cy + 8 * cell_h
+    start, end = views["spinnerIntervalSeconds"]
+    duration = end - start
+    if start < 0 or duration < 0.8:
+        raise ValueError("The movie must cover a sustained pre-replay outage.")
     ffmpeg = decoder(work)
     previous = start
-    for n, fraction in enumerate((0.25, 0.5, 0.75)):
+    midpoint = (start + end) / 2
+    # The adjacent midpoint samples avoid aliasing a periodic spinner with evenly spaced seeks.
+    times = [start + duration / 4, midpoint, midpoint + min(0.2, duration / 8), end - duration / 4]
+    leading = []
+    for n, target in enumerate(times):
         frame = work / f"sample-{n}.png"
-        actual = sample(ffmpeg, movie, start + fraction * (end - start), frame)
-        pixels = capture(frame, appearance)
-        if not previous < actual < end or (pixels.width, pixels.height) != (round(window_w * scale), round(window_h * scale)):
-            raise ValueError(f"Frame at {actual}s does not match the native window and outage interval.")
+        actual = sample(ffmpeg, movie, target, frame)
+        if not previous < actual < end:
+            raise ValueError(f"Movie timestamp {actual} is outside the measured outage interval.")
         previous = actual
-        # H.264 chroma subsampling can ring at the color boundary. Check the cell's interior.
-        cursor = pixels.matches("cursor", tolerance=30)
-        interior = [pixels.pixels[y * pixels.width + x] in cursor
-                    for y in range(round(top + 0.2 * cell_h), round(top + 0.8 * cell_h))
-                    for x in range(round(left + 0.2 * cell_w), round(left + 0.8 * cell_w))]
-        coverage = sum(interior) / len(interior)
-        if coverage < 0.90:
-            raise ValueError(f"Cursor fill at the confirmed git cell was {coverage:.1%} at {actual}s.")
-        print(f"Native frame {actual}s, confirmed cell at ({left:.1f}, {top:.1f}), cursor fill {coverage:.1%}.", flush=True)
-        if fraction == 0.5:
+        result = measure(frame, state, appearance, 8, len("~/thrush % git"), "Reconnecting", use_adjacent_canvas=True)
+        point = result["spokePixel"]
+        leading.append(point)
+        print(f"Movie frame {actual}s: leading spoke at {point}, contrast {result['contrast']:.3f}:1.", flush=True)
+        if target == midpoint:
             shutil.copyfile(frame, still)
+    # A frozen indicator can still have sufficient contrast. Require a change of leading spoke.
+    if max(math.dist(a, b) for a in leading for b in leading) < min(result["region"][2:]) / 4:
+        raise ValueError("The leading spoke stayed in the same position during the recorded outage.")
 
 
 if __name__ == "__main__":

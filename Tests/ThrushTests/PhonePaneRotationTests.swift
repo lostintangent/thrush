@@ -75,6 +75,36 @@ import UIKit
     #expect(terminal.gridSize == portraitGrid)
 }
 
+/// History archived on replacement stays above the live screen even as the pane grows.
+@MainActor @Test func growingReplacementShellKeepsItsPromptBelowItsOwnHistory() throws {
+    let host = RotationPane()
+    let terminal = host.terminal
+    host.resize(to: host.landscape)
+    let size = try #require(terminal.gridSize)
+    var shell = Terminal(size: size)
+    _ = shell.receive(String(repeating: "archived\r\n", count: 60).utf8)
+    shell.startNewShell(at: size)
+    let rows = Array(repeating: "fresh", count: size.rows + 2) + ["new$ "]
+    _ = shell.receive(rows.joined(separator: "\r\n").utf8)
+    terminal.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil, archivingMainScreen: true)
+    #expect(shell.snapshot().currentShellHistoryCount == 3)
+    #expect(terminal.historyCount > shell.snapshot().currentShellHistoryCount)
+
+    host.pane.beginRotation()
+    host.resize(to: host.portrait)
+    let held = terminal.convert(terminal.cursorRect, to: host.window)
+    #expect(terminal.publishHeldGrid(for: host.pane.viewportSize))
+    let destination = try #require(terminal.gridSize)
+    terminal.onHeldGridReady = { host.pane.endRotation() }
+    shell.resize(to: destination)
+    terminal.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil)
+    #expect(!terminal.holdsGridGeometry)
+    #expect(terminal.convert(terminal.cursorRect, to: host.window) == held)
+    let displayed = try #require(terminal.snapshot)
+    #expect(displayed.rows[displayed.cursorRow].text == "new$ ")
+    #expect(displayed.history.contains { $0.text == "archived" })
+}
+
 /// A taller grid pulls history back above a cursor on the bottom row, so the held source
 /// frame waits where the resized frame will draw the prompt.
 @MainActor @Test func growingTurnHoldsThePromptWhereTheTallerGridPullsIt() throws {

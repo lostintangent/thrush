@@ -59,11 +59,11 @@ Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` 
 | Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
 | Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
 
-The backing and separator colors serve the accessory and status surfaces and guide a host's own title bar. The pane uses the same 22-color contract in any host.
+The backing and separator colors serve the key row and can guide an app’s title bar. The pane uses the same 22-color contract in every app.
 
 ### Colors a program sets
 
-A program can replace the default foreground, background, cursor and any of the 256 indexed colors with OSC 4, 10, 11 and 12. Its colors replace the theme's in drawing and in query replies until it restores them, and the theme supplies the rest. The program's background fills the pane's whole frame, including the safe areas, the space below the last full row and an IME preview. Text in the IME preview uses the program's foreground. Selection, the status strip, the key row and Latest stay on the theme, so the pane's own controls look the same under any program.
+A program can replace the default foreground, background, cursor and any of the 256 indexed colors with OSC 4, 10, 11 and 12. Its colors replace the theme's in drawing and in query replies until it restores them, and the theme supplies the rest. The program's background fills the pane's whole frame, including the safe areas, the space below the last full row and an IME preview. Text in the IME preview uses the program's foreground. Selection, the key row and Latest stay on the theme, so the pane's own controls look the same under any program.
 
 A block cursor redraws its glyph in the theme's block ink. Once a program sets the cursor color, the glyph takes whichever of the effective foreground and background contrasts more with that cursor.
 

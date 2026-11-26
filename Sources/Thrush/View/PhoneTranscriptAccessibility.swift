@@ -45,7 +45,11 @@ final class PhoneTranscriptAccessibility {
                             return true
                         },
                     ]
-                    if terminal.acceptsTerminalInput {
+                    if terminal.onDisplacedTap != nil {
+                        element.accessibilityCustomActions?.append(UIAccessibilityCustomAction(name: "Reconnect") { [weak view] _ in
+                            view?.terminal.tapDisplacedGrid() ?? false
+                        })
+                    } else if terminal.acceptsTerminalInput {
                         element.accessibilityCustomActions?.append(UIAccessibilityCustomAction(name: "Type in terminal") { [weak view] _ in
                             view?.terminal.focusInput() ?? false
                         })
@@ -94,7 +98,8 @@ final class PhoneTranscriptAccessibility {
 
     private final class EmptyTerminalElement: UIAccessibilityElement {
         override func accessibilityActivate() -> Bool {
-            (accessibilityContainer as? PhoneTranscriptView)?.terminal.focusInput() ?? false
+            guard let terminal = (accessibilityContainer as? PhoneTranscriptView)?.terminal else { return false }
+            return terminal.tapDisplacedGrid() || terminal.focusInput()
         }
     }
 }

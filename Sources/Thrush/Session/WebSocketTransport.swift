@@ -50,8 +50,6 @@ final class WebSocketTransport {
     private enum Replay { case resumed, live }
     private var nextReplay: Replay?
     fileprivate var awaitingReplay: Bool { nextReplay != nil }
-    fileprivate var replacedPreviousShell = false
-    fileprivate var discardedHeldInputOnLastReady = false
 
     init(onOutput: (@Sendable (Data) -> Void)?, frameTrace: (any WebSocketFrameTrace)?,
          sleepForRetry: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
@@ -125,6 +123,7 @@ final class WebSocketTransport {
         guard session.beginOpening(userInitiated: userInitiated) else { return false }
         pendingEvent = nil
         isReading = false
+        recovering = session.hasSeenReady
         session.state = open(at: session.requestedSize)
         return true
     }
@@ -195,7 +194,7 @@ final class WebSocketTransport {
                 if let replay {
                     // The last screen stays visible until the complete replay can replace it.
                     let size = replay == .resumed ? attachmentSize : session.terminal.size
-                    session.resetTerminal(size: size)
+                    session.terminal.prepareForReplay(at: size)
                 }
                 let reply = session.apply(bytes)
                 // The reply reports the focus of this moment, so it's queued before anything can suspend
@@ -222,15 +221,19 @@ final class WebSocketTransport {
                 case (.ready, .connecting):
                     guard let resumed = control.resumed else { throw TransportError.unexpectedMessage }
                     frameTrace?.record("ready", attachment: attachment, message: message)
-                    replacedPreviousShell = session.hasSeenReady && !resumed
-                    discardedHeldInputOnLastReady = !resumed && !heldInput.isEmpty
+                    let replaced = session.hasSeenReady && !resumed
                     session.hasSeenReady = true
                     retryMilliseconds = 250
                     if resumed {
                         nextReplay = .resumed
                         session.state = .awaitingReplay
                     } else {
-                        session.resetTerminal(size: attachmentSize)
+                        if replaced {
+                            session.shellRevision &+= 1
+                            session.terminal.startNewShell(at: attachmentSize)
+                        } else {
+                            session.resetTerminal(size: attachmentSize)
+                        }
                         session.lastReceiptTime = nil
                         discardHeldInput()
                         do { try await activate(current, in: session) }
@@ -240,7 +243,7 @@ final class WebSocketTransport {
                     // A resumed ready precedes the replay that supplies the authoritative title.
                     await session.publishMetadata(title: resumed ? nil : session.terminal.title, hasEnded: false)
                     guard session.lifetime == stamp else { throw CancellationError() }
-                    return .ready(resumed: resumed)
+                    return replaced ? .replaced : .ready(resumed: resumed)
                 case (.ready, .active) where control.resumed == true && nextReplay == nil:
                     frameTrace?.record("ready", attachment: attachment, message: message)
                     nextReplay = .live
@@ -249,7 +252,6 @@ final class WebSocketTransport {
                     frameTrace?.record("exit", attachment: attachment, message: message)
                     if session.state != .closing {
                         park(as: .ended, in: session)
-                        session.exitedNaturally = true
                     }
                     let exitLifetime = session.lifetime
                     await session.publishMetadata(hasEnded: true)
@@ -347,7 +349,6 @@ final class WebSocketTransport {
     }
 
     private func requestClose(in session: isolated SessionActor) async throws {
-        session.exitedNaturally = false
         guard session.state != .closing else { throw TransportError.inactiveTransport }
         guard let current = socket else {
             park(as: .ended, in: session)
@@ -473,9 +474,6 @@ extension SessionActor {
     /// Includes failed opens and retries.
     package var socketAttempts: Int { webSocket?.socketAttempts ?? 0 }
     package var awaitingReplay: Bool { webSocket?.awaitingReplay ?? false }
-    /// A fresh shell after any previous ready, except for a user-initiated restart after exit.
-    package var replacedPreviousShell: Bool { webSocket?.replacedPreviousShell ?? false }
-    package var discardedHeldInputOnLastReady: Bool { webSocket?.discardedHeldInputOnLastReady ?? false }
 
     package func finishFrameTrace(_ result: String) async {
         guard let socket = webSocket else { return }

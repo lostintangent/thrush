@@ -424,38 +424,34 @@ def check_voiceover(phone, device, endpoint, plan, out, work):
     options[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
     plan.write_bytes(plistlib.dumps(options))
     result = work / "voiceover.xcresult"
-    candidate = work / "large-type.png"
-    captured = False
-
-    def observe():
-        nonlocal captured
-        state = phone.state()
-        if (captured or state.get("scene") != "notice-displaced" or not state.get("gpuCompleted")
-                or not state.get("generation") or (state.get("notice") or {}).get("title") != "Open in another window"):
-            return
-        try:
-            subprocess.run(["xcrun", "simctl", "io", device, "screenshot", "--mask=black", candidate],
-                           capture_output=True, timeout=20, check=True)
-        except (OSError, subprocess.SubprocessError) as error:
-            captured = True
-            (out / "large-type-framebuffer-error.log").write_text(str(error) + "\n")
-            return
-        if phone.state() == state:
-            captured = True
-            shutil.copyfile(candidate, out / "large-type-takeover.png")
-            (out / "large-type-takeover-layout.json").write_text(json.dumps(state, indent=2) + "\n")
-
     try:
         run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
                     f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                    "-resultBundlePath", result], out / "voiceover.log", 600, observe)
+                    "-resultBundlePath", result], out / "voiceover.log", 600)
     finally:
-        for report in phone.state_path.parent.glob("accessibility-notice-*.json"):
-            shutil.copyfile(report, out / report.name)
-    for scene in ("ended", "displaced", "reconnecting"):
-        report = json.loads((out / f"accessibility-notice-{scene}.json").read_text())
-        if not any(event["voiceOverRunning"] for event in report["events"]):
-            raise ValueError(f"UIKit did not observe VoiceOver running during {scene}.")
+        observed = phone.state_path.parent / "accessibility-spinner-reconnecting.json"
+        if observed.exists():
+            shutil.copyfile(observed, out / observed.name)
+
+
+def check_accessibility_settings(events):
+    if not any(event["reduceMotion"] and event["reduceTransparency"]
+               and event["contentSize"] == "UICTContentSizeCategoryAccessibilityXXXL" for event in events):
+        raise ValueError("UIKit did not observe both reduced effects and the largest text size.")
+
+
+def check_voiceover_focus(events):
+    reconnect = next((i for i, event in enumerate(events) if event.get("cursorSpinnerLabel") == "Reconnecting"), None)
+    if reconnect is None:
+        raise ValueError("UIKit did not observe the reconnecting spinner.")
+    # A reconnect announcement can change the last spoken phrase while the reading cursor stays on its row.
+    before = [event for event in events[:reconnect] if event["voiceOverRunning"]]
+    during = [event for event in events[reconnect:] if event["voiceOverRunning"]
+              and event.get("cursorSpinnerLabel") == "Reconnecting"]
+    if not before or before[-1].get("focusedLabel") != "Test run passed.":
+        raise ValueError("VoiceOver did not focus the terminal line before the interruption.")
+    if not during or any(event.get("focusedLabel") != "Test run passed." for event in during):
+        raise ValueError("VoiceOver did not retain the terminal line during reconnect.")
 
 
 def main():
@@ -494,7 +490,7 @@ def main():
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
-        with simulator.peer(out, notices=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
+        with simulator.peer(out, cursor=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}
             def attempt(name, action, *args):
@@ -533,9 +529,13 @@ def main():
             if not options.rotation_only:
                 attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
             if options.accessibility_only:
-                log = (out / "uikit-tests.log").read_text()
-                if "Reduce Motion=true Reduce Transparency=true System size=UICTContentSizeCategoryAccessibilityXXXL" not in log:
-                    failures["accessibility settings"] = "UIKit did not observe both reduced effects and the largest text size."
+                report = out / "accessibility-spinner-reconnecting.json"
+                if report.exists():
+                    events = json.loads(report.read_text())["events"]
+                    attempt("accessibility settings", check_accessibility_settings, events)
+                    attempt("VoiceOver reading position", check_voiceover_focus, events)
+                else:
+                    failures["accessibility observations"] = "The mounted app did not record its accessibility state."
             simulator.save_json(out / "checks.json", {"failures": failures})
             if failures:
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))

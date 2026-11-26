@@ -104,8 +104,10 @@ try {
     await run.until(() => run.explicitCloses === 1 && !run.downstreamOpen &&
         run.closures.some(c => c.attachment === run.attachments && c.side === "upstream"), "explicit PTY close");
     await run.beforeComplete?.();
+    assert.equal(run.wire.upstreamBinaryBytes, run.outputBytes, "Every upstream byte must reach the native session");
     assert.equal(run.wire.upstreamBinaryFrames, run.wire.forwardedBinaryFrames, "Binary frame count changed in transit");
     assert.equal(run.wire.upstreamBinaryBytes, run.wire.forwardedBinaryBytes, "Binary byte count changed in transit");
+    assert.equal(run.wire.upstreamControls, run.wire.forwardedControls, "Control frame count changed in transit");
     await persist(true);
     run.phase("completed", fixture.events.length);
 } catch (error) {

@@ -9,7 +9,9 @@ import ThrushCore
 @MainActor @Observable public final class TerminalSession {
     /// The last title set by the shell. The initial title is empty.
     public private(set) var title = ""
-    /// Whether the shell has ended or the app has closed the session.
+    /// Whether the shell exited, the app closed the session, or an app-supplied transport ended.
+    /// An expired WebSocket shell is replaced in place.
+    /// The final screen stays available. Create a new session to open a shell again.
     public private(set) var hasEnded = false
 
     package let actor: SessionActor
@@ -17,7 +19,7 @@ import ThrushCore
     /// Creates a session that asks the app for a socket on each attachment.
     ///
     /// The factory receives the measured terminal size. Return a fresh, suspended
-    /// task from the app's URLSession for the same remote shell on every attachment.
+    /// task from the app's URLSession with the same client ID on every attachment.
     public convenience init(makeSocket: @escaping @Sendable (Terminal.Size) throws -> URLSessionWebSocketTask) {
         self.init { observer in
             SessionActor(size: nil, observer: observer, makeSocket: makeSocket)
@@ -27,8 +29,8 @@ import ThrushCore
     /// Creates a session on a transport supplied by the app.
     ///
     /// The factory opens the program at the pane’s first measured grid size. The session
-    /// keeps reading while the pane is hidden. After EOF or a transport failure, New Shell
-    /// opens a fresh transport. Explicitly closing the session releases its transport permanently.
+    /// keeps reading while the pane is hidden. EOF, a transport failure, or an explicit
+    /// close ends the session. Create a new session to open another transport.
     public convenience init(openTransport: @escaping @Sendable (Terminal.Size) async throws -> any TerminalTransport) {
         self.init { observer in SessionActor(observer: observer, openTransport: openTransport) }
     }
@@ -81,18 +83,18 @@ extension TerminalSession {
     /// Each screen and its accompanying metadata come from the same turn of the session actor.
     enum Update: Sendable {
         case fresh(Terminal.Snapshot)
-        case replacedShell(Terminal.Snapshot, discardedInput: Bool)
+        case replaced(Terminal.Snapshot, shellRevision: UInt64)
         case awaitingReplay
         case screen(Terminal.Snapshot)
         case output(Terminal.Snapshot, receivedAt: TimeInterval?)
         case replay(Terminal.Snapshot, receivedAt: TimeInterval?)
         case reconnecting
         case displaced
-        case ended(Terminal.Snapshot, canRestart: Bool)
+        case ended(Terminal.Snapshot)
     }
 
     func show(userInitiated: Bool, theme: TerminalTheme, needsRetainedScreen: Bool) async
-        -> (retainedScreen: Terminal.Snapshot?, status: Update?) {
+        -> (retainedScreen: Terminal.Snapshot?, status: Update?, shellRevision: UInt64) {
         await actor.show(userInitiated: userInitiated, palette: theme.palette, cursor: theme.cursor,
                          needsRetainedScreen: needsRetainedScreen)
     }
@@ -103,8 +105,8 @@ extension TerminalSession {
 
     func setFocused(_ focused: Bool) async throws { try await actor.setFocused(focused) }
 
-    func send(_ input: Terminal.Input, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
-        try await actor.send(input, onWriteStarted: onWriteStarted)
+    func send(_ input: Terminal.Input, forShell revision: UInt64, onWriteStarted: (@Sendable () -> Void)? = nil) async throws {
+        try await actor.send(input, forShell: revision, onWriteStarted: onWriteStarted)
     }
 
     func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {
@@ -121,14 +123,14 @@ extension TerminalSession {
 
 private extension SessionActor {
     func show(userInitiated: Bool, palette: Terminal.Palette, cursor: Terminal.RGB, needsRetainedScreen: Bool)
-        -> (retainedScreen: Terminal.Snapshot?, status: TerminalSession.Update?) {
+        -> (retainedScreen: Terminal.Snapshot?, status: TerminalSession.Update?, shellRevision: UInt64) {
         setPalette(palette, cursor: cursor)
         let hadScreen = hasSeenReady
         show(userInitiated: userInitiated)
-        if state == .ended { return (nil, .ended(snapshot(), canRestart: exitedNaturally)) }
+        if state == .ended { return (nil, .ended(snapshot()), shellRevision) }
         // An active app transport provides its current screen as the first update.
         let retainedScreen = needsRetainedScreen && hadScreen && state != .active ? snapshot() : nil
-        return (retainedScreen, state == .displaced ? .displaced : nil)
+        return (retainedScreen, state == .displaced ? .displaced : nil, shellRevision)
     }
 
     func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {
@@ -139,21 +141,20 @@ private extension SessionActor {
     func nextUpdate() async throws -> TerminalSession.Update {
         switch try await nextEvent() {
         case .ready(resumed: true): .awaitingReplay
-        case .ready(resumed: false):
-            if replacedPreviousShell { .replacedShell(snapshot(), discardedInput: discardedHeldInputOnLastReady) }
-            else { .fresh(snapshot()) }
+        case .ready(resumed: false): .fresh(snapshot())
+        case .replaced: .replaced(snapshot(), shellRevision: shellRevision)
         case .screen: .screen(snapshot())
         case .output: .output(snapshot(), receivedAt: lastReceiptTime)
         case .replay: .replay(snapshot(), receivedAt: lastReceiptTime)
         case .reconnecting: .reconnecting
         case .displaced: .displaced
-        case .exit: .ended(snapshot(), canRestart: exitedNaturally)
+        case .exit: .ended(snapshot())
         }
     }
 
     func statusAfterError() -> TerminalSession.Update? {
         switch state {
-        case .ended: .ended(snapshot(), canRestart: exitedNaturally)
+        case .ended: .ended(snapshot())
         case .displaced: .displaced
         case .connecting, .reconnecting, .awaitingReplay: .reconnecting
         case .idle, .closing, .active: nil

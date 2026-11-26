@@ -51,13 +51,29 @@ struct PTYLifecycle {
         guard orphanAge >= .seconds(29), await orphan.show() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
-        _ = try await freshShell(orphan)
+        guard try await orphan.nextEvent() == .replaced, await orphan.state == .active else {
+            throw PTYCheckFailure("The session did not adopt its replacement PTY")
+        }
+        let replacement = await orphan.snapshot()
+        guard replacement.rows.allSatisfy({ $0.text.isEmpty }), replacement.cursorRow == 0, replacement.cursorColumn == 0,
+              replacement.history.contains(where: { $0.text == "PID-\(orphanPID)" }) else {
+            throw PTYCheckFailure("The replacement needs a blank home and the old shell in scrollback")
+        }
+        try await PTYCheck.enterFixture(orphan)
+        try await row("THRUSH-\(token)", in: orphan)
         try await orphan.send(.text("printf '\\r\\nEXIT-%s\\n' final; exit\r"))
         while try await orphan.nextEvent() == .output {}
-        guard await orphan.state == .ended,
+        guard await orphan.state == .ended, await !orphan.show(userInitiated: true),
               await orphan.snapshot().rows.contains(where: { $0.text == "EXIT-final" }) else {
-            throw PTYCheckFailure("Real shell exit preceded its last bytes")
+            throw PTYCheckFailure("Real exit lost its final bytes or reopened the ended session")
         }
+        let successor = try connect()
+        let successorPID = try await freshShell(successor)
+        guard successorPID != orphanPID, await successor.snapshot().history.isEmpty else {
+            throw PTYCheckFailure("The app-created session inherited earlier history")
+        }
+        try await successor.closeShell()
+        try await waitForProcessExit(successorPID, within: .seconds(5))
         print("Real PTY lifecycle passed (fresh, resize, foreground replay, takeover, close, orphan expiry after \(orphanAge), final output at exit)")
     }
 

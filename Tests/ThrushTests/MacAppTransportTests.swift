@@ -30,11 +30,6 @@ import Testing
     return view.subviews.lazy.compactMap { terminal(in: $0) }.first
 }
 
-@MainActor private func container(in view: NSView) -> TerminalPaneContainer? {
-    if let container = view as? TerminalPaneContainer { return container }
-    return view.subviews.lazy.compactMap { container(in: $0) }.first
-}
-
 @MainActor private func waitForPane(_ change: String, until condition: () -> Bool) async throws {
     let deadline = ContinuousClock.now + .seconds(5)
     while !condition() {
@@ -87,7 +82,7 @@ import Testing
     #expect(await transport.closes == 1)
 }
 
-@MainActor @Test func shellThatOpensDuringTheConnectingWaitLeavesNoNotice() async throws {
+@MainActor @Test func shellThatOpensDuringTheSpinnerWaitLeavesNoSpinner() async throws {
     _ = NSApplication.shared
     let transport = ControlledTransport()
     let requested = Mutex(false)
@@ -109,14 +104,15 @@ import Testing
 
     try await waitForPane("the transport request") { requested.withLock { $0 } }
     try await Task.sleep(for: .milliseconds(50))
-    // The shell opens while the main actor stays busy past the notice's 200 ms wait, so the
-    // notice's wakeup runs after the first screen has already cancelled it.
+    // The shell opens while the main actor stays busy past the spinner's 200 ms wait, so the
+    // spinner's wakeup runs after the first screen has already cancelled it.
     opening.continuation.yield()
     usleep(400_000)
-    let pane = try #require(container(in: hostingView))
-    try await waitForPane("the fresh shell") { terminal(in: hostingView)?.snapshot != nil }
+    let view = try #require(terminal(in: hostingView))
+    try await waitForPane("the fresh shell") { view.snapshot != nil }
     try await Task.sleep(for: .milliseconds(100))
-    #expect(pane.current == nil)
+    #expect(view.cursorSpinnerFrameInWindow == nil)
+    #expect(!view.subviews.contains { $0 is CursorSpinner })
     try await session.close()
 }
 #endif

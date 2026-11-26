@@ -1,51 +1,35 @@
-# Terminal pane notices
+# Terminal pane lifecycle
 
-`TerminalPane(session)` shows these notices on Mac and iPhone. During ordinary use, only the terminal is visible. Both transports show **Connecting** when opening and **Ended** after exit. The WebSocket transport also reports reconnects, shell replacement and takeover. **Use Here** takes the shell back from another window. **New Shell** starts a fresh shell after exit. Both actions work with the iPhone keyboard down. An app can observe `session.hasEnded` or keep the pane open so the user can copy the final output or start a new shell.
+A `TerminalSession` owns a terminal and its scrollback. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The pane keeps the screen and history readable and copyable through interruptions and after exit.
 
-![Four iPhone Slate Dark design references at the default text size, showing Connecting, Previous shell ended with a new prompt, Open in another window with Use Here, and Ended with New Shell](pane-states.png)
+## Opening and reconnecting
 
-## Exact copy and input
+A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Show the spinner after 200 ms. Its spokes use the cursor color in active and inactive windows, with a contrasting fallback against the cell beneath it. It stays still with Reduce Motion and is labeled “Connecting” or “Reconnecting” for VoiceOver. Announce “Reconnecting” once when an interruption reaches that delay. Keep the grid, selection, keyboard focus and VoiceOver reading position in place.
 
-| When | Visible copy | What happens to input |
-| --- | --- | --- |
-| Opening a shell | **Connecting** | Wait for a usable shell before enabling input. Show the grid as soon as the shell is ready. For a resumed WebSocket attachment, wait for the replay. |
-| The WebSocket closes unexpectedly | **Reconnecting**<br>Typing waits for this shell to resume. | Keep the screen and history available. The session holds committed text, paste and keys in order. The old prompt stays still. Release unsent input once, only after `ready(resumed: true)` and its replay restore the shell and its input modes. |
-| The server starts a fresh shell after a lost WebSocket | **Previous shell ended**<br>New shell ready. | Clear the old grid, selection, marked text, Ctrl latch and held input. The new shell accepts new input. If input was held, use **New shell ready. Held input was discarded.** as the second line. Show the notice when the session reports that the server replaced the previous shell. |
-| Another window takes the shell | **Open in another window**<br>**Use Here** | Show the last frame for reading, selection and copy. Stop automatic reconnect. Only activation of the native button requests ownership. The activation sends zero terminal bytes. Touching output, scrolling, moving focus, foregrounding and typing ordinary characters leave ownership with the other window. |
-| The shell exits | **Ended**<br>**New Shell** | The session publishes `hasEnded` after applying the last output. The pane presents its final frame before displaying Ended. Keep the screen and history readable and copyable. New Shell opens a fresh shell using the same factory and an empty input queue. |
+During an ordinary reconnect, hold committed text, paste and keys in order. IME preedit stays local. After `ready(resumed: true)`, wait for the binary replay to restore the shell’s input modes, then send held input once. The restored shell controls what appears as echo.
 
-On **Use Here** or **New Shell**, consume the button activation exactly once and keep the current screen and history visible through the request. Show **Connecting** there if the request takes longer than 200 ms. Show the new screen when the shell is ready. Choosing New Shell acknowledges the exit. On success, go directly to the new grid. If Use Here resumes a shell, wait for replay. If it discovers that the previous shell ended, show the replacement notice.
+## Another window takes the shell
 
-Keep the replacement notice until the user commits input in the new shell and has had at least three visible seconds to read it. Scrolling, selecting and copying preserve the notice. Defer removal while VoiceOver is reading it. A successful resume goes directly to the shell.
+When another WebSocket attachment takes ownership, keep the last screen and stop automatic retries. A deliberate tap in the terminal requests ownership without sending terminal bytes. A keystroke also requests ownership and is held until the same shell resumes. Further input follows it in order. Scrolling, selection, copying, focus changes and foreground return leave the other window in control.
+
+## The server starts a replacement shell
+
+A fresh ready on reattach means the old shell expired. Keep its main screen in scrollback, with the earlier history, and leave the alternate screen behind. Start the replacement at row one with fresh modes and title. Discard held input intended for the old shell. The same session immediately accepts input and `hasEnded` stays false. Announce “New shell” once.
+
+## The shell ends
+
+Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the pane stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The pane announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
 
 ## In-band replay
 
-When a WebSocket reader falls behind, the server can send `ready(resumed: true)` on the same socket. Keep accepting input and displaying the current screen until the session applies the next binary message as a replay. Present its screen in one frame, without a notice or VoiceOver announcement.
+When a WebSocket reader falls behind, the server can send `ready(resumed: true)` on the same socket. Keep accepting input and displaying the current screen until the session applies the next binary message as a replay. Present the restored screen in one frame. The cursor spinner stays off during an in-band replay.
 
 - At the live edge, follow the restored cursor. In history, preserve the top logical line and its offset through soft wraps. Match text and neighboring lines across the reset, since row numbers can change. If the line has expired, use its nearest identifiable surviving neighbor, falling back to the oldest retained line.
 - Keep an active selection and its handles only when both endpoints and the intervening text identify the same logical range. Reposition the handles for the new cell geometry. If the range is absent or ambiguous, clear the selection and its edit menu. Copy always reads the displayed generation.
 - Keep the native marked string, its internal selection and the same input responder. Move the composition to the restored cursor when the frame swaps. Replay sends no composition bytes. The user’s eventual commit goes to the still-active shell exactly once.
 
-## Layout and motion
+## Check on Mac and iPhone
 
-![Mac Slate Light design reference showing retained output and a Reconnecting notice above the lower safe edge](pane-reconnecting.png)
+Open a shell, interrupt a WebSocket while typing and check the spinner at the cursor. Verify that the grid holds its size and a resumed Vim receives the held key in its restored mode. Displace the shell from another window and confirm that reading or foregrounding either pane leaves ownership alone. Reclaim once by tapping and once by typing. The tap sends no terminal bytes and the triggering key reaches the same shell exactly once.
 
-- **Opening a shell.** Start on the opaque terminal canvas. After 200 ms, center a small native activity indicator and **Connecting** as a group in the usable pane. Cancel the pending reveal when the shell is ready or if the pane leaves the window. Apply the same delay to a reconnect. One continuous outage produces one notice across all retry attempts.
-- **Activity indicator.** Keep the small native size in both states. On Mac, the leading spoke needs at least 3:1 contrast against the canvas for Connecting and against the notice background for Reconnecting, including in an inactive window. The iPhone system indicator reads clearly at its native weight.
-- **With output on screen.** Put the notice at the lower edge of the usable pane, above the accessory, keyboard or bottom safe area. Extend the opaque backing and its single top separator to both physical edges of the pane, including the side safe areas in landscape and the trailing rail on a folded iPhone Duo. Apply the content padding inside the safe area so the heading, detail and button remain readable and tappable. The app's title and close controls stay at the top. Put the action directly below the heading. Keep it visible while the user reads history. The notice disappears when the pane returns to normal use.
-- **Reading.** Keep the live prompt or the selected logical line visible as the notice appears. Output scrolls above the notice. The final line, selection handles and edit menu stay reachable. The notice is native UI. Selection, Copy and WebSocket replay use only terminal output. Preserve whole cells. A fade, an animation tick or a retry attempt sends no resize. Keyboard or container changes still report each distinct settled grid size.
-- **Type and controls.** At the default sizes use 17 pt semibold and 15 pt regular on iPhone, 13 pt semibold and 12 pt regular on Mac. Use platform UI type for notices and SF Mono for output. On iPhone give the contents 16 pt horizontal and 8 pt vertical padding, and buttons a minimum 44 × 44 pt hit area. On Mac use 12 pt horizontal padding and a regular native button. Let localized text and accessibility sizes wrap before shrinking the type. On a short landscape viewport the notice contents can scroll when needed to keep the button reachable.
-- **Color.** Slate Dark pairs `#E3EAF0` text and `#1D2934` backing, with a `#35424E` separator. Slate Light pairs `#233442` text and `#E8EEF1` backing, with a `#B7C3CA` separator. Secondary text can use `#8697A4` in Dark and `#586D7B` in Light, for 4.92:1 and 4.61:1 contrast on their backings. Use the app’s appearance for notices and buttons when a program changes ANSI colors or uses reverse video. The notice is already opaque under Reduce Transparency.
-- **Transitions.** A brief opacity transition of about 120 ms is enough. Choose a stationary indicator and apply the layout directly with Reduce Motion. Keep the shell’s cursor at its last confirmed cell while reconnecting. Preserve its visibility and shape through the outage. Held input moves the cursor when the resumed shell echoes it. Hide the cursor when the terminal no longer accepts input. Draw the indicator in the native view. An outage does not start a Metal animation loop.
-
-## Focus and accessibility
-
-Keep the keyboard and input focus through a short reconnect if the user was typing. Hold only committed input. IME preedit remains local. Takeover and exit end terminal input, clear composition and the one-shot modifier, and allow the software keyboard to dismiss. When Use Here succeeds with the keyboard down, leave it down. One tap has restored ownership, and touching the live grid then opens the keyboard. A passive reconnect never summons the keyboard or takes focus from another app control.
-
-Expose each notice as native text and each action as a native button in focus order. Announce a newly visible state once without moving VoiceOver’s reading position or repeating announcements during backoff. The takeover button’s accessibility label is **Use shell in this window**. Include the visible caption **Use Here** among its Voice Control commands. The exit button’s visible title, accessibility label and Voice Control command are **New Shell**. Its accessibility hint is “Starts a new shell.” A focused button accepts standard keyboard or assistive activation. Notice symbols are decorative.
-
-## Checking a running pane
-
-For sign-off, capture all five states on the running iPhone pane in Slate Dark at default text size. Include the Reconnecting detail while the software keyboard is open, and show Use Here after takeover with the keyboard down. Record a reconnect while typing on iPhone and in a Mac window, and exercise the two actions. Verify a short reconnect never flashes, an interrupted Vim session restores its key modes before releasing held input, a replacement discards the held input, and Cmd-C or touch Copy still copies the final line after exit. Review Slate Light, landscape, large type, Reduce Motion, Reduce Transparency and VoiceOver in both running apps. The figures above are design references. An app that embeds the pane gets these same notices.
-
-A shell that becomes ready within 200 ms opens without flashing a notice. The control and canvas tokens come from [Slate](README.md) and [the control materials](glass.md).
+Let an orphan expire with input held. Verify that the replacement prompt starts at row one, the previous main screen is readable in history and the replacement receives only new input. On natural exit, copy the final line and check that the app can dismiss the tab or present a new session in the same pane. A new session starts with a fresh screen and history. With VoiceOver enabled, the reading position stays on terminal content throughout.
