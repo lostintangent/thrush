@@ -68,6 +68,28 @@
       }
     ]
   },
+  "DECRQM ?2031": {
+    "reason": "The reference doesn't know mode 2031, so it answers 0, not recognized. Thrush sends dark and light appearance reports, so it answers 2 while they're off, and a program can learn it may turn them on.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESC[?2031;0$y",
+        "thrush": "ESC[?2031;2$y"
+      }
+    ]
+  },
+  "DECRQM ?2031 · after DECSET": {
+    "reason": "The reference doesn't know mode 2031, so it answers 0, not recognized, even after DECSET. Thrush answers 1 while it sends dark and light appearance reports.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "ESC[?2031;0$y",
+        "thrush": "ESC[?2031;1$y"
+      }
+    ]
+  },
   "DECRQSS m · after a rendition": {
     "reason": "The reference always reports the default rendition. Thrush reports the rendition the program set, so a program that saves its rendition this way can restore it.",
     "differences": [
