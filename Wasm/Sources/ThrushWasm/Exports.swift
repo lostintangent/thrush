@@ -1,7 +1,7 @@
 import ThrushCore
 
 // The JavaScript class reaches each terminal by its handle and passes bytes through linear memory.
-// It copies a chunk into the input buffer, and reads replies or a replay from the output buffer.
+// It copies a chunk into the input buffer, and reads its reply or a replay from the output buffer.
 // Each buffer stays put until the next call that names it, which may move it to grow.
 
 nonisolated(unsafe) private var terminals: [Terminal?] = []
@@ -32,7 +32,7 @@ func inputBuffer(count: Int32) -> UnsafeMutablePointer<UInt8> {
 }
 
 /// Writes the first `count` bytes of the input buffer to a terminal, and returns the length of
-/// the replies it leaves in the output buffer.
+/// the reply it leaves in the output buffer.
 @_expose(wasm, "thrush_write")
 func write(handle: Int32, count: Int32) -> Int32 {
     let bytes = UnsafeBufferPointer(start: input.base, count: Int(count))

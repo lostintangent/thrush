@@ -1,8 +1,8 @@
 import module from "./module.js";
 
 // Each terminal is a handle into ThrushCore's WebAssembly module, which index.d.ts documents. Bytes
-// cross through the module's memory: a write copies them into its input buffer, and replies and
-// replays come back as copies of its output buffer.
+// cross through the module's memory: a write copies them into its input buffer, and a reply or a
+// replay comes back as a copy of its output buffer.
 
 // Every terminal shares the module's 4 GiB of memory. At the largest size, a screen and history
 // styled cell by cell hold about 150 MiB, and their replay briefly needs about 550 MiB more.
@@ -26,7 +26,8 @@ export class Terminal {
     // Making room can grow the memory, which replaces its buffer.
     const input = thrush.thrush_input(bytes.length);
     new Uint8Array(thrush.memory.buffer, input, bytes.length).set(bytes);
-    return output(thrush, thrush.thrush_write(handle, bytes.length));
+    const length = thrush.thrush_write(handle, bytes.length);
+    return length === 0 ? undefined : output(thrush, length);
   }
 
   resize(columns, rows) {
@@ -61,7 +62,7 @@ function checkSize(columns, rows) {
   }
 }
 
-/** A copy of the bytes a call left in the output buffer. Most writes have no replies. */
+/** A copy of the bytes a call left in the output buffer. */
 function output(thrush, length) {
   if (length === 0) return new Uint8Array();
   return new Uint8Array(thrush.memory.buffer, thrush.thrush_output(), length).slice();

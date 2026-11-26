@@ -5,7 +5,7 @@ import { Terminal } from "../out/package/index.js";
 
 // Checks that ThrushCore behaves the same in WebAssembly as natively. Both builds write and resize a
 // terminal through every program capture in the reference fixtures, and after every step must
-// return the same replies and the same replay, byte for byte.
+// return the same reply and the same replay, byte for byte.
 // Usage: bun test/identity.mjs <path to NativeReplay>
 
 const fixtures = new URL("../../Fixtures/reference/", import.meta.url).pathname;
@@ -27,16 +27,18 @@ const next = () => {
 };
 for (const capture of captures) {
   const terminal = new Terminal(capture.columns, capture.rows);
-  const check = (replies, index) => {
+  // A write that asks nothing returns undefined, where native ThrushCore returns an empty reply.
+  const check = (reply, index) => {
     steps += 1;
-    const repliesAgree = next().equals(replies);
+    const expected = next();
+    const replyAgrees = reply === undefined ? expected.length === 0 : reply.length > 0 && expected.equals(reply);
     const replayAgrees = next().equals(terminal.replay());
-    if (!repliesAgree || !replayAgrees) mismatches.push(`${capture.path} after event ${index}`);
+    if (!replyAgrees || !replayAgrees) mismatches.push(`${capture.path} after event ${index}`);
   };
   capture.events.forEach((event, index) => {
     if (event.resize) {
       terminal.resize(event.resize.columns, event.resize.rows);
-      check(new Uint8Array(), index);
+      check(undefined, index);
     }
     if (event.bytes) check(terminal.write(Buffer.from(event.bytes, "base64")), index);
   });

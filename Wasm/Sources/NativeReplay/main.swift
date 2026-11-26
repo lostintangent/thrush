@@ -2,7 +2,7 @@ import Foundation
 import ThrushCore
 
 // The native side of test/identity.mjs. It writes and resizes a terminal through each capture named
-// on the command line, and after every step prints the step's replies and then the terminal's
+// on the command line, and after every step prints the step's reply and then the terminal's
 // replay, each after its length as a little-endian UInt32.
 
 struct Capture: Decodable {

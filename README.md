@@ -109,10 +109,11 @@ import { Terminal } from "thrush";
 const terminal = new Terminal(80, 24);
 
 // Write each chunk of the shell's output to the terminal. An attached client also receives it and
-// answers its queries, such as a cursor position request, so send the terminal's replies only when no client is attached.
-const replies = terminal.write(output);
+// answers its queries, such as a cursor position request, so send the terminal's reply to the shell
+// only when no client is attached.
+const reply = terminal.write(output);
 if (client) client.send(output);
-else if (replies.length > 0) pty.write(replies);
+else if (reply) pty.write(reply);
 
 // Resize the terminal with the shell's PTY.
 terminal.resize(120, 40);

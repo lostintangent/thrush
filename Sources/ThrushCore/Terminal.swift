@@ -134,12 +134,13 @@ public struct Terminal: Sendable {
         self = next
     }
 
-    /// Applies a chunk of shell output and returns any replies to send back to the shell.
+    /// Applies a chunk of shell output and returns the terminal's reply, the bytes that answer any
+    /// queries in it, to send back to the shell.
     ///
-    /// UTF-8 characters and escape sequences can span calls. An empty result means
-    /// this chunk produced no reply. Forward nonempty results in arrival order.
+    /// UTF-8 characters and escape sequences can span calls. An empty reply means the chunk asked
+    /// nothing. Forward nonempty replies in arrival order.
     package mutating func write(_ bytes: some Sequence<UInt8>) -> [UInt8] {
-        if let replies = bytes.withContiguousStorageIfAvailable({ write($0.span) }) { return replies }
+        if let reply = bytes.withContiguousStorageIfAvailable({ write($0.span) }) { return reply }
         let copy = Array(bytes)
         return write(copy.span)
     }
@@ -148,7 +149,7 @@ public struct Terminal: Sendable {
     ///
     /// The parser reads the chunk as text to print and functions to perform.
     package mutating func write(_ bytes: Span<UInt8>) -> [UInt8] {
-        var replies: [UInt8] = []
+        var reply: [UInt8] = []
         var index = 0
         while let token = parser.next(in: bytes, from: &index) {
             switch token {
@@ -158,10 +159,10 @@ public struct Terminal: Sendable {
                 // and reads a whole header straight from the chunk.
                 style.applySGR(&parser.parameters, in: bytes)
                 followsText = false
-            case .function(let function): perform(function, replies: &replies)
+            case .function(let function): perform(function, reply: &reply)
             }
         }
-        return replies
+        return reply
     }
 
     /// Resizes the grid, reflowing normal-screen history at soft wraps and clipping the alternate screen.
@@ -226,14 +227,14 @@ public struct Terminal: Sendable {
 
     /// Performs one named function, which ends the text run.
     @inline(__always)
-    private mutating func perform(_ function: ControlFunction, replies: inout [UInt8]) {
+    private mutating func perform(_ function: ControlFunction, reply: inout [UInt8]) {
         switch function {
         case .c0(let function): perform(function)
         case .escape(let function): perform(function)
         case .designate(let set, let slot): characterSets.designate(set, slot: slot)
-        case .csi(let function): perform(function, replies: &replies)
-        case .osc(let function): perform(function, replies: &replies)
-        case .dcs(let function): perform(function, replies: &replies)
+        case .csi(let function): perform(function, reply: &reply)
+        case .osc(let function): perform(function, reply: &reply)
+        case .dcs(let function): perform(function, reply: &reply)
         case .unsupported: break
         }
         followsText = false
@@ -312,7 +313,7 @@ public struct Terminal: Sendable {
     }
 
     /// Reads the parser's parameters.
-    private mutating func perform(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
+    private mutating func perform(_ function: ControlFunction.CSI, reply: inout [UInt8]) {
         switch function {
         case .insertCharacters:
             restrict()
@@ -391,10 +392,10 @@ public struct Terminal: Sendable {
         case .insertColumns, .deleteColumns, .scrollLeft, .scrollRight:
             shiftColumns(function, by: parser.parameters[0, default: 1])
         case .primaryDeviceAttributes:
-            if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
+            if parser.parameters[0] == 0 { reply.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
         case .secondaryDeviceAttributes:
-            if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
+            if parser.parameters[0] == 0 { reply.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
             return
         case .setMode:
             setModes(enabled: true)
@@ -403,10 +404,10 @@ public struct Terminal: Sendable {
             setModes(enabled: false)
             return
         case .setPrivateMode:
-            setPrivateModes(enabled: true, replies: &replies)
+            setPrivateModes(enabled: true, reply: &reply)
             return
         case .resetPrivateMode:
-            setPrivateModes(enabled: false, replies: &replies)
+            setPrivateModes(enabled: false, reply: &reply)
             return
         case .graphicRendition:
             // Write gives SGR to the pen.
@@ -414,26 +415,26 @@ public struct Terminal: Sendable {
         case .deviceStatusReport:
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
             switch parser.parameters[0] {
-            case 5: replies.append(contentsOf: Reply.operatingStatus.utf8)
-            case 6: replies.append(contentsOf: Reply.cursorPosition(row: screen.row - originTop, column: screen.column).utf8)
+            case 5: reply.append(contentsOf: Reply.operatingStatus.utf8)
+            case 6: reply.append(contentsOf: Reply.cursorPosition(row: screen.row - originTop, column: screen.column).utf8)
             default: break
             }
             return
         case .privateDeviceStatusReport:
             // DECDSR 6 asks for the cursor position, and 996 asks whether the theme is dark or light.
             switch parser.parameters[0] {
-            case 6: replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
-            case 996: if let appearance { replies.append(contentsOf: Reply.appearance(appearance).utf8) }
+            case 6: reply.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
+            case 996: if let appearance { reply.append(contentsOf: Reply.appearance(appearance).utf8) }
             default: break
             }
             return
         case .requestMode:
             let mode = parser.parameters[0]
-            replies.append(contentsOf: Reply.modeReport(mode, modeState(mode), isPrivate: false).utf8)
+            reply.append(contentsOf: Reply.modeReport(mode, modeState(mode), isPrivate: false).utf8)
             return
         case .requestPrivateMode:
             let mode = parser.parameters[0]
-            replies.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
+            reply.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
             return
         case .cursorStyle: setCursorStyle(parser.parameters[0])
         case .softReset: softReset()
@@ -448,14 +449,14 @@ public struct Terminal: Sendable {
             return
         case .restoreCursor: restoreCursor()
         case .queryKeyboardFlags, .pushKeyboardFlags, .popKeyboardFlags, .setKeyboardFlags:
-            performKeyboard(function, replies: &replies)
+            performKeyboard(function, reply: &reply)
             return
         }
         generation &+= 1
     }
 
     /// Reads the parser's payload. Only program colors change what the screen shows.
-    private mutating func perform(_ function: ControlFunction.OSC, replies: inout [UInt8]) {
+    private mutating func perform(_ function: ControlFunction.OSC, reply: inout [UInt8]) {
         switch function {
         case .setIconAndWindowTitle, .setWindowTitle: title = parser.payload.text
         case .hyperlink:
@@ -468,22 +469,22 @@ public struct Terminal: Sendable {
             if let text = Self.clipboardText(parser.payload.bytes) { copiedText = text }
         default:
             if programColors.apply(function, payload: parser.payload.bytes, palette: palette,
-                                   cursor: cursorColor, replies: &replies) {
+                                   cursor: cursorColor, reply: &reply) {
                 generation &+= 1
             }
         }
     }
 
     /// Reads the parser's payload, and only replies.
-    private mutating func perform(_ function: ControlFunction.DCS, replies: inout [UInt8]) {
+    private mutating func perform(_ function: ControlFunction.DCS, reply: inout [UInt8]) {
         switch function {
         case .requestStatusString:
             let cursorStyle = CursorStyleParameter(modes.cursorShape,
                                                    blinking: modes.cursorBlinkOverride ?? modes.cursorBlink)
-            replies += Reply.statusString(parser.payload.text, style: style, cursorStyle: cursorStyle,
+            reply += Reply.statusString(parser.payload.text, style: style, cursorStyle: cursorStyle,
                                           scrollRegion: screen.scrollRegion).utf8
         case .requestCapabilities:
-            replies += Reply.capabilities(parser.payload.bytes)
+            reply += Reply.capabilities(parser.payload.bytes)
         }
     }
 
@@ -658,9 +659,9 @@ public struct Terminal: Sendable {
 
     /// The kitty keyboard protocol's query answers with the active screen's flags, and its push, pop
     /// and set change them.
-    private mutating func performKeyboard(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
+    private mutating func performKeyboard(_ function: ControlFunction.CSI, reply: inout [UInt8]) {
         switch function {
-        case .queryKeyboardFlags: replies.append(contentsOf: Reply.keyboardFlags(keyboard.top.intersection(.applied)).utf8)
+        case .queryKeyboardFlags: reply.append(contentsOf: Reply.keyboardFlags(keyboard.top.intersection(.applied)).utf8)
         case .pushKeyboardFlags: keyboard.push(KeyboardFlags(parameter: parser.parameters[0]))
         case .popKeyboardFlags: keyboard.pop(parser.parameters[0, default: 1])
         default: keyboard.update(KeyboardFlags(parameter: parser.parameters[0]), mode: parser.parameters[1, default: 1])
@@ -751,12 +752,12 @@ public struct Terminal: Sendable {
         }
     }
 
-    private mutating func setPrivateModes(enabled: Bool, replies: inout [UInt8]) {
+    private mutating func setPrivateModes(enabled: Bool, reply: inout [UInt8]) {
         for index in 0..<parser.parameters.count {
             guard let mode = PrivateMode(rawValue: parser.parameters[index]) else { continue }
             setPrivateMode(mode, enabled: enabled)
             // Setting focus reporting, even again, reports the current focus.
-            if mode == .sendFocus && enabled { replies += encode(.focus(isFocused)) }
+            if mode == .sendFocus && enabled { reply += encode(.focus(isFocused)) }
         }
     }
 

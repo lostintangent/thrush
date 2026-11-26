@@ -4,11 +4,11 @@ import { Terminal } from "thrush";
 // reads its declarations.
 
 const text = (value: string) => new TextEncoder().encode(value);
-const nothing = new Uint8Array();
 
-function same(actual: Uint8Array, expected: Uint8Array, what: string) {
-  if (actual.length === expected.length && actual.every((byte, index) => byte === expected[index])) return;
-  throw new Error(`${what}: ${JSON.stringify(new TextDecoder().decode(actual))}`);
+function same(actual: Uint8Array | undefined, expected: Uint8Array | undefined, what: string) {
+  if (actual === expected) return;
+  if (actual && expected && actual.length === expected.length && actual.every((byte, index) => byte === expected[index])) return;
+  throw new Error(`${what}: ${actual ? JSON.stringify(new TextDecoder().decode(actual)) : "undefined"}`);
 }
 
 function fails(action: () => unknown, kind: typeof Error, what: string) {
@@ -22,13 +22,13 @@ function fails(action: () => unknown, kind: typeof Error, what: string) {
 }
 
 const terminal = new Terminal(80, 24);
-same(terminal.write(text("\x1b[1;31mhello\r\nworld")), nothing, "Text has no replies");
+same(terminal.write(text("\x1b[1;31mhello\r\nworld")), undefined, "Text gets no reply");
 same(terminal.write(text("\x1b[6n")), text("\x1b[2;6R"), "A cursor position request");
 
 // A replay redraws a terminal on a blank one of the same size, which then replays the same bytes.
 const redraw = (source: Terminal, columns: number, rows: number) => {
   const client = new Terminal(columns, rows);
-  same(client.write(source.replay()), nothing, "A replay has no replies");
+  same(client.write(source.replay()), undefined, "A replay gets no reply");
   same(client.replay(), source.replay(), `A replay at ${columns} by ${rows}`);
   return client;
 };

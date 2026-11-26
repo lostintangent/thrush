@@ -64,7 +64,7 @@ extension Terminal {
         /// Applies one command's requests in order and returns whether any color changed. A query
         /// reports the color shown at that point.
         mutating func apply(_ command: ControlFunction.OSC, payload: [UInt8], palette: Palette, cursor: RGB,
-                            replies: inout [UInt8]) -> Bool {
+                            reply: inout [UInt8]) -> Bool {
             var fields = Fields(payload[...])
             var changed = false
             func set(_ slot: ColorSlot, _ color: RGB?) {
@@ -75,7 +75,7 @@ extension Terminal {
             }
             func setOrReport(_ slot: ColorSlot, _ specification: Field) {
                 if specification.elementsEqual("?".utf8) {
-                    replies += (slot.setting(resolve(slot, palette: palette, cursor: cursor), sixteenBit: true) + "\u{1b}\\").utf8
+                    reply += (slot.setting(resolve(slot, palette: palette, cursor: cursor), sixteenBit: true) + "\u{1b}\\").utf8
                 } else if let color = RGB(specification: specification) {
                     set(slot, color)
                 }

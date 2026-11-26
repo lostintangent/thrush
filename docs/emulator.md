@@ -13,7 +13,7 @@ SGR is the one function `write` names itself. It never touches the screen. It on
 
 The parser holds the arguments of the token it just returned, and `print` and `perform` read them only through its `parameters`, `payload` and `glyphs`. Text keeps running until a function is performed, and `REP` and combining marks depend on that.
 
-Some functions are questions, such as where the cursor is. `perform` adds the answer to the replies that `write` returns. Input runs the other way through `encode`, which turns a key, a paste or a click into the bytes the program expects, reading the modes its output set. Nothing in the core calls back.
+Some functions are questions, such as where the cursor is. `perform` adds its answer to the reply that `write` returns. Input runs the other way through `encode`, which turns a key, a paste or a click into the bytes the program expects, reading the modes its output set. Nothing in the core calls back.
 
 ThrushCore is fast because a few techniques hide behind these names. Text is found 16 bytes at a time inside the parser, the parser's state machine is a table, printing stores a run of cells at a time, and rows are recycled through rings instead of allocated. None of them appears in `write` or `perform`, so the code that says what a terminal does reads the same as this paragraph. [Where the speed lives](#where-the-speed-lives) names each technique and what it saves.
 
@@ -62,7 +62,7 @@ Here is how ThrushCore turns them into cells.
 5. **Text takes the fast path.** The parser is back in the ground state and `~` is printable, so it reads a run. `TextScanner.endOfASCII` finds where the run stops, at the next ESC, checking a long run 16 bytes at a time. The parser returns the run as a range of the chunk, and `print` hands those five bytes to `Screen.print` as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
 6. **The rest repeats the pattern.** `ESC [ 0 m` resets the pen the same way, and ` $ ` is one more run in the default style.
 
-When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `perform` would append `ESC [ 1 ; 9 R` to the replies, which `write` returns for the session to send to the shell.
+When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `perform` would append `ESC [ 1 ; 9 R` to the reply, which `write` returns for the session to send to the shell.
 
 Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key table maps Up to cursor final `A`, so it sends `ESC [ A`. If the program enabled application cursor keys with `ESC [ ? 1 h`, it sends `ESC O A` instead. Enter sends a carriage return, and so does Shift-Enter until the program pushes keyboard flags with `ESC [ > 1 u`, after which Shift-Enter sends `ESC [ 1 3 ; 2 u`.
 

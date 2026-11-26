@@ -12,12 +12,12 @@ export declare class Terminal {
   constructor(columns: number, rows: number);
 
   /**
-   * Writes a program's output to this terminal, and returns the replies a terminal sends back, such
-   * as its answer to a cursor position request. A client that receives the same output answers it
-   * too, so send nonempty replies to the program, in order, only for output no client receives.
-   * Characters and escape sequences can span writes.
+   * Writes a program's output to this terminal, and returns its reply, the bytes that answer any
+   * queries in it, such as a cursor position request, or `undefined` when it asks nothing. A client
+   * that receives the same output answers it too, so send each reply to the program, in order, only
+   * for output no client receives. Characters and escape sequences can span writes.
    */
-  write(bytes: Uint8Array): Uint8Array;
+  write(bytes: Uint8Array): Uint8Array | undefined;
 
   /** Resizes the grid, reflowing history at soft wraps. Give the program's PTY the same size. */
   resize(columns: number, rows: number): void;

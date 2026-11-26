@@ -32,8 +32,8 @@ private func checkSerialization(_ fixture: Recording) throws {
         do { try event.verify(resumed.snapshot(), serialized: event.resize == nil) } catch { throw ReplayFailure("\(fixture.name) #\(index) continued: \(error)") }
         resumed = Terminal(size: original.size, palette: original.palette)
         // A restored focus mode answers with the new host's focus, which starts out.
-        let replies = resumed.write(original.replayBytes())
-        #expect(replies == (original.modes.sendFocus ? Array("\u{1b}[O".utf8) : []))
+        let reply = resumed.write(original.replayBytes())
+        #expect(reply == (original.modes.sendFocus ? Array("\u{1b}[O".utf8) : []))
         do { try event.verify(resumed.snapshot(), serialized: true) } catch { throw ReplayFailure("\(fixture.name) #\(index) fresh: \(error)") }
         #expect(resumed.title == original.title)
     }
@@ -131,15 +131,15 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     client.cursorColor = cursor
     #expect(client.snapshot().generation != before.generation)
     #expect(client.snapshot().programColors == before.programColors)
-    let replies = client.write(query)
-    #expect(String(decoding: replies, as: UTF8.self) == [
+    let reply = client.write(query)
+    #expect(String(decoding: reply, as: UTF8.self) == [
         "]4;1;rgb:1010/2020/3030", "]4;2;rgb:0000/aaaa/0000",
         "]10;rgb:1111/1111/1111", "]11;rgb:4040/5050/6060", "]12;rgb:1212/3434/5656",
     ].map { e + $0 + e + "\\" }.joined())
     var resumed = Terminal(size: server.size, palette: theme, cursorColor: cursor)
     #expect(resumed.write(server.replayBytes()).isEmpty)
     #expect(resumed.programColors == client.programColors)
-    #expect(resumed.write(query) == replies)
+    #expect(resumed.write(query) == reply)
 }
 
 @Test func appearanceReportsFollowMode2031ThroughResetsAndResumes() {
