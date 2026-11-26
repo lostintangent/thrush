@@ -4,7 +4,7 @@
 
 ## Slate Dark
 
-![Slate on Mac and iPhone, with a shell transcript, a Vim buffer, keyboard-open portrait and landscape views, and cursor and selection details](slate.png)
+![Slate on Mac and iPhone, with shell output, a Vim buffer, keyboard-open portrait and landscape views with the floating key row, and cursor and selection details](slate.png)
 
 The slate canvas continues to the iPhone safe areas. On Mac, the native title bar carries the window controls. The terminal owns the space below it. The amber from the Thrush mark is reserved for the cursor. Build stages and Vim syntax keep their own ANSI colors. On iPhone, one glass capsule of keys floats above the keyboard with Esc, Ctrl, Tab, the arrows and Hide Keyboard.
 
@@ -25,7 +25,7 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 
 ## Slate Light
 
-![Slate Light on Mac and iPhone, with the same shell transcript, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
+![Slate Light on Mac and iPhone, with the same shell output, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
 
 Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same 47 × 24 and 90 × 9 grids as Slate Dark.
 
