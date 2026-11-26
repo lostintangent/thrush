@@ -4,7 +4,7 @@ import ThrushCore
 
 @Test func copyIncludesWholeGlyphsAndJoinsOnlySoftWraps() {
     var terminal = Terminal(size: .init(columns: 5, rows: 5))
-    _ = terminal.receive("abcd翼🐦e\u{301}Z\r\nnext  ".utf8)
+    _ = terminal.write("abcd翼🐦e\u{301}Z\r\nnext  ".utf8)
     var viewport = Viewport()
     viewport.display(terminal.snapshot())
     #expect(viewport.text(in: .init(anchorRow: 1, anchorColumn: 1, headRow: 1, headColumn: 2)) == "翼🐦")
@@ -18,7 +18,7 @@ import ThrushCore
 
 @Test func scrollingAndSelectionStayOnTheSameRowsThroughRingEviction() {
     var terminal = Terminal(size: .init(columns: 20, rows: 4))
-    for i in 0..<1_100 { _ = terminal.receive("row \(i)\r\n".utf8) }
+    for i in 0..<1_100 { _ = terminal.write("row \(i)\r\n".utf8) }
     var viewport = Viewport()
     viewport.display(terminal.snapshot())
     viewport.scroll(5)
@@ -27,14 +27,14 @@ import ThrushCore
     let selectedLine = viewport.selection.map { viewport.text(in: $0) }
     #expect(firstLine == "row 1092")
     #expect(selectedLine == "row 1093")
-    for i in 1_100..<1_112 { _ = terminal.receive("row \(i)\r\n".utf8) }
+    for i in 1_100..<1_112 { _ = terminal.write("row \(i)\r\n".utf8) }
     viewport.display(terminal.snapshot())
     #expect(viewport.offset == 17)
     #expect(viewport.source?.viewport(rowsFromBottom: viewport.offset).rows[0].text == firstLine)
     #expect(viewport.selection.map { viewport.text(in: $0) } == selectedLine)
     viewport.scroll(0)
     #expect(viewport.selection.map { viewport.text(in: $0) } == selectedLine)
-    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    _ = terminal.write("\u{1b}[?1049h".utf8)
     viewport.display(terminal.snapshot())
     #expect(viewport.selection == nil)
     #expect(viewport.historyCount == 0)
@@ -42,7 +42,7 @@ import ThrushCore
 
 @Test func reflowPreservesReaderAndCopyAcrossTheNewWraps() {
     var terminal = Terminal(size: .init(columns: 18, rows: 4))
-    _ = terminal.receive("build log\r\n0128  units/café/界/long-source-path\r\nok\r\nnext\r\ndone\r\n$ ".utf8)
+    _ = terminal.write("build log\r\n0128  units/café/界/long-source-path\r\nok\r\nnext\r\ndone\r\n$ ".utf8)
     var viewport = Viewport()
     viewport.display(terminal.snapshot())
     viewport.scroll(viewport.historyCount - 1)
@@ -96,7 +96,7 @@ import ThrushCore
     view.onInput = { sent.append(terminal.encode($0)) }
     view.display(terminal)
     #expect(!view.reportPointer(.press, button: .left, row: 2, column: 3))
-    _ = terminal.receive("\u{1b}[?1000;1002;1003;1006h".utf8)
+    _ = terminal.write("\u{1b}[?1000;1002;1003;1006h".utf8)
     view.display(terminal)
     #expect(view.reportPointer(.move, button: .none, row: 2, column: 3))
     #expect(view.reportPointer(.move, button: .none, row: 2, column: 3))
@@ -107,7 +107,7 @@ import ThrushCore
 
 private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -> Terminal.Snapshot {
     var terminal = Terminal(size: .init(columns: columns, rows: rows))
-    _ = terminal.receive(lines.joined(separator: "\r\n").utf8)
+    _ = terminal.write(lines.joined(separator: "\r\n").utf8)
     return terminal.snapshot()
 }
 
@@ -169,7 +169,7 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
 @Test func adoptingNewShellKeepsRepeatedScreenRowsAndDropsUnusedSelection() {
     let size = Terminal.Size(columns: 12, rows: 10)
     var terminal = Terminal(size: size)
-    _ = terminal.receive("one\r\nsame\r\nend\r\none\r\nsame\r\nend".utf8)
+    _ = terminal.write("one\r\nsame\r\nend\r\none\r\nsame\r\nend".utf8)
     var selected = Viewport()
     selected.display(terminal.snapshot())
     selected.selection = .init(anchorRow: 4, anchorColumn: 0, headRow: 4, headColumn: 3)

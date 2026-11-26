@@ -21,19 +21,19 @@ import ThrushCore
     view.setDrawingVisible(true)
     let mailbox = OutputMailbox()
     var terminal = Terminal(size: .init(columns: 16, rows: 2))
-    _ = terminal.receive("old\r\n~ # clear".utf8)
+    _ = terminal.write("old\r\n~ # clear".utf8)
 
     // The first Oshen Return message wakes the view. It can invalidate the view immediately.
-    _ = terminal.receive("\r\u{1b}[2K\u{1b}[32m~\u{1b}[0m # ".utf8)
+    _ = terminal.write("\r\u{1b}[2K\u{1b}[32m~\u{1b}[0m # ".utf8)
     #expect(mailbox.offer(terminal.snapshot(), receivedAt: 1))
     let first = try #require(mailbox.take(notification: true))
     #expect(first.screen.rows.last?.text == "~ # " && first.receipt == 1)
     #expect(view.displayOutput(first) == 1)
 
     // These two reads can complete while the main actor is obtaining its drawable.
-    _ = terminal.receive("\u{1b}[32mclear\u{1b}[0m".utf8)
+    _ = terminal.write("\u{1b}[32mclear\u{1b}[0m".utf8)
     #expect(mailbox.offer(terminal.snapshot(), receivedAt: 1.000026))
-    _ = terminal.receive("\r\n".utf8)
+    _ = terminal.write("\r\n".utf8)
     #expect(!mailbox.offer(terminal.snapshot(), receivedAt: 1.000033))
     let encode = try #require(mailbox.take())
     #expect(encode.screen.rows.map(\.text) == ["~ # clear", ""])
@@ -42,7 +42,7 @@ import ThrushCore
     #expect(view.snapshot?.generation == encode.screen.generation)
 
     // Drawing takes the latest frame without queuing a second wakeup.
-    _ = terminal.receive("X".utf8)
+    _ = terminal.write("X".utf8)
     #expect(!mailbox.offer(terminal.snapshot(), receivedAt: 2))
     #expect(mailbox.take(notification: true)?.screen.rows.last?.text == "X")
     #expect(mailbox.take() == nil)

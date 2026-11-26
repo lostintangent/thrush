@@ -69,7 +69,7 @@ import UIKit
     input.insertText("c")
     #expect(!control.accessibilityTraits.contains(.selected))
     arrow.sendActions(for: .touchUpInside)
-    _ = terminal.receive(Array("\u{1B}[?1h".utf8))
+    _ = terminal.write(Array("\u{1B}[?1h".utf8))
     arrow.sendActions(for: .touchUpInside)
     control.sendActions(for: .touchUpInside)
     arrow.sendActions(for: .touchUpInside)
@@ -94,7 +94,7 @@ import UIKit
     input.insertText("b")
     try arm("Option")
     input.insertText("\n")
-    _ = terminal.receive(Array("\u{1B}[>1u".utf8))
+    _ = terminal.write(Array("\u{1B}[>1u".utf8))
     try arm("Shift")
     input.insertText("\n")
     try arm("Control")
@@ -102,7 +102,7 @@ import UIKit
     #expect(sent == [Array("A".utf8), [13], Array("\u{1B}b".utf8), [27, 13],
                      Array("\u{1B}[13;2u".utf8), Array("\u{1B}[13;5u".utf8)])
     #expect(control.accessibilityLabel == "Control" && control.accessibilityValue == "Off")
-    _ = terminal.receive(Array("\u{1B}[<u".utf8))
+    _ = terminal.write(Array("\u{1B}[<u".utf8))
 
     let (key, modifiers) = try #require(PhoneTerminalInput.hardwareKey(.keyboardLeftArrow, characters: "", flags: [.alternate, .shift]))
     #expect(terminal.encode(.key(key, modifiers: modifiers)) == [27, 91, 49, 59, 52, 68])
@@ -119,7 +119,7 @@ import UIKit
 @MainActor
 @Test func phonePasteUsesThePastePath() async throws {
     var terminal = Terminal(size: .init(columns: 40, rows: 20))
-    _ = terminal.receive(Array("\u{1B}[?2004h".utf8))
+    _ = terminal.write(Array("\u{1B}[?2004h".utf8))
     let view = TerminalMetalView(frame: .zero)
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
@@ -323,7 +323,7 @@ func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation(opaque: Bool) throws {
     window.addSubview(view)
     defer { withExtendedLifetime(window) {} }
     var term = Terminal(size: .init(columns: 40, rows: 20))
-    _ = term.receive("Final output.".utf8)
+    _ = term.write("Final output.".utf8)
     view.display(term)
     let selected = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 12)
     view.selection = selected

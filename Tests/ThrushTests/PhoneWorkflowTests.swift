@@ -42,7 +42,7 @@ func phoneReplaysRecordedWorkflows(_ name: String) throws {
             try performRecordedInput(input, in: view)
             #expect(wire == event.input, "\(name): \(event.name)")
         }
-        #expect(terminal.receive(event.bytes) == event.reply, "\(name): \(event.name)")
+        #expect(terminal.write(event.bytes) == event.reply, "\(name): \(event.name)")
         view.display(terminal)
         if let wanted = spokenAt[event.name], event.checkpoint != nil {
             let lines = history.accessibilityElements?.compactMap { ($0 as? UIAccessibilityElement)?.accessibilityLabel } ?? []

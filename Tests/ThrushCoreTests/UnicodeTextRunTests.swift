@@ -6,8 +6,8 @@ import ThrushCore
     let wide = "界\u{301}"
     let csi = "\u{9b}"
 
-    _ = terminal.receive("abc".utf8)
-    _ = terminal.receive(Array(wide.utf8))
+    _ = terminal.write("abc".utf8)
+    _ = terminal.write(Array(wide.utf8))
     let retained = terminal.snapshot()
     #expect(retained.rows.map(\.text) == ["abc", wide, ""])
     #expect(retained.rows.map(\.isWrapped) == [false, true, false])
@@ -16,14 +16,14 @@ import ThrushCore
 
     // The encoded CSI interrupts printable UTF-8 in the middle of this buffer.
     let switchBuffer = Array(("é" + csi + "?1049h" + wide).utf8)
-    _ = terminal.receive(switchBuffer.span)
+    _ = terminal.write(switchBuffer.span)
     let alternate = terminal.snapshot()
     #expect(alternate.isAlternate)
     #expect(alternate.rows.map(\.text) == ["", "", wide])
     #expect(alternate.rows.map(\.isWrapped) == [false, false, true])
     #expect(alternate.cursorRow == 2 && alternate.cursorColumn == 2)
 
-    let reply = terminal.receive(Array((csi + "?1049l" + csi + "6n").utf8))
+    let reply = terminal.write(Array((csi + "?1049l" + csi + "6n").utf8))
     #expect(reply == Array("\u{1b}[2;4R".utf8))
     let restored = terminal.snapshot()
     #expect(!restored.isAlternate)
@@ -37,15 +37,15 @@ import ThrushCore
     let accented = Array("界ae\u{301}é".utf8)
 
     // The chunk ends inside é, after ASCII the run carried.
-    _ = terminal.receive(Array(accented.dropLast()))
-    _ = terminal.receive([accented.last!] + Array("界x".utf8))
+    _ = terminal.write(Array(accented.dropLast()))
+    _ = terminal.write([accented.last!] + Array("界x".utf8))
     var screen = terminal.snapshot()
     #expect(screen.rows.map(\.text) == ["界ae\u{301}é", "界x", ""])
     #expect(screen.rows[0][3].text == "e\u{301}")
     #expect(screen.rows.map(\.isWrapped) == [false, true, false])
     #expect(screen.cursorRow == 1 && screen.cursorColumn == 3)
 
-    _ = terminal.receive(Array("\u{1b}[Hé1界2".utf8))
+    _ = terminal.write(Array("\u{1b}[Hé1界2".utf8))
     screen = terminal.snapshot()
     #expect(screen.rows[0].text == "é1界2")
     #expect(screen.rows[0][2].width == 2 && screen.rows[0][3].width == 0)

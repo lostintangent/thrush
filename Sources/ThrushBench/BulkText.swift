@@ -43,7 +43,7 @@ struct BulkText: Encodable {
                 for chunk in chunks {
                     if pass > 0 { received += chunk.count }
                     let start = DispatchTime.now().uptimeNanoseconds
-                    let reply = terminal.receive(chunk)
+                    let reply = terminal.write(chunk)
                     let elapsed = DispatchTime.now().uptimeNanoseconds - start
                     guard reply.isEmpty else { throw BenchmarkError("Unexpected bulk-text reply at \(grid).") }
                     if pass > 0 {
@@ -57,7 +57,7 @@ struct BulkText: Encodable {
                 let expected = String(decoding: wrapped ? line.dropFirst(grid.columns) : line[...], as: UTF8.self)
                 guard snapshot.history.count == 1_000, snapshot.rows[grid.rows - 2].text == expected,
                       snapshot.rows[grid.rows - 2].isWrapped == wrapped, terminal.text(inRow: grid.rows - 1).isEmpty,
-                      terminal.receive(Array("\u{1b}[6n".utf8)) == Array("\u{1b}[\(grid.rows);1R".utf8) else {
+                      terminal.write(Array("\u{1b}[6n".utf8)) == Array("\u{1b}[\(grid.rows);1R".utf8) else {
                     throw BenchmarkError("Bulk-text reference mismatch at \(grid).")
                 }
             }

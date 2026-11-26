@@ -41,7 +41,7 @@ struct WorkloadRun: Encodable {
             var offset = 0
             while offset < span.count {
                 let end = min(offset + step, span.count)
-                _ = terminal.receive(span.extracting(offset..<end))
+                _ = terminal.write(span.extracting(offset..<end))
                 offset = end
             }
         }

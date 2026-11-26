@@ -5,7 +5,7 @@ private let esc = "\u{1b}"
 private func copy(_ base64: String, selections: String = "c") -> String { "\(esc)]52;\(selections);\(base64)\u{07}" }
 
 private func reply(_ terminal: inout Terminal, _ text: String) -> String {
-    String(decoding: terminal.receive(Array(text.utf8)), as: UTF8.self)
+    String(decoding: terminal.write(Array(text.utf8)), as: UTF8.self)
 }
 
 @Test func aCopyReachesTheAppAtEverySplit() {
@@ -14,8 +14,8 @@ private func reply(_ terminal: inout Terminal, _ text: String) -> String {
         let bytes = Array(copy("aMOpbGxvIPCfmYI=", selections: selections).utf8)
         for split in 0...bytes.count {
             var terminal = Terminal(size: .init(columns: 8, rows: 2))
-            #expect(terminal.receive(bytes.prefix(split)).isEmpty)
-            #expect(terminal.receive(bytes.dropFirst(split)).isEmpty)
+            #expect(terminal.write(bytes.prefix(split)).isEmpty)
+            #expect(terminal.write(bytes.dropFirst(split)).isEmpty)
             #expect(terminal.copiedText == "héllo 🙂", "\(selections), byte split \(split)")
         }
     }
@@ -23,7 +23,7 @@ private func reply(_ terminal: inout Terminal, _ text: String) -> String {
 
 @Test func onlyTextCopies() {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    _ = terminal.receive((copy("b25l") + copy("dHdv")).utf8)
+    _ = terminal.write((copy("b25l") + copy("dHdv")).utf8)
     #expect(terminal.copiedText == "two")
 
     // A read goes unanswered, and text that's empty or isn't base64 leaves the last copy waiting.
@@ -35,13 +35,13 @@ private func reply(_ terminal: inout Terminal, _ text: String) -> String {
 @Test func aCopyOverTheControlStringLimitHasNoEffect() {
     // The payload's 2 + 9,999,998 characters fill the limit and decode to 7,499,998 bytes.
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    _ = terminal.receive("\(esc)]52;c;".utf8)
-    _ = terminal.receive(Array(String(repeating: "QUJD", count: 2_499_999).utf8))
-    _ = terminal.receive("QQ".utf8)
+    _ = terminal.write("\(esc)]52;c;".utf8)
+    _ = terminal.write(Array(String(repeating: "QUJD", count: 2_499_999).utf8))
+    _ = terminal.write("QQ".utf8)
     var overlong = terminal
-    _ = terminal.receive("\u{07}".utf8)
+    _ = terminal.write("\u{07}".utf8)
     #expect(terminal.copiedText?.utf8.count == 7_499_998)
-    _ = overlong.receive("Q\u{07}".utf8)
+    _ = overlong.write("Q\u{07}".utf8)
     #expect(overlong.copiedText == nil)
 }
 

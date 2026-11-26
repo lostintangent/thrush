@@ -7,7 +7,7 @@ private let close = "\(esc)]8;;\u{07}"
 
 private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Terminal {
     var terminal = Terminal(size: .init(columns: columns, rows: rows))
-    _ = terminal.receive(text.utf8)
+    _ = terminal.write(text.utf8)
     return terminal
 }
 
@@ -24,7 +24,7 @@ private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Termi
     #expect(row[3].style.underline == .single)
     #expect(row[3].style.underlineColor == .default)
 
-    let replies = terminal.receive("\(esc)[4:5;58:2::7:8:9;53m\(esc)P$qm\(esc)\\".utf8)
+    let replies = terminal.write("\(esc)[4:5;58:2::7:8:9;53m\(esc)P$qm\(esc)\\".utf8)
     #expect(String(decoding: replies, as: UTF8.self) == "\(esc)P1$r0;4:5;53;31;58;2;7;8;9m\(esc)\\")
 }
 
@@ -72,7 +72,7 @@ private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Termi
     var terminal = terminal(open("https://kept.example") + "k" + close + "\r\n\n\n")
     var largest: UInt32 = 0
     for index in 0..<5_000 {
-        _ = terminal.receive((open("https://\(index).example") + "x\r").utf8)
+        _ = terminal.write((open("https://\(index).example") + "x\r").utf8)
         largest = max(largest, terminal.snapshot().rows[2][0].style.link)
     }
     let snapshot = terminal.snapshot()
@@ -85,11 +85,11 @@ private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Termi
     // Every number is held until the erases let the old links go.
     var terminal = Terminal(size: .init(columns: 80, rows: 24))
     let line = (0..<80).map { open("https://\($0).example") + "x" }.joined() + close + "\r\n"
-    for _ in 0..<(65_536 / 80 + 1) { _ = terminal.receive(line.utf8) }
-    _ = terminal.receive("\(esc)[3J\(esc)[2J\(esc)[H".utf8)
+    for _ in 0..<(65_536 / 80 + 1) { _ = terminal.write(line.utf8) }
+    _ = terminal.write("\(esc)[3J\(esc)[2J\(esc)[H".utf8)
     var plain = 0
     for index in 0..<200 {
-        _ = terminal.receive((open("https://later.example/\(index)") + "y" + close + "\r\n").utf8)
+        _ = terminal.write((open("https://later.example/\(index)") + "y" + close + "\r\n").utf8)
         let snapshot = terminal.snapshot()
         if snapshot.rows[snapshot.cursorRow - 1][0].style.link == 0 { plain += 1 }
     }
@@ -102,18 +102,18 @@ private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Termi
         + "\r\n\n\n"
     var original = terminal(normal, columns: 8, rows: 4)
     var resumed = Terminal(size: original.size)
-    _ = resumed.receive(original.replayBytes())
+    _ = resumed.write(original.replayBytes())
     expectSameLinks(original.snapshot(), resumed.snapshot())
     let identified = resumed.snapshot().history[0][0].style.link
     #expect(identified != 0 && resumed.snapshot().history[2][0].style.link == identified)
 
     // The alternate screen replays too, and so does the normal screen behind it.
-    _ = original.receive(("\(esc)[?1049h" + open("https://c.example", id: "y") + "alt").utf8)
+    _ = original.write(("\(esc)[?1049h" + open("https://c.example", id: "y") + "alt").utf8)
     resumed = Terminal(size: original.size)
-    _ = resumed.receive(original.replayBytes())
+    _ = resumed.write(original.replayBytes())
     expectSameLinks(original.snapshot(), resumed.snapshot())
-    _ = original.receive("\(esc)[?1049lafter".utf8)
-    _ = resumed.receive("\(esc)[?1049lafter".utf8)
+    _ = original.write("\(esc)[?1049lafter".utf8)
+    _ = resumed.write("\(esc)[?1049lafter".utf8)
     expectSameLinks(original.snapshot(), resumed.snapshot())
 }
 

@@ -25,14 +25,14 @@ private func checkSerialization(_ fixture: Recording) throws {
             resumed.resize(to: original.size)
         }
         if let palette = event.palette { original.palette = palette; resumed.palette = palette }
-        _ = original.receive(event.bytes)
-        _ = resumed.receive(event.bytes)
+        _ = original.write(event.bytes)
+        _ = resumed.write(event.bytes)
         guard event.checkpoint != nil else { continue }
         // This checkpoint sees all subsequent output on the previous reconstruction.
         do { try event.verify(resumed.snapshot(), serialized: event.resize == nil) } catch { throw ReplayFailure("\(fixture.name) #\(index) continued: \(error)") }
         resumed = Terminal(size: original.size, palette: original.palette)
         // A restored focus mode answers with the new host's focus, which starts out.
-        let replies = resumed.receive(original.replayBytes())
+        let replies = resumed.write(original.replayBytes())
         #expect(replies == (original.modes.sendFocus ? Array("\u{1b}[O".utf8) : []))
         do { try event.verify(resumed.snapshot(), serialized: true) } catch { throw ReplayFailure("\(fixture.name) #\(index) fresh: \(error)") }
         #expect(resumed.title == original.title)
@@ -88,10 +88,10 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     ]
     func assertContinuation(_ columns: Int, prefix: [UInt8], suffix: [UInt8]) {
         var before = Terminal(size: .init(columns: columns, rows: 3))
-        _ = before.receive(prefix)
+        _ = before.write(prefix)
         var resumed = Terminal(size: before.size)
-        #expect(resumed.receive(before.replayBytes()).isEmpty)
-        #expect(before.receive(suffix) == resumed.receive(suffix))
+        #expect(resumed.write(before.replayBytes()).isEmpty)
+        #expect(before.write(suffix) == resumed.write(suffix))
         let a = before.snapshot(), b = resumed.snapshot()
         #expect(a.cursorColumn == b.cursorColumn && a.cursorRow == b.cursorRow)
         #expect(a.modes == b.modes && before.title == resumed.title && before.copiedText == resumed.copiedText)
@@ -122,31 +122,31 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     let cursor = Terminal.RGB(red: 0x12, green: 0x34, blue: 0x56)
     var server = Terminal(size: .init(columns: 4, rows: 2))
     var client = Terminal(size: server.size)
-    _ = server.receive(sets)
-    _ = client.receive(sets)
+    _ = server.write(sets)
+    _ = client.write(sets)
     let before = client.snapshot()
-    #expect(client.receive(query).count > 0)
+    #expect(client.write(query).count > 0)
     #expect(client.snapshot().generation == before.generation)
     client.palette = theme
     client.cursorColor = cursor
     #expect(client.snapshot().generation != before.generation)
     #expect(client.snapshot().programColors == before.programColors)
-    let replies = client.receive(query)
+    let replies = client.write(query)
     #expect(String(decoding: replies, as: UTF8.self) == [
         "]4;1;rgb:1010/2020/3030", "]4;2;rgb:0000/aaaa/0000",
         "]10;rgb:1111/1111/1111", "]11;rgb:4040/5050/6060", "]12;rgb:1212/3434/5656",
     ].map { e + $0 + e + "\\" }.joined())
     var resumed = Terminal(size: server.size, palette: theme, cursorColor: cursor)
-    #expect(resumed.receive(server.replayBytes()).isEmpty)
+    #expect(resumed.write(server.replayBytes()).isEmpty)
     #expect(resumed.programColors == client.programColors)
-    #expect(resumed.receive(query) == replies)
+    #expect(resumed.write(query) == replies)
 }
 
 @Test func appearanceReportsFollowMode2031ThroughResetsAndResumes() {
     let e = "\u{1b}"
     let dark = e + "[?997;1n", light = e + "[?997;2n"
     func reply(_ terminal: inout Terminal, _ text: String) -> String {
-        String(decoding: terminal.receive(Array(text.utf8)), as: UTF8.self)
+        String(decoding: terminal.write(Array(text.utf8)), as: UTF8.self)
     }
     // A terminal whose app hasn't chosen a theme leaves the question unanswered.
     var terminal = Terminal(size: .init(columns: 4, rows: 2))
@@ -163,13 +163,13 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     // A resumed shell keeps asking, and a new shell starts with the app's appearance.
     var resumed = Terminal(size: terminal.size)
     resumed.appearance = .light
-    #expect(resumed.receive(terminal.replayBytes()).isEmpty)
+    #expect(resumed.write(terminal.replayBytes()).isEmpty)
     #expect(resumed.modes.reportAppearance)
     terminal.startNewShell(at: terminal.size)
     #expect(!terminal.modes.reportAppearance && terminal.appearance == .dark)
 
     // DECSTR keeps the reports, as Ghostty does, and RIS ends them but still knows the theme.
-    _ = terminal.receive(Array((e + "[?2031h" + e + "[!p").utf8))
+    _ = terminal.write(Array((e + "[?2031h" + e + "[!p").utf8))
     #expect(terminal.modes.reportAppearance)
     #expect(reply(&terminal, e + "c" + e + "[?2031$p" + e + "[?996n") == e + "[?2031;2$y" + dark)
     #expect(terminal.encode(.appearance(.light)).isEmpty)
@@ -181,13 +181,13 @@ private struct ReplayFailure: Error, CustomStringConvertible {
 @Test func replaySuitsAClientThatDiffers() {
     let e = "\u{1b}"
     var terminal = Terminal(size: .init(columns: 8, rows: 6))
-    let reply = terminal.receive(Array((e + "[>3u" + e + "]11;#000000\u{07}hi" + e + "[?u").utf8))
+    let reply = terminal.write(Array((e + "[>3u" + e + "]11;#000000\u{07}hi" + e + "[?u").utf8))
     #expect(reply == Array((e + "[?1u").utf8))
     let replay = String(decoding: terminal.replayBytes(), as: UTF8.self)
     #expect(replay.contains(e + "[>3u"))
     #expect(replay.contains(["]104", "]110", "]111", "]112", "]11;rgb:00/00/00"].map { e + $0 + "\u{7}" }.joined()))
     var shorter = Terminal(size: .init(columns: 8, rows: 3))
-    _ = shorter.receive(terminal.replayBytes())
+    _ = shorter.write(terminal.replayBytes())
     #expect(shorter.snapshot().rows[0].text == "hi")
 }
 
@@ -214,13 +214,13 @@ private struct ReplayFailure: Error, CustomStringConvertible {
 @discardableResult
 private func checkReplay(of text: String, columns: Int) -> String {
     var original = Terminal(size: .init(columns: columns, rows: 2))
-    _ = original.receive(Array(text.utf8))
+    _ = original.write(Array(text.utf8))
     let replay = original.replayBytes()
     var resumed = Terminal(size: original.size)
-    _ = resumed.receive(replay)
+    _ = resumed.write(replay)
     // One more character shows the pen each continues with.
     let styles = { (terminal: inout Terminal) in
-        _ = terminal.receive(Array("Z".utf8))
+        _ = terminal.write(Array("Z".utf8))
         let row = terminal.snapshot().rows[0]
         return (0..<columns).map { row[$0].style }
     }
@@ -240,11 +240,11 @@ private func checkReplay(of text: String, columns: Int) -> String {
     ]
     for (prefix, suffix, reply) in cases {
         var original = Terminal(size: .init(columns: 6, rows: 3))
-        _ = original.receive(Array(prefix.utf8))
+        _ = original.write(Array(prefix.utf8))
         var resumed = Terminal(size: original.size)
-        #expect(resumed.receive(original.replayBytes()).isEmpty)
-        #expect(String(decoding: original.receive(Array(suffix.utf8)), as: UTF8.self) == reply)
-        #expect(String(decoding: resumed.receive(Array(suffix.utf8)), as: UTF8.self) == reply)
+        #expect(resumed.write(original.replayBytes()).isEmpty)
+        #expect(String(decoding: original.write(Array(suffix.utf8)), as: UTF8.self) == reply)
+        #expect(String(decoding: resumed.write(Array(suffix.utf8)), as: UTF8.self) == reply)
     }
 }
 
@@ -252,11 +252,11 @@ private func checkReplay(of text: String, columns: Int) -> String {
     // Each start is filled to exactly the limit, so one more character makes it overlong.
     for (start, length, end) in [("\u{1b}]10;?;?;", 4, "!\u{07}"), ("\u{1b}P$q", 0, "!\u{1b}\\")] {
         var original = Terminal(size: .init(columns: 4, rows: 2))
-        _ = original.receive(start.utf8)
-        _ = original.receive(Array(repeating: UInt8(ascii: "x"), count: 10_000_000 - length))
+        _ = original.write(start.utf8)
+        _ = original.write(Array(repeating: UInt8(ascii: "x"), count: 10_000_000 - length))
         var resumed = Terminal(size: original.size)
-        #expect(resumed.receive(original.replayBytes()).isEmpty)
-        #expect(original.receive(Array(end.utf8)).isEmpty)
-        #expect(resumed.receive(Array(end.utf8)).isEmpty)
+        #expect(resumed.write(original.replayBytes()).isEmpty)
+        #expect(original.write(Array(end.utf8)).isEmpty)
+        #expect(resumed.write(Array(end.utf8)).isEmpty)
     }
 }

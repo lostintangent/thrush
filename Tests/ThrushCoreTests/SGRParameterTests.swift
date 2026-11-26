@@ -5,7 +5,7 @@ import ThrushCore
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let bytes = "\u{1b}[38:5:300;48:2::10:20:30;1mA\u{1b}[38:7:1;92;22mB"
         + "\u{1b}[48:2:9:256:257:511;7mC\u{1b}[58;2;2;7;31;101mD"
-    for byte in bytes.utf8 { _ = terminal.receive(CollectionOfOne(byte)) }
+    for byte in bytes.utf8 { _ = terminal.write(CollectionOfOne(byte)) }
     let row = terminal.snapshot().rows[0]
     #expect(row[0].style.foreground == .indexed(44))
     #expect(row[0].style.background == .rgb(10, 20, 30))
@@ -24,7 +24,7 @@ import ThrushCore
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let bytes = "\u{1b}[38;2;10;20;30;48;5;201mA\u{1b}[38:2:10:20:30;48;5:42mB"
         + "\u{1b}[38;2::11:22:33;48;2;12:34:56mC\u{1b}[38:5;48:2::;1mD"
-    _ = terminal.receive(bytes.utf8)
+    _ = terminal.write(bytes.utf8)
     let row = terminal.snapshot().rows[0]
     #expect(row[0].style.foreground == .rgb(10, 20, 30))
     #expect(row[0].style.background == .indexed(201))
@@ -47,9 +47,9 @@ import ThrushCore
 
     for split in 0...bytes.count {
         var terminal = Terminal(size: .init(columns: 8, rows: 2))
-        _ = terminal.receive(bytes[..<split])
+        _ = terminal.write(bytes[..<split])
         let remaining = sequence(state: bytes[split...].makeIterator()) { $0.next() }
-        _ = terminal.receive(remaining)
+        _ = terminal.write(remaining)
         #expect(terminal.snapshot().rows[0][0].style == expected, "SGR split at byte \(split)")
     }
 }
@@ -77,9 +77,9 @@ import ThrushCore
 
     for split in 0...bytes.count {
         var terminal = Terminal(size: .init(columns: 8, rows: 2))
-        _ = terminal.receive(bytes[..<split])
+        _ = terminal.write(bytes[..<split])
         let remaining = sequence(state: bytes[split...].makeIterator()) { $0.next() }
-        _ = terminal.receive(remaining)
+        _ = terminal.write(remaining)
         let row = terminal.snapshot().rows[0]
         #expect(row.text == "ABCDE")
         #expect(expected.indices.map { row[$0].style } == expected, "SGR split at byte \(split)")

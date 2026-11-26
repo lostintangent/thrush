@@ -64,7 +64,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
         host.canvas.layoutIfNeeded()
     }
     var shell = Terminal(size: try #require(terminal.gridSize))
-    _ = shell.receive((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
+    _ = shell.write((1...80).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
     terminal.display(shell)
     terminal.setHistoryOffset(offset)
 
@@ -89,7 +89,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     let portraitGrid = try #require(terminal.gridSize)
     var shell = Terminal(size: portraitGrid)
     let output = (1..<(portraitGrid.rows - 1)).map { "Compile unit \($0)" } + ["Build complete.", "~/thrush % "]
-    _ = shell.receive(output.joined(separator: "\r\n").utf8)
+    _ = shell.write(output.joined(separator: "\r\n").utf8)
     terminal.display(shell)
     let cursor = try #require(terminal.snapshot).cursorRow
     #expect(cursor == portraitGrid.rows - 1)
@@ -128,10 +128,10 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     host.resize(to: host.landscape)
     let size = try #require(terminal.gridSize)
     var shell = Terminal(size: size)
-    _ = shell.receive(String(repeating: "archived\r\n", count: 60).utf8)
+    _ = shell.write(String(repeating: "archived\r\n", count: 60).utf8)
     shell.startNewShell(at: size)
     let rows = Array(repeating: "fresh", count: size.rows + 2) + ["new$ "]
-    _ = shell.receive(rows.joined(separator: "\r\n").utf8)
+    _ = shell.write(rows.joined(separator: "\r\n").utf8)
     terminal.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil, archivingMainScreen: true)
     #expect(shell.snapshot().currentShellHistoryCount == 3)
     #expect(terminal.historyCount > shell.snapshot().currentShellHistoryCount)
@@ -161,7 +161,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
         host.resize(to: host.landscape)
         let landscapeGrid = try #require(terminal.gridSize)
         var shell = Terminal(size: landscapeGrid)
-        _ = shell.receive(((1..<lines).map { "Line \($0)" } + ["~/thrush % "]).joined(separator: "\r\n").utf8)
+        _ = shell.write(((1..<lines).map { "Line \($0)" } + ["~/thrush % "]).joined(separator: "\r\n").utf8)
         terminal.display(shell)
         #expect(terminal.snapshot?.cursorRow == landscapeGrid.rows - 1)
 
@@ -185,7 +185,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     let terminal = host.terminal
     let portraitGrid = try #require(terminal.gridSize)
     var shell = Terminal(size: portraitGrid)
-    _ = shell.receive((1...(portraitGrid.rows + 8)).map { "Log entry \($0)" }.joined(separator: "\r\n").utf8)
+    _ = shell.write((1...(portraitGrid.rows + 8)).map { "Log entry \($0)" }.joined(separator: "\r\n").utf8)
     terminal.display(shell)
     terminal.setHistoryOffset(5)
     let visibleRows = try #require(terminal.snapshot).rows.prefix(3).map(\.text)
@@ -216,7 +216,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     let portraitGrid = try #require(terminal.gridSize)
     var shell = Terminal(size: portraitGrid)
     let output = (1..<(portraitGrid.rows - 1)).map { "Compile unit \($0)" } + ["Build complete.", "~/thrush % "]
-    _ = shell.receive(output.joined(separator: "\r\n").utf8)
+    _ = shell.write(output.joined(separator: "\r\n").utf8)
     terminal.display(shell)
     var emitted: [Terminal.Size] = []
     terminal.onGridSizeChange = { emitted.append($0) }
@@ -238,7 +238,7 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     #expect(terminal.holdsGridGeometry && terminal.bounds == heldBounds)
     #expect(terminal.convert(terminal.cursorRect, to: host.window) == heldCursor)
 
-    _ = shell.receive("l".utf8)
+    _ = shell.write("l".utf8)
     terminal.display(shell)
     #expect(ready == 0 && terminal.holdsGridGeometry && terminal.bounds == heldBounds)
 

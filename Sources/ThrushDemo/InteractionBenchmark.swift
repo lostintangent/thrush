@@ -160,7 +160,7 @@ final class InteractionBenchmark {
         func numberedSnapshot(start: Int) -> Terminal.Snapshot {
             var terminal = Terminal(size: grid)
             let range = start..<(start + historyRows + grid.rows)
-            _ = terminal.receive(range.map { "Build step \($0)" }.joined(separator: "\r\n").utf8)
+            _ = terminal.write(range.map { "Build step \($0)" }.joined(separator: "\r\n").utf8)
             return terminal.snapshot()
         }
         let first = numberedSnapshot(start: 0)

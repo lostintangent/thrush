@@ -77,7 +77,7 @@ private struct MacInputFixture {
 @Test func appKitFrozenViewAllowsCopyAndDropsPendingComposition() throws {
     let host = try MacInputFixture()
     var shell = Terminal(size: .init(columns: 20, rows: 4))
-    _ = shell.receive("final output".utf8)
+    _ = shell.write("final output".utf8)
     host.view.display(shell)
     var writes: [Terminal.Input] = []
     host.view.onInput = { writes.append($0) }
@@ -109,7 +109,7 @@ private struct MacInputFixture {
     var writes = [[UInt8]]()
     host.view.onInput = { writes.append(terminal.encode($0)) }
     try host.key(126, characters: "\u{F700}")
-    _ = terminal.receive("\u{1b}[?1h\u{1b}[?2004h".utf8)
+    _ = terminal.write("\u{1b}[?1h\u{1b}[?2004h".utf8)
     try host.key(126, characters: "\u{F700}")
     try host.key(124, characters: "\u{F703}", flags: [.control, .shift])
     try host.key(17, characters: "t", flags: [.control])
@@ -117,7 +117,7 @@ private struct MacInputFixture {
     try host.key(122, characters: "\u{F704}")
     try host.key(111, characters: "\u{F70F}", flags: [.shift])
     try host.key(114, characters: "\u{F746}")
-    _ = terminal.receive("\u{1b}[>1u".utf8)
+    _ = terminal.write("\u{1b}[>1u".utf8)
     try host.key(36, characters: "\r", flags: [.shift])
     try host.key(99, characters: "\u{F706}", flags: [.shift])
     let board = NSPasteboard.withUniqueName()
@@ -133,7 +133,7 @@ private struct MacInputFixture {
 @Test func appKitVoiceOverAndCopyUseTheDisplayedCells() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 6, rows: 4))
-    _ = terminal.receive("A翼🐦Zspill\r\nKnown".utf8)
+    _ = terminal.write("A翼🐦Zspill\r\nKnown".utf8)
     host.view.display(terminal)
     let known = host.input.accessibilityRange(forLine: 2)
     #expect(host.input.accessibilityString(for: known) == "Known\n")
@@ -157,7 +157,7 @@ private struct MacInputFixture {
 @Test func appKitVoiceOverReadsConcealedTextAsBlankAndCopyKeepsIt() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 12, rows: 2))
-    _ = terminal.receive("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
+    _ = terminal.write("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
     host.view.display(terminal)
     let blank = String(repeating: " ", count: "s🐦cret".utf16.count)
     #expect(host.input.accessibilityValue() as? String == "pw \(blank)!\n")
@@ -174,7 +174,7 @@ private struct MacInputFixture {
 @Test func appKitKeepsACollapsedAccessibilityCaretIndependentOfTheShell() throws {
     let host = try MacInputFixture()
     var shell = Terminal(size: .init(columns: 30, rows: 4))
-    _ = shell.receive("top\r\nRead 🐦 here\r\nPrompt % ".utf8)
+    _ = shell.write("top\r\nRead 🐦 here\r\nPrompt % ".utf8)
     host.view.display(shell)
     var writes: [Terminal.Input] = []
     host.view.onInput = { writes.append($0) }
@@ -193,7 +193,7 @@ private struct MacInputFixture {
     host.input.copySelection(to: board)
     #expect(board.string(forType: .string) == "keep")
 
-    _ = shell.receive("\u{1B}[1;1Hlonger title\u{1B}[3;10Hnew output".utf8)
+    _ = shell.write("\u{1B}[1;1Hlonger title\u{1B}[3;10Hnew output".utf8)
     host.view.display(shell)
     let updated = NSRange(location: caret.location + 9, length: 0)
     #expect(host.input.accessibilitySelectedTextRange() == updated)
@@ -216,7 +216,7 @@ private struct MacInputFixture {
     #expect(board.string(forType: .string) == "here")
 
     host.input.setAccessibilitySelectedTextRange(updated)
-    _ = shell.receive("\u{1B}[2;1H\u{1B}[2Kremoved\u{1B}[3;1H".utf8)
+    _ = shell.write("\u{1B}[2;1H\u{1B}[2Kremoved\u{1B}[3;1H".utf8)
     host.view.display(shell)
     #expect(host.input.accessibilitySelectedTextRange().location == host.input.accessibilityRange(forLine: 2).location)
     host.input.setAccessibilitySelectedTextRange(.init(location: 1, length: 0))
@@ -230,14 +230,14 @@ private struct MacInputFixture {
 @Test func appKitReadingCaretFollowsItsRowWhileItRemainsVisible() throws {
     let host = try MacInputFixture()
     var shell = Terminal(size: .init(columns: 20, rows: 3))
-    _ = shell.receive("First\r\nReading\r\nLast".utf8)
+    _ = shell.write("First\r\nReading\r\nLast".utf8)
     host.view.display(shell)
     host.input.setAccessibilitySelectedTextRange(.init(location: 8, length: 0))
-    _ = shell.receive("\r\nNew".utf8)
+    _ = shell.write("\r\nNew".utf8)
     host.view.display(shell)
     #expect(host.input.accessibilitySelectedTextRange() == NSRange(location: 2, length: 0))
     #expect(host.input.accessibilityInsertionPointLineNumber() == 0)
-    _ = shell.receive("\r\nNewest".utf8)
+    _ = shell.write("\r\nNewest".utf8)
     host.view.display(shell)
     #expect(host.input.accessibilityInsertionPointLineNumber() == 2)
 }
@@ -246,7 +246,7 @@ private struct MacInputFixture {
 @Test func appKitSelectsWrappedWordsAndHandsReportedDragsToTheShell() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 8, rows: 4))
-    _ = terminal.receive("Read a wrapped word".utf8)
+    _ = terminal.write("Read a wrapped word".utf8)
     host.view.display(terminal)
     try host.mouse(.leftMouseDown, row: 0, column: 7, clicks: 2)
     #expect(host.view.selectedText == "wrapped")
@@ -257,7 +257,7 @@ private struct MacInputFixture {
     try host.mouse(.leftMouseUp, row: 1, column: 3)
     #expect(host.view.selectedText == "a wrapp")
 
-    _ = terminal.receive("\u{1b}[?1002h\u{1b}[?1006h".utf8)
+    _ = terminal.write("\u{1b}[?1002h\u{1b}[?1006h".utf8)
     host.view.display(terminal)
     var writes = [[UInt8]]()
     host.view.onInput = { writes.append(terminal.encode($0)) }
@@ -274,13 +274,13 @@ private struct MacInputFixture {
 @Test func appKitHistoryKeepsTheReadingLineUntilLatestIsActivated() throws {
     let host = try MacInputFixture()
     var terminal = Terminal(size: .init(columns: 12, rows: 4))
-    _ = terminal.receive((1...10).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
+    _ = terminal.write((1...10).map { "Line \($0)" }.joined(separator: "\r\n").utf8)
     host.view.display(terminal)
     try host.key(116, characters: "\u{F72C}", flags: .shift)
     #expect(host.view.historyOffset == 4)
     let first = host.input.accessibilityString(for: host.input.accessibilityRange(forLine: 0))
     #expect(first == "Line 3\n")
-    _ = terminal.receive("\r\nLine 11".utf8)
+    _ = terminal.write("\r\nLine 11".utf8)
     host.view.display(terminal)
     #expect(host.input.accessibilityString(for: host.input.accessibilityRange(forLine: 0)) == first)
     let action = try #require(host.input.accessibilityCustomActions()?.first)
@@ -314,7 +314,7 @@ private struct MacInputFixture {
     try scroll(1)
     #expect(sent.isEmpty)
 
-    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    _ = terminal.write("\u{1b}[?1049h".utf8)
     host.view.display(terminal)
     try scroll(1)
     try scroll(-1, flags: .maskControl)
@@ -322,7 +322,7 @@ private struct MacInputFixture {
     #expect(sent == ["\u{1b}[A", "\u{1b}[B"])
 
     sent = []
-    _ = terminal.receive("\u{1b}[?1h\u{1b}[?1049l\u{1b}[?1000;1006h".utf8)
+    _ = terminal.write("\u{1b}[?1h\u{1b}[?1049l\u{1b}[?1000;1006h".utf8)
     host.view.display(terminal)
     try scroll(1)
     try scroll(-1)

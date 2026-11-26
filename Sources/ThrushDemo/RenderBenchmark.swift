@@ -175,7 +175,7 @@ enum RenderBenchmark {
         let inactive: IdleObservation
         let before = view.submissionCount
         let start = CACurrentMediaTime()
-        _ = collector.terminal.receive("\u{1b}[1;3H".utf8)
+        _ = collector.terminal.write("\u{1b}[1;3H".utf8)
         view.display(collector.terminal)
         try await Task.sleep(for: .seconds(1))
         inactive = IdleObservation(seconds: CACurrentMediaTime() - start,
@@ -190,7 +190,7 @@ enum RenderBenchmark {
             try await collector.apply("\u{1b}[1;6H", as: "restore")
             let observer = RenderLifecycleObserver(view: view)
             background = try await observer.measure(reportURL: reportURL) {
-                _ = collector.terminal.receive("\u{1b}[1;3H".utf8)
+                _ = collector.terminal.write("\u{1b}[1;3H".utf8)
                 view.display(collector.terminal)
             }
         } else {
@@ -313,7 +313,7 @@ enum RenderBenchmark {
         /// Draws bytes that belong to no measured workload.
         func show(_ string: String) async throws {
             let start = CACurrentMediaTime()
-            _ = terminal.receive(string.utf8)
+            _ = terminal.write(string.utf8)
             let initialSubmissions = view.submissionCount
             view.display(terminal)
             _ = try await frames.frame(for: "blink setup", generation: terminal.snapshot().generation, after: start,
@@ -324,7 +324,7 @@ enum RenderBenchmark {
             let bytes = Array(string.utf8)
             hash.update(data: bytes)
             let receipt = CACurrentMediaTime()
-            _ = terminal.receive(bytes)
+            _ = terminal.write(bytes)
             let expected = terminal.snapshot().generation
             let initialSubmissions = view.submissionCount
             view.display(terminal, receivedAt: receipt)

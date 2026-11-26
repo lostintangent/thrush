@@ -36,7 +36,7 @@ private final class GateProbe {
     }
 
     func send(_ text: String, _ receipt: Double?, _ group: UInt64?) {
-        _ = terminal.receive(("\u{1b}[1;1H\u{1b}[K" + text).utf8)
+        _ = terminal.write(("\u{1b}[1;1H\u{1b}[K" + text).utf8)
         gate.submit(terminal.snapshot(), receivedAt: receipt, synchronizedOutputID: group)
     }
 }

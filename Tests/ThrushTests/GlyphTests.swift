@@ -57,7 +57,7 @@ func shapedFallbackColorAndPageRollover() throws {
     // A 48 px page fits exactly two narrow glyphs or one wide glyph on its only shelf.
     let atlas = try GlyphAtlas(device: device, metrics: metrics, dimension: 48)
     var terminal = Terminal(size: .init(columns: 10, rows: 2))
-    _ = terminal.receive("A翼🐦Z".utf8)
+    _ = terminal.write("A翼🐦Z".utf8)
     let snapshot = terminal.snapshot()
     let row = snapshot.rows[0]
     #expect(snapshot.cursorColumn == 6)

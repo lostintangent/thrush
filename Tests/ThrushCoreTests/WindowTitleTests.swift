@@ -8,11 +8,11 @@ import ThrushFixtures
         for step in example.steps {
             for split in 0...step.bytes.count {
                 var fragmented = terminal
-                _ = fragmented.receive(step.bytes.prefix(split))
-                _ = fragmented.receive(step.bytes.dropFirst(split))
+                _ = fragmented.write(step.bytes.prefix(split))
+                _ = fragmented.write(step.bytes.dropFirst(split))
                 #expect(fragmented.title == step.title, "\(example.name), byte split \(split)")
             }
-            _ = terminal.receive(step.bytes)
+            _ = terminal.write(step.bytes)
             #expect(terminal.title == step.title, "\(example.name)")
         }
     }
@@ -38,7 +38,7 @@ func titlesInCompleteCodexRecording(chunkLimit: Int) throws {
         var bytes = event.bytes[...]
         while !bytes.isEmpty {
             let chunk = bytes.prefix(chunkLimit)
-            _ = terminal.receive(chunk)
+            _ = terminal.write(chunk)
             bytes = bytes.dropFirst(chunk.count)
         }
         if let checkpoint = next, checkpoint.eventIndex == index {
@@ -53,32 +53,32 @@ func titlesInCompleteCodexRecording(chunkLimit: Int) throws {
 
 @Test func titleRunHonorsTheUTF16LimitAcrossChunks() {
     var pending = Terminal(size: .init(columns: 16, rows: 4))
-    _ = pending.receive("\u{1B}]2;previous\u{07}\u{1B}]2;".utf8)
-    _ = pending.receive([UInt8](repeating: 0x61, count: 9_999_997))
+    _ = pending.write("\u{1B}]2;previous\u{07}\u{1B}]2;".utf8)
+    _ = pending.write([UInt8](repeating: 0x61, count: 9_999_997))
     let smile = Array("🙂".utf8)
-    _ = pending.receive(smile.prefix(2))
-    _ = pending.receive(smile.suffix(2))
+    _ = pending.write(smile.prefix(2))
+    _ = pending.write(smile.suffix(2))
     #expect(pending.title == "previous")
 
     var exact = pending
-    _ = exact.receive("z\u{07}".utf8)
+    _ = exact.write("z\u{07}".utf8)
     #expect(exact.title.utf16.count == 10_000_000)
     #expect(exact.title.hasSuffix("a🙂z"))
 
-    _ = pending.receive("zz\u{07}".utf8)
+    _ = pending.write("zz\u{07}".utf8)
     #expect(pending.title == "previous")
-    _ = pending.receive("\u{1B}]0;\u{1B}\\".utf8)
+    _ = pending.write("\u{1B}]0;\u{1B}\\".utf8)
     #expect(pending.title.isEmpty)
 }
 
 @Test func printableBytesAfterIncompleteUTF8InATitleResumeAtTheSameByte() {
     var terminal = Terminal(size: .init(columns: 16, rows: 4))
-    _ = terminal.receive(Array("\u{1B}]2;one ".utf8) + [0xf0, 0x9f])
-    _ = terminal.receive("two\u{07}screen".utf8)
+    _ = terminal.write(Array("\u{1B}]2;one ".utf8) + [0xf0, 0x9f])
+    _ = terminal.write("two\u{07}screen".utf8)
     #expect(terminal.title == "one two")
     #expect(terminal.text(inRow: 0) == "screen")
 
-    _ = terminal.receive("\u{1B}]2;discard this payload\u{18}!".utf8)
+    _ = terminal.write("\u{1B}]2;discard this payload\u{18}!".utf8)
     #expect(terminal.title == "one two")
     #expect(terminal.text(inRow: 0) == "screen!")
 }

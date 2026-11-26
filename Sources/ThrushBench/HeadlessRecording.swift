@@ -27,7 +27,7 @@ struct HeadlessRecording: Encodable {
     let replyBytes: Int
     let encodedInputBytes: Int
     let receiveMiBPerSecond: Double
-    let receiveSamples = ReceiveRate.samples
+    let receiveSamples = WriteRate.samples
     let receiveReplaysPerSample: Int
     let chunkTime: Timing
     let fixturePeakBytesInOneSecond: Int
@@ -79,8 +79,8 @@ struct HeadlessRecording: Encodable {
         }
         let applied = runs.reduce(0) { $0 + $1.appliedBytes }
         let paletteTimes = runs.flatMap(\.paletteChangeTimes)
-        let receive = ReceiveRate(size: .init(columns: fixture.columns, rows: fixture.rows), spans: spans(of: fixture))
-        let rate = receive.mebibytesPerSecond
+        let throughput = WriteRate(size: .init(columns: fixture.columns, rows: fixture.rows), spans: spans(of: fixture))
+        let rate = throughput.mebibytesPerSecond
         let peak = peakBytesInOneSecond(fixture.events.map { ($0.offsetMicroseconds, $0.bytes.count) })
         let multiple = rate * 1_048_576 / Double(peak)
         return HeadlessRecording(
@@ -91,7 +91,7 @@ struct HeadlessRecording: Encodable {
             receivedBytes: runs.reduce(0) { $0 + $1.receivedBytes }, appliedBytes: applied,
             replyBytes: runs.reduce(0) { $0 + $1.replyBytes },
             encodedInputBytes: runs.reduce(0) { $0 + $1.encodedInputBytes },
-            receiveMiBPerSecond: rate, receiveReplaysPerSample: receive.replaysPerSample,
+            receiveMiBPerSecond: rate, receiveReplaysPerSample: throughput.replaysPerSample,
             chunkTime: Timing(samples), fixturePeakBytesInOneSecond: peak,
             fixturePeakMultiple: multiple, meetsTwiceRecordedPeak: multiple >= 2,
             maximumQueuedBytes: runs.map(\.maximumQueuedBytes).max()!,
@@ -165,7 +165,7 @@ struct HeadlessRecording: Encodable {
                 if !item.range.isEmpty {
                     let bytes = event.bytes[item.range]
                     let start = DispatchTime.now().uptimeNanoseconds
-                    let response = terminal.receive(bytes)
+                    let response = terminal.write(bytes)
                     result.chunks.append(DispatchTime.now().uptimeNanoseconds - start)
                     reply += response
                     pending -= bytes.count
@@ -204,8 +204,8 @@ struct HeadlessRecording: Encodable {
     }
 
     /// The queue's chunks, split wherever a session restart, palette change or resize changes the terminal.
-    private static func spans(of fixture: Recording) -> [ReceiveRate.Span] {
-        var spans = [ReceiveRate.Span()]
+    private static func spans(of fixture: Recording) -> [WriteRate.Span] {
+        var spans = [WriteRate.Span()]
         var queue = BurstQueue()
         while queue.fill(from: fixture.events) {
             for item in queue.items {

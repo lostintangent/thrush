@@ -31,16 +31,16 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
     #expect(!terminal.snapshot().programTakesScrolling)
     #expect(scroll(.wheelUp) == "")
 
-    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    _ = terminal.write("\u{1b}[?1049h".utf8)
     #expect(terminal.snapshot().programTakesScrolling)
     #expect(scroll(.wheelUp) == "\u{1b}[A")
     #expect(scroll(.wheelDown, [.control, .alt]) == "\u{1b}[B")
     #expect(scroll(.left) == "")
-    _ = terminal.receive("\u{1b}[?1h".utf8)
+    _ = terminal.write("\u{1b}[?1h".utf8)
     #expect(scroll(.wheelUp, .control) == "\u{1b}OA")
     #expect(scroll(.wheelDown) == "\u{1b}OB")
 
-    _ = terminal.receive("\u{1b}[?1049l\u{1b}[?1000;1006h".utf8)
+    _ = terminal.write("\u{1b}[?1049l\u{1b}[?1000;1006h".utf8)
     #expect(terminal.snapshot().programTakesScrolling)
     #expect(scroll(.wheelUp) == "")
     #expect(scroll(.wheelUp, row: 1, column: 2) == "\u{1b}[<64;3;2M")
@@ -60,7 +60,7 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
             == ["\u{1b}[2~", "\u{1b}[2~", "", ""])
 
     // Disambiguation keeps F3 from reading as a cursor position report and reports every modifier.
-    _ = terminal.receive(Array("\u{1b}[>1u".utf8))
+    _ = terminal.write(Array("\u{1b}[>1u".utf8))
     #expect((1...12).map { send(.function($0)) } == ["\u{1b}[P", "\u{1b}[Q", "\u{1b}[13~", "\u{1b}[S"] + numbered)
     #expect([send(.function(1), .control), send(.function(3), .shift), send(.function(12), .alt)]
             == ["\u{1b}[1;5P", "\u{1b}[13;2~", "\u{1b}[24;3~"])
@@ -81,12 +81,12 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
         (.character("A"), .shift), (.character("é"), .control), (.up, []),
     ]
     // Option is Meta, as in the reference keyboard evaluator with Option as Meta.
-    _ = terminal.receive(Array("\u{1b}[?1h".utf8))
+    _ = terminal.write(Array("\u{1b}[?1h".utf8))
     #expect(chords.map { send($0, $1) } == [
         "\r", "\r", "\u{1b}\r", "\t", "\u{1b}[Z", "\u{7f}", "\u{8}", "\u{1b}", "\u{1b}\u{1b}", "\t",
         "", "\u{1b}b", "\u{1b}\u{1}", "A", "", "\u{1b}OA",
     ])
-    _ = terminal.receive(Array("\u{1b}[>1u".utf8))
+    _ = terminal.write(Array("\u{1b}[>1u".utf8))
     #expect(chords.map { send($0, $1) } == [
         "\r", "\u{1b}[13;2u", "\u{1b}[13;3u", "\t", "\u{1b}[9;2u", "\u{7f}", "\u{1b}[127;5u",
         "\u{1b}[27u", "\u{1b}[27;3u", "\u{1b}[105;5u", "\u{1b}[97;6u", "\u{1b}[98;3u", "\u{1b}[97;7u", "A",
@@ -94,11 +94,11 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
     ])
 
     // Alternate keys add the shifted key to chords that hold Shift, and alone they report only those.
-    _ = terminal.receive(Array("\u{1b}[=5u".utf8))
+    _ = terminal.write(Array("\u{1b}[=5u".utf8))
     #expect([send(.character("A"), [.control, .shift]), send(.character("a"), [.control, .shift]),
              send(.character("A"), .shift)]
             == ["\u{1b}[97:65;6u", "\u{1b}[97:65;6u", "A"])
-    _ = terminal.receive(Array("\u{1b}[=1;3u".utf8))
+    _ = terminal.write(Array("\u{1b}[=1;3u".utf8))
     #expect([send(.character("A"), [.control, .shift]), send(.character("c"), .control), send(.enter, .shift)]
             == ["\u{1b}[97:65;6u", "\u{3}", "\r"])
 }
@@ -108,7 +108,7 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
 @Test func kittyFlagsFollowEachScreensStack() {
     var terminal = Terminal(size: .init(columns: 10, rows: 4))
     func reply(_ text: String) -> String {
-        String(decoding: terminal.receive(Array(text.utf8)), as: UTF8.self)
+        String(decoding: terminal.write(Array(text.utf8)), as: UTF8.self)
     }
     let query = "\u{1b}[?u"
     #expect(reply(query) == "\u{1b}[?0u")
@@ -124,7 +124,7 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
     let pushes = (1...9).map { "\u{1b}[>\($0 % 2 == 0 ? 4 : 1)u" }.joined()
     #expect(reply(pushes + "\u{1b}[<7u" + query + "\u{1b}[<u" + query) == "\u{1b}[?4u\u{1b}[?0u")
 
-    _ = terminal.receive(Array("\u{1b}[>1u\u{1b}[?1049l".utf8))
+    _ = terminal.write(Array("\u{1b}[>1u\u{1b}[?1049l".utf8))
     #expect(reply("\u{1b}[!p" + query + "\u{1b}[?1049h" + query) == "\u{1b}[?0u\u{1b}[?0u")
     #expect(reply("\u{1b}[>1u\u{1b}c" + query) == "\u{1b}[?0u")
     #expect(reply("\u{1b}[u") == "")

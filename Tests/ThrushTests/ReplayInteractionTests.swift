@@ -13,7 +13,7 @@ import UIKit
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var shell = Terminal(size: .init(columns: 28, rows: 4))
-    _ = shell.receive("\u{1b}[?1000h% git".utf8)
+    _ = shell.write("\u{1b}[?1000h% git".utf8)
     view.display(shell)
     #expect(view.isPointerReporting)
     let cursor = view.cursorRect
@@ -27,7 +27,7 @@ import UIKit
     #expect(view.snapshot?.cursorVisible == true)
     #expect(!view.isPointerReporting)
 
-    _ = shell.receive("\u{1b}[?25l".utf8)
+    _ = shell.write("\u{1b}[?25l".utf8)
     view.replaceDisplayedSnapshot(shell.snapshot(), receivedAt: nil)
     view.setInputAvailability(.live, dismissKeyboard: false)
     #expect(view.snapshot?.cursorVisible == false)
@@ -41,9 +41,9 @@ import UIKit
     defer { withExtendedLifetime(window) {} }
     let grid = Terminal.Size(columns: 28, rows: 4)
     var before = Terminal(size: grid)
-    _ = before.receive("old prompt$ ".utf8)
+    _ = before.write("old prompt$ ".utf8)
     var restored = Terminal(size: grid)
-    _ = restored.receive("replayed line\r\nnew$ ".utf8)
+    _ = restored.write("replayed line\r\nnew$ ".utf8)
     view.display(before)
     var writes: [[UInt8]] = []
     view.onInput = { writes.append(restored.encode($0)) }
@@ -93,10 +93,10 @@ import UIKit
     defer { withExtendedLifetime(window) {} }
     let grid = Terminal.Size(columns: 20, rows: 6)
     var before = Terminal(size: grid)
-    _ = before.receive("A\r\nx\r\nB\r\nA\r\nx\r\nB".utf8)
+    _ = before.write("A\r\nx\r\nB\r\nA\r\nx\r\nB".utf8)
     view.display(before)
     var replay = Terminal(size: grid)
-    _ = replay.receive("A\r\nx\r\nB\r\nlive".utf8)
+    _ = replay.write("A\r\nx\r\nB\r\nlive".utf8)
     #if os(macOS)
     let input = try #require(view.subviews.compactMap { $0 as? MacTerminalInput }.first)
     let copy = NSMenuItem(title: "Copy", action: #selector(MacTerminalInput.copy(_:)), keyEquivalent: "c")

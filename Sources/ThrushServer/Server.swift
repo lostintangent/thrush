@@ -37,7 +37,7 @@ private final class Shell: @unchecked Sendable {
     }
 
     func output(_ bytes: Data) {
-        let replies = terminal.receive(Span(viewing: bytes.bytes))
+        let replies = terminal.write(Span(viewing: bytes.bytes))
         if let attachment, !attachment.closing, !behind, attachment.pendingFrames < 256, attachment.queuedLiveBytes + bytes.count <= 1_048_576 {
             attachment.send(.binary, bytes, live: true)
         } else {

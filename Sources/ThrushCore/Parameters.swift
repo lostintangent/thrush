@@ -48,7 +48,7 @@ struct Parameters: Sendable, CustomStringConvertible {
         body(storage.span.extracting(0..<length))
     }
 
-    /// Lends the header from the chunk it arrived in, when it was lent, and only receive's SGR reads it.
+    /// Lends the header from the chunk it arrived in, when it was lent, and only write's SGR reads it.
     @inline(__always)
     mutating func withBytes<Result>(in chunk: Span<UInt8>, _ body: (Span<UInt8>) -> Result) -> Result {
         if let lent { return body(chunk.extracting(lent)) }

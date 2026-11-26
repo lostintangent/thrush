@@ -11,6 +11,6 @@ import ThrushCore
 func recordedYanksReachTheApp(_ name: String, _ text: String) throws {
     let recording = try #require(bundledCases.first { $0.name == name })
     var terminal = Terminal(size: Terminal.Size(columns: recording.size[0], rows: recording.size[1]))
-    _ = terminal.receive(recording.input)
+    _ = terminal.write(recording.input)
     #expect(terminal.copiedText.take() == text)
 }

@@ -37,7 +37,7 @@ import UIKit
     #expect(spinner.accessibilityLabel == "Reconnecting")
     #endif
     var terminal = Terminal(size: size)
-    _ = terminal.receive("keep this selection\u{1b}[\(size.rows);\(size.columns)H".utf8)
+    _ = terminal.write("keep this selection\u{1b}[\(size.rows);\(size.columns)H".utf8)
     view.display(terminal)
     view.selectWord(row: 0, column: 0)
     let last = try #require(view.cellFrameInWindow(row: size.rows - 1, column: size.columns - 1))
@@ -50,7 +50,7 @@ import UIKit
     #else
     #expect(spinner.isAnimating)
     #endif
-    _ = terminal.receive("\u{1b}[?25l".utf8)
+    _ = terminal.write("\u{1b}[?25l".utf8)
     view.display(terminal)
     #expect(view.cursorSpinnerFrameInWindow == opening)
     view.setWaiting(nil)
@@ -77,14 +77,14 @@ import UIKit
     }
     try expectInk(0xfd, 0x9a, 0x01)
     var terminal = Terminal(size: try #require(view.gridSize))
-    _ = terminal.receive("\u{1b}]12;#93cba2\u{7}".utf8)
+    _ = terminal.write("\u{1b}]12;#93cba2\u{7}".utf8)
     view.display(terminal)
     try expectInk(0x93, 0xcb, 0xa2)
     // The program paints a light cell in precisely its cursor color.
-    _ = terminal.receive("\u{1b}[48;2;147;203;162m \r".utf8)
+    _ = terminal.write("\u{1b}[48;2;147;203;162m \r".utf8)
     view.display(terminal)
     try expectInk(0, 0, 0)
-    _ = terminal.receive("\u{1b}[0m\u{1b}[2J\u{1b}]12;#131d27\u{7}".utf8)
+    _ = terminal.write("\u{1b}[0m\u{1b}[2J\u{1b}]12;#131d27\u{7}".utf8)
     view.display(terminal)
     try expectInk(255, 255, 255)
 }
@@ -97,7 +97,7 @@ import UIKit
     let input = try #require(view.subviews.compactMap { $0 as? MacTerminalInput }.first)
     let size = try #require(view.gridSize)
     var terminal = Terminal(size: size)
-    _ = terminal.receive("one two\u{1b}[?1000h\u{1b}[?1006h".utf8)
+    _ = terminal.write("one two\u{1b}[?1000h\u{1b}[?1006h".utf8)
     view.display(terminal)
     view.setInputAvailability(.holdingKeys, dismissKeyboard: false)
     var reclaims = 0
@@ -145,7 +145,7 @@ import UIKit
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var terminal = Terminal(size: try #require(view.gridSize))
-    _ = terminal.receive("still here".utf8)
+    _ = terminal.write("still here".utf8)
     view.display(terminal)
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     func line() -> UIAccessibilityElement? {

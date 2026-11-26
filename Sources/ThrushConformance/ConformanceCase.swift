@@ -41,7 +41,7 @@ struct ConformanceCase: Decodable, Sendable {
         for step in steps {
             switch step {
             case .write(let bytes):
-                replies += terminal.receive(bytes)
+                replies += terminal.write(bytes)
             case .resize(let size):
                 terminal.resize(to: size)
             case .focus(let focused):

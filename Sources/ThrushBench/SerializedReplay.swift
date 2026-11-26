@@ -14,7 +14,7 @@ func serializeCheckpoints(arguments: [String]) throws {
         event.applyReady(to: &terminal)
         if let size = event.resize { terminal.resize(to: .init(columns: size.columns, rows: size.rows)) }
         if let palette = event.palette { terminal.palette = palette }
-        _ = terminal.receive(event.bytes)
+        _ = terminal.write(event.bytes)
         guard event.checkpoint != nil else { continue }
         let before = DispatchTime.now().uptimeNanoseconds
         let bytes = terminal.replayBytes()
@@ -22,7 +22,7 @@ func serializeCheckpoints(arguments: [String]) throws {
         var fresh = Terminal(size: terminal.size, palette: terminal.palette)
         // A restored focus mode answers with the new host's focus, which starts out.
         let focus = terminal.modes.sendFocus ? Array("\u{1b}[O".utf8) : []
-        guard fresh.receive(bytes) == focus else { throw BenchmarkError("Replay produced an unexpected terminal reply at " + event.name) }
+        guard fresh.write(bytes) == focus else { throw BenchmarkError("Replay produced an unexpected terminal reply at " + event.name) }
         try event.verify(fresh.snapshot(), serialized: true)
         results.append(Sample(event: i, nanoseconds: elapsed, bytes: Data(bytes)))
     }

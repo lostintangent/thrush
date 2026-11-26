@@ -11,12 +11,12 @@ private func rowAfterRepeating(_ between: [UInt8]) -> [String] {
     var rows: [String] = []
     for split in 0...bytes.count {
         var terminal = Terminal(size: .init(columns: 10, rows: 2))
-        _ = terminal.receive(bytes[..<split])
-        _ = terminal.receive(bytes[split...])
+        _ = terminal.write(bytes[..<split])
+        _ = terminal.write(bytes[split...])
         rows.append(terminal.text(inRow: 0))
     }
     var terminal = Terminal(size: .init(columns: 10, rows: 2))
-    for byte in bytes { _ = terminal.receive(CollectionOfOne(byte)) }
+    for byte in bytes { _ = terminal.write(CollectionOfOne(byte)) }
     rows.append(terminal.text(inRow: 0))
     return rows
 }
@@ -63,7 +63,7 @@ func ignoredBytesKeepTheTextRun(_ between: String) {
 @Test func onlyPlainSGRChangesTheStyle() {
     for sequence in ["\u{1b}[>1m", "\u{1b}[1 m", "\u{1b}[1?m", "\u{9b}>1m"] {
         var terminal = Terminal(size: .init(columns: 4, rows: 1))
-        _ = terminal.receive(Array((sequence + "A\u{1b}[1mB").utf8))
+        _ = terminal.write(Array((sequence + "A\u{1b}[1mB").utf8))
         let row = terminal.snapshot().rows[0]
         #expect(!row[0].style.bold && row[1].style.bold, "\(sequence.debugDescription)")
     }

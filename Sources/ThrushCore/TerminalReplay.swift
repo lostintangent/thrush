@@ -1,9 +1,9 @@
-// Describe a screen in the same VT bytes a program would use to draw it. The receiver
+// Describe a screen in the same VT bytes a program would use to draw it. The client
 // starts with a blank terminal of the same size. This path runs only when a reader resumes.
 extension Terminal {
     package func replayBytes() -> [UInt8] {
         var writer = ReplayWriter(links: screen.links)
-        // A resumed receiver can keep the title and colors a program set through a reset, so the replay
+        // A resumed client can keep the title and colors a program set through a reset, so the replay
         // always sets the title and restores the theme's colors before setting this program's.
         writer.output += "\u{1b}]2;" + title + "\u{7}"
         writer.output += "\u{1b}]104\u{7}\u{1b}]110\u{7}\u{1b}]111\u{7}\u{1b}]112\u{7}"
@@ -12,7 +12,7 @@ extension Terminal {
                 if let color = programColors[slot] { writer.output += slot.setting(color, sixteenBit: false) + "\u{7}" }
             }
         }
-        // The receiver starts on the normal screen. Each screen's keyboard flags are pushed while it's active.
+        // The client starts on the normal screen. Each screen's keyboard flags are pushed while it's active.
         writer.push(modes.normalKeyboard)
         if let normal = screen.normalWhileAlternate {
             writer.draw(normal)
@@ -89,8 +89,8 @@ extension Terminal {
             let start = history.previousShellCount
             let count = history.currentShellCount
             let rows = buffer.visible
-            // Without history to scroll into place, the receiver's rows below the last with content and
-            // the saved cursor are already blank. Leaving them out keeps a shorter receiver from scrolling.
+            // Without history to scroll into place, the client's rows below the last with content and
+            // the saved cursor are already blank. Leaving them out keeps a shorter client from scrolling.
             var drawn = count + rows.count
             if count == 0 {
                 let last = rows.lastIndex { $0.isWrapped || $0.hasContent } ?? 0
@@ -221,7 +221,7 @@ extension Terminal {
             output += escape + "]8;" + (link?.id.map { "id=" + $0 } ?? "") + ";" + (link?.uri ?? "") + escape + "\\"
         }
 
-        /// Changes the rendition and keeps the open link. A receiver gives a link without an id a new
+        /// Changes the rendition and keeps the open link. A client gives a link without an id a new
         /// number each time it opens, so a link that wraps or passes the saved cursor stays one link.
         private mutating func setRendition(_ style: Style) {
             var style = style

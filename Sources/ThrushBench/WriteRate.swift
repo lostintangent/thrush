@@ -1,11 +1,11 @@
 import Dispatch
 import ThrushCore
 
-/// Receive throughput timed over spans far longer than the clock's 42 ns tick. Each sample
+/// Write throughput timed over spans far longer than the clock's 42 ns tick. Each sample
 /// replays a recording on enough fresh terminals to apply at least 8 KiB, one terminal at
 /// a time, so a recording of a few bytes is timed as accurately as a long one. The rate
 /// comes from the median sample.
-struct ReceiveRate {
+struct WriteRate {
     /// The output between two state changes, and the change applied before it.
     struct Span {
         var change: ((inout Terminal) -> Void)?
@@ -31,7 +31,7 @@ struct ReceiveRate {
                 }
                 let start = DispatchTime.now().uptimeNanoseconds
                 for index in terminals.indices {
-                    for chunk in span.chunks { _ = terminals[index].receive(chunk) }
+                    for chunk in span.chunks { _ = terminals[index].write(chunk) }
                 }
                 elapsed += DispatchTime.now().uptimeNanoseconds - start
             }

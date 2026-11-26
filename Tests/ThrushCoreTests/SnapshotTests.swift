@@ -6,13 +6,13 @@ import ThrushFixtures
     let fixture = try FirstBytesFixture.load()
     let prompt = try #require(fixture.events.first)
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
-    #expect(terminal.receive(prompt.bytes) == prompt.reply)
+    #expect(terminal.write(prompt.bytes) == prompt.reply)
     let previous = terminal.snapshot()
 
     for event in fixture.events.dropFirst() {
         // This single-pass sequence also exercises the carrier without contiguous storage.
         let bytes = sequence(state: event.bytes.makeIterator()) { $0.next() }
-        #expect(terminal.receive(bytes) == event.reply)
+        #expect(terminal.write(bytes) == event.reply)
     }
     let latest = terminal.snapshot()
     #expect(latest.generation != previous.generation)
@@ -31,9 +31,9 @@ import ThrushFixtures
 
 @Test func fullResetRedrawsEveryRowOnAFreshNormalScreen() {
     var terminal = Terminal(size: .init(columns: 4, rows: 2))
-    _ = terminal.receive("A\r\nB\r\nC\u{1b}[?1049h\u{1b}[?1000hALT".utf8)
+    _ = terminal.write("A\r\nB\r\nC\u{1b}[?1049h\u{1b}[?1000hALT".utf8)
     let before = terminal.snapshot()
-    _ = terminal.receive("\u{1b}c".utf8)
+    _ = terminal.write("\u{1b}c".utf8)
     let reset = terminal.snapshot()
     #expect(!reset.isAlternate)
     #expect(reset.history.isEmpty)
@@ -48,7 +48,7 @@ import ThrushFixtures
     let size = Terminal.Size(columns: 2, rows: 3)
     var terminal = Terminal(size: size)
     terminal.resize(to: .init(columns: 2, rows: 2))
-    _ = terminal.receive("\u{1b}[?1049hA\r\nB\r\nC\u{1b}[H".utf8)
+    _ = terminal.write("\u{1b}[?1049hA\r\nB\r\nC\u{1b}[H".utf8)
     let beforeGrow = terminal.snapshot()
     #expect(beforeGrow.history.map(\.text) == ["A"])
     #expect(beforeGrow.rows.map(\.text) == ["B", "C"])
@@ -69,7 +69,7 @@ import ThrushFixtures
         #expect(missing[column] == Terminal.Cell(text: "", width: 1, style: .init()))
     }
 
-    _ = terminal.receive("\u{1b}[2J".utf8)
+    _ = terminal.write("\u{1b}[2J".utf8)
     let erased = terminal.snapshot()
     #expect(erased.history.map(\.text) == ["B"])
     #expect(erased.rows.map(\.text) == ["", "", ""])
@@ -82,7 +82,7 @@ import ThrushFixtures
 
 @Test func switchingPaletteReusesStyledCellsAndPreservesPreviousFrame() {
     var terminal = Terminal(size: .init(columns: 4, rows: 2))
-    _ = terminal.receive("A\u{1b}[31mB\u{1b}[38;2;12;34;56mC".utf8)
+    _ = terminal.write("A\u{1b}[31mB\u{1b}[38;2;12;34;56mC".utf8)
     let previous = terminal.snapshot()
     let original = previous.palette
     var ansi = original.ansi
@@ -110,18 +110,18 @@ import ThrushFixtures
     let limit = Terminal.History.limit
     // The oldest line ends in a combining mark, so its row carries a cluster in its second column.
     let lines = ["ae\u{301}"] + (1...(limit + 1)).map(String.init)
-    _ = terminal.receive(lines.joined(separator: "\r\n").utf8)
+    _ = terminal.write(lines.joined(separator: "\r\n").utf8)
     let full = terminal.snapshot()
 
     // A line feed evicts the oldest history row and reuses it as the new bottom row.
-    _ = terminal.receive("\r\nX".utf8)
+    _ = terminal.write("\r\nX".utf8)
     let recycled = terminal.snapshot()
     #expect(recycled.history.first?.text == "1")
     #expect(recycled.rows.map(\.text) == ["\(limit + 1)", "X"])
     #expect(recycled.rows[1][1] == Terminal.Cell(text: "", width: 1, style: .init()))
     #expect(recycled.rows[1].generation != full.rows[1].generation)
 
-    _ = terminal.receive("\u{1b}[41m\u{1b}[2J".utf8)
+    _ = terminal.write("\u{1b}[41m\u{1b}[2J".utf8)
     let erased = terminal.snapshot()
     #expect(erased.rows.map(\.text) == ["", ""])
     #expect(erased.rows.allSatisfy { row in (0..<4).allSatisfy { row[$0].style.background == .indexed(1) } })
@@ -134,11 +134,11 @@ import ThrushFixtures
 @Test func scrollRegionsReuseRowsAndLeaveEarlierSnapshotsIntact() {
     var terminal = Terminal(size: .init(columns: 3, rows: 4))
     // Rows two through four scroll. The second row's combined glyph is a cluster that must not outlive its line.
-    _ = terminal.receive("top\r\ne\u{301}\r\nb\r\nc\u{1b}[2;4r".utf8)
+    _ = terminal.write("top\r\ne\u{301}\r\nb\r\nc\u{1b}[2;4r".utf8)
     let full = terminal.snapshot()
 
     // A line feed at the bottom margin rotates the second row down to the bottom, cleared.
-    _ = terminal.receive("\u{1b}[4;1H\u{1b}[41m\n".utf8)
+    _ = terminal.write("\u{1b}[4;1H\u{1b}[41m\n".utf8)
     let scrolled = terminal.snapshot()
     #expect(scrolled.rows.map(\.text) == ["top", "b", "c", ""])
     var red = Terminal.Style()
@@ -148,7 +148,7 @@ import ThrushFixtures
     #expect(scrolled.rows[3].generation != full.rows[1].generation)
 
     // A reverse index at the top margin rotates the red bottom row up, cleared in the default style.
-    _ = terminal.receive("\u{1b}[2;1HM\u{1b}[2;1H\u{1b}[0m\u{1b}M".utf8)
+    _ = terminal.write("\u{1b}[2;1HM\u{1b}[2;1H\u{1b}[0m\u{1b}M".utf8)
     let reversed = terminal.snapshot()
     #expect(reversed.rows.map(\.text) == ["top", "", "M", "c"])
     #expect((0..<3).allSatisfy { reversed.rows[1][$0] == Terminal.Cell(text: "", width: 1, style: .init()) })
@@ -160,14 +160,14 @@ import ThrushFixtures
 @Test func scrollRegionsThatCrossTheEndOfTheRowRingKeepScreenOrder() {
     var terminal = Terminal(size: .init(columns: 3, rows: 5))
     // Three full-screen scrolls leave the second through fifth rows spanning the end of the row ring.
-    _ = terminal.receive("a\r\nb\r\nc\r\nd\r\ne\r\nf\r\ng\r\nh\u{1b}[2;5r".utf8)
+    _ = terminal.write("a\r\nb\r\nc\r\nd\r\ne\r\nf\r\ng\r\nh\u{1b}[2;5r".utf8)
     let full = terminal.snapshot()
 
-    _ = terminal.receive("\u{1b}[3T".utf8)
+    _ = terminal.write("\u{1b}[3T".utf8)
     #expect(terminal.snapshot().rows.map(\.text) == ["d", "", "", "", "e"])
-    _ = terminal.receive("\u{1b}[5;1H\ni".utf8)
+    _ = terminal.write("\u{1b}[5;1H\ni".utf8)
     #expect(terminal.snapshot().rows.map(\.text) == ["d", "", "", "e", "i"])
-    _ = terminal.receive("\u{1b}[2;1H\u{1b}[3M".utf8)
+    _ = terminal.write("\u{1b}[2;1H\u{1b}[3M".utf8)
     #expect(terminal.snapshot().rows.map(\.text) == ["d", "i", "", "", ""])
     #expect(full.rows.map(\.text) == ["d", "e", "f", "g", "h"])
 }
@@ -175,7 +175,7 @@ import ThrushFixtures
 @Test func columnShiftsGiveEachRowItsOwnGeneration() {
     // A renderer caches each row's drawing by its generation, so rows with different cells need different ones.
     var terminal = Terminal(size: .init(columns: 6, rows: 3))
-    _ = terminal.receive("abc\r\ndef\u{1b}[H\u{1b}['}".utf8)
+    _ = terminal.write("abc\r\ndef\u{1b}[H\u{1b}['}".utf8)
     let rows = terminal.snapshot().rows
     #expect(rows.map(\.text) == [" abc", " def", ""])
     #expect(rows[0].generation != rows[1].generation)
@@ -188,20 +188,20 @@ import ThrushFixtures
     #expect(visible.synchronizedOutputID == nil)
 
     // The terminal advances the grid and returns CPR while synchronized output is active.
-    #expect(terminal.receive((start + "A\u{1b}[6n").utf8) == Array("\u{1b}[1;2R".utf8))
+    #expect(terminal.write((start + "A\u{1b}[6n").utf8) == Array("\u{1b}[1;2R".utf8))
     let first = terminal.snapshot()
     let batch = try #require(first.synchronizedOutputID)
-    _ = terminal.receive("B".utf8)
+    _ = terminal.write("B".utf8)
     #expect(terminal.snapshot().synchronizedOutputID == batch)
     #expect(terminal.text(inRow: 0) == "AB")
     #expect(visible.rows[0].text.isEmpty)
     #expect(first.rows[0].text == "A")
 
     // A repeat begin is a new token for a presenter whose previous hold may already have timed out.
-    _ = terminal.receive((start + "C").utf8)
+    _ = terminal.write((start + "C").utf8)
     let repeated = try #require(terminal.snapshot().synchronizedOutputID)
     #expect(repeated != batch)
-    _ = terminal.receive(end.utf8)
+    _ = terminal.write(end.utf8)
     let released = terminal.snapshot()
     #expect(released.synchronizedOutputID == nil)
     #expect(released.rows[0].text == "ABC")
@@ -219,7 +219,7 @@ import ThrushFixtures
     }
     func write(_ index: Int, at column: Int) {
         let strike = index.isMultiple(of: 2) ? 9 : 29
-        _ = terminal.receive("\u{1b}[1;\(column)H\u{1b}[1;\(strike);38;2;\(index);255;0;48;5;\(255 - index)mX".utf8)
+        _ = terminal.write("\u{1b}[1;\(column)H\u{1b}[1;\(strike);38;2;\(index);255;0;48;5;\(255 - index)mX".utf8)
     }
     // The last three columns take a new style on every write, so the row's list fills and is
     // compacted several times while the first column keeps one style from the middle of the list.
@@ -235,7 +235,7 @@ import ThrushFixtures
 @Test func reflowCarriesEachCellsStyleIntoItsNewRow() {
     var terminal = Terminal(size: .init(columns: 4, rows: 3))
     // The cursor moves below the line, so the line reflows rather than waiting for a repaint.
-    _ = terminal.receive(((1...5).map { "\u{1b}[3\($0)m\(Character(Unicode.Scalar(64 + $0)!))" }.joined() + "\r\n").utf8)
+    _ = terminal.write(((1...5).map { "\u{1b}[3\($0)m\(Character(Unicode.Scalar(64 + $0)!))" }.joined() + "\r\n").utf8)
     func colors() -> [[Terminal.Color]] {
         let snapshot = terminal.snapshot()
         return (snapshot.history + snapshot.rows).map { row in
@@ -251,7 +251,7 @@ import ThrushFixtures
 @Test func narrowingALongWrappedLineKeepsItsTailInHistory() {
     var terminal = Terminal(size: .init(columns: 48, rows: 2))
     let glyphs = (0..<2048).map { String(Unicode.Scalar(0x4e00 + $0)!) }
-    _ = terminal.receive((glyphs.joined() + "\r\n").utf8)
+    _ = terminal.write((glyphs.joined() + "\r\n").utf8)
     terminal.resize(to: .init(columns: 2, rows: 2))
 
     // Each glyph fills one row. The last glyph and the following blank fill the viewport.
@@ -263,7 +263,7 @@ import ThrushFixtures
 
 @Test func extendedViewportHoldsTheRowsATallerGridBringsIntoView() {
     var terminal = Terminal(size: .init(columns: 8, rows: 3))
-    _ = terminal.receive("one\r\ntwo\r\nthree\r\nfour\r\n$ ".utf8)
+    _ = terminal.write("one\r\ntwo\r\nthree\r\nfour\r\n$ ".utf8)
     let held = terminal.snapshot()
     terminal.resize(to: .init(columns: 8, rows: 5))
     let taller = terminal.snapshot()

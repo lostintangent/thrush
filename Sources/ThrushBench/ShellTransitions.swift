@@ -37,7 +37,7 @@ struct ShellTransitions: Encodable {
 
         for pass in 0...measured {
             var terminal = Terminal(size: grid.size)
-            guard terminal.receive(oldOutput).isEmpty, terminal.snapshot().history.count == 992 else {
+            guard terminal.write(oldOutput).isEmpty, terminal.snapshot().history.count == 992 else {
                 throw BenchmarkError("Previous shell requires 992 history rows and 24 occupied screen rows.")
             }
 
@@ -46,7 +46,7 @@ struct ShellTransitions: Encodable {
             let startTime = DispatchTime.now().uptimeNanoseconds - start
             try verifyFreshShell(&terminal, history: retained, prompt: prompt)
 
-            guard terminal.receive(currentOutput).isEmpty,
+            guard terminal.write(currentOutput).isEmpty,
                   terminal.snapshot().history.lazy.map(\.text).elementsEqual(mixedHistory) else {
                 throw BenchmarkError("Expected 992 archived rows followed by eight current-shell rows before replay.")
             }
@@ -76,7 +76,7 @@ struct ShellTransitions: Encodable {
               !fresh.modes.bracketedPaste, fresh.rows.allSatisfy({ $0.text.isEmpty }) else {
             throw BenchmarkError("Shell transition did not restore a fresh screen, cursor and input modes.")
         }
-        guard terminal.receive(prompt.bytes) == prompt.reply else { throw BenchmarkError("Unexpected shell prompt reply.") }
+        guard terminal.write(prompt.bytes) == prompt.reply else { throw BenchmarkError("Unexpected shell prompt reply.") }
         let drawn = terminal.snapshot()
         guard drawn.rows[0].text == promptText, drawn.rows.dropFirst().allSatisfy({ $0.text.isEmpty }),
               drawn.cursorRow == 0, drawn.cursorColumn == promptText.utf8.count, drawn.modes.bracketedPaste, drawn.history.count == history.count else {

@@ -42,7 +42,7 @@ enum SynchronizedRenderCheck {
             let bytes = Array(text.utf8)
             hash.update(data: bytes)
             let receipt = CACurrentMediaTime()
-            _ = terminal.receive(bytes)
+            _ = terminal.write(bytes)
             let snapshot = terminal.snapshot()
             view.display(snapshot, receivedAt: receipt)
             return Update(generation: snapshot.generation, receipt: receipt)

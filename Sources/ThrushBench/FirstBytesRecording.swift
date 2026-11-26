@@ -27,7 +27,7 @@ struct FirstBytesRecording: Encodable {
     let replyBytes: Int
     let keyBytes: Int
     let receiveMiBPerSecond: Double
-    let receiveSamples = ReceiveRate.samples
+    let receiveSamples = WriteRate.samples
     let receiveReplaysPerSample: Int
     let fixturePeakBytesInOneSecond: Int
     let maximumBurstQueuedBytes: Int
@@ -47,7 +47,7 @@ struct FirstBytesRecording: Encodable {
         let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         let bytesPerReplay = events.reduce(0) { $0 + $1.bytes.count }
         let expectedOutbound = events.flatMap { $0.reply + ($0.up ?? []) }
-        var receiveSamples = Array(repeating: [UInt64](), count: events.count)
+        var writeSamples = Array(repeating: [UInt64](), count: events.count)
         var keySamples = Array(repeating: [UInt64](), count: events.count)
         var rowSamples = [UInt64]()
         var querySamples = [UInt64]()
@@ -61,13 +61,13 @@ struct FirstBytesRecording: Encodable {
             for (index, event) in events.enumerated() {
                 if record { received += event.bytes.count }
                 let start = DispatchTime.now().uptimeNanoseconds
-                let reply = terminal.receive(event.bytes)
-                let receiveTime = DispatchTime.now().uptimeNanoseconds - start
+                let reply = terminal.write(event.bytes)
+                let writeTime = DispatchTime.now().uptimeNanoseconds - start
                 guard reply == event.reply else { throw BenchmarkError("Reply mismatch at \(event.name).") }
                 if record {
                     applied += event.bytes.count
                     replies += reply.count
-                    receiveSamples[index].append(receiveTime)
+                    writeSamples[index].append(writeTime)
                 }
                 if let expectedKey = event.up {
                     let start = DispatchTime.now().uptimeNanoseconds
@@ -86,9 +86,9 @@ struct FirstBytesRecording: Encodable {
                 if record { rowSamples.append(rowTime) }
                 if index == queryCheckpoint {
                     // The fixture's first query spans chunks. Repeat it at the same cursor
-                    // position to also measure a complete query in a single receive call.
+                    // position to also measure a complete query in a single write call.
                     let start = DispatchTime.now().uptimeNanoseconds
-                    let report = terminal.receive(cursorQuery)
+                    let report = terminal.write(cursorQuery)
                     let duration = DispatchTime.now().uptimeNanoseconds - start
                     guard report == event.reply else { throw BenchmarkError("Complete cursor query mismatch.") }
                     if record { querySamples.append(duration) }
@@ -103,7 +103,7 @@ struct FirstBytesRecording: Encodable {
             pendingBytes = bytesPerReplay
             let start = DispatchTime.now().uptimeNanoseconds
             for event in events {
-                outbound.append(contentsOf: burstTerminal.receive(event.bytes))
+                outbound.append(contentsOf: burstTerminal.write(event.bytes))
                 pendingBytes -= event.bytes.count
                 if event.up != nil {
                     outbound.append(contentsOf: burstTerminal.encode(.key(.up)))
@@ -120,7 +120,7 @@ struct FirstBytesRecording: Encodable {
         var operations = [Operation]()
         for (index, event) in events.enumerated() {
             operations.append(Operation(name: event.name, bytesPerCall: event.bytes.count,
-                                        timing: Timing(receiveSamples[index])))
+                                        timing: Timing(writeSamples[index])))
             if let key = event.up {
                 operations.append(Operation(name: "Up after \(event.name)", bytesPerCall: key.count,
                                             timing: Timing(keySamples[index])))
@@ -129,11 +129,11 @@ struct FirstBytesRecording: Encodable {
         operations.append(Operation(name: "Read visible row", bytesPerCall: nil, timing: Timing(rowSamples)))
         operations.append(Operation(name: "Complete cursor query", bytesPerCall: cursorQuery.count,
                                     timing: Timing(querySamples)))
-        let receive = ReceiveRate(size: size, spans: [.init(chunks: events.map { $0.bytes[...] })])
+        let throughput = WriteRate(size: size, spans: [.init(chunks: events.map { $0.bytes[...] })])
         return FirstBytesRecording(
             warmupReplays: warmup, measuredReplays: measured,
             receivedBytes: received, appliedBytes: applied, replyBytes: replies, keyBytes: keys,
-            receiveMiBPerSecond: receive.mebibytesPerSecond, receiveReplaysPerSample: receive.replaysPerSample,
+            receiveMiBPerSecond: throughput.mebibytesPerSecond, receiveReplaysPerSample: throughput.replaysPerSample,
             fixturePeakBytesInOneSecond: peakBytesInOneSecond(events.map { ($0.offsetMicroseconds, $0.bytes.count) }),
             maximumBurstQueuedBytes: bytesPerReplay, queuedBytesAfterDrain: pendingBytes,
             burstDrain: Timing(drainSamples), operations: operations

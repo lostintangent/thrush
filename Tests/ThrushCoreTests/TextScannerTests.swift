@@ -30,8 +30,8 @@ func scannerStopsAtTheFirstNonPrintableByte(length: Int) {
     }
     var whole = Terminal(size: .init(columns: 12, rows: sequences.count * sequences.count + 37))
     var single = whole
-    _ = whole.receive(stream.span)
-    for byte in stream { _ = single.receive([byte].span) }
+    _ = whole.write(stream.span)
+    for byte in stream { _ = single.write([byte].span) }
 
     let cells = { (snapshot: Terminal.Snapshot) in
         snapshot.rows.map { row in (0..<12).map { "\(row[$0].text)/\(row[$0].width)" } }

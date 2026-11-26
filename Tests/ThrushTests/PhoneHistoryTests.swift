@@ -32,8 +32,8 @@ import UIKit
     defer { withExtendedLifetime(window) {} }
     view.layoutIfNeeded()
     var terminal = Terminal(size: .init(columns: 8, rows: 5))
-    _ = terminal.receive("Build comp".utf8)
-    _ = terminal.receive("lete.\r\nA翼🐦Z".utf8)
+    _ = terminal.write("Build comp".utf8)
+    _ = terminal.write("lete.\r\nA翼🐦Z".utf8)
     view.display(terminal)
 
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
@@ -60,7 +60,7 @@ import UIKit
     defer { withExtendedLifetime(window) {} }
     view.layoutIfNeeded()
     var terminal = Terminal(size: .init(columns: 12, rows: 3))
-    _ = terminal.receive("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
+    _ = terminal.write("pw \u{1B}[8ms🐦cret\u{1B}[28m!".utf8)
     view.display(terminal)
 
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
@@ -85,7 +85,7 @@ import UIKit
     let scroll = try #require(history.subviews.compactMap { $0 as? UIScrollView }.first)
     let latest = try #require(history.subviews.compactMap { $0 as? UIButton }.first)
     var terminal = Terminal(size: .init(columns: 24, rows: 3))
-    _ = terminal.receive((1...6).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
+    _ = terminal.write((1...6).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
     #expect(latest.isHidden)
     // UIKit adjusts contentOffset during layout even when nobody scrolled.
@@ -97,7 +97,7 @@ import UIKit
     #expect(!latest.isHidden)
     let first = view.snapshot?.rows.first?.text
     let readingOffset = scroll.contentOffset
-    _ = terminal.receive("\r\nRow 7".utf8)
+    _ = terminal.write("\r\nRow 7".utf8)
     view.display(terminal)
     #expect(view.snapshot?.rows.first?.text == first)
     #expect(scroll.contentOffset == readingOffset)
@@ -107,7 +107,7 @@ import UIKit
     #expect(latest.isHidden)
     #expect(view.snapshot?.rows.last?.text == "Row 7")
 
-    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    _ = terminal.write("\u{1b}[?1049h".utf8)
     view.display(terminal)
     // The page goes to the full-screen program, so history stays where it is.
     #expect(history.accessibilityScroll(.up))
@@ -126,7 +126,7 @@ import UIKit
     view.layoutIfNeeded()
     let size = try #require(view.gridSize)
     var terminal = Terminal(size: size)
-    _ = terminal.receive((1...(size.rows + 8)).map { "Compile unit \($0)" }.joined(separator: "\r\n").utf8)
+    _ = terminal.write((1...(size.rows + 8)).map { "Compile unit \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
     view.setHistoryOffset(2)
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
@@ -163,10 +163,10 @@ import UIKit
     defer { withExtendedLifetime(window) {} }
     let size = Terminal.Size(columns: 47, rows: 25)
     var terminal = Terminal(size: size)
-    _ = terminal.receive((1...8).map { "Old row \($0)" }.joined(separator: "\r\n").utf8)
+    _ = terminal.write((1...8).map { "Old row \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
     terminal.startNewShell(at: size)
-    _ = terminal.receive("new prompt\r\nfinal output\r\n".utf8)
+    _ = terminal.write("new prompt\r\nfinal output\r\n".utf8)
     view.replaceDisplayedSnapshot(terminal.snapshot(), receivedAt: nil, archivingMainScreen: true)
 
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
@@ -202,7 +202,7 @@ import UIKit
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     let scroll = try #require(history.subviews.compactMap { $0 as? UIScrollView }.first)
     var terminal = Terminal(size: .init(columns: 24, rows: 6))
-    _ = terminal.receive((1...12).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
+    _ = terminal.write((1...12).map { "Row \($0)" }.joined(separator: "\r\n").utf8)
     view.display(terminal)
     var sent: [String] = []
     view.onInput = { sent.append(String(decoding: terminal.encode($0), as: UTF8.self)) }
@@ -210,7 +210,7 @@ import UIKit
     let reading = (scroll.contentSize, scroll.contentOffset)
     #expect(reading.1.y == CGFloat(view.historyCount) * row && scroll.showsVerticalScrollIndicator)
 
-    _ = terminal.receive("\u{1b}[?1049h".utf8)
+    _ = terminal.write("\u{1b}[?1049h".utf8)
     view.display(terminal)
     let rest = scroll.contentOffset.y
     #expect(rest >= 100_000 && scroll.contentSize.height - scroll.bounds.height - rest >= 100_000)
@@ -222,7 +222,7 @@ import UIKit
     history.synchronize()
     #expect(scroll.contentOffset.y == rest)
 
-    _ = terminal.receive("\u{1b}[?1049l".utf8)
+    _ = terminal.write("\u{1b}[?1049l".utf8)
     view.display(terminal)
     #expect(scroll.contentSize == reading.0 && scroll.contentOffset == reading.1)
     #expect(scroll.showsVerticalScrollIndicator)
@@ -237,7 +237,7 @@ import UIKit
     view.layoutIfNeeded()
     let history = try #require(view.subviews.compactMap { $0 as? PhoneHistoryScrollView }.first)
     var terminal = Terminal(size: .init(columns: 24, rows: 6))
-    _ = terminal.receive("\u{1b}[?1049h\u{1b}[2;1Hpage one".utf8)
+    _ = terminal.write("\u{1b}[?1049h\u{1b}[2;1Hpage one".utf8)
     view.display(terminal)
     var sent: [String] = []
     var read: [String] = []
@@ -247,12 +247,12 @@ import UIKit
     #expect(history.accessibilityScroll(.down))
     #expect(sent == Array(repeating: "\u{1b}[B", count: 5))
     #expect(read.isEmpty)
-    _ = terminal.receive("\u{1b}[H\u{1b}[2Jpage two".utf8)
+    _ = terminal.write("\u{1b}[H\u{1b}[2Jpage two".utf8)
     view.display(terminal)
     #expect(read == ["page two"])
 
     sent = []
-    _ = terminal.receive("\u{1b}[?1000;1006h".utf8)
+    _ = terminal.write("\u{1b}[?1000;1006h".utf8)
     view.display(terminal)
     #expect(history.accessibilityScroll(.up))
     #expect(sent == Array(repeating: "\u{1b}[<64;13;4M", count: 5))

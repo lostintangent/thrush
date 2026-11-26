@@ -102,7 +102,7 @@ private let escape = "\u{1b}["
 func wideningADrawableRevealsTheRestOfACachedRow() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    _ = terminal.receive((escape + "?25lABCDEFGZ").utf8)
+    _ = terminal.write((escape + "?25lABCDEFGZ").utf8)
     let snapshot = terminal.snapshot()
     let narrow = try host.draw(snapshot, theme: .slateDark, width: 128)
     #expect(narrow.colors(in: 0..<1).contains(0xe3eaf0))
@@ -133,13 +133,13 @@ func dimInkMaintainsContrastOnCodexComposerBackgrounds() async throws {
     }
     for (theme, sgrBackground, background, foreground, expectedDim) in cases {
         var terminal = Terminal(size: .init(columns: 8, rows: 2))
-        _ = terminal.receive((escape + "?25l" + escape + "48;2;" + sgrBackground + "mH").utf8)
+        _ = terminal.write((escape + "?25l" + escape + "48;2;" + sgrBackground + "mH").utf8)
         let normal = try host.draw(terminal.snapshot(), theme: theme)
         // Locate a fully covered stem in the undimmed H, then sample the same pixel.
         let stem = try #require((Probe.top..<(Probe.top + Probe.height)).compactMap { y in
             (Probe.edges[0]..<Probe.edges[1]).first { normal[$0, y] == foreground }.map { ($0, y) }
         }.first)
-        _ = terminal.receive((escape + "H" + escape + "2mH").utf8)
+        _ = terminal.write((escape + "H" + escape + "2mH").utf8)
         let dim = try host.draw(terminal.snapshot(), theme: theme)
         let ink = dim[stem.0, stem.1]
         let fill = dim[Probe.edges[0], Probe.top]
@@ -163,7 +163,7 @@ func livePaletteChangesRecolorCachedRows() async throws {
         if index.isMultiple(of: 8) { output += escape + "\(2 + index / 8);1H" }
         output += escape + "48;5;\(index)m "
     }
-    _ = terminal.receive((output + escape + "0m" + escape + "?25l").utf8)
+    _ = terminal.write((output + escape + "0m" + escape + "?25l").utf8)
     let screen = terminal.snapshot()
     var custom = TerminalTheme.slateDark
     let ansi = (UInt8(0)..<16).map { Terminal.RGB(red: $0, green: 180, blue: 140) }
@@ -222,7 +222,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
         CGColor(srgbRed: CGFloat(hex >> 16) / 255, green: CGFloat(hex >> 8 & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1)
     }
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    _ = terminal.receive((escape + "?25lH" + escape + "41m " + escape + "48;5;196m " + escape + "0m").utf8)
+    _ = terminal.write((escape + "?25lH" + escape + "41m " + escape + "48;5;196m " + escape + "0m").utf8)
     let theme = TerminalTheme.slateDark
     _ = try host.draw(terminal.snapshot(), theme: theme)
     #if os(macOS)
@@ -230,7 +230,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #endif
 
     let osc = "\u{1b}]"
-    _ = terminal.receive((osc + "11;#faf0e6\u{7}" + osc + "10;rgb:20/20/20\u{7}" + osc + "4;1;#336699\u{7}").utf8)
+    _ = terminal.write((osc + "11;#faf0e6\u{7}" + osc + "10;rgb:20/20/20\u{7}" + osc + "4;1;#336699\u{7}").utf8)
     let program = terminal.snapshot()
     host.view.display(program)
     let shot = try host.draw(program, theme: theme)
@@ -253,7 +253,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #expect(selected[Probe.edges[0], Probe.top + 1] == pack(theme.selection))
     #expect(selected.colors(in: 0..<1).contains(pack(theme.selectionInk)))
 
-    _ = terminal.receive((osc + "111\u{7}").utf8)
+    _ = terminal.write((osc + "111\u{7}").utf8)
     let restored = terminal.snapshot()
     host.view.display(restored)
     let reset = try host.draw(restored, theme: theme)
@@ -264,7 +264,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #if os(macOS)
     #expect(canvas.titlebarAppearance == nil)
     // A hidden canvas, or one the title bar no longer overlaps, gives the title bar back to the window.
-    _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
+    _ = terminal.write((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
     #expect(canvas.titlebarAppearance == .aqua)
     canvas.isHidden = true
@@ -297,10 +297,10 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #expect(canvas.titlebarAppearance == nil)
     // A canvas the window's appearance already suits needs neither, and the next opposite one asks again.
     pinned.removeFromSuperview()
-    _ = terminal.receive((osc + "111\u{7}").utf8)
+    _ = terminal.write((osc + "111\u{7}").utf8)
     host.view.display(terminal.snapshot())
     #expect(canvas.toolbarCoverColor == nil)
-    _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
+    _ = terminal.write((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
     try await #require(canvas.titlebarCheck).value
     #expect(canvas.titlebarAppearance == .aqua)
@@ -320,7 +320,7 @@ func aBlockKeepsItsGlyphReadableUnderAProgramCursor() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     // Slate Light's white glyph ink suits its ochre cursor, not a pale one a program sets.
-    _ = terminal.receive(("H" + escape + "1;1H" + "\u{1b}]12;#f0f0f0\u{7}").utf8)
+    _ = terminal.write(("H" + escape + "1;1H" + "\u{1b}]12;#f0f0f0\u{7}").utf8)
     let theme = TerminalTheme.slateLight
     let block = try host.draw(terminal.snapshot(), theme: theme)
     #expect(block[Probe.edges[0], Probe.top] == 0xf0f0f0)
@@ -333,7 +333,7 @@ func aBlockKeepsItsGlyphReadableUnderAProgramCursor() async throws {
 func wideCellsAndSelectionCoverTheirPhysicalColumns() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    _ = terminal.receive("A翼🐦Z".utf8)
+    _ = terminal.write("A翼🐦Z".utf8)
     let snapshot = terminal.snapshot()
     let dark = try host.draw(snapshot, theme: .slateDark)
     // A at 0, CJK spanning 1–2, color bird spanning 3–4, Z at 5, cursor at 6.
@@ -376,12 +376,12 @@ func cursorShapeMovesWithItsSnapshot() async throws {
     var theme = TerminalTheme.slateDark
     theme.cursor = .init(red: 130, green: 32, blue: 48)
     theme.cursorInk = .init(red: 255, green: 224, blue: 0)
-    _ = terminal.receive(("H" + escape + "1;1H").utf8)
+    _ = terminal.write(("H" + escape + "1;1H").utf8)
     let first = terminal.snapshot()
     // Change the first row and simultaneously move the cursor to a different row.
-    _ = terminal.receive((escape + "42m " + escape + "0m" + escape + "2;3H" + escape + "6 q").utf8)
+    _ = terminal.write((escape + "42m " + escape + "0m" + escape + "2;3H" + escape + "6 q").utf8)
     let second = terminal.snapshot()
-    _ = terminal.receive((escape + "4 q").utf8)
+    _ = terminal.write((escape + "4 q").utf8)
     let third = terminal.snapshot()
 
     let block = try host.draw(first, theme: theme)
@@ -416,7 +416,7 @@ func concealedTextKeepsItsCellsAndCopyButDrawsNoInk() async throws {
     theme.cursorInk = .init(red: 255, green: 224, blue: 0)
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     // Concealed H on red, concealed underlined and struck H, a visible H, then the block cursor on a concealed H.
-    _ = terminal.receive((escape + "8;41mH" + escape + "49;4;9mH" + escape + "0mH" + escape + "8mH"
+    _ = terminal.write((escape + "8;41mH" + escape + "49;4;9mH" + escape + "0mH" + escape + "8mH"
                           + escape + "0m" + escape + "1;4H").utf8)
     let snapshot = terminal.snapshot()
     let shot = try host.draw(snapshot, theme: theme)
@@ -440,7 +440,7 @@ func underlineStylesDrawInTheirOwnColorAndRunOnAcrossCells() async throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 3))
     // Red single, double and curly underlines, then dotted and dashed ones, then an overlined and struck H
     // beside a selected curly underline.
-    _ = terminal.receive((escape + "58:2::255:0:0;4m  " + escape + "4:2m  " + escape + "4:3m    \r\n"
+    _ = terminal.write((escape + "58:2::255:0:0;4m  " + escape + "4:2m  " + escape + "4:3m    \r\n"
                           + escape + "4:4m    " + escape + "4:5m    " + escape + "0m\r\n"
                           + escape + "53;9mH" + escape + "0;4:3;58:2::255:0:0m ").utf8)
     let selection = TerminalMetalView.Selection(anchorRow: 2, anchorColumn: 1, headRow: 2, headColumn: 1)
@@ -486,7 +486,7 @@ func blinkingInkFadesOverSteadyCellsWithoutRebuildingRows() async throws {
     let host = try await OffscreenTerminal()
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     // A blinking underlined H on red, a steady H, then a blinking H under the block cursor.
-    _ = terminal.receive((escape + "5;4;41mH" + escape + "0mH" + escape + "5mH" + escape + "0m" + escape + "1;3H").utf8)
+    _ = terminal.write((escape + "5;4;41mH" + escape + "0mH" + escape + "5mH" + escape + "0m" + escape + "1;3H").utf8)
     let snapshot = terminal.snapshot()
     let underline = (x: Probe.edges[0] + 2, y: Probe.top + Probe.underline)
     let shown = try host.draw(snapshot, theme: .slateDark)
@@ -515,7 +515,7 @@ func onlyVisibleBlinkingInkAsksForBlinkFrames() async throws {
                  (escape + "5;4m ", true), (escape + "5m🐦", true)]
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     for (bytes, blinks) in cases {
-        _ = terminal.receive((escape + "2J" + escape + "H" + bytes + escape + "0m").utf8)
+        _ = terminal.write((escape + "2J" + escape + "H" + bytes + escape + "0m").utf8)
         #expect(try host.draw(terminal.snapshot(), theme: .slateDark).blinks == blinks, "\(bytes.debugDescription)")
     }
 }

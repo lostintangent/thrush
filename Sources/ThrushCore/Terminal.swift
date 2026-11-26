@@ -138,16 +138,16 @@ public struct Terminal: Sendable {
     ///
     /// UTF-8 characters and escape sequences can span calls. An empty result means
     /// this chunk produced no reply. Forward nonempty results in arrival order.
-    package mutating func receive(_ bytes: some Sequence<UInt8>) -> [UInt8] {
-        if let replies = bytes.withContiguousStorageIfAvailable({ receive($0.span) }) { return replies }
+    package mutating func write(_ bytes: some Sequence<UInt8>) -> [UInt8] {
+        if let replies = bytes.withContiguousStorageIfAvailable({ write($0.span) }) { return replies }
         let copy = Array(bytes)
-        return receive(copy.span)
+        return write(copy.span)
     }
 
     /// Apply a borrowed network or replay buffer synchronously without copying it.
     ///
     /// The parser reads the chunk as text to print and functions to perform.
-    package mutating func receive(_ bytes: Span<UInt8>) -> [UInt8] {
+    package mutating func write(_ bytes: Span<UInt8>) -> [UInt8] {
         var replies: [UInt8] = []
         var index = 0
         while let token = parser.next(in: bytes, from: &index) {
@@ -409,7 +409,7 @@ public struct Terminal: Sendable {
             setPrivateModes(enabled: false, replies: &replies)
             return
         case .graphicRendition:
-            // Receive gives SGR to the pen.
+            // Write gives SGR to the pen.
             return
         case .deviceStatusReport:
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
@@ -558,7 +558,7 @@ public struct Terminal: Sendable {
     }
 
     /// HT, CHT and CBT move from stop to stop, and keep a pending wrap until the next print.
-    // Out of line, so the C0 switch stays small enough to inline into `receive`, where CR and LF need it.
+    // Out of line, so the C0 switch stays small enough to inline into `write`, where CR and LF need it.
     @inline(never)
     private mutating func tab(_ count: Int, forward: Bool) {
         guard screen.column < size.columns else { return }

@@ -137,7 +137,7 @@ extension Checkpoint {
         if snapshot.isAlternate && includesHistory {
             // Leaving the alternate screen on a copy reveals the normal screen as the user returns to it.
             var normal = terminal
-            _ = normal.receive(Array("\u{1b}[?1049l".utf8))
+            _ = normal.write(Array("\u{1b}[?1049l".utf8))
             self.normal = Screen(normal.snapshot(), includesHistory: true, links: &links)
         }
         self.links = links.targets.isEmpty ? nil : links.targets

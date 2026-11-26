@@ -143,7 +143,7 @@ package actor SessionActor {
     }
 
     func apply(_ bytes: Data) -> [UInt8] {
-        let reply = terminal.receive(Span(viewing: bytes.bytes))
+        let reply = terminal.write(Span(viewing: bytes.bytes))
         appliedBytes += bytes.count
         return reply
     }

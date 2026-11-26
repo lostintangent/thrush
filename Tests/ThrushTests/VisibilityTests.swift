@@ -84,13 +84,13 @@ import ThrushCore
     let window = mountTestView(view)
     defer { withExtendedLifetime(window) {} }
     var terminal = Terminal(size: .init(columns: 40, rows: 10))
-    _ = terminal.receive("Build running\r\n".utf8)
+    _ = terminal.write("Build running\r\n".utf8)
     view.display(terminal)
     let initial = try #require(view.snapshot?.generation)
     let submissions = view.submissionCount
     view.setDrawingVisible(false)
     for line in 1...60 {
-        _ = terminal.receive("Completed step \(line)\r\n".utf8)
+        _ = terminal.write("Completed step \(line)\r\n".utf8)
         view.display(terminal)
     }
     #expect(view.snapshot?.generation == initial)
