@@ -295,7 +295,8 @@ def check_armed(capture, name):
         xs = [x for x, value in enumerate(row) if value in fill]
         if len(xs) < 60:
             continue
-        if bands and y - bands[-1][1] <= 4:
+        # A title's crossbars can leave a few rows of a narrow chip with little fill showing.
+        if bands and y - bands[-1][1] <= 12:
             bands[-1][1:] = [y, min(bands[-1][2], xs[0]), max(bands[-1][3], xs[-1])]
         else:
             bands.append([y, y, xs[0], xs[-1]])
