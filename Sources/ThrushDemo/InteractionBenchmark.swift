@@ -10,8 +10,10 @@ final class InteractionBenchmark {
         let marker: String
         let generation: UInt64
         let keyAt: Double
+        let displayPhase: EchoDisplayClock.Phase?
         let sentAt: Double
         let receivedAt: Double
+        let acceptedAt: Double
         let submittedAt: Double?
         let presentedAt: Double?
     }
@@ -41,21 +43,43 @@ final class InteractionBenchmark {
         let returnToLatestMilliseconds: Double
         let keyToSendP95Milliseconds: Double
         let keyToReceiptP95Milliseconds: Double
+        let keyToAcceptanceP95Milliseconds: Double
         let receiptToPresentationP95Milliseconds: Double?
         let keyToVisibleEchoP95Milliseconds: Double?
         let samples: [Sample]
+        let observedDisplayTicks: [EchoDisplayClock.Tick]?
         let anchoredReplay: AnchoredReplay
     }
 
     private let view: TerminalView
     private var sentAt: Double?
-    private var receipt: (generation: UInt64, time: Double)?
+    private struct OutputObservation {
+        let snapshot: Terminal.Snapshot
+        let receivedAt: Double
+        let acceptedAt: Double
+
+        func containsEcho(endingIn suffix: String) -> Bool {
+            guard snapshot.rows.indices.contains(snapshot.cursorRow) else { return false }
+            let last = snapshot.history.count + snapshot.cursorRow
+            var first = last
+            while first > 0 && snapshot.row(atAbsoluteIndex: first).isWrapped { first -= 1 }
+            return (first...last).map { snapshot.row(atAbsoluteIndex: $0).text }.joined().hasSuffix(suffix)
+        }
+    }
+    private var outputs: [OutputObservation]?
     private var frame: FrameMeasurement?
 
     init(view: TerminalView) { self.view = view }
 
     func writeStarted(at time: Double) { sentAt = time }
-    func received(generation: UInt64, at time: Double) { receipt = (generation, time) }
+    func received(generation: UInt64, at time: Double) {
+        // TerminalPane calls this on the main actor as soon as view.display returns.
+        // Read the accepted native snapshot here. Check its text outside the delivery callback.
+        let acceptedAt = CACurrentMediaTime()
+        guard outputs != nil, view.historyOffset == 0, let snapshot = view.snapshot,
+              snapshot.generation == generation else { return }
+        outputs?.append(.init(snapshot: snapshot, receivedAt: time, acceptedAt: acceptedAt))
+    }
 
     func run(reportURL: URL) async throws {
         guard let size = view.gridSize else { throw RenderBenchmark.Failure("Missing native grid.") }
@@ -102,11 +126,14 @@ final class InteractionBenchmark {
         }
         let latestMilliseconds = (CACurrentMediaTime() - startLatest) * 1_000
 
+        let clock = CommandLine.arguments.contains("--echo-phase-matched") ? try EchoDisplayClock(view: view) : nil
+        defer { clock?.stop() }
         var samples = [Sample]()
         var expected = known
         for marker in "abcdefghijklmnopqrst".map(String.init) {
             expected.append(marker)
-            let sample = try await echo(marker: marker, expectedSuffix: expected, probe: probe) {
+            let tick = try await clock?.nextKey(after: samples.last?.keyAt, index: samples.count)
+            let sample = try await echo(marker: marker, expectedSuffix: expected, probe: probe, displayPhase: tick) {
                 try probe.commit(marker)
             }
             samples.append(sample)
@@ -115,6 +142,7 @@ final class InteractionBenchmark {
             guard !times.isEmpty else { return nil }
             return times.sorted()[max(0, Int(ceil(0.95 * Double(times.count))) - 1)] * 1_000
         }
+        if clock != nil { try await Task.sleep(for: .milliseconds(160)) }
         // Report visible-echo distributions only for a complete set of observed presentations.
         let allPresented = samples.allSatisfy { $0.presentedAt != nil }
         let report = Report(environment: .init(), columns: grid.columns, rows: grid.rows,
@@ -123,9 +151,10 @@ final class InteractionBenchmark {
                             historyScrollMilliseconds: historyMilliseconds, returnToLatestMilliseconds: latestMilliseconds,
                             keyToSendP95Milliseconds: p95(samples.map { $0.sentAt - $0.keyAt })!,
                             keyToReceiptP95Milliseconds: p95(samples.map { $0.receivedAt - $0.keyAt })!,
+                            keyToAcceptanceP95Milliseconds: p95(samples.map { $0.acceptedAt - $0.keyAt })!,
                             receiptToPresentationP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.receivedAt } }) : nil,
                             keyToVisibleEchoP95Milliseconds: allPresented ? p95(samples.compactMap { s in s.presentedAt.map { $0 - s.keyAt } }) : nil,
-                            samples: samples, anchoredReplay: try measureAnchoredReplay())
+                            samples: samples, observedDisplayTicks: clock?.ticks, anchoredReplay: try measureAnchoredReplay())
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -180,33 +209,110 @@ final class InteractionBenchmark {
     }
 
     private func echo(marker: String, expectedSuffix: String, probe: NativeInteractionProbe,
-                      action: () throws -> Void) async throws -> Sample {
+                      displayPhase: EchoDisplayClock.Phase? = nil, action: () throws -> Void) async throws -> Sample {
         sentAt = nil
-        receipt = nil
+        outputs = []
+        defer { outputs = nil }
         frame = nil
         let keyAt = CACurrentMediaTime()
         try action()
         let deadline = keyAt + 10
+        var echo: OutputObservation?
         while CACurrentMediaTime() < deadline {
-            if let sentAt, let receipt,
+            if echo == nil, let observed = outputs, !observed.isEmpty {
+                echo = observed.first { $0.containsEcho(endingIn: expectedSuffix) }
+                outputs = echo == nil ? [] : nil
+            }
+            if let sentAt, let echo,
                probe.transcript.trimmingCharacters(in: .newlines).hasSuffix(expectedSuffix) {
                 let matched = frame.flatMap { measurement in
-                    measurement.generation == receipt.generation && measurement.receivedAt == receipt.time ? measurement : nil
+                    measurement.generation == echo.snapshot.generation && measurement.receivedAt == echo.receivedAt ? measurement : nil
                 }
                 // A sleeping display can deliver the wire echo with no drawable. Give the
                 // normal draw path a chance to finish and retain those samples as unavailable.
-                if matched != nil || CACurrentMediaTime() - receipt.time >= 0.35 {
-                    guard keyAt <= sentAt, sentAt <= receipt.time,
-                          matched.map({ $0.submittedAt >= receipt.time }) ?? true,
+                if matched != nil || CACurrentMediaTime() - echo.acceptedAt >= 0.35 {
+                    guard keyAt <= sentAt, sentAt <= echo.receivedAt, echo.receivedAt <= echo.acceptedAt,
+                          matched.map({ $0.submittedAt >= echo.acceptedAt }) ?? true,
                           matched.flatMap({ frame in frame.presentedTime.map { $0 >= frame.submittedAt } }) ?? true else {
                         throw RenderBenchmark.Failure("Nonmonotonic timing for \(marker).")
                     }
-                    return Sample(marker: marker, generation: receipt.generation, keyAt: keyAt, sentAt: sentAt,
-                                  receivedAt: receipt.time, submittedAt: matched?.submittedAt, presentedAt: matched?.presentedTime)
+                    return Sample(marker: marker, generation: echo.snapshot.generation, keyAt: keyAt, displayPhase: displayPhase, sentAt: sentAt,
+                                  receivedAt: echo.receivedAt, acceptedAt: echo.acceptedAt,
+                                  submittedAt: matched?.submittedAt, presentedAt: matched?.presentedTime)
                 }
             }
             try await Task.sleep(for: .milliseconds(2))
         }
-        throw RenderBenchmark.Failure("Missing socket write, echo transcript, or matching native frame for \(marker).")
+        throw RenderBenchmark.Failure("Missing socket write or accepted native snapshot containing \(marker).")
+    }
+}
+
+
+/// Times native key deliveries relative to this view's display while the pixel probe is active.
+@MainActor
+private final class EchoDisplayClock: NSObject {
+    struct Tick: Encodable {
+        let timestamp: Double
+        let targetTimestamp: Double
+        let callbackAt: Double
+    }
+
+    struct Phase: Encodable {
+        let referenceTick: Tick
+        let intendedTarget: Double
+        let requestedFractionBeforeTarget: Double
+    }
+
+    private(set) var ticks: [Tick] = []
+    private var link: CADisplayLink?
+
+    init(view: TerminalView) throws {
+        super.init()
+        #if os(macOS)
+        let link = view.displayLink(target: self, selector: #selector(tick(_:)))
+        #else
+        guard let link = view.window?.windowScene?.displayLink(target: self, selector: #selector(tick(_:))) else {
+            throw RenderBenchmark.Failure("No active scene display link for the key probe.")
+        }
+        #endif
+        self.link = link
+        link.add(to: .main, forMode: .common)
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        guard link.targetTimestamp > link.timestamp,
+              link.targetTimestamp != ticks.last?.targetTimestamp else { return }
+        ticks.append(.init(timestamp: link.timestamp, targetTimestamp: link.targetTimestamp,
+                           callbackAt: CACurrentMediaTime()))
+    }
+
+    func stop() {
+        link?.invalidate()
+        link = nil
+    }
+
+    func nextKey(after last: Double?, index: Int) async throws -> Phase {
+        let fractionBeforeTarget = [0.75, 0.50, 0.25, 0.10][index % 4]
+        let deadline = CACurrentMediaTime() + 3
+        while CACurrentMediaTime() < deadline {
+            if let tick = ticks.last {
+                let period = tick.targetTimestamp - tick.timestamp
+                let now = CACurrentMediaTime()
+                var target = tick.targetTimestamp
+                // Some hosts call back late in a refresh. Predict one further target when
+                // necessary and retain the actual subsequent link ticks to verify it offline.
+                if target - fractionBeforeTarget * period <= now { target += period }
+                let scheduled = target - fractionBeforeTarget * period
+                if scheduled >= (last ?? 0) + 5 * period, scheduled > now {
+                    try await Task.sleep(for: .seconds(scheduled - now), tolerance: .zero)
+                    if abs(CACurrentMediaTime() - scheduled) < 0.00075 {
+                        return Phase(referenceTick: tick, intendedTarget: target,
+                                     requestedFractionBeforeTarget: fractionBeforeTarget)
+                    }
+                }
+            }
+            try await Task.sleep(for: .microseconds(250), tolerance: .zero)
+        }
+        throw RenderBenchmark.Failure("The live display could not deliver the requested key phase.")
     }
 }

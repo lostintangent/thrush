@@ -4,6 +4,23 @@ import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 const args = process.argv.slice(2);
+const pixelDir = process.env.THRUSH_ECHO_PIXEL_DIR;
+if (process.env.THRUSH_ECHO_PIXELS === "1" && !pixelDir) {
+    const controller = join(import.meta.dir, "interaction-capture", "echo-pixels.py");
+    const process_ = Bun.spawn(["python3", controller, ...args], {stdout: "inherit", stderr: "inherit"});
+    process.exit(await process_.exited);
+}
+let releaseInitial!: () => void;
+const cameraArmed = new Promise<void>(resolve => { releaseInitial = resolve; });
+if (!pixelDir) releaseInitial();
+const calibration = process.env.THRUSH_ECHO_PIXEL_CALIBRATION === "1";
+const hostStamps: bigint[] = [];
+let hostTicks: (() => bigint) | undefined;
+if (pixelDir) {
+    const {dlopen, FFIType} = await import("bun:ffi");
+    const library = dlopen("/usr/lib/libSystem.B.dylib", {mach_absolute_time: {args: [], returns: FFIType.u64}});
+    hostTicks = () => BigInt(library.symbols.mach_absolute_time());
+}
 const simulator = args[0] === "--simulator" ? args.splice(0, 2)[1] : undefined;
 if (args.length !== 2) throw Error("Usage: interaction-peer.ts [--simulator UDID] APP OUTPUT.json");
 const [app, output] = args.map(path => resolve(path));
@@ -21,12 +38,13 @@ const peer = Bun.serve({
         return new Response("Expected a terminal WebSocket", { status: 400 });
     },
     websocket: {
-        open(socket) {
+        async open(socket) {
+            await cameraArmed;
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
             const history = Array.from({length: 80}, (_, i) => "Line " + (i + 1)).join("\r\n");
             socket.sendBinary(Buffer.from(history + "\r\n~/thrush % \x1b[?2004h"));
         },
-        message(socket, message) {
+        async message(socket, message) {
             if (typeof message === "string") {
                 if (JSON.parse(message).type !== "resize") failure = "Unexpected control frame";
                 return;
@@ -36,13 +54,17 @@ const peer = Bun.serve({
                 socket.close(1002, "Unexpected terminal input");
                 return;
             }
-            socket.sendBinary(echoes[writes++]);
+            const index = writes++;
+            if (calibration && index >= 2) await Bun.sleep(220);
+            if (index >= 2 && hostTicks) hostStamps.push(hostTicks());
+            socket.sendBinary(echoes[index]);
         },
     },
 });
 const work = await mkdtemp(join(tmpdir(), "thrush-interactions-"));
 let report = join(work, "interactions.json");
 let child: ReturnType<typeof Bun.spawn> | undefined;
+let recorder: ReturnType<typeof Bun.spawn> | undefined;
 const identifier = "app.thrush.demo";
 const deadline = Date.now() + 150_000;
 function simctl(...arguments_: string[]): string {
@@ -54,6 +76,7 @@ function simctl(...arguments_: string[]): string {
 }
 try {
     const options = ["--endpoint", peer.url.origin, "--appearance", "dark"];
+    if (pixelDir) options.push("--echo-phase-matched");
     if (simulator) {
         simctl("install", simulator, app);
         const container = simctl("get_app_container", simulator, identifier, "data");
@@ -63,11 +86,37 @@ try {
         child = Bun.spawn([join(app, "Contents/MacOS/ThrushDemo"), ...options, "--interaction-check", report],
                           {stdout: "inherit", stderr: "inherit"});
     }
+    if (pixelDir) {
+        const target = simulator ? "simulator" : String(child!.pid);
+        let title = "";
+        if (simulator) {
+            const devices = Object.values(JSON.parse(simctl("list", "devices", "booted", "-j")).devices)
+                .flat() as {udid: string, name: string}[];
+            const device = devices.find(device => device.udid.toUpperCase() === simulator.toUpperCase());
+            if (!device) throw Error("Missing booted device for WindowServer capture");
+            title = device.name;
+        }
+        recorder = Bun.spawn([process.env.THRUSH_ECHO_PIXEL_RECORDER!, target, title, pixelDir],
+            {stdout: "inherit", stderr: "inherit"});
+        const until = Date.now() + 28_000;
+        while (!(await Bun.file(join(pixelDir, "armed")).exists())) {
+            if (recorder.exitCode !== null || Date.now() > until) throw Error("WindowServer recorder did not arm before the echo run");
+            await Bun.sleep(25);
+        }
+        releaseInitial();
+    }
     while (!(await Bun.file(report).exists())) {
         if (failure) throw Error(failure);
         if (child && child.exitCode !== null) throw Error("Demo exited before writing the interaction report");
         if (Date.now() > deadline) throw Error("Timed out waiting for the native interaction report");
         await Bun.sleep(100);
+    }
+    if (pixelDir && recorder) {
+        // Mac closes its window once its report is complete. A simulator may keep drawing.
+        await Bun.sleep(90);
+        await Bun.write(join(pixelDir, "stop"), "");
+        if (await recorder.exited !== 0) throw Error("WindowServer pixel recorder failed");
+        await Bun.write(join(pixelDir, "wire-ticks.json"), JSON.stringify(hostStamps.map(String)));
     }
     // The report is written atomically, after the app has drawn the final remote echo.
     const result = JSON.parse(await readFile(report, "utf8"));
@@ -92,6 +141,7 @@ try {
     await copyFile(report, output);
     console.log("Verified all " + writes + " native input frames. Report " + output);
 } finally {
+    recorder?.kill();
     child?.kill();
     if (simulator) {
         try { simctl("terminate", simulator, identifier); } catch { /* A successful probe may have exited. */ }
