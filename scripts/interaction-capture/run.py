@@ -370,7 +370,7 @@ def main():
                             "that a program glides as far as the history and stops under a resting or catching finger.")
     scope.add_argument("--links-only", action="store_true",
                        help="Tap, long-press and open the links an rg search and Claude Code's trust prompt send, "
-                            "in both appearances.")
+                            "and the web address gh prints as plain text, in both appearances.")
     options = parser.parse_args()
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")

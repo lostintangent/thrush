@@ -1,13 +1,15 @@
 import Foundation
 import XCTest
 
-/// Opens the links an rg search and Claude Code's trust prompt send, through real touches on the demo.
-/// A file link shows its menu, a long press lifts a web link into its context menu, and a tap opens it in Safari.
+/// Opens the links an rg search and Claude Code's trust prompt send, and the address gh prints as plain text,
+/// through real touches on the demo. A file link shows its menu, a long press lifts a web link into its
+/// context menu, and a tap opens it in Safari.
 @MainActor final class PhoneLinkProof: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
     private static let wrappedPath = "Sources/Thrush/View/TerminalMetalView+Links.swift"
     private static let fileDestination = "file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView%2BLinks.swift"
+    private static let page = "https://github.com/lostintangent/thrush/blob/main/\(wrappedPath)?plain=1#L176"
 
     func testDarkLinks() throws { try capture(appearance: "dark") }
     func testLightLinks() throws { try capture(appearance: "light") }
@@ -41,6 +43,21 @@ import XCTest
         try screenshot("links-\(appearance)-file-menu")
         copyPath.tap()
         XCTAssertTrue(copyPath.waitForNonExistence(timeout: 5))
+
+        // gh's address is plain text that opens the same way. A long press on its last row lifts the whole address.
+        let page = app.staticTexts[Self.page]
+        XCTAssertTrue(page.exists, app.debugDescription)
+        XCTAssertGreaterThan(page.frame.height, row * 1.5, "The address should wrap.")
+        let titled = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", Self.page))
+        let shown = titled.count
+        point(x: page.frame.minX + row * 0.75, y: page.frame.maxY - row / 2).press(forDuration: 0.8)
+        let copyAddress = item("Copy Link")
+        XCTAssertTrue(copyAddress.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(item("Open Link").exists)
+        XCTAssertGreaterThan(titled.count, shown, "The menu's title should be the whole address.")
+        try screenshot("links-\(appearance)-address-preview")
+        copyAddress.tap()
+        XCTAssertTrue(copyAddress.waitForNonExistence(timeout: 5))
 
         // A long press lifts the web link into the system context menu rather than selecting a word.
         point(x: guide.frame.minX + row * 2.5, y: guide.frame.midY).press(forDuration: 0.8)

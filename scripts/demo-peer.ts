@@ -66,14 +66,14 @@ function buildColors(host: Appearance) {
     return prompt + setPalette(host === "dark" ? "paper" : "night") + buildTranscript();
 }
 
-// An rg search, then Claude Code's trust prompt laid out as Claude lays it out at this width. The links
-// are the ones these programs send: rg's file names point at the machine the shell runs on, and Claude's
-// "Security guide" says something other than where it goes. On the iPhone, the longer file names wrap.
+// An rg search for where links open, gh's web address for that line, then Claude Code's trust prompt laid
+// out as Claude lays it out at this width. rg's file name is a link to the machine the shell runs on, and
+// Claude's "Security guide" is a link that says something other than where it goes. gh prints its address
+// as plain text, which wraps on the Mac and the iPhone, and so does the file name on the iPhone.
 function buildLinks(cols: number) {
-    const files = ["MacTerminalInput.swift", "PhoneHistoryScrollView.swift", "TerminalMetalView+Links.swift"].map(name => {
-        const path = "Sources/Thrush/View/" + name;
-        return `\x1b]8;;file://devbox/home/robin/thrush/${path.replace("+", "%2B")}\x1b\\${reset}${esc}35m${path}${reset}\x1b]8;;\x1b\\`;
-    });
+    const path = "Sources/Thrush/View/TerminalMetalView+Links.swift";
+    const file = `\x1b]8;;file://devbox/home/robin/thrush/${path.replace("+", "%2B")}\x1b\\${reset}${esc}35m${path}${reset}\x1b]8;;\x1b\\`;
+    const page = `https://github.com/lostintangent/thrush/blob/main/${path}?plain=1#L176`;
     // Claude pads its box by a column on each side and places each word with a column move.
     const words = (text: string, style = "", unstyle = "") => {
         const rows: string[] = [];
@@ -108,7 +108,8 @@ function buildLinks(cols: number) {
         "",
         ...words("Enter to confirm · Esc to cancel", gray, esc + "39m"),
     ];
-    return [prompt + "rg -l openWebLink Sources", ...files, prompt + "claude"].join("\r\n") +
+    return [prompt + 'rg -l "func openWebLink" Sources', file, prompt + `gh browse -n ${path}:176`, page, prompt + "claude"]
+        .join("\r\n") +
         "\x1b]2;claude\x07" + esc + "?25l" + esc + "?2004h" + esc + "?1004h\r\n" + trust.join("\r\n") +
         // Claude parks its hidden cursor on the chosen answer.
         "\r\n" + esc + "1C" + esc + "4A";

@@ -1,15 +1,16 @@
 import AppKit
 import XCTest
 
-/// Opens the links an rg search and Claude Code's trust prompt send, through real clicks in the packaged Mac demo.
-/// A ⌘-click opens a web link in the default browser and shows a file link's menu, a plain click or a ⌘-drag
-/// away opens nothing, and a right-click adds the link's items above the terminal's own.
+/// Opens the links an rg search and Claude Code's trust prompt send, and the address gh prints as plain text,
+/// through real clicks in the packaged Mac demo. A ⌘-click opens a web link in the default browser and shows a
+/// file link's menu, a plain click or a ⌘-drag away opens nothing, and a right-click adds the link's items
+/// above the terminal's own.
 @MainActor final class MacLinkProof: XCTestCase {
     private static let guide = "Security guide"
     private static let destination = "https://code.claude.com/docs/en/security"
-    private static let file = "Sources/Thrush/View/MacTerminalInput.swift"
-    private static let wrapped = "Sources/Thrush/View/TerminalMetalView+Links.swift"
+    private static let file = "Sources/Thrush/View/TerminalMetalView+Links.swift"
     private static let host = "file://devbox/home/robin/thrush/"
+    private static let page = "https://github.com/lostintangent/thrush/blob/main/\(file)?plain=1#L176"
     private var app: XCUIApplication!
 
     func testDarkLinks() throws { try capture(appearance: "dark") }
@@ -74,55 +75,37 @@ import XCTest
         let copyPath = app.menuItems["Copy Path"]
         XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
         let fileMenu = menu(with: "Copy Path")
-        XCTAssertTrue(item(Self.host + Self.file, in: fileMenu).exists, "The menu's title should be the link's destination.")
+        XCTAssertTrue(item(Self.host + Self.file.replacingOccurrences(of: "+", with: "%2B"), in: fileMenu).exists,
+                      "The menu's title should be the link's destination.")
         XCTAssertFalse(fileMenu.menuItems["Open Link"].exists, "Thrush never opens a file link.")
         save(XCUIScreen.main.screenshot(), "file-menu", appearance)
         copyPath.click()
         XCTAssertEqual(NSPasteboard.general.string(forType: .string), "/home/robin/thrush/" + Self.file)
         XCTAssertFalse(browser.wait(for: .runningForeground, timeout: 1))
 
-        // In a narrow window the longer file names wrap, and the second row is the same link.
-        XCTAssertTrue(narrow(window, to: 410), "The window should narrow from \(window.frame.width) points.")
+        // gh's address is plain text that opens the same way. It wraps, and its second row is the same link.
+        let page = link(Self.page)
+        XCTAssertTrue(page.exists, app.debugDescription)
+        XCTAssertEqual(page.frame.height, row * 2, accuracy: 1, "The address should wrap onto a second row.")
         let cell = guide.frame.width / CGFloat(Self.guide.count)
-        let long = link(Self.wrapped)
-        let wrapsDeadline = Date.now.addingTimeInterval(10)
-        while !(long.exists && long.frame.height > row * 1.5), Date.now < wrapsDeadline { Thread.sleep(forTimeInterval: 0.25) }
-        XCTAssertEqual(long.frame.height, row * 2, accuracy: 1, "The file name should wrap in a \(window.frame.width)-point window.")
         let second = window.coordinate(withNormalizedOffset: .zero).withOffset(
-            CGVector(dx: long.frame.minX - window.frame.minX + cell, dy: long.frame.maxY - window.frame.minY - row / 2))
+            CGVector(dx: page.frame.minX - window.frame.minX + cell, dy: page.frame.maxY - window.frame.minY - row / 2))
         second.hover()
         XCUIElement.perform(withKeyModifiers: .command) {
             Thread.sleep(forTimeInterval: 0.3)
             save(window.screenshot(), "wrapped-command-hover", appearance)
         }
-        XCUIElement.perform(withKeyModifiers: .command) { second.click() }
-        XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(item(Self.host + Self.wrapped.replacingOccurrences(of: "+", with: "%2B"), in: menu(with: "Copy Path")).exists)
+        second.rightClick()
+        XCTAssertTrue(copyLink.waitForExistence(timeout: 5), app.debugDescription)
+        let pageMenu = menu(with: "Copy Link")
+        XCTAssertTrue(item(Self.page, in: pageMenu).exists, "The menu's title should be the whole address.")
+        XCTAssertTrue(pageMenu.menuItems["Open Link"].exists)
         save(XCUIScreen.main.screenshot(), "wrapped-menu", appearance)
-        app.typeKey(.escape, modifierFlags: [])
-    }
-
-    /// Drags the window's trailing edge until it's about `width` points wide. Where the system starts a
-    /// resize differs between releases, so it tries the edge and the corner from just outside, then inside.
-    private func narrow(_ window: XCUIElement, to width: CGFloat) -> Bool {
-        let starts: [(String, CGVector, CGVector)] = [
-            ("outside the edge", CGVector(dx: 1, dy: 0.5), CGVector(dx: 4, dy: 0)),
-            ("outside the corner", CGVector(dx: 1, dy: 1), CGVector(dx: 4, dy: 4)),
-            ("inside the edge", CGVector(dx: 1, dy: 0.5), CGVector(dx: -2, dy: 0)),
-            ("inside the corner", CGVector(dx: 1, dy: 1), CGVector(dx: -3, dy: -3)),
-        ]
-        for (name, anchor, offset) in starts {
-            let narrowed = XCTContext.runActivity(named: "Resize from \(name)") { _ in
-                let start = window.coordinate(withNormalizedOffset: anchor).withOffset(offset)
-                start.hover()
-                Thread.sleep(forTimeInterval: 0.3)
-                start.press(forDuration: 0.5, thenDragTo: start.withOffset(CGVector(dx: width - window.frame.width, dy: 0)))
-                Thread.sleep(forTimeInterval: 0.5)
-                return window.frame.width < width + 40
-            }
-            if narrowed { return true }
-        }
-        return false
+        copyLink.click()
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), Self.page)
+        XCUIElement.perform(withKeyModifiers: .command) { second.click() }
+        XCTAssertTrue(browser.wait(for: .runningForeground, timeout: 30), "A ⌘-click should open gh's address.")
+        browser.terminate()
     }
 
     private func link(_ text: String) -> XCUIElement {
