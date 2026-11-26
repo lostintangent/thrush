@@ -13,6 +13,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private var ink: Terminal.RGB?
     private var paper: Terminal.RGB?
     private lazy var keyRow = KeyRow(
+        host: terminal,
         onKey: { [weak self] key in self?.sendKey(key) },
         onHide: { [weak self] in _ = self?.resignFirstResponder() }
     )
@@ -163,7 +164,10 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case "\n", "\r": sendKey(.enter)
         case "\t": sendKey(.tab)
         default:
-            if keyRow.controlArmed, committed.count == 1, let character = committed.first {
+            if !keyRow.armed.isEmpty, committed.count == 1, var character = committed.first {
+                // An armed Shift types what the keyboard's own Shift would.
+                let upper = character.uppercased()
+                if keyRow.armed == .shift, upper.count == 1 { character = Character(upper) }
                 sendKey(.character(character))
             } else {
                 keyRow.clearModifier()
@@ -249,7 +253,7 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
     private func sendKey(_ key: Terminal.Input.Key, modifiers: Terminal.Input.Modifiers = []) {
         guard acceptsInput else { return }
         var modifiers = modifiers
-        if keyRow.controlArmed { modifiers.insert(.control) }
+        modifiers.formUnion(keyRow.armed)
         keyRow.clearModifier()
         terminal?.sendInput(.key(key, modifiers: modifiers))
     }

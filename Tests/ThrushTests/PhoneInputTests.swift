@@ -79,6 +79,31 @@ import UIKit
     input.cancelPendingInput()
     #expect(!control.accessibilityTraits.contains(.selected))
 
+    // Shift and Option arm the same way and carry into text, Return and keys alike.
+    func arm(_ name: String) throws {
+        let action = try #require(control.accessibilityCustomActions?.first { $0.name == name })
+        #expect(action.actionHandler?(action) == true)
+        #expect(control.accessibilityLabel == name && control.accessibilityValue == "Armed")
+    }
+    sent.removeAll()
+    try arm("Shift")
+    input.insertText("a")
+    try arm("Shift")
+    input.insertText("\n")
+    try arm("Option")
+    input.insertText("b")
+    try arm("Option")
+    input.insertText("\n")
+    _ = terminal.receive(Array("\u{1B}[>1u".utf8))
+    try arm("Shift")
+    input.insertText("\n")
+    try arm("Control")
+    input.insertText("\n")
+    #expect(sent == [Array("A".utf8), [13], Array("\u{1B}b".utf8), [27, 13],
+                     Array("\u{1B}[13;2u".utf8), Array("\u{1B}[13;5u".utf8)])
+    #expect(control.accessibilityLabel == "Control" && control.accessibilityValue == "Off")
+    _ = terminal.receive(Array("\u{1B}[<u".utf8))
+
     let (key, modifiers) = try #require(PhoneTerminalInput.hardwareKey(.keyboardLeftArrow, characters: "", flags: [.alternate, .shift]))
     #expect(terminal.encode(.key(key, modifiers: modifiers)) == [27, 91, 49, 59, 52, 68])
     #expect(PhoneTerminalInput.hardwareKey(.keyboardE, characters: "e", flags: [.alternate]) == nil)
@@ -112,7 +137,7 @@ import UIKit
 @Test func phoneKeyRowUsesOnlyTheKeyboardHostResizeAnimation() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
     let host = UIView(frame: window.bounds)
-    let keyRow = KeyRow(onKey: { _ in }, onHide: {})
+    let keyRow = KeyRow(host: nil, onKey: { _ in }, onHide: {})
     window.addSubview(host)
     host.addSubview(keyRow)
     window.isHidden = false
@@ -146,7 +171,7 @@ import UIKit
 @MainActor
 @Test func compactKeyRowKeysReachIntoTheFloat() throws {
     let window = UIWindow(frame: .init(x: 0, y: 0, width: 874, height: 402))
-    let keyRow = KeyRow(onKey: { _ in }, onHide: {})
+    let keyRow = KeyRow(host: nil, onKey: { _ in }, onHide: {})
     window.addSubview(keyRow)
     window.isHidden = false
     defer { window.isHidden = true }
@@ -162,6 +187,65 @@ import UIKit
         #expect(bottom.y == 36)
         #expect(keyRow.hitTest(CGPoint(x: bottom.x, y: 43.5), with: nil) === button)
     }
+}
+
+@MainActor
+@Test func theModifierKeyRaisesAChooserThatArmsOneModifier() throws {
+    let window = UIWindow(frame: .init(x: 0, y: 0, width: 402, height: 874))
+    let host = UIView(frame: window.bounds)
+    let keyRow = KeyRow(host: host, onKey: { _ in }, onHide: {})
+    window.addSubview(host)
+    window.addSubview(keyRow)
+    window.isHidden = false
+    defer { window.isHidden = true }
+    keyRow.frame = .init(x: 0, y: 500, width: 402, height: KeyRow.height(compact: false))
+    keyRow.layoutIfNeeded()
+    let modifier = try #require(buttonStack(keyRow)?.arrangedSubviews.first { $0.accessibilityIdentifier == "terminal.modifier" } as? UIButton)
+    func choice(_ name: String) -> UIButton? {
+        func find(_ view: UIView) -> UIButton? {
+            view.accessibilityIdentifier == "terminal.modifier.\(name)" ? view as? UIButton : view.subviews.lazy.compactMap(find).first
+        }
+        return window.subviews.lazy.filter { $0 !== keyRow }.compactMap(find).first
+    }
+    #expect(choice("shift") == nil)
+
+    modifier.sendActions(for: .touchUpInside)
+    #expect(keyRow.armed == .control)
+    let control = try #require(choice("control")), shift = try #require(choice("shift"))
+    let chooser = try #require(control.superview?.superview?.superview)
+    window.layoutIfNeeded()
+    // The chooser's Ctrl sits over the modifier key, and every choice is a full target.
+    #expect(abs(control.convert(control.bounds, to: window).midX - modifier.convert(modifier.bounds, to: window).midX) < 0.5)
+    #expect(control.accessibilityTraits.contains(.selected) && !shift.accessibilityTraits.contains(.selected))
+    for button in [control, shift] { #expect(button.bounds.width >= 44 && button.bounds.height >= 44) }
+
+    shift.sendActions(for: .touchUpInside)
+    #expect(keyRow.armed == .shift && modifier.configuration?.title == "Shift" && modifier.accessibilityLabel == "Shift")
+    #expect(shift.accessibilityTraits.contains(.selected) && !control.accessibilityTraits.contains(.selected))
+    try #require(choice("option")).sendActions(for: .touchUpInside)
+    #expect(keyRow.armed == .alt && modifier.configuration?.title == "Opt" && modifier.accessibilityLabel == "Option")
+
+    // Tapping the armed choice, or the modifier key, disarms and lowers the chooser.
+    try #require(choice("option")).sendActions(for: .touchUpInside)
+    #expect(keyRow.armed.isEmpty && chooser.hitTest(shift.center, with: nil) == nil)
+    modifier.sendActions(for: .touchUpInside)
+    #expect(keyRow.armed == .control && chooser.hitTest(shift.center, with: nil) === shift)
+    modifier.sendActions(for: .touchUpInside)
+    #expect(keyRow.armed.isEmpty && modifier.configuration?.title == "Ctrl")
+
+    // The compact chooser is 36 points tall but takes taps 44 points tall.
+    keyRow.traitOverrides.verticalSizeClass = .compact
+    keyRow.updateTraitsIfNeeded()
+    keyRow.frame.size.height = KeyRow.height(compact: true)
+    keyRow.layoutIfNeeded()
+    modifier.sendActions(for: .touchUpInside)
+    window.layoutIfNeeded()
+    #expect(chooser.bounds.height == 36)
+    #expect(chooser.hitTest(CGPoint(x: shift.center.x, y: -3.5), with: nil) === shift)
+    #expect(chooser.hitTest(CGPoint(x: shift.center.x, y: 39.5), with: nil) === shift)
+    #expect(chooser.hitTest(CGPoint(x: 1, y: 18), with: nil) === control)
+    keyRow.clearModifier()
+    #expect(chooser.hitTest(shift.center, with: nil) == nil)
 }
 
 @MainActor
@@ -198,7 +282,7 @@ import UIKit
     let buttons = try #require(buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton })
     try #require(buttons.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
     try #require(buttons.last { $0.accessibilityLabel == "Hide Keyboard" }).sendActions(for: .touchUpInside)
-    #expect(!view.phoneInput.isFirstResponder && !row.controlArmed)
+    #expect(!view.phoneInput.isFirstResponder && row.armed.isEmpty)
 }
 
 @MainActor
@@ -209,9 +293,9 @@ import UIKit
     let row = try #require(view.phoneInput.inputAccessoryView as? KeyRow)
     let buttons = buttonStack(row)?.arrangedSubviews.compactMap { $0 as? UIButton }
     try #require(buttons?.first { $0.accessibilityLabel == "Control" }).sendActions(for: .touchUpInside)
-    #expect(row.controlArmed)
+    #expect(row.armed == .control)
     view.showsKeyRow = false
-    #expect(view.phoneInput.inputAccessoryView == nil && !row.controlArmed)
+    #expect(view.phoneInput.inputAccessoryView == nil && row.armed.isEmpty)
     view.showsKeyRow = true
     #expect(view.phoneInput.inputAccessoryView === row)
 }

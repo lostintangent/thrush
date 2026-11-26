@@ -108,7 +108,7 @@ scripts/check-ios-ui.sh "$udid"
 
 The command builds the package sources, shader and recordings in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone 17 simulator for every push and pull request.
 
-The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, a still with the keyboard hidden, five short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
+The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, the modifier chooser with Control, Shift and a held slide to Option armed and with Shift armed in landscape, a still with the keyboard hidden, five short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
 
 ```sh
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions

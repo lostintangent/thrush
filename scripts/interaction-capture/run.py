@@ -20,8 +20,8 @@ HERE = Path(__file__).resolve().parent
 RUNNER = "PhoneInteractionProof"
 BUNDLE_ID = "app.thrush.review.interactions"
 APPEARANCES = ("dark", "light")
-PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu",
-        "line-{}-selected", "history-{}-latest")
+PICS = ("shell-{}-portrait", "control-{}-armed", "control-{}-shift", "control-{}-option", "control-{}-landscape",
+        "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu", "line-{}-selected", "history-{}-latest")
 CLIPS = ("control", "rotate", "keyboard", "select", "history")
 SWIPES = ("less", "vim", "history", "settings")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
@@ -478,8 +478,34 @@ def check_images(out, appearances=APPEARANCES, pictures=PICS):
                 raise ValueError(f"{path.name} lacks the Metal selection.")
             if template.endswith("-landscape") and capture.count("passed") < 16:
                 raise ValueError(f"{path.name} lost the green shell checks above the prompt during rotation.")
+            if template.startswith("control-"):
+                check_armed(capture, path.name)
         run_logged([sys.executable, ROOT / "scripts/check-demo-capture.py", out / f"shell-{appearance}-portrait.png",
                     "shell", appearance], out / f"shell-{appearance}-pixels.log", 80)
+
+
+def check_armed(capture, name):
+    """The armed modifier key and its choice above the row fill with the selection under its own ink."""
+    fill, ink = capture.matches("selection"), capture.matches("selected_ink")
+    bands = []
+    for y in range(capture.height):
+        row = capture.pixels[y * capture.width:(y + 1) * capture.width]
+        xs = [x for x, value in enumerate(row) if value in fill]
+        if len(xs) < 60:
+            continue
+        if bands and y - bands[-1][1] <= 4:
+            bands[-1][1:] = [y, min(bands[-1][2], xs[0]), max(bands[-1][3], xs[-1])]
+        else:
+            bands.append([y, y, xs[0], xs[-1]])
+    # A chip is at least 24 points tall, and its title is the selection's ink.
+    chips = [band for band in bands if band[1] - band[0] >= 60]
+    if len(chips) != 2:
+        raise ValueError(f"{name} should fill the armed key and its choice, found {len(chips)} selection chips.")
+    for top, bottom, left, right in chips:
+        inked = sum(capture.pixels[y * capture.width + x] in ink
+                    for y in range(top, bottom + 1) for x in range(left, right + 1))
+        if inked < 40:
+            raise ValueError(f"{name} has a selection chip without the selection's ink at rows {top} to {bottom}.")
 
 
 def check_voiceover(phone, device, endpoint, plan, out, work):

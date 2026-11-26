@@ -61,15 +61,61 @@ final class PhoneInteractionProof: XCTestCase {
         }
     }
 
+    /// Taps the modifier key to arm Control, chooses Shift from the chooser it raises, then holds the key
+    /// and slides to Option.
     private func captureControl(appearance: String) throws {
-        let controls = app.buttons["Control"]
+        let modifier = app.buttons["terminal.modifier"]
+        let choices = ["control", "option", "shift"].map { app.buttons["terminal.modifier.\($0)"] }
         let start = Date.now.timeIntervalSince1970
-        controls.tap()
-        XCTAssertTrue(controls.isSelected || controls.value as? String == "Armed")
+        modifier.tap()
+        XCTAssertEqual(modifier.value as? String, "Armed")
+        XCTAssertTrue(choices[2].waitForExistence(timeout: 3), app.debugDescription)
+        // The chooser floats above the row with its Ctrl over the key, and every choice takes a 44-point tap.
+        XCTAssertEqual(choices[0].frame.midX, modifier.frame.midX, accuracy: 1)
+        for choice in choices {
+            XCTAssertGreaterThanOrEqual(choice.frame.width, 44, choice.identifier)
+            XCTAssertGreaterThanOrEqual(choice.frame.height, 44, choice.identifier)
+            XCTAssertLessThanOrEqual(choice.frame.maxY, modifier.frame.minY - 7, choice.identifier)
+        }
         try screenshot("control-\(appearance)-armed")
-        controls.tap()
-        XCTAssertFalse(controls.isSelected)
+        // Choosing from the chooser proves its taps land though it floats above the keyboard's own window.
+        choices[2].tap()
+        XCTAssertEqual(modifier.label, "Shift")
+        try screenshot("control-\(appearance)-shift")
+        modifier.tap()
+        let lowered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: choices[2])
+        XCTAssertEqual(XCTWaiter.wait(for: [lowered], timeout: 3), .completed)
+        XCTAssertEqual(modifier.value as? String, "Off")
+
+        // Option's center sits 64 points right of Ctrl's and 32 points above the row.
+        let key = modifier.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        key.press(forDuration: 0.6, thenDragTo: key.withOffset(CGVector(dx: 64, dy: -(modifier.frame.height / 2 + 32))))
+        XCTAssertEqual(modifier.label, "Option")
+        XCTAssertEqual(modifier.value as? String, "Armed")
+        try screenshot("control-\(appearance)-option")
+        modifier.tap()
+        XCTAssertEqual(modifier.value as? String, "Off")
         try finishClip("control-\(appearance)", since: start)
+
+        // In landscape the chooser slims with the row, and its choices take taps beyond their 36-point capsule.
+        XCUIDevice.shared.orientation = .landscapeLeft
+        try waitForOrientation(landscape: true)
+        try assertKeyboard()
+        modifier.tap()
+        XCTAssertTrue(choices[2].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(choices[0].frame.midX, modifier.frame.midX, accuracy: 1)
+        for choice in choices {
+            XCTAssertGreaterThanOrEqual(choice.frame.width, 44, choice.identifier)
+            XCTAssertLessThanOrEqual(choice.frame.maxY, modifier.frame.minY - 7, choice.identifier)
+        }
+        choices[2].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -3)).tap()
+        XCTAssertEqual(modifier.label, "Shift")
+        try screenshot("control-\(appearance)-landscape")
+        modifier.tap()
+        XCTAssertEqual(modifier.value as? String, "Off")
+        XCUIDevice.shared.orientation = .portrait
+        try waitForOrientation(landscape: false)
+        try assertKeyboard()
     }
 
     /// Hides the keyboard with the key row's button, then taps the transcript to bring it back.
