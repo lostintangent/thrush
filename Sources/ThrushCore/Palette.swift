@@ -18,7 +18,7 @@ extension Terminal {
             self.blue = blue
         }
 
-        /// The cursor color when the host theme supplies none.
+        /// The cursor color when the app's theme supplies none.
         package static let white = RGB(0xffffff)
 
         fileprivate init(_ packed: UInt32) {

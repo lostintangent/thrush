@@ -138,6 +138,39 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     #expect(resumed.receive(query) == replies)
 }
 
+@Test func appearanceReportsFollowMode2031ThroughResetsAndResumes() {
+    let e = "\u{1b}"
+    let dark = e + "[?997;1n", light = e + "[?997;2n"
+    func reply(_ terminal: inout Terminal, _ text: String) -> String {
+        String(decoding: terminal.receive(Array(text.utf8)), as: UTF8.self)
+    }
+    // A terminal whose app hasn't chosen a theme leaves the question unanswered.
+    var terminal = Terminal(size: .init(columns: 4, rows: 2))
+    #expect(reply(&terminal, e + "[?996n" + e + "[?2031$p") == e + "[?2031;2$y")
+    terminal.appearance = .dark
+    #expect(reply(&terminal, e + "[?996n") == dark)
+    #expect(terminal.encode(.appearance(.light)).isEmpty)
+
+    // Setting the mode reports nothing. The program asks, then hears each change.
+    #expect(reply(&terminal, e + "[?2031h").isEmpty)
+    #expect(reply(&terminal, e + "[?2031$p" + e + "[?996n") == e + "[?2031;1$y" + dark)
+    #expect(String(decoding: terminal.encode(.appearance(.light)), as: UTF8.self) == light)
+
+    // A resumed shell keeps asking, and a new shell starts with the app's appearance.
+    var resumed = Terminal(size: terminal.size)
+    resumed.appearance = .light
+    #expect(resumed.receive(terminal.replayBytes()).isEmpty)
+    #expect(resumed.modes.reportAppearance)
+    terminal.startNewShell(at: terminal.size)
+    #expect(!terminal.modes.reportAppearance && terminal.appearance == .dark)
+
+    // DECSTR keeps the reports, as Ghostty does, and RIS ends them but still knows the theme.
+    _ = terminal.receive(Array((e + "[?2031h" + e + "[!p").utf8))
+    #expect(terminal.modes.reportAppearance)
+    #expect(reply(&terminal, e + "c" + e + "[?2031$p" + e + "[?996n") == e + "[?2031;2$y" + dark)
+    #expect(terminal.encode(.appearance(.light)).isEmpty)
+}
+
 @Test func partialStatusRequestGetsTheSameAnswerAfterReplay() {
     let e = "\u{1b}"
     let cases = [

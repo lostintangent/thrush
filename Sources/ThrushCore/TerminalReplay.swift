@@ -70,7 +70,7 @@ extension Terminal {
         }
 
         mutating func draw(_ buffer: Buffer) {
-            // A replay describes this shell. Its host may also display older shells above it.
+            // A replay describes this shell. The app may also show older shells above it.
             let history = buffer.history
             let start = history.previousShellCount
             let count = history.currentShellCount
@@ -206,7 +206,8 @@ extension Terminal {
                                     (modes.reverseWraparound, 45), (modes.mouseTracking == .press, 1000),
                                     (modes.mouseTracking == .drag, 1002), (modes.mouseTracking == .all, 1003),
                                     (modes.sendFocus, 1004), (modes.mouseSGR, 1006),
-                                    (modes.bracketedPaste, 2004), (modes.synchronizedOutput, 2026)] where enabled {
+                                    (modes.bracketedPaste, 2004), (modes.synchronizedOutput, 2026),
+                                    (modes.reportAppearance, 2031)] where enabled {
                 output += csi + "?\(code)h"
             }
             if let blink = modes.cursorBlinkOverride {

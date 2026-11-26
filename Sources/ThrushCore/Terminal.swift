@@ -45,30 +45,42 @@ public struct Terminal: Sendable {
         package var reverseWraparound = false
         /// LNM makes LF, VT and FF also return to the first column.
         var newLine = false
+        /// Mode 2031 asks the app to report each change between a dark and a light theme.
+        package var reportAppearance = false
+    }
+
+    /// Whether the app's theme is dark or light. The raw value is the parameter of its report.
+    package enum Appearance: Int, Sendable {
+        case dark = 1
+        case light = 2
     }
 
     /// The current dimensions of the visible grid in character cells.
     package var size: Size { screen.size }
-    /// The host theme's colors, which show wherever the program hasn't set its own.
+    /// The colors of the app's theme, which show wherever the program hasn't set its own.
     ///
-    /// Set this when the host changes theme. Stored cells retain their original color indices.
+    /// Set this when the app changes theme. Stored cells retain their original color indices.
     package var palette: Palette {
         didSet { if oldValue != palette { generation &+= 1 } }
     }
-    /// The host theme's cursor color, which shows unless the program set its own.
+    /// The cursor color of the app's theme, which shows unless the program set its own.
     package var cursorColor: RGB {
         didSet { if oldValue != cursorColor { generation &+= 1 } }
     }
-    /// Whether the host shows the terminal with keyboard focus. A program that sets mode 1004 hears it
-    /// right away, then hears each change the host sends as ``Input/focus(_:)``. Resets keep it.
+    /// Whether the app shows the terminal with keyboard focus. A program that sets mode 1004 hears it
+    /// right away, then hears each change the app sends as ``Input/focus(_:)``. Resets keep it.
     package var isFocused = false
-    /// The colors the program set over the host theme. They last until the program restores them,
+    /// Whether the app's theme is dark or light. A program can ask with DECDSR 996, and one that sets
+    /// mode 2031 hears each change the app sends as ``Input/appearance(_:)``. It's unknown until the app
+    /// supplies it, so a headless terminal leaves the question unanswered. Resets keep it.
+    package var appearance: Appearance?
+    /// The colors the program set over the app's theme. They last until the program restores them,
     /// so a theme change or a resume never changes them.
     package private(set) var programColors = ProgramColors()
     package private(set) var modes = Modes()
     private(set) var scanner = TextScanner()
     private(set) var parser = EscapeParser()
-    /// The completed window title. An empty title asks the host to use its default.
+    /// The completed window title. An empty title asks the app to use its default.
     package private(set) var title = ""
     private(set) var stringHandler = ControlStringHandler()
     private(set) var screen: Screen
@@ -81,7 +93,7 @@ public struct Terminal: Sendable {
     /// Where each run of non-ASCII text decodes before it's written. Keeping it saves clearing a new one.
     private var glyphs = InlineArray<64, UInt32>(repeating: 0)
 
-    /// Creates a terminal with a blank normal screen and the host theme's colors.
+    /// Creates a terminal with a blank normal screen and the colors of the app's theme.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
         self.init(screen: Screen(size: size), palette: palette, cursorColor: cursorColor)
     }
@@ -97,7 +109,7 @@ public struct Terminal: Sendable {
         restart(at: size, includingCurrentShell: true)
     }
 
-    /// A replay supplies the current shell's history and screen. Earlier shells belong to this host.
+    /// A replay supplies the current shell's history and screen. Earlier shells belong to the app.
     package mutating func prepareForReplay(at size: Size) {
         restart(at: size, includingCurrentShell: false)
     }
@@ -106,6 +118,7 @@ public struct Terminal: Sendable {
         let nextScreen = screen.startingShell(at: size, includingCurrentShell: includingCurrentShell)
         var next = Self(screen: nextScreen, palette: palette, cursorColor: cursorColor)
         next.isFocused = isFocused
+        next.appearance = appearance
         next.generation = generation &+ 1
         self = next
     }
@@ -371,8 +384,11 @@ public struct Terminal: Sendable {
             }
             return
         case .control(.privateDeviceStatusReport):
-            if parser.parameters[0] == 6 {
-                replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
+            // DECDSR 6 asks for the cursor position, and 996 asks whether the theme is dark or light.
+            switch parser.parameters[0] {
+            case 6: replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
+            case 996: if let appearance { replies.append(contentsOf: Reply.appearance(appearance).utf8) }
+            default: break
             }
             return
         case .control(.requestMode):
@@ -446,12 +462,13 @@ public struct Terminal: Sendable {
     }
 
     /// DECSTR resets modes, margins, the style, the character sets and the saved cursor. It keeps the
-    /// screen, the cursor position, mouse reporting and the program's colors.
+    /// screen, the cursor position, mouse reporting, appearance reports and the program's colors.
     private mutating func softReset() {
-        let mouse = (tracking: modes.mouseTracking, sgr: modes.mouseSGR)
+        let kept = (tracking: modes.mouseTracking, sgr: modes.mouseSGR, appearance: modes.reportAppearance)
         resetModes()
-        modes.mouseTracking = mouse.tracking
-        modes.mouseSGR = mouse.sgr
+        modes.mouseTracking = kept.tracking
+        modes.mouseSGR = kept.sgr
+        modes.reportAppearance = kept.appearance
         screen.resetScrollRegion()
         screen.resetSavedCursor()
     }
@@ -464,7 +481,7 @@ public struct Terminal: Sendable {
     }
 
     /// Both resets return the modes, the style and the character sets to their defaults. LNM and the blink
-    /// that DECSET 12 chose survive, as they do in the reference, where they are host settings.
+    /// that DECSET 12 chose survive, as they do in the reference, where the app sets them.
     private mutating func resetModes() {
         var reset = Modes()
         reset.cursorBlink = modes.cursorBlink
@@ -523,6 +540,7 @@ public struct Terminal: Sendable {
         case .alternateScreenOnly, .alternateScreenClearing, .alternateScreen: ModeState(screen.isAlternate)
         case .bracketedPaste: ModeState(modes.bracketedPaste)
         case .synchronizedOutput: ModeState(modes.synchronizedOutput)
+        case .reportAppearance: ModeState(modes.reportAppearance)
         }
     }
 
@@ -596,6 +614,8 @@ public struct Terminal: Sendable {
             // The presenter owns the timeout. Parsing, input and replies continue during a batch.
             generation &+= 1
             modes.synchronizedOutputID = enabled ? generation : nil
+        // Setting it sends nothing. A program asks with DECDSR 996 for the current appearance.
+        case .reportAppearance: modes.reportAppearance = enabled
         }
     }
 }

@@ -152,9 +152,17 @@ package actor SessionActor {
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
     package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }
     package var currentTerminal: Terminal { terminal }
-    package func setPalette(_ palette: Terminal.Palette, cursor: Terminal.RGB) {
+
+    /// Applies the app's theme. Its background decides whether the theme is dark or light, whatever
+    /// colors the program set, and a program that set mode 2031 hears each change.
+    package func setPalette(_ palette: Terminal.Palette, cursor: Terminal.RGB) async {
         terminal.palette = palette
         terminal.cursorColor = cursor
+        let appearance: Terminal.Appearance = palette.background.isDark ? .dark : .light
+        guard appearance != terminal.appearance else { return }
+        terminal.appearance = appearance
+        // A shell that isn't active hears the current appearance once a resumed attachment activates.
+        if state == .active { try? await send(.appearance(appearance)) }
     }
 
     /// Records whether the view has keyboard focus and tells a program that asked. A shell that isn't
@@ -169,6 +177,7 @@ package actor SessionActor {
     func resetTerminal(size: Terminal.Size) {
         var next = Terminal(size: size, palette: terminal.palette, cursorColor: terminal.cursorColor)
         next.isFocused = terminal.isFocused
+        next.appearance = terminal.appearance
         terminal = next
     }
 

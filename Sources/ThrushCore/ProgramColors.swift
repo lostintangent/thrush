@@ -1,5 +1,5 @@
 // Programs set, query and restore the theme's colors with OSC 4, 10, 11, 12, 104, 110, 111 and 112.
-// A set layers over the host's theme until the program restores it, even across a theme change.
+// A set layers over the app's theme until the program restores it, even across a theme change.
 
 extension Terminal {
     /// A theme color that a program can set, query or restore.
@@ -14,7 +14,7 @@ extension Terminal {
         case cursor
     }
 
-    /// The colors a program set over the host's theme.
+    /// The colors a program set over the app's theme.
     package struct ProgramColors: Equatable, Sendable {
         // Empty until a program sets an indexed color, and emptied again once none is set.
         private var indexed: [RGB?] = []

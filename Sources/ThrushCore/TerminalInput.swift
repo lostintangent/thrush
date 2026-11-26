@@ -12,8 +12,10 @@ extension Terminal {
         case pointer(Pointer)
         /// A hardware or accessory key and its active terminal modifiers.
         case key(Key, modifiers: Modifiers = [])
-        /// Whether the host now shows the terminal with keyboard focus, reported while the program sets mode 1004.
+        /// Whether the app now shows the terminal with keyboard focus, reported while the program sets mode 1004.
         case focus(Bool)
+        /// The app's theme turned dark or light, reported while the program sets mode 2031.
+        case appearance(Appearance)
 
         /// A key whose terminal sequence can depend on modifiers and the shell's current modes.
         package enum Key: Sendable {
@@ -29,9 +31,9 @@ extension Terminal {
             case home
             /// The End key.
             case end
-            /// The Page Up key. Shift–Page Up scrolls the host viewport locally.
+            /// The Page Up key. Shift–Page Up scrolls the app's viewport locally.
             case pageUp
-            /// The Page Down key. Shift–Page Down scrolls the host viewport locally.
+            /// The Page Down key. Shift–Page Down scrolls the app's viewport locally.
             case pageDown
             /// The forward Delete key.
             case delete
@@ -51,7 +53,7 @@ extension Terminal {
 
         /// Keyboard modifiers used in terminal key and pointer reports.
         ///
-        /// Handle Command shortcuts in the host before forwarding input.
+        /// Handle Command shortcuts in the app before forwarding input.
         package struct Modifiers: OptionSet, Sendable {
             /// The bit mask containing the active terminal modifiers.
             package let rawValue: UInt8
@@ -94,6 +96,9 @@ extension Terminal {
         case .focus(let focused):
             guard modes.sendFocus else { return [] }
             return [0x1b, 0x5b, focused ? UInt8(ascii: "I") : UInt8(ascii: "O")]
+        case .appearance(let appearance):
+            guard modes.reportAppearance else { return [] }
+            return Array(Reply.appearance(appearance).utf8)
         }
     }
 

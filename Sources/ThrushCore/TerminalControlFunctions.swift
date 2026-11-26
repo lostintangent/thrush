@@ -273,6 +273,11 @@ extension Terminal {
         /// DSR 5 reports that the terminal is working.
         static let operatingStatus = "\u{1b}[0n"
 
+        /// DSR 997 answers DECDSR 996 and reports each change while mode 2031 is set.
+        static func appearance(_ appearance: Appearance) -> String {
+            "\u{1b}[?997;\(appearance.rawValue)n"
+        }
+
         /// DECRPM answers DECRQM with the mode number and its state.
         static func modeReport(_ mode: Int, _ state: ModeState, isPrivate: Bool) -> String {
             "\u{1b}[\(isPrivate ? "?" : "")\(mode);\(state.rawValue)$y"
@@ -361,5 +366,7 @@ extension Terminal {
         case alternateScreen = 1049
         case bracketedPaste = 2004
         case synchronizedOutput = 2026
+        /// Reports when the app's theme turns dark or light.
+        case reportAppearance = 2031
     }
 }

@@ -65,9 +65,9 @@ extension Terminal {
 
     package struct Snapshot: Sendable {
         package let size: Size
-        /// The host theme's palette. Draw through ``programColors`` to show what the program set.
+        /// The palette of the app's theme. Draw through ``programColors`` to show what the program set.
         package let palette: Palette
-        /// The colors the program set over the host theme.
+        /// The colors the program set over the app's theme.
         package let programColors: ProgramColors
         package let modes: Modes
         package private(set) var rows: [Row]

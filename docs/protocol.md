@@ -18,13 +18,15 @@ Open a WebSocket at `/socket?service=terminal&clientId=ID&cols=C&rows=R`. Percen
 
 If the WebSocket closes without a terminal `close` message, its attachment to the shell ends. The server retains the live shell for 30 seconds. Reattaching with the same ID inside that window cancels expiry and returns a resumed ready and replay. If the shell has exited or the deadline has passed, the server starts a new one and returns fresh ready. A concurrent attachment with the same ID takes ownership and closes the previous socket with code 4000. The displaced client stops retrying. A deliberate tap or keystroke in its terminal requests another attachment. Merely showing or focusing the pane leaves the other client in control. Only the owning socket can write, resize or close the shell.
 
-On a resumed attachment, wait for the binary replay before sending a resize held during the handshake. Send held keystrokes once, using the input modes restored by the replay. This includes the first keystroke used to reclaim a displaced shell. A tap to reclaim sends no terminal input.
+On a resumed attachment, wait for the binary replay before sending a resize held during the handshake. Send held keystrokes once, using the input modes restored by the replay. This includes the first keystroke used to reclaim a displaced shell. A tap to reclaim sends no terminal input. If the replay leaves mode 2031 set, send the current dark or light appearance report once, since another client may have reported a different one while this one was away.
 
 A fresh ready on reattach starts a different shell on the same session. Keep the previous shell’s main screen in history, discard its alternate screen and any held input, and reset the modes and title. The new shell starts at row one and accepts input immediately. `hasEnded` stays false. A later replay describes the current shell and retains surviving history from earlier shells.
 
 ## Replay
 
 A replay is one binary WebSocket message containing VT output. It describes both buffers, retained history, soft wraps, cells and their styles, window title, the colors the program set, cursor and input modes. The server tracks output even while the shell has no attachment. If a socket or PTY read ended partway through a UTF-8 character or control, the replay ends with the corresponding unfinished prefix, including the payload so far of an unfinished title or color command. The next live bytes complete it once. A client’s local theme supplies every color the program hasn't set.
+
+The modes a replay restores are insert (IRM), new line (LNM), the application keypad, the cursor style and private modes 1, 7, 12, 25, 45, 1000, 1002, 1003, 1004, 1006, 2004, 2026 and 2031. Each changes what the client sends or shows, so a replay that drops one changes what the program hears. Mode 2031 needs care, because emulators that don't know it, such as @xterm/headless, leave it out of what they serialize. A server built on one must follow `CSI ? 2031 h` and `l` in the shell's output itself, clearing it on RIS and keeping it through DECSTR, and add `CSI ? 2031 h` to the replay. Otherwise a program like Neovim stops hearing dark and light changes after the first reconnect.
 
 Two resize effects cannot be addressed by VT output at the current grid size.
 

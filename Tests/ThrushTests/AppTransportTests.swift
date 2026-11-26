@@ -209,3 +209,22 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
     #expect(await actor.show(userInitiated: true) == false)
     #expect(opens.withLock { $0 } == 1)
 }
+
+@MainActor @Test func hiddenAppShellHearsEachAppearanceFlip() async throws {
+    let transport = ControlledTransport()
+    let session = TerminalSession(openTransport: { _ in transport })
+    let actor = session.actor
+    let dark = TerminalTheme.slateDark, light = TerminalTheme.slateLight
+    await actor.setPalette(dark.palette, cursor: dark.cursor)
+    try await actor.sendResize(to: .init(columns: 20, rows: 4))
+    try #require(await actor.show())
+    try #require(try await actor.nextEvent() == .ready(resumed: false))
+    await transport.emit("\u{1b}[?2031h")
+    try #require(try await actor.nextEvent() == .output)
+
+    // An app transport keeps reading while its pane is hidden, so its shell stays current.
+    await actor.hide()
+    await actor.setPalette(light.palette, cursor: light.cursor)
+    await actor.setPalette(light.palette, cursor: light.cursor)
+    #expect(await transport.writes == [Data("\u{1b}[?997;2n".utf8)])
+}

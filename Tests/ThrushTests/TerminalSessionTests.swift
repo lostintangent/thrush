@@ -208,3 +208,67 @@ import Testing
     #expect(peer.receivedBinary == ["\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "\u{1b}[I", "\u{1b}[O", "x"])
     withExtendedLifetime(session) {}
 }
+
+@MainActor @Test func programsHearEachAppearanceFlipAndTheCurrentAppearanceOnResume() async throws {
+    let peer = try ShellTestPeer()
+    defer { peer.stop() }
+    let deadline = ContinuousClock.now + .seconds(5)
+    func waitFor(_ expected: Comment, until condition: () -> Bool) async throws {
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(condition(), expected)
+    }
+    try await waitFor("The loopback peer must be listening.") { peer.port != nil }
+    let port = try #require(peer.port)
+    let session = try TerminalSession(baseURL: try #require(URL(string: "http://127.0.0.1:\(port)")),
+                                      clientID: "appearance")
+    // Typed input follows any report on the same socket, so it marks where reports would have arrived.
+    func expectWrites(_ expected: [String], through marker: String) async throws {
+        try await session.actor.send(.text(marker))
+        try await waitFor("The shell must receive \(marker).") { peer.receivedBinary.last == marker }
+        #expect(peer.receivedBinary == expected + [marker])
+    }
+    // Resumes a hidden session, or one whose network dropped.
+    func resume(replaying replay: String, afterDrop: Bool = false) async throws {
+        peer.resumeNextAttachment = true
+        if afterDrop {
+            peer.drop()
+            #expect(try await session.actor.nextEvent() == .reconnecting)
+        } else {
+            try #require(await session.actor.show())
+        }
+        #expect(try await session.actor.nextEvent() == .ready(resumed: true))
+        try peer.send(replay, opcode: .binary)
+        #expect(try await session.actor.nextEvent() == .replay)
+    }
+    let reports = "\u{1b}[?2031h", dark = "\u{1b}[?997;1n", light = "\u{1b}[?997;2n"
+    var warmDark = TerminalTheme.slateDark
+    warmDark.palette = .init(foreground: warmDark.palette.foreground, background: .init(red: 0x1c, green: 0x1a, blue: 0x18), ansi: warmDark.palette.ansi)
+
+    // Only a flip between dark and light is reported, not another theme of the same appearance or a
+    // background the program set.
+    await session.setTheme(.slateDark)
+    try #require(await session.actor.show())
+    #expect(try await session.actor.nextEvent() == .ready(resumed: false))
+    try peer.send(reports + "\u{1b}]11;#ffffff\u{7}", opcode: .binary)
+    #expect(try await session.actor.nextEvent() == .output)
+    await session.setTheme(warmDark)
+    await session.setTheme(.slateLight)
+    await session.setTheme(.slateLight)
+    await session.setTheme(.slateDark)
+    try await expectWrites([light, dark], through: "1")
+
+    // Another attachment may have told the shell otherwise, so a resumed program hears the current
+    // appearance once, whether or not it changed while the shell was detached.
+    await session.actor.hide()
+    await session.setTheme(.slateLight)
+    try await resume(replaying: reports)
+    try await resume(replaying: reports, afterDrop: true)
+    try await expectWrites([light, dark, "1", light, light], through: "2")
+
+    // A resumed program that hasn't asked hears nothing.
+    await session.actor.hide()
+    try await resume(replaying: "")
+    try await expectWrites([light, dark, "1", light, light, "2"], through: "3")
+}

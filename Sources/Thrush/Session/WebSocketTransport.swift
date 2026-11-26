@@ -302,19 +302,25 @@ final class WebSocketTransport {
     }
 
     /// Writes held input once the shell is current. A replayed program that reports focus first hears
-    /// any change since its reply reported `replyFocus`, because focus changes aren't held.
+    /// any change since its reply reported `replyFocus`, because focus changes aren't held. One that
+    /// reports appearance hears the current one, because another attachment may have told it otherwise.
     private func activate(_ current: URLSessionWebSocketTask, replyFocus: Bool? = nil,
                           in session: isolated SessionActor) async throws {
         // A second loss drops only an attempted write, whose delivery is ambiguous. Later keys
         // still belong to the unsent queue and will use the next resumed shell's input modes.
         var heardFocus = replyFocus
+        var heardAppearance: Terminal.Appearance?
         while socket === current && session.state != .closing {
             let focus = session.terminal.isFocused
+            let appearance = session.terminal.appearance
             if session.terminal.size != session.requestedSize {
                 try await resizeIfNeeded(current, in: session)
             } else if session.terminal.modes.sendFocus, let heard = heardFocus, heard != focus {
                 heardFocus = focus
                 try await send(.focus(focus), on: current, in: session, notify: nil)
+            } else if session.terminal.modes.reportAppearance, let appearance, appearance != heardAppearance {
+                heardAppearance = appearance
+                try await send(.appearance(appearance), on: current, in: session, notify: nil)
             } else if !heldInput.isEmpty {
                 let next = heldInput.removeFirst()
                 heldBytes -= next.byteCount

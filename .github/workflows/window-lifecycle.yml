@@ -32,6 +32,10 @@ on:
         description: Capture colors a program sets under the title bar and a window toolbar in both Slate appearances
         type: boolean
         default: false
+      appearance_reports:
+        description: Report each dark and light flip of the Mac window to programs on a real shell that set mode 2031
+        type: boolean
+        default: false
 permissions:
   contents: read
 # Every push to main runs to completion, and a newer push waits rather than cancelling it.
@@ -42,7 +46,7 @@ concurrency:
 jobs:
   window-lifecycle:
     runs-on: xcode-27
-    timeout-minutes: ${{ (inputs.voiceover || inputs.text_blink) && 25 || 12 }}
+    timeout-minutes: ${{ (inputs.voiceover || inputs.text_blink || inputs.appearance_reports) && 25 || 12 }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -53,7 +57,7 @@ jobs:
         with:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
-        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors }}
+        if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors && !inputs.appearance_reports }}
         run: python3 scripts/pty/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
@@ -67,8 +71,17 @@ jobs:
       - name: Capture program colors under the title bar and a window toolbar
         if: inputs.program_colors
         run: python3 scripts/capture-mac-program-colors.py --output "$RUNNER_TEMP/mac-program-colors"
+      - name: Install Neovim to follow appearance reports
+        if: inputs.appearance_reports
+        run: brew install neovim
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+      - name: Report the Mac window's dark and light flips to programs on a real shell
+        if: inputs.appearance_reports
+        run: python3 scripts/capture-mac-appearance-reports.py --output "$RUNNER_TEMP/mac-appearance-reports"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors))
+        if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors || inputs.appearance_reports))
         with:
           name: ${{ inputs.voiceover && 'thrush-mac-voiceover' || 'thrush-window-lifecycle' }}
           path: ${{ runner.temp }}/window-lifecycle/
@@ -87,3 +100,8 @@ jobs:
         with:
           name: thrush-mac-program-colors
           path: ${{ runner.temp }}/mac-program-colors/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && inputs.appearance_reports
+        with:
+          name: thrush-mac-appearance-reports
+          path: ${{ runner.temp }}/mac-appearance-reports/
