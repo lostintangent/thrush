@@ -550,6 +550,7 @@ def main():
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))
+            phone.pin_status_bar()
             opens_keyboard = not args.scene or args.keyboard == "visible" or args.scene == "reconnect-typing"
             if not args.layout_only and not spin and args.scene not in {"render-benchmark", "program-colors", "under-bars"} and opens_keyboard:
                 phone.warm_keyboard(args.appearance if args.scene else "dark")

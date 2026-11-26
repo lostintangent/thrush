@@ -103,7 +103,6 @@ def compare(first, second, appearance, scale):
 
 
 def capture(phone, options, sim):
-    phone.pin_status_bar()
     phone.warm_keyboard(None)
     failures = {}
     for appearance in ("dark", "light"):
