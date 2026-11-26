@@ -62,7 +62,7 @@ import UIKit
     }
 
     deliver(UIScene.didActivateNotification)
-    try await waitFor("the first ready socket") { await session.actor.state == .active }
+    try await waitFor("the first ready socket") { await session.actor.state == .live }
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
     let prompt = "foreground shell"
@@ -78,7 +78,7 @@ import UIKit
     deliver(UIScene.didActivateNotification)
     #expect(canvas.isDrawingVisible)
     try await Task.sleep(for: .milliseconds(300))
-    #expect(await session.actor.state == .active)
+    #expect(await session.actor.state == .live)
     #expect(peer.opens == 1)
     #expect(peer.closes == 0)
 
@@ -100,7 +100,7 @@ import UIKit
     let output = "while hidden"
     try peer.send("\(prompt)\r\n\(output)", opcode: .binary)
     try await waitFor("the foreground replay") {
-        await session.actor.state == .active && terminal.snapshot?.rows.dropFirst().first?.text == output
+        await session.actor.state == .live && terminal.snapshot?.rows.dropFirst().first?.text == output
     }
     #expect(!session.hasEnded && peer.opens == 2 && peer.closes == 1)
 }

@@ -121,7 +121,7 @@ struct ReconnectCheck {
         try await reject(.text("x"), from: session)
         try await expect(.replaced, from: session)
         let fresh = await session.snapshot()
-        guard await session.state == .active, !fresh.isAlternate, !fresh.modes.applicationCursorKeys,
+        guard await session.state == .live, !fresh.isAlternate, !fresh.modes.applicationCursorKeys,
               !fresh.modes.bracketedPaste, await session.currentTerminal.title.isEmpty,
               fresh.history.map(\.text).filter({ !$0.isEmpty }) == ["saved-main"], fresh.rows.allSatisfy({ $0.text.isEmpty }),
               await clock.delays == schedule + [.milliseconds(250)], writes.all == delivered + ["again"] else {
@@ -131,7 +131,7 @@ struct ReconnectCheck {
         try await expect(.output, from: session)
         guard await session.text(inRow: 0) == "new$ " else { throw Failure("Fresh prompt missed the first row") }
         try await expect(.output, from: session)
-        try await expect(.exit, from: session)
+        try await expect(.ended, from: session)
         guard await session.text(inRow: 0) == "new$ clean",
               !(await session.show()), !(await session.show(userInitiated: true)) else {
             throw Failure("The old session restarted after natural exit")
@@ -158,7 +158,7 @@ struct ReconnectCheck {
         try await expect(.ready(resumed: true), from: session)
         try await expect(.replay, from: session)
         try await session.send(.text("back")) // No held Up keys may precede this write.
-        try await expect(.exit, from: session)
+        try await expect(.ended, from: session)
     }
 
     private func closeDuringFirstRetry() async throws {

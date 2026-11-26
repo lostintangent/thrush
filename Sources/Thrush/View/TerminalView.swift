@@ -97,7 +97,7 @@ import ThrushCore
 
     @MainActor fileprivate final class Coordinator: ObservableObject {
         private enum Phase: Equatable {
-            case initial, connecting, reconnecting, live, displaced, exited
+            case initial, connecting, reconnecting, live, displaced, ended
         }
         private weak var canvas: CanvasView?
         private var metalView: TerminalMetalView? { canvas?.terminal }
@@ -126,8 +126,8 @@ import ThrushCore
         }
         private var hasScreen = false
         private var size: Terminal.Size?
-        private var deliveredExit = false
-        private var finishingExitStamp: UInt64?
+        private var deliveredEnd = false
+        private var finishingEndStamp: UInt64?
 
         fileprivate func bind(_ canvas: CanvasView) {
             self.canvas = canvas
@@ -159,7 +159,7 @@ import ThrushCore
                 stop()
                 phase = .initial
                 hasScreen = false
-                deliveredExit = false
+                deliveredEnd = false
                 metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
                 metalView?.reset()
             }
@@ -357,36 +357,37 @@ import ThrushCore
 
         @discardableResult
         private func apply(_ update: TerminalSession.Update, stamp: UInt64) async -> Bool {
-            switch update {
-            case .fresh(let screen):
+            let screen = update.screen
+            switch update.event {
+            case .ready(resumed: false):
                 metalView?.reset()
                 metalView?.display(screen)
                 hasScreen = true
                 becomeLive()
                 view?.probe.observe?(.ready(resumed: false))
-            case .replaced(let screen, let revision):
-                shellRevision = revision
+            case .replaced:
+                shellRevision = update.shellRevision
                 metalView?.cancelPendingInput()
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil, archivingMainScreen: true)
                 hasScreen = true
                 becomeLive()
                 view?.probe.observe?(.ready(resumed: false))
                 metalView?.announce("New shell")
-            case .awaitingReplay:
+            case .ready(resumed: true):
                 view?.probe.observe?(.ready(resumed: true))
-            case .screen(let screen):
+            case .screen:
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil)
                 hasScreen = true
                 becomeLive()
-            case .output(let screen, let time):
-                metalView?.display(screen, receivedAt: time)
+            case .output:
+                metalView?.display(screen, receivedAt: update.receivedAt)
                 hasScreen = true
-                if let time { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
-            case .replay(let screen, let time):
-                metalView?.replaceDisplayedSnapshot(screen, receivedAt: time)
+                if let time = update.receivedAt { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
+            case .replay:
+                metalView?.replaceDisplayedSnapshot(screen, receivedAt: update.receivedAt)
                 hasScreen = true
                 if phase != .live { becomeLive() }
-                if let time { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
+                if let time = update.receivedAt { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .reconnecting:
                 phase = hasScreen ? .reconnecting : .connecting
                 metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
@@ -395,8 +396,8 @@ import ThrushCore
                 metalView?.setInputAvailability(.holdingKeys, dismissKeyboard: false)
                 metalView?.onDisplacedTap = { [weak self] in self?.reclaim() }
                 return false
-            case .ended(let final):
-                await finishExit(final, stamp: stamp)
+            case .ended:
+                await finishEnd(screen, stamp: stamp)
                 return false
             }
             return true
@@ -408,18 +409,18 @@ import ThrushCore
             await apply(status, stamp: stamp)
         }
 
-        private func finishExit(_ final: Terminal.Snapshot, stamp: UInt64) async {
-            guard epoch == stamp, active, !deliveredExit, finishingExitStamp != stamp else { return }
-            finishingExitStamp = stamp
-            let announceEnd = phase != .initial && phase != .exited
-            phase = .exited
+        private func finishEnd(_ final: Terminal.Snapshot, stamp: UInt64) async {
+            guard epoch == stamp, active, !deliveredEnd, finishingEndStamp != stamp else { return }
+            finishingEndStamp = stamp
+            let announceEnd = phase != .initial && phase != .ended
+            phase = .ended
             metalView?.onDisplacedTap = nil
-            defer { if finishingExitStamp == stamp { finishingExitStamp = nil } }
+            defer { if finishingEndStamp == stamp { finishingEndStamp = nil } }
             // Present the final bytes at the pre-dismissal keyboard size, including synchronized output.
             metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
             await metalView?.presentFinal(final)
-            guard epoch == stamp, active, !deliveredExit else { return }
-            deliveredExit = true
+            guard epoch == stamp, active, !deliveredEnd else { return }
+            deliveredEnd = true
             hasScreen = true
             metalView?.setInputAvailability(.blocked, dismissKeyboard: true)
             if announceEnd { metalView?.announce("Shell ended") }

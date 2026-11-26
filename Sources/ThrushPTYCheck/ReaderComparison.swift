@@ -73,7 +73,7 @@ enum ReaderComparison {
                 case .replay:
                     result.replayFrames += 1
                     result.replayBytes += lastFrame.withLock { $0.count }
-                case .exit: break drain
+                case .ended: break drain
                 default: throw PTYCheckFailure("Unexpected lifecycle transition during the burst")
                 }
             }

@@ -35,7 +35,7 @@ struct InBandReplayCheck {
         try await session.sendResize(to: resized)
         try await session.send(.key(.up))
         let visible = await session.snapshot()
-        guard await session.state == .active, visible.size == size, visible.palette == palette,
+        guard await session.state == .live, visible.size == size, visible.palette == palette,
               visible.generation == old.generation, visible.modes == old.modes,
               visible.cursorColumn == old.cursorColumn, visible.cursorRow == old.cursorRow,
               visible.history.map(\.text) == old.history.map(\.text),
@@ -47,7 +47,7 @@ struct InBandReplayCheck {
         guard (response as? HTTPURLResponse)?.statusCode == 204,
               try await repair.value == .replay else { throw Failure("Expected exactly one replay event") }
         let restored = await session.snapshot()
-        guard await session.state == .active, !(await session.awaitingReplay),
+        guard await session.state == .live, !(await session.awaitingReplay),
               restored.palette == palette, restored.size == resized,
               restored.history.map(\.text) == ["oldest", "newer"], restored.rows.map(\.text) == ["one", "two", "three"],
               restored.cursorRow == 2, restored.cursorColumn == 5,
@@ -60,7 +60,7 @@ struct InBandReplayCheck {
         try await session.send(.key(.up))
         try await session.send(.paste("a\nb"))
         guard try await session.nextEvent() == .output, await session.text(inRow: 2) == "bye",
-              try await session.nextEvent() == .exit, await session.state == .ended,
+              try await session.nextEvent() == .ended, await session.state == .ended,
               !(await session.show()), (try? await session.nextEvent()) == nil else {
             throw Failure("Final bytes and exit must survive the immediately following normal socket close")
         }

@@ -20,12 +20,12 @@ package actor SessionActor {
         case output
         /// The terminal applied the WebSocket server's complete replay.
         case replay
-        /// The shell ended after its final output.
-        case exit
+        /// The session ended. Its final screen stays.
+        case ended
     }
 
     package enum State: Equatable, Sendable {
-        case idle, connecting, active, closing, ended
+        case idle, connecting, live, closing, ended
         // Only the WebSocket protocol has retries, replay and attachment takeover.
         case reconnecting, awaitingReplay, displaced
     }
@@ -160,8 +160,8 @@ package actor SessionActor {
         let appearance: Terminal.Appearance = palette.background.isDark ? .dark : .light
         guard appearance != terminal.appearance else { return }
         terminal.appearance = appearance
-        // A shell that isn't active hears the current appearance once a resumed attachment activates.
-        if state == .active { try? await send(.appearance(appearance)) }
+        // A shell that isn't live hears the current appearance once a resumed attachment activates.
+        if state == .live { try? await send(.appearance(appearance)) }
     }
 
     /// Records whether the view has keyboard focus and tells a program that asked. A shell that isn't

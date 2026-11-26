@@ -85,17 +85,14 @@ import UIKit
 }
 
 extension TerminalSession {
-    /// Each screen and its accompanying metadata come from the same turn of the session actor.
-    enum Update: Sendable {
-        case fresh(Terminal.Snapshot)
-        case replaced(Terminal.Snapshot, shellRevision: UInt64)
-        case awaitingReplay
-        case screen(Terminal.Snapshot)
-        case output(Terminal.Snapshot, receivedAt: TimeInterval?)
-        case replay(Terminal.Snapshot, receivedAt: TimeInterval?)
-        case reconnecting
-        case displaced
-        case ended(Terminal.Snapshot)
+    /// An event and the screen from the same turn of the session actor.
+    struct Update: Sendable {
+        let event: SessionActor.Event
+        let screen: Terminal.Snapshot
+        /// When the latest output arrived.
+        let receivedAt: TimeInterval?
+        /// The shell that input typed over this screen belongs to.
+        let shellRevision: UInt64
     }
 
     func show(userInitiated: Bool, theme: TerminalTheme, needsRetainedScreen: Bool) async
@@ -128,20 +125,13 @@ extension SessionActor {
                      deliver: @MainActor @Sendable (TerminalSession.Update) async -> Bool) async throws {
         var synchronized = terminal.modes.synchronizedOutput
         while !Task.isCancelled {
-            let update = try await nextUpdate()
+            let update = update(try await nextEvent())
             try Task.checkCancellation()
-            switch update {
-            case .output(let screen, let receipt):
-                let wasSynchronized = synchronized
-                synchronized = screen.synchronizedOutputID != nil
-                if !wasSynchronized, !synchronized {
-                    if output.offer(screen, receivedAt: receipt) { Task { @MainActor in notify() } }
-                    continue
-                }
-            case .fresh(let screen), .replaced(let screen, _), .screen(let screen), .replay(let screen, _):
-                synchronized = screen.synchronizedOutputID != nil
-            default:
-                break
+            let wasSynchronized = synchronized
+            synchronized = update.screen.synchronizedOutputID != nil
+            if update.event == .output, !wasSynchronized, !synchronized {
+                if output.offer(update.screen, receivedAt: update.receivedAt) { Task { @MainActor in notify() } }
+                continue
             }
             guard await deliver(update) else { return }
         }
@@ -155,37 +145,27 @@ private extension SessionActor {
         await setPalette(palette, cursor: cursor)
         let hadScreen = hasSeenReady
         show(userInitiated: userInitiated)
-        if state == .ended { return (nil, .ended(snapshot()), shellRevision) }
-        // An active app transport provides its current screen as the first update.
-        let retainedScreen = needsRetainedScreen && hadScreen && state != .active ? snapshot() : nil
-        return (retainedScreen, state == .displaced ? .displaced : nil, shellRevision)
+        if state == .ended { return (nil, update(.ended), shellRevision) }
+        // A live app transport provides its current screen as the first update.
+        let retainedScreen = needsRetainedScreen && hadScreen && state != .live ? snapshot() : nil
+        return (retainedScreen, state == .displaced ? update(.displaced) : nil, shellRevision)
     }
 
     func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {
         try await sendResize(to: size)
-        return needsScreen && state == .active ? snapshot() : nil
+        return needsScreen && state == .live ? snapshot() : nil
     }
 
-    func nextUpdate() async throws -> TerminalSession.Update {
-        switch try await nextEvent() {
-        case .ready(resumed: true): .awaitingReplay
-        case .ready(resumed: false): .fresh(snapshot())
-        case .replaced: .replaced(snapshot(), shellRevision: shellRevision)
-        case .screen: .screen(snapshot())
-        case .output: .output(snapshot(), receivedAt: lastReceiptTime)
-        case .replay: .replay(snapshot(), receivedAt: lastReceiptTime)
-        case .reconnecting: .reconnecting
-        case .displaced: .displaced
-        case .exit: .ended(snapshot())
-        }
+    func update(_ event: Event) -> TerminalSession.Update {
+        .init(event: event, screen: snapshot(), receivedAt: lastReceiptTime, shellRevision: shellRevision)
     }
 
     func statusAfterError() -> TerminalSession.Update? {
         switch state {
-        case .ended: .ended(snapshot())
-        case .displaced: .displaced
-        case .connecting, .reconnecting, .awaitingReplay: .reconnecting
-        case .idle, .closing, .active: nil
+        case .ended: update(.ended)
+        case .displaced: update(.displaced)
+        case .connecting, .reconnecting, .awaitingReplay: update(.reconnecting)
+        case .idle, .closing, .live: nil
         }
     }
 }

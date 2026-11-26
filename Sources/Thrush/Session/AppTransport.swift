@@ -24,9 +24,9 @@ final class AppTransport {
     }
 
     func show(in session: isolated SessionActor) -> Bool {
-        if subscription == nil, session.state == .active || session.state == .connecting || session.state == .closing {
+        if subscription == nil, session.state == .live || session.state == .connecting || session.state == .closing {
             subscription = Subscription()
-            if session.state == .active {
+            if session.state == .live {
                 subscription?.firstEvent = .screen
                 return false
             }
@@ -79,7 +79,7 @@ final class AppTransport {
                 view.hasOutput = false
                 return .output
             }
-            if session.state == .ended { return .exit }
+            if session.state == .ended { return .ended }
             guard await changes.next() != nil else { throw CancellationError() }
         }
     }
@@ -97,7 +97,7 @@ final class AppTransport {
             try await resizeIfNeeded(in: session)
             guard session.lifetime == stamp else { throw CancellationError() }
         }
-        session.state = .active
+        session.state = .live
         session.hasSeenReady = true
         subscription?.firstEvent = .ready(resumed: false)
         subscription?.changes.continuation.yield()
@@ -118,13 +118,13 @@ final class AppTransport {
     }
 
     func send(_ input: Terminal.Input, in session: isolated SessionActor) async throws {
-        guard session.state == .active else { throw SessionActor.TransportError.inactiveTransport }
+        guard session.state == .live else { throw SessionActor.TransportError.inactiveTransport }
         let bytes = session.terminal.encode(input)
         if !bytes.isEmpty { try await write(.bytes(Data(bytes)), in: session) }
     }
 
     func resize(in session: isolated SessionActor) async throws {
-        if session.state == .active { try await resizeIfNeeded(in: session) }
+        if session.state == .live { try await resizeIfNeeded(in: session) }
     }
 
     private func resizeIfNeeded(in session: isolated SessionActor) async throws {

@@ -49,7 +49,7 @@ struct LoopbackCheck {
             if event.up != nil { try await session.send(.key(.up)) }
         }
         try await session.sendResize(to: .init(columns: size.columns + 1, rows: size.rows + 1))
-        guard try await session.nextEvent() == .exit,
+        guard try await session.nextEvent() == .ended,
               let final = fixture.events.last, await session.text(inRow: final.row) == final.text
         else { throw CheckFailure("Expected the last output to remain readable at exit") }
 

@@ -143,7 +143,7 @@ final class WebSocketTransport {
         do {
             switch message {
             case .data(let bytes):
-                guard session.state == .active || session.state == .awaitingReplay || session.state == .closing else {
+                guard session.state == .live || session.state == .awaitingReplay || session.state == .closing else {
                     throw TransportError.unexpectedMessage
                 }
                 session.recordReceipt(of: bytes)
@@ -163,7 +163,7 @@ final class WebSocketTransport {
                 do {
                     if !reply.isEmpty && session.state != .closing { try await write(.data(Data(reply)), to: current, in: session) }
                     if session.state == .awaitingReplay { try await activate(current, replyFocus: replyFocus, in: session) }
-                    if replay == .live && session.state == .active { try await resizeIfNeeded(current, in: session) }
+                    if replay == .live && session.state == .live { try await resizeIfNeeded(current, in: session) }
                 } catch {
                     // Output was already applied. Present it before reporting its reply's transport failure.
                     guard session.lifetime == stamp, pendingEvent != nil else { throw error }
@@ -202,11 +202,11 @@ final class WebSocketTransport {
                     await session.publishMetadata(title: resumed ? nil : session.terminal.title, hasEnded: false)
                     guard session.lifetime == stamp else { throw CancellationError() }
                     return replaced ? .replaced : .ready(resumed: resumed)
-                case (.ready, .active) where control.resumed == true && nextReplay == nil:
+                case (.ready, .live) where control.resumed == true && nextReplay == nil:
                     frameTrace?.record("ready", attachment: attachment, message: message)
                     nextReplay = .live
                     return nil
-                case (.exit, .active), (.exit, .closing):
+                case (.exit, .live), (.exit, .closing):
                     frameTrace?.record("exit", attachment: attachment, message: message)
                     if session.state != .closing {
                         park(as: .ended, in: session)
@@ -214,7 +214,7 @@ final class WebSocketTransport {
                     let exitLifetime = session.lifetime
                     await session.publishMetadata(hasEnded: true)
                     guard session.lifetime == exitLifetime else { throw CancellationError() }
-                    return .exit
+                    return .ended
                 default: throw TransportError.unexpectedMessage
                 }
             @unknown default: throw TransportError.unexpectedMessage
@@ -249,7 +249,7 @@ final class WebSocketTransport {
             heldBytes += count
             return
         }
-        guard let current = socket, session.state == .active else { throw TransportError.inactiveTransport }
+        guard let current = socket, session.state == .live else { throw TransportError.inactiveTransport }
         try await send(input, on: current, in: session)
     }
 
@@ -284,7 +284,7 @@ final class WebSocketTransport {
                 try await send(next.input, on: current, in: session)
             } else {
                 recovering = false
-                session.state = .active
+                session.state = .live
                 return
             }
         }
@@ -292,7 +292,7 @@ final class WebSocketTransport {
     }
 
     func resize(in session: isolated SessionActor) async throws {
-        guard let current = socket, session.state == .active, nextReplay == nil else { return }
+        guard let current = socket, session.state == .live, nextReplay == nil else { return }
         try await resizeIfNeeded(current, in: session)
     }
 

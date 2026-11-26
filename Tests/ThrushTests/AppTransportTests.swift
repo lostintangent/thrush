@@ -135,7 +135,7 @@ private actor DelayedOpen {
     // The cursor query follows four printed cells. Replies and keystrokes use the same transport.
     #expect(await first.writes == [Data("a".utf8), Data("\u{1b}[1;5R".utf8), Data([13])])
     await first.interrupt()
-    try #require(try await actor.nextEvent() == .exit)
+    try #require(try await actor.nextEvent() == .ended)
     #expect(session.hasEnded)
     #expect(await actor.text(inRow: 0) == "tail")
     await actor.hide()
@@ -197,7 +197,7 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
         case .resize: try await actor.sendResize(to: .init(columns: 6, rows: 4))
         }
     }
-    try #require(try await actor.nextEvent() == .exit)
+    try #require(try await actor.nextEvent() == .ended)
     #expect(await actor.text(inRow: 0) == "last output")
     #expect(await actor.appliedBytes == finalOutput.utf8.count)
     #expect(await first.writes == (operation == .write ? [Data("uncertain".utf8)] : []))

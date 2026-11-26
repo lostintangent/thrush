@@ -77,14 +77,15 @@ import ThrushCore
     // Leave ordinary frames for the next barrier, as if the view were still preparing its drawable.
     try await actor.readUpdates(into: mailbox, notify: {}) { update in
         if let earlier = mailbox.take() { seen.append("pending " + earlier.screen.rows[0].text) }
-        switch update {
-        case .output(let screen, _):
+        let screen = update.screen
+        switch update.event {
+        case .output:
             #expect(await actor.snapshot().generation == screen.generation)
             let state = screen.synchronizedOutputID == nil ? "released " : "synchronized "
             seen.append(state + screen.rows[0].text)
-        case .replay(let screen, _): seen.append("replay " + screen.rows[0].text)
-        case .ended(let screen):
-            seen.append("exit " + screen.rows[0].text)
+        case .replay: seen.append("replay " + screen.rows[0].text)
+        case .ended:
+            seen.append("ended " + screen.rows[0].text)
             return false
         default:
             Issue.record("Unexpected session transition")
@@ -93,5 +94,5 @@ import ThrushCore
         return true
     }
     #expect(seen == ["pending A", "synchronized AB", "synchronized ABC", "released ABCD",
-                     "pending ABCDe", "replay R", "released RS", "pending RST", "exit RST"])
+                     "pending ABCDe", "replay R", "released RS", "pending RST", "ended RST"])
 }

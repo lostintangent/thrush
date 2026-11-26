@@ -42,7 +42,7 @@ enum SilentRecoveryCheck {
                 let expected = (131050...131072).map {
                     "THRUSH \($0) " + String(repeating: ".", count: 48)
                 } + [""]
-                guard await session.state == .active,
+                guard await session.state == .live,
                       await session.snapshot().rows.map(\.text) == expected,
                       liveBytes < 8 * 1048576, replayBytes > 0 else {
                     throw PTYCheckFailure("Silent in-band repair did not restore the expected 24 rows after loss")
@@ -53,7 +53,7 @@ enum SilentRecoveryCheck {
                     switch try await session.nextEvent() {
                     case .output:
                         if await session.snapshot().rows.contains(where: { $0.text == "ECHO-live-\(id)" }) { echo = true }
-                    case .exit: break echoLoop
+                    case .ended: break echoLoop
                     default: throw PTYCheckFailure("Unexpected transition while waiting for live echo")
                     }
                 }

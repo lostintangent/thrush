@@ -50,7 +50,7 @@ extension LoopbackCheck {
             // Presentation may coalesce output while the session reads from the transport.
             var event: SessionActor.Event
             repeat { event = try await session.actor.nextEvent() } while event == .output
-            guard event == .exit, session.hasEnded, let elapsed = await transport.elapsed,
+            guard event == .ended, session.hasEnded, let elapsed = await transport.elapsed,
                   await session.actor.receivedBytes == expectedBytes, await session.actor.appliedBytes == expectedBytes,
                   await transport.replies == replies else {
                 throw CheckFailure("Stream bytes, replies or EOF differed from the recording.")

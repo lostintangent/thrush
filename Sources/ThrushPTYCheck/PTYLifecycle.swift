@@ -51,7 +51,7 @@ struct PTYLifecycle {
         guard orphanAge >= .seconds(29), await orphan.show() else {
             throw PTYCheckFailure("Orphan expired early or could not reattach")
         }
-        guard try await orphan.nextEvent() == .replaced, await orphan.state == .active else {
+        guard try await orphan.nextEvent() == .replaced, await orphan.state == .live else {
             throw PTYCheckFailure("The session did not adopt its replacement PTY")
         }
         let replacement = await orphan.snapshot()

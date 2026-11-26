@@ -93,7 +93,7 @@ import Testing
 
     try await output("\u{1b}]2;Finished\u{7}")
     try peer.send(#"{"type":"exit"}"#, opcode: .text)
-    #expect(try await session.actor.nextEvent() == .exit)
+    #expect(try await session.actor.nextEvent() == .ended)
     #expect(session.title == "Finished" && session.hasEnded && endChanges.count == 1)
     endChanges.observe { _ = session.hasEnded }
     #expect(await session.actor.show(userInitiated: true) == false)
@@ -122,7 +122,7 @@ import Testing
     try #require(await actor.show())
 
     try await actor.readUpdates(into: OutputMailbox(), notify: {}) { update in
-        if case .fresh = update { return false }
+        if update.event == .ready(resumed: false) { return false }
         Issue.record("Expected a fresh shell")
         return false
     }

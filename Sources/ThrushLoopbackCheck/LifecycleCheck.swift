@@ -77,7 +77,7 @@ struct LifecycleCheck {
         // The peer withholds ready. The old session may hold this input only for its original shell.
         try await first.send(.text("stale"))
         try await checkpoint("ready")
-        guard try await first.nextEvent() == .replaced, await first.state == .active, await !tab.hasEnded else {
+        guard try await first.nextEvent() == .replaced, await first.state == .live, await !tab.hasEnded else {
             throw Failure("The open tab did not adopt the replacement shell after expiry")
         }
         let archived = ["history", "one", "two", "shell$"]
@@ -108,7 +108,7 @@ struct LifecycleCheck {
         try await expectOutput(final, rows: ["last ", "", ""])
         try await expectOutput(final, rows: ["last bytes", "", ""])
         let expected = Data("last bytes".utf8)
-        guard try await final.nextEvent() == .exit, await final.text(inRow: 0) == "last bytes",
+        guard try await final.nextEvent() == .ended, await final.text(inRow: 0) == "last bytes",
               observed.withLock({ $0 }) == expected, await final.receivedBytes == expected.count,
               await final.appliedBytes == expected.count else {
             throw Failure("Exit must follow the final output and preserve it on screen")
