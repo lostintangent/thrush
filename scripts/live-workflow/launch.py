@@ -263,6 +263,11 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         processes.enter_context(simulator.record_screen(device, output / "lifecycle.mov"))
                     host = processes.enter_context(pane.running([*command, *options], output / "app.log",
                                                                 **({} if device else {"env": env})))
+                    if not device:
+                        # macOS keeps a script-launched app behind the active one. Once its driver starts,
+                        # Launch Services brings the window to the front as opening it from the Finder would.
+                        wait_for(host, output / "app.log", (driver / "workflow-events.log").exists, 60)
+                        subprocess.run(["open", "-a", app_executable.parents[2]], check=True, timeout=20)
                     if name == "recovery":
                         stall_upstream(proxy, host, log, work, output, device)
                     pane.await_report("live-" + name if name in ("lifecycle", "recovery") else name, host, proxy,
