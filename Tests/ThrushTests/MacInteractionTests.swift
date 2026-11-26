@@ -114,11 +114,18 @@ private struct MacInputFixture {
     try host.key(124, characters: "\u{F703}", flags: [.control, .shift])
     try host.key(17, characters: "t", flags: [.control])
     try host.key(48, characters: "\t", flags: [.shift])
+    try host.key(122, characters: "\u{F704}")
+    try host.key(111, characters: "\u{F70F}", flags: [.shift])
+    try host.key(114, characters: "\u{F746}")
+    _ = terminal.receive("\u{1b}[>1u".utf8)
+    try host.key(36, characters: "\r", flags: [.shift])
+    try host.key(99, characters: "\u{F706}", flags: [.shift])
     let board = NSPasteboard.withUniqueName()
     defer { board.releaseGlobally() }
     board.setString("one\ntwo", forType: .string)
     host.input.paste(from: board)
     #expect(writes == ["\u{1b}[A", "\u{1b}OA", "\u{1b}[1;6C", "\u{14}", "\u{1b}[Z",
+                       "\u{1b}OP", "\u{1b}[24;2~", "\u{1b}[2~", "\u{1b}[13;2u", "\u{1b}[13;2~",
                        "\u{1b}[200~one\rtwo\u{1b}[201~"].map { Array($0.utf8) })
 }
 

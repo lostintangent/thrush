@@ -156,6 +156,14 @@ enum ControlFunction: Equatable {
         case saveCursor = 0x73
         /// SCORC, CSI u.
         case restoreCursor = 0x75
+        /// The kitty keyboard protocol's query, CSI ? u.
+        case queryKeyboardFlags = 0x3f_75
+        /// The kitty keyboard protocol's push, CSI > Ps u.
+        case pushKeyboardFlags = 0x3e_75
+        /// The kitty keyboard protocol's pop, CSI < Ps u.
+        case popKeyboardFlags = 0x3c_75
+        /// The kitty keyboard protocol's update, CSI = Ps ; Ps u.
+        case setKeyboardFlags = 0x3d_75
         /// DECIC, CSI Ps ' }.
         case insertColumns = 0x27_7d
         /// DECDC, CSI Ps ' ~.
@@ -267,6 +275,11 @@ extension Terminal {
         /// DECXCPR answers DECDSR 6 with the same coordinates as CPR.
         static func privateCursorPosition(row: Int, column: Int) -> String {
             "\u{1b}[?\(row + 1);\(column + 1)R"
+        }
+
+        /// The kitty keyboard protocol answers its query with the flags in effect.
+        static func keyboardFlags(_ flags: KeyboardFlags) -> String {
+            "\u{1b}[?\(flags.rawValue)u"
         }
 
         /// DSR 5 reports that the terminal is working.

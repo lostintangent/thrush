@@ -1,4 +1,26 @@
 {
+  "claude program": {
+    "reason": "Claude Code asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Claude Code could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Folder trust",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c",
+        "thrush": "ESC[O ESC[?0u ESC[?1;2c"
+      }
+    ]
+  },
+  "copilot program": {
+    "reason": "Copilot asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Copilot could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Folder trust",
+        "path": "replies",
+        "reference": "ESC[?2026;2$y ESC[O ESC[?12;2$y ESC[?1007;0$y ESC[?1;2c ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\ ESC]4;0;rgb:2e2e/3434/3636 ESC\\ ESC]4;1;rgb:cccc/0000/0000 ESC\\ ESC]4;2;rgb:4e4e/9a9a/0606 ESC\\ ESC]4;3;rgb:c4c4/a0a0/0000 ESC\\ ESC]4;4;rgb:3434/6565/a4a4 ESC\\ ESC]4;5;rgb:7575/5050/7b7b ESC\\ ESC]4;6;rgb:0606/9898/9a9a ESC\\ ESC]4;7;rgb:d3d3/d7d7/cfcf ESC\\ ESC]4;8;rgb:5555/5757/5353 ESC\\ ESC]4;9;rgb:efef/2929/2929 ESC\\ ESC]4;10;rgb:8a8a/e2e2/3434 ESC\\ ESC]4;11;rgb:fcfc/e9e9/4f4f ESC\\ ESC]4;12;rgb:7272/9f9f/cfcf ESC\\ ESC]4;13;rgb:adad/7f7f/a8a8 ESC\\ ESC]4;14;rgb:3434/e2e2/e2e2 ESC\\ ESC]4;15;rgb:eeee/eeee/ecec ESC\\",
+        "thrush": "ESC[?0u ESC[?2026;2$y ESC[O ESC[?12;2$y ESC[?1007;0$y ESC[?1;2c ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\ ESC]4;0;rgb:2e2e/3434/3636 ESC\\ ESC]4;1;rgb:cccc/0000/0000 ESC\\ ESC]4;2;rgb:4e4e/9a9a/0606 ESC\\ ESC]4;3;rgb:c4c4/a0a0/0000 ESC\\ ESC]4;4;rgb:3434/6565/a4a4 ESC\\ ESC]4;5;rgb:7575/5050/7b7b ESC\\ ESC]4;6;rgb:0606/9898/9a9a ESC\\ ESC]4;7;rgb:d3d3/d7d7/cfcf ESC\\ ESC]4;8;rgb:5555/5757/5353 ESC\\ ESC]4;9;rgb:efef/2929/2929 ESC\\ ESC]4;10;rgb:8a8a/e2e2/3434 ESC\\ ESC]4;11;rgb:fcfc/e9e9/4f4f ESC\\ ESC]4;12;rgb:7272/9f9f/cfcf ESC\\ ESC]4;13;rgb:adad/7f7f/a8a8 ESC\\ ESC]4;14;rgb:3434/e2e2/e2e2 ESC\\ ESC]4;15;rgb:eeee/eeee/ecec ESC\\"
+      }
+    ]
+  },
   "DECALN · in origin mode with a region": {
     "reason": "DEC STD 070 has DECALN fill the whole screen, reset the margins and home the cursor. In origin mode the reference fills only from the top margin down and homes to the margin. Thrush fills every row and homes to the top left.",
     "differences": [
@@ -438,14 +460,91 @@
       }
     ]
   },
+  "helix program": {
+    "reason": "Helix asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Helix could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Diagnostics",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c",
+        "thrush": "ESC[O ESC[?0u ESC[?1;2c"
+      }
+    ]
+  },
+  "kitty keyboard query": {
+    "reason": "The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers with the flags a program pushed, 0 until one does, so a program that asks first, as Claude Code, Codex, Helix and Neovim do, learns it may push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "none",
+        "thrush": "ESC[?0u"
+      }
+    ]
+  },
+  "kitty keyboard query · after DECSTR": {
+    "reason": "The reference doesn't know the kitty keyboard protocol, so it never answers. Thrush empties both stacks on a soft reset, as on a full reset, so a program that resets the terminal as it exits leaves keys reported the usual way.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "none",
+        "thrush": "ESC[?0u"
+      }
+    ]
+  },
+  "kitty keyboard query · after pushes, a pop and each kind of set": {
+    "reason": "The reference doesn't know the kitty keyboard protocol, so it never answers. Thrush answers with the flags on top of the stack a program pushes to and pops from, after a set replaces them, adds to them or takes from them.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "none",
+        "thrush": "ESC[?5u ESC[?1u ESC[?5u ESC[?1u ESC[?4u"
+      }
+    ]
+  },
+  "kitty keyboard query · on each screen": {
+    "reason": "The reference doesn't know the kitty keyboard protocol, so it never answers. Thrush keeps a stack for each screen, so a full-screen program's flags leave with the alternate screen and come back with it.",
+    "differences": [
+      {
+        "checkpoint": "subject",
+        "path": "replies",
+        "reference": "none",
+        "thrush": "ESC[?0u ESC[?5u ESC[?1u ESC[?5u"
+      }
+    ]
+  },
+  "m4/codex-session program": {
+    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Synchronized Codex repaint pending",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
+        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
+      }
+    ]
+  },
+  "m4/phone/codex-session program": {
+    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Synchronized Codex repaint pending",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
+        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
+      }
+    ]
+  },
   "neovim program": {
-    "reason": "Neovim asks which modes, underline styles and capabilities the terminal knows, as in DECRQM ?2031, DECRQSS m · after a rendition and XTGETTCAP Ms. The reference doesn't know mode 2031, always reports the default rendition and answers no capability names. Thrush answers 2, since it sends dark and light appearance reports, reports the curly underline Neovim set and answers Ms, so Neovim could turn on both and copy its yanks to the pasteboard.",
+    "reason": "Neovim asks which modes, underline styles, keyboard flags and capabilities the terminal knows, as in DECRQM ?2031, DECRQSS m · after a rendition, kitty keyboard query and XTGETTCAP Ms. The reference doesn't know mode 2031 or the kitty keyboard protocol, always reports the default rendition and answers no capability names. Thrush answers 2, since it sends dark and light appearance reports, reports the curly underline Neovim set, answers keyboard flags 0 and answers Ms, so Neovim could turn on appearance reports, push keyboard flags and copy its yanks to the pasteboard.",
     "differences": [
       {
         "checkpoint": "Diagnostics",
         "path": "replies",
         "reference": "ESC[?69;0$y ESC[?2026;2$y ESC[?2027;0$y ESC[?2031;0$y ESC[?2048;0$y ESCP1$r0m ESC\\ ESC[?1;2c ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC[O ESC[?1;2c",
-        "thrush": "ESC[?69;0$y ESC[?2026;2$y ESC[?2027;0$y ESC[?2031;2$y ESC[?2048;0$y ESCP1$r0;4:3m ESC\\ ESC[?1;2c ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC[O ESC[?1;2c ESCP1+r4D73=1B5D35323B25703125733B257032257307 ESC\\"
+        "thrush": "ESC[?69;0$y ESC[?2026;2$y ESC[?2027;0$y ESC[?2031;2$y ESC[?2048;0$y ESCP1$r0;4:3m ESC\\ ESC[?0u ESC[?1;2c ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC[O ESC[?1;2c ESCP1+r4D73=1B5D35323B25703125733B257032257307 ESC\\"
       }
     ]
   },

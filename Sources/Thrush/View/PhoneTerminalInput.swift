@@ -331,6 +331,10 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         case .keyboardEscape: key = .escape
         case .keyboardTab: key = .tab
         case .keyboardReturnOrEnter, .keypadEnter: key = .enter
+        case .keyboardInsert: key = .insert
+        case .keyboardF1, .keyboardF2, .keyboardF3, .keyboardF4, .keyboardF5, .keyboardF6,
+             .keyboardF7, .keyboardF8, .keyboardF9, .keyboardF10, .keyboardF11, .keyboardF12:
+            key = .function(code.rawValue - UIKeyboardHIDUsage.keyboardF1.rawValue + 1)
         default:
             // Physical printable keys go through the input method.
             guard modifiers.contains(.control), characters.count == 1,

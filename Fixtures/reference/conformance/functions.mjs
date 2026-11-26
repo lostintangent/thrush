@@ -271,6 +271,7 @@ const reports = {
   'DSR 5': `${CSI}5n`, 'DSR 6': `${CSI}6n`, 'DSR 99': `${CSI}99n`, 'DECDSR 6': `${CSI}?6n`, 'DECDSR 15': `${CSI}?15n`,
   'DECDSR 25': `${CSI}?25n`, 'DECDSR 26': `${CSI}?26n`, 'DECDSR 53': `${CSI}?53n`, 'DECDSR 996': `${CSI}?996n`,
   'XTVERSION': `${CSI}>q`, 'XTVERSION 0': `${CSI}>0q`, 'kitty keyboard query': `${CSI}?u`,
+  'kitty keyboard push': `${CSI}>1u`, 'kitty keyboard pop': `${CSI}<u`, 'kitty keyboard set': `${CSI}=1u`,
   'XTMODKEYS set': `${CSI}>4;2m`, 'XTMODKEYS reset': `${CSI}>4m`, 'XTQMODKEYS': `${CSI}?4m`,
   'XTWINOPS 11': `${CSI}11t`, 'XTWINOPS 13': `${CSI}13t`, 'XTWINOPS 14': `${CSI}14t`, 'XTWINOPS 16': `${CSI}16t`,
   'XTWINOPS 18': `${CSI}18t`, 'XTWINOPS 19': `${CSI}19t`, 'XTWINOPS 21': `${CSI}21t`, 'XTWINOPS 22;0': `${CSI}22;0t`,
@@ -285,6 +286,11 @@ const reports = {
 for (const [subject, sequence] of Object.entries(reports)) probe(subject, '', positions.middle, sequence);
 probe('DSR 6', 'at a pending wrap', positions['pending wrap'], `${CSI}6n`);
 probe('DECDSR 6', 'at a pending wrap', positions['pending wrap'], `${CSI}?6n`);
+probe('kitty keyboard query', 'after pushes, a pop and each kind of set', positions.middle,
+  `${CSI}>1u${CSI}>5u${CSI}?u${CSI}<u${CSI}?u${CSI}=4;2u${CSI}?u${CSI}=4;3u${CSI}?u${CSI}=4u${CSI}?u`);
+probe('kitty keyboard query', 'on each screen', positions.middle,
+  `${CSI}>1u${CSI}?1049h${CSI}?u${CSI}>5u${CSI}?u${CSI}?1049l${CSI}?u${CSI}?1049h${CSI}?u`);
+probe('kitty keyboard query', 'after DECSTR', positions.middle, `${CSI}>1u${CSI}!p${CSI}?u`);
 probe('DECRQSS m', 'after a rendition', `${positions.middle}${CSI}1;4;38;5;100;48;2;1;2;3m`, `${DCS}$qm${ST}`);
 probe('DECRQSS r', 'with a region', `${CSI}2;5r`, `${DCS}$qr${ST}`);
 probe('DECRQSS SP q', 'after DECSCUSR 6', positions.middle, `${CSI}6 q${DCS}$q q${ST}`);

@@ -82,6 +82,9 @@ private struct ReplayFailure: Error, CustomStringConvertible {
         (4, "ABCD" + e + "[", "2b"),
         (4, e + "[?45hABCD", "\u{8}Z"),
         (4, e + "[?45hABCDE", "\u{8}\u{8}Z"),
+        (6, e + "[>1u" + e + "[>5u" + e + "[?1049h" + e + "[>4u" + e + "[?1049l",
+         e + "[?u" + e + "[<u" + e + "[?u" + e + "[?1049h" + e + "[?u" + e + "[<u" + e + "[?uZ"),
+        (6, e + "[>1u" + e + "[?1049h" + e + "[=5u", e + "[?u" + e + "[?1049l" + e + "[?u" + e + "[<u" + e + "[?uZ"),
     ]
     func assertContinuation(_ columns: Int, prefix: [UInt8], suffix: [UInt8]) {
         var before = Terminal(size: .init(columns: columns, rows: 3))

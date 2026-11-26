@@ -57,6 +57,8 @@ The focused row-editing tests check these two cases separately from ordinary ED1
 
 Each version-1 JSON file contains its initial grid, ordered events, and two tables of reference cells and rows. An event can supply a grid size, base64 PTY output, semantic input with its expected wire bytes, replies, or a checkpoint. Apply a resize, consume the PTY output and compare any reply before inspecting the checkpoint. Key and paste events go to the encoder. The captured PTY supplies the echo. A nonempty `observedReply` in a capture is the exact automatic reply the live reference wrote to the PTY, with its own `replyOffsetMicroseconds`. The regenerated `reply` is checked against that observation. Each generated real recording records the SHA-256 of its capture file.
 
+The reference doesn't know the kitty keyboard protocol, so the generator follows each screen's keyboard flags itself. Where a program pushes them, as Codex does, a recording carries Thrush's answer to the flags query and the key reports Thrush sends, such as `CSI 116 ; 5 u` for Control-T. Captures that predate this sent the reference's bytes and never received an answer, so the checks against them leave both out.
+
 `normalHistoryRowsBefore` and `historyRowsBefore` record the normal-buffer and active-buffer counts immediately before each resize.
 
 Every checkpoint stores the renderer's effective `cursorShape` and `cursorBlink`. The separate `modes.cursorBlink` field records the option that mode query 12 reports. The `shell-edges` cursor sequence exercises all six DECSCUSR styles, the blink option while a style is active, and explicit-zero and omitted-parameter resets. The pinned xterm also retains the preceding shape for parameters 7 and 8 and applies their odd/even blink setting.

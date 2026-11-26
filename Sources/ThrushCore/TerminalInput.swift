@@ -45,6 +45,10 @@ extension Terminal {
             case backspace
             /// The Tab key, including backtab when combined with Shift.
             case tab
+            /// The Insert key, which Mac keyboards label Help. Shift–Insert and Control–Insert are left to the app.
+            case insert
+            /// A function key from F1 through F12.
+            case function(Int)
             /// A character from the active keyboard layout, for chords such as Control-C.
             ///
             /// Use ``Terminal/Input/text(_:)`` for a text system's committed string.
@@ -103,10 +107,17 @@ extension Terminal {
     }
 
     func encodeKey(_ key: Input.Key, modifiers: Input.Modifiers) -> [UInt8] {
+        let disambiguate = keyboard.top.contains(.disambiguate)
         func scalar(_ byte: UInt8) -> [UInt8] { modifiers.contains(.alt) ? [0x1b, byte] : [byte] }
 
         func report(_ sequence: KeySequence) -> [UInt8] {
-            sequence.encode(applicationCursorKeys: modes.applicationCursorKeys, modifiers: modifiers)
+            if disambiguate { return sequence.disambiguated.encode(applicationCursorKeys: false, modifiers: modifiers) }
+            return sequence.encode(applicationCursorKeys: modes.applicationCursorKeys, modifiers: modifiers)
+        }
+        // Unmodified, these keep their legacy bytes, so a shell left with flags by a program that
+        // crashed still runs what's typed.
+        func reportIfModified(_ code: UInt32, otherwise legacy: [UInt8]) -> [UInt8] {
+            disambiguate && !modifiers.isEmpty ? Self.keyReport(code, modifiers: modifiers) : legacy
         }
         switch key {
         case .up: return report(.cursor(UInt8(ascii: "A")))
@@ -115,15 +126,27 @@ extension Terminal {
         case .left: return report(.cursor(UInt8(ascii: "D")))
         case .home: return report(.cursor(UInt8(ascii: "H")))
         case .end: return report(.cursor(UInt8(ascii: "F")))
+        case .insert: return report(.numbered(2, modifyOn: [], localOn: [.shift, .control]))
         case .delete: return report(.numbered(3))
         case .pageUp: return report(.numbered(5, modifyOn: .control, localOn: .shift))
         case .pageDown: return report(.numbered(6, modifyOn: .control, localOn: .shift))
-        case .enter: return scalar(0x0d)
-        case .escape: return scalar(0x1b)
-        case .backspace: return scalar(modifiers.contains(.control) ? 0x08 : 0x7f)
-        case .tab: return modifiers.contains(.shift) ? [0x1b, 0x5b, 0x5a] : [0x09]
+        case .function(let number):
+            guard let sequence = KeySequence.function(number) else { return [] }
+            return report(sequence)
+        case .enter: return reportIfModified(13, otherwise: scalar(0x0d))
+        case .escape: return disambiguate ? Self.keyReport(27, modifiers: modifiers) : scalar(0x1b)
+        case .backspace: return reportIfModified(127, otherwise: scalar(modifiers.contains(.control) ? 0x08 : 0x7f))
+        case .tab: return reportIfModified(9, otherwise: modifiers.contains(.shift) ? [0x1b, 0x5b, 0x5a] : [0x09])
         case .character(let character): return encodeCharacter(character, modifiers: modifiers)
         }
+    }
+
+    /// A kitty key report, `CSI code u`, with the shifted key after a colon and the modifiers after a semicolon.
+    static func keyReport(_ code: UInt32, shifted: UInt32? = nil, modifiers: Input.Modifiers) -> [UInt8] {
+        var report = "\u{1b}[\(code)"
+        if let shifted { report += ":\(shifted)" }
+        if !modifiers.isEmpty { report += ";\(modifiers.rawValue + 1)" }
+        return Array((report + "u").utf8)
     }
 
     /// The wire sequence for a cursor, function or numbered editing key.
@@ -132,6 +155,26 @@ extension Terminal {
         case ss3(UInt8)
         /// Local modifiers consume the key. A matching reporting modifier includes the whole chord.
         case numbered(UInt8, modifyOn: Input.Modifiers = [.shift, .alt, .control], localOn: Input.Modifiers = [])
+
+        /// F1 to F4 send SS3 like the keypad, and F5 to F12 are numbered with gaps from the VT220's keyboard.
+        static func function(_ number: Int) -> Self? {
+            switch number {
+            case 1...4: .ss3(Array("PQRS".utf8)[number - 1])
+            case 5...12: .numbered([15, 17, 18, 19, 20, 21, 23, 24][number - 5])
+            default: nil
+            }
+        }
+
+        /// The kitty protocol reports every modifier, except those the app keeps, and sends F1 to F4 as
+        /// CSI. F3 becomes numbered, because `CSI 1 ; 2 R` would read as a cursor position report.
+        var disambiguated: Self {
+            switch self {
+            case .cursor: self
+            case .ss3(UInt8(ascii: "R")): .numbered(13)
+            case .ss3(let final): .cursor(final)
+            case .numbered(let number, _, let localOn): .numbered(number, localOn: localOn)
+            }
+        }
 
         func encode(applicationCursorKeys: Bool, modifiers: Input.Modifiers) -> [UInt8] {
             func csi(_ number: UInt8, final: UInt8, modifiers: Input.Modifiers) -> [UInt8] {
@@ -162,10 +205,11 @@ extension Terminal {
     }
 
     private func encodeCharacter(_ character: Character, modifiers: Input.Modifiers) -> [UInt8] {
-        if !modifiers.contains(.control) {
-            // With the macOS Option-key default, native text input supplies the composed character.
-            return modifiers.contains(.alt) ? [] : Array(String(character).utf8)
-        }
+        // Shift alone types the shifted text, as it does under the kitty protocol.
+        if modifiers.isDisjoint(with: [.control, .alt]) { return Array(String(character).utf8) }
+        if let report = keyReport(character, modifiers: modifiers) { return report }
+        // With the macOS Option-key default, native text input supplies the composed character.
+        guard modifiers.contains(.control) else { return [] }
         guard let ascii = character.asciiValue else { return [] }
         if modifiers == .control {
             switch ascii {
@@ -183,5 +227,22 @@ extension Terminal {
         case "_": return [0x1f]
         default: return []
         }
+    }
+
+    /// The kitty protocol names a character key by its unshifted code. With alternate keys, a chord that
+    /// holds Shift adds the shifted key, and those chords are reported even without disambiguation.
+    private func keyReport(_ character: Character, modifiers: Input.Modifiers) -> [UInt8]? {
+        func scalar(_ text: String) -> UInt32? {
+            text.unicodeScalars.count == 1 ? text.unicodeScalars.first?.value : nil
+        }
+        let flags = keyboard.top
+        guard !flags.isEmpty, let code = scalar(character.lowercased()) else { return nil }
+        var shifted: UInt32?
+        if flags.contains(.alternateKeys), modifiers.contains(.shift),
+           let upper = scalar(character.uppercased()), upper != code {
+            shifted = upper
+        }
+        guard flags.contains(.disambiguate) || shifted != nil else { return nil }
+        return Self.keyReport(code, shifted: shifted, modifiers: modifiers)
     }
 }

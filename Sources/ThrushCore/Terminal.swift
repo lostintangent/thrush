@@ -47,6 +47,10 @@ public struct Terminal: Sendable {
         var newLine = false
         /// Mode 2031 asks the app to report each change between a dark and a light theme.
         package var reportAppearance = false
+        /// The kitty keyboard flags programs pushed on the normal screen.
+        var normalKeyboard = KeyboardStack()
+        /// The alternate screen's keyboard flags, which last from one visit to the next.
+        var alternateKeyboard = KeyboardStack()
     }
 
     /// Whether the app's theme is dark or light. The raw value is the parameter of its report.
@@ -91,6 +95,14 @@ public struct Terminal: Sendable {
     // Printed text runs up to the cursor until a control function is performed. Until then a combining
     // mark joins the last character and REP repeats it. A sequence that is incomplete or ignored keeps the run.
     private(set) var followsText = false
+
+    /// The active screen's kitty keyboard flags. Each screen keeps its own stack.
+    var keyboard: KeyboardStack {
+        get { screen.isAlternate ? modes.alternateKeyboard : modes.normalKeyboard }
+        set {
+            if screen.isAlternate { modes.alternateKeyboard = newValue } else { modes.normalKeyboard = newValue }
+        }
+    }
 
     /// Creates a terminal with a blank normal screen and the colors of the app's theme.
     package init(size: Size, palette: Palette = .default, cursorColor: RGB = .white) {
@@ -401,6 +413,9 @@ public struct Terminal: Sendable {
             saveCursor()
             return
         case .restoreCursor: restoreCursor()
+        case .queryKeyboardFlags, .pushKeyboardFlags, .popKeyboardFlags, .setKeyboardFlags:
+            performKeyboard(function, replies: &replies)
+            return
         }
         generation &+= 1
     }
@@ -460,8 +475,20 @@ public struct Terminal: Sendable {
         if modes.origin { screen.moveIntoScrollRegion() }
     }
 
-    /// DECSTR resets modes, margins, the style, the character sets and the saved cursor. It keeps the
-    /// screen, the cursor position, mouse reporting, appearance reports and the program's colors.
+    /// The kitty keyboard protocol's query answers with the active screen's flags, and its push, pop
+    /// and set change them.
+    private mutating func performKeyboard(_ function: ControlFunction.CSI, replies: inout [UInt8]) {
+        switch function {
+        case .queryKeyboardFlags: replies.append(contentsOf: Reply.keyboardFlags(keyboard.top).utf8)
+        case .pushKeyboardFlags: keyboard.push(KeyboardFlags(parameter: parser.parameters[0]))
+        case .popKeyboardFlags: keyboard.pop(parser.parameters[0, default: 1])
+        default: keyboard.update(KeyboardFlags(parameter: parser.parameters[0]), mode: parser.parameters[1, default: 1])
+        }
+    }
+
+    /// DECSTR resets modes, margins, the style, the character sets and the saved cursor, and empties both
+    /// screens' keyboard flags. It keeps the screen, the cursor position, mouse reporting, appearance reports
+    /// and the program's colors.
     private mutating func softReset() {
         let kept = (tracking: modes.mouseTracking, sgr: modes.mouseSGR, appearance: modes.reportAppearance)
         resetModes()

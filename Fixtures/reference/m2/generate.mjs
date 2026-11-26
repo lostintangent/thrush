@@ -110,7 +110,26 @@ async function shellEdges() {
 }
 const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13,
   home:36,end:35,pageUp:33,pageDown:34,delete:46,'[':219,'\\':220,']':221};
-function encodedInput(t, action) {
+// The reference doesn't know the kitty keyboard protocol, which Codex pushes flags for. Thrush keeps
+// each screen's flags, answers the query and reports keys the way the program asked, as
+// Tests/ThrushConformanceTests/ReferenceDefects.json records, so the recordings carry what Thrush sends.
+const keyReports = {escape:27, enter:13, tab:9, backspace:127};
+const keyboardReply = /^\x1b\[\?\d+u$/;
+function keyboardFlags(t, reply) {
+  let stacks = {normal:[], alternate:[]};
+  const stack = () => stacks[t.buffer.active.type];
+  const flags = () => stack().at(-1) ?? 0;
+  const csi = (prefix, handler) => t.parser.registerCsiHandler({prefix, final:'u'}, params => (handler(params[0] || 0), true));
+  csi('>', pushed => stack().push(pushed & 5) > 8 && stack().shift());
+  csi('<', count => stack().splice(-Math.max(count, 1)));
+  csi('=', () => assert.fail('Set keyboard flags when a recording sends CSI = u'));
+  csi('?', () => reply(`\x1b[?${flags()}u`));
+  const reset = () => (stacks = {normal:[], alternate:[]}, false);
+  t.parser.registerEscHandler({final:'c'}, reset);
+  t.parser.registerCsiHandler({intermediates:'!', final:'p'}, reset);
+  return flags;
+}
+function encodedInput(t, action, flags = 0) {
   switch (action.kind) {
     case 'pointer': return encodePointer(t, action);
     case 'text': return utf8(action.value);
@@ -120,9 +139,20 @@ function encodedInput(t, action) {
       const modifiers = new Set(action.modifiers);
       const keyCode = keyCodes[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : undefined);
       assert.notEqual(keyCode, undefined, 'Unknown recorded key ' + key);
+      assert(flags === 0 || flags & 1, 'Report keys under alternate keys alone when a recording needs it');
+      if (flags) {
+        // Escape and chords that would send a control character report as CSI u.
+        const code = keyReports[key] ?? (key.length === 1 ? key.codePointAt(0) : undefined);
+        const bits = modifiers.has('shift') + 2 * modifiers.has('alt') + 4 * modifiers.has('control');
+        if (code !== undefined && (key === 'escape' || bits & 6 || bits && keyReports[key])) {
+          assert(!(bits & 1) || keyReports[key], 'Report the shifted key when a recording sends ' + key);
+          return utf8(`\x1b[${code}${bits ? ';' + (bits + 1) : ''}u`);
+        }
+      }
+      // Under keyboard flags, cursor keys report the same way in either cursor key mode.
       const result = evaluateKeyboardEvent({keyCode, key, altKey:modifiers.has('alt'),
         shiftKey:modifiers.has('shift'), ctrlKey:modifiers.has('control'), metaKey:false},
-        t.modes.applicationCursorKeysMode, true, false);
+        t.modes.applicationCursorKeysMode && !flags, true, false);
       if (result.key === undefined && !action.modifiers?.length && key.length === 1) return utf8(key);
       // Local viewport commands such as Shift+PageUp have no outbound bytes.
       return utf8(result.key ?? '');
@@ -170,12 +200,17 @@ async function generate(name) {
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
     : name === 'pointer-input' ? pointerInput() : name === 'hardware-keys' ? hardwareKeys() : await shellEdges();
-  let t = terminal(recording.columns, recording.rows);
+  let replies, keyboard, predatesFlags = false;
+  const open = (columns, rows) => {
+    const t = terminal(columns, rows);
+    t.onData(value => replies.push(utf8(value)));
+    keyboard = keyboardFlags(t, value => replies.push(utf8(value)));
+    return t;
+  };
+  let t = open(recording.columns, recording.rows);
   let palette;
   const cells = new Pool(), lines = new Pool();
   assert.equal(cells.get({text:'',width:1,flags:0,foreground:-1,background:-1}), 0);
-  let replies;
-  t.onData(value => replies.push(utf8(value)));
   const events = [];
   const fullHistory = new Set([
     'Full normal history', 'Full normal history before desktop resize', 'Full history before alternate screen'
@@ -186,8 +221,7 @@ async function generate(name) {
     if (event.lifecycle?.type === 'ready') {
       const {cols, rows} = t;
       t.dispose();
-      t = terminal(cols, rows);
-      t.onData(value => replies.push(utf8(value)));
+      t = open(cols, rows);
       if (palette) applyPalette(t, palette);
     }
     if (event.palette) {
@@ -206,16 +240,21 @@ async function generate(name) {
     if (event.bytes) await write(t, Buffer.from(event.bytes,'base64'));
     const reply = base64(Buffer.concat(replies));
     if (captureBytes || event.observedReply !== undefined) {
-      // Programs in recordings that predate focus reports never received one.
+      // Programs in recordings that predate keyboard flags or focus reports never received them.
       const observed = event.observedReply ?? '';
-      const live = reply === observed ? reply : base64(Buffer.concat(replies.filter(value => !focusReports.has(value.toString()))));
+      const keyboardless = replies.filter(value => !keyboardReply.test(value.toString()));
+      const live = [replies, keyboardless, keyboardless.filter(value => !focusReports.has(value.toString()))]
+        .map(sent => base64(Buffer.concat(sent))).find(sent => sent === observed) ?? reply;
       assert.equal(live, observed, event.name + ' live PTY reply');
+      // A capture that never answered the keyboard query predates flags, so its keys sent the reference's bytes.
+      if (keyboardless.length < replies.length) predatesFlags = live !== reply;
     }
     if (reply) event.reply = reply;
     delete event.observedReply;
     if (event.action) {
-      const encoded = base64(encodedInput(t,event.action));
-      if (event.input) assert.equal(encoded, event.input, event.name);
+      const encoded = base64(encodedInput(t,event.action,keyboard()));
+      const captured = predatesFlags ? base64(encodedInput(t,event.action)) : encoded;
+      if (event.input) assert.equal(event.input, captured, event.name);
       event.input = encoded;
     }
     if (event.checkpoint) {

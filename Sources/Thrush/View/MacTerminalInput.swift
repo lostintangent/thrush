@@ -161,9 +161,13 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         case 117: .delete
         case 119: .end
         case 121: .pageDown
-        default: nil
+        case 114: .insert
+        default: functionKeyCodes.firstIndex(of: keyCode).map { .function($0 + 1) }
         }
     }
+
+    /// The virtual key codes of F1 through F12.
+    private static let functionKeyCodes: [UInt16] = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
 
     private static func modifiers(_ flags: NSEvent.ModifierFlags) -> Terminal.Input.Modifiers {
         var result: Terminal.Input.Modifiers = []

@@ -11,13 +11,16 @@ extension Terminal {
             }
             writer.output += String(decoding: reports, as: UTF8.self)
         }
+        // The receiver starts on the normal screen. Each screen's keyboard flags are pushed while it's active.
+        writer.push(modes.normalKeyboard)
         if let normal = screen.normalWhileAlternate {
             writer.draw(normal)
             writer.setStyle(.init())
             writer.output += "\u{1b}[?47h"
+            writer.push(modes.alternateKeyboard)
         }
         if !screen.isAlternate {
-            writer.saveInactiveAlternate(screen.alternateSaved, size: size)
+            writer.saveInactiveAlternate(screen.alternateSaved, keyboard: modes.alternateKeyboard, size: size)
         }
         writer.draw(screen.active)
         let buffer = screen.active
@@ -63,13 +66,20 @@ extension Terminal {
             currentStyle.link = link
         }
 
-        mutating func saveInactiveAlternate(_ saved: SavedCursor, size: Size) {
-            guard saved.row != 0 || saved.column != 0 || saved.style != .init() || saved.characterSet != .ascii else { return }
+        mutating func saveInactiveAlternate(_ saved: SavedCursor, keyboard: KeyboardStack, size: Size) {
+            guard saved.row != 0 || saved.column != 0 || saved.style != .init() || saved.characterSet != .ascii
+                    || keyboard.count > 0 else { return }
             output += csi + "?47h" + csi + "\(min(saved.row, size.rows - 1) + 1);\(min(saved.column, size.columns - 1) + 1)H"
             setRendition(saved.style)
             designate(saved.characterSet, slot: 0)
-            output += escape + "7" + csi + "?47l"
+            output += escape + "7"
+            push(keyboard)
+            output += csi + "?47l"
             designate(.ascii, slot: 0)
+        }
+
+        mutating func push(_ keyboard: KeyboardStack) {
+            for index in 0..<keyboard.count { output += csi + ">\(keyboard.entries[index].rawValue)u" }
         }
 
         mutating func draw(_ buffer: Buffer) {
