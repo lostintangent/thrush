@@ -191,6 +191,43 @@ private struct ReplayFailure: Error, CustomStringConvertible {
     #expect(shorter.snapshot().rows[0].text == "hi")
 }
 
+/// A replay writes each style as what it adds, with the 16 colors in their short forms. A style that
+/// turns anything off starts over from 0, since 22 turns off bold and dim together.
+@Test func replayWritesEachStyleAsWhatItAdds() {
+    let changes = [
+        ("1", "1"), ("2", "2"), ("22;2", "0;2"), ("1", "1"), ("22;1", "0;1"), ("0;31", "0;31"), ("32", "32"),
+        ("39", "0"), ("4:3", "4:3"), ("4", "4"), ("24", "0"), ("91;44", "91;44"),
+        ("38;5;16;58;5;3", "38;5;16;58;5;3"), ("7", "7"), ("27", "0;38;5;16;44;58;5;3"),
+    ]
+    let text = changes.enumerated().map { "\u{1b}[\($1.0)m" + String(UnicodeScalar(UInt8(97 + $0))) }.joined()
+    let replay = checkReplay(of: text, columns: 20)
+    // The row also holds the saved cursor, whose default style is stored before the pen returns.
+    let saved = ["0", "38;5;16;44;58;5;3"]
+    #expect(replay.matches(of: /\x1B\[([0-9;:]*)m/).map { String($0.1) } == changes.map(\.1) + saved)
+
+    // Turning off any one rendition keeps the others.
+    for off in ["22", "23", "24", "25", "27", "28", "29", "55", "39", "49", "59"] {
+        checkReplay(of: "\u{1b}[1;2;3;4;5;7;8;9;53;31;42;58;5;3mA\u{1b}[\(off)mB", columns: 4)
+    }
+}
+
+@discardableResult
+private func checkReplay(of text: String, columns: Int) -> String {
+    var original = Terminal(size: .init(columns: columns, rows: 2))
+    _ = original.receive(Array(text.utf8))
+    let replay = original.replayBytes()
+    var resumed = Terminal(size: original.size)
+    _ = resumed.receive(replay)
+    // One more character shows the pen each continues with.
+    let styles = { (terminal: inout Terminal) in
+        _ = terminal.receive(Array("Z".utf8))
+        let row = terminal.snapshot().rows[0]
+        return (0..<columns).map { row[$0].style }
+    }
+    #expect(styles(&resumed) == styles(&original), "\(text.debugDescription)")
+    return String(decoding: replay, as: UTF8.self)
+}
+
 @Test func partialRequestsGetTheSameAnswerAfterReplay() {
     let e = "\u{1b}"
     let cases = [

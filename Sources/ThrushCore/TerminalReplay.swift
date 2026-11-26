@@ -227,10 +227,10 @@ extension Terminal {
             var style = style
             style.link = currentStyle.link
             guard currentStyle != style else { return }
-            currentStyle = style
             output += csi
-            output += style.renditionParameters
+            output += style.renditionParameters(from: currentStyle)
             output += "m"
+            currentStyle = style
         }
 
         mutating func setModes(_ modes: Modes) {

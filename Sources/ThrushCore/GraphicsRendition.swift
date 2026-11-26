@@ -159,33 +159,51 @@ extension Terminal.Style {
         }
     }
 
-    /// The SGR parameters that select this style, starting from the default with 0. The link is not
-    /// a rendition, so OSC 8 sets it separately.
-    var renditionParameters: String {
-        var parameters = "0"
-        if bold { parameters += ";1" }
-        if dim { parameters += ";2" }
-        if italic { parameters += ";3" }
-        switch underline {
-        case .none: break
-        case .single: parameters += ";4"
-        default: parameters += ";4:" + String(underline.rawValue)
-        }
-        if blink { parameters += ";5" }
-        if inverse { parameters += ";7" }
-        if invisible { parameters += ";8" }
-        if strikethrough { parameters += ";9" }
-        if overline { parameters += ";53" }
-        func add(_ color: Terminal.Color, _ prefix: String) {
+    /// The SGR parameters that turn `previous` into this style. A style that only adds or replaces
+    /// renditions writes what changed. One that turns any off starts over from 0, since a parameter
+    /// like 22 turns off more than one, and so does a style without a previous one. The link is not a
+    /// rendition, so OSC 8 sets it separately.
+    func renditionParameters(from previous: Self?) -> String {
+        let base = previous.flatMap { turnsOff($0) ? nil : $0 }
+        var parameters = base == nil ? "0" : ""
+        let from = base ?? Self()
+        func add(_ code: String) { parameters += parameters.isEmpty ? code : ";" + code }
+        if bold && !from.bold { add("1") }
+        if dim && !from.dim { add("2") }
+        if italic && !from.italic { add("3") }
+        if underline != from.underline { add(underline == .single ? "4" : "4:" + String(underline.rawValue)) }
+        if blink && !from.blink { add("5") }
+        if inverse && !from.inverse { add("7") }
+        if invisible && !from.invisible { add("8") }
+        if strikethrough && !from.strikethrough { add("9") }
+        if overline && !from.overline { add("53") }
+        func add(_ color: Terminal.Color, replacing old: Terminal.Color, _ selector: Int) {
+            guard color != old else { return }
             switch color {
             case .default: break
-            case .indexed(let index): parameters += prefix + ";5;" + String(index)
-            case .rgb(let r, let g, let b): parameters += prefix + ";2;" + String(r) + ";" + String(g) + ";" + String(b)
+            // The 16 colors have their own parameters, 30 to 37 and 90 to 97 for the text and 40 to 47
+            // and 100 to 107 for the background. The underline color has none.
+            case .indexed(let index) where index < 16 && selector != 58:
+                add(String(selector - 8 + (index < 8 ? Int(index) : Int(index) + 52)))
+            case .indexed(let index): add(String(selector) + ";5;" + String(index))
+            case .rgb(let r, let g, let b): add(String(selector) + ";2;" + String(r) + ";" + String(g) + ";" + String(b))
             }
         }
-        add(foreground, ";38")
-        add(background, ";48")
-        add(underlineColor, ";58")
+        add(foreground, replacing: from.foreground, 38)
+        add(background, replacing: from.background, 48)
+        add(underlineColor, replacing: from.underlineColor, 58)
         return parameters
+    }
+
+    /// Whether this style turns off a rendition `previous` has. Returning a color or the underline to
+    /// its default turns it off, while changing it to another replaces it.
+    private func turnsOff(_ previous: Self) -> Bool {
+        previous.bold && !bold || previous.dim && !dim || previous.italic && !italic
+            || previous.blink && !blink || previous.inverse && !inverse || previous.invisible && !invisible
+            || previous.strikethrough && !strikethrough || previous.overline && !overline
+            || previous.underline != .none && underline == .none
+            || previous.foreground != .default && foreground == .default
+            || previous.background != .default && background == .default
+            || previous.underlineColor != .default && underlineColor == .default
     }
 }

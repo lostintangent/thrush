@@ -305,7 +305,7 @@ extension Terminal {
             // A VT100-level terminal that sends 7-bit controls, matching DA1.
             case "\"p": "61;1\"p"
             case "r": "\(scrollRegion.lowerBound + 1);\(scrollRegion.upperBound + 1)r"
-            case "m": "\(style.renditionParameters)m"
+            case "m": "\(style.renditionParameters(from: nil))m"
             case " q": "\(cursorStyle.rawValue) q"
             default: nil
             }

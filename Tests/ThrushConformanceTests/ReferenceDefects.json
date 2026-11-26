@@ -1114,7 +1114,7 @@
         "checkpoint": "end",
         "path": "replies",
         "reference": "ESCP1$r0m ESC\\",
-        "thrush": "ESCP1$r0;53;48;5;12m ESC\\"
+        "thrush": "ESCP1$r0;53;104m ESC\\"
       }
     ]
   },
@@ -1404,7 +1404,7 @@
         "checkpoint": "end",
         "path": "replies",
         "reference": "ESCP1$r0m ESC\\",
-        "thrush": "ESCP1$r0;48;5;2m ESC\\"
+        "thrush": "ESCP1$r0;42m ESC\\"
       }
     ]
   },

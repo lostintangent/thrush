@@ -25,7 +25,7 @@ private func terminal(_ text: String, columns: Int = 12, rows: Int = 3) -> Termi
     #expect(row[3].style.underlineColor == .default)
 
     let replies = terminal.receive("\(esc)[4:5;58:2::7:8:9;53m\(esc)P$qm\(esc)\\".utf8)
-    #expect(String(decoding: replies, as: UTF8.self) == "\(esc)P1$r0;4:5;53;38;5;1;58;2;7;8;9m\(esc)\\")
+    #expect(String(decoding: replies, as: UTF8.self) == "\(esc)P1$r0;4:5;53;31;58;2;7;8;9m\(esc)\\")
 }
 
 @Test func linksShareANumberOnlyWhenTheyShareAnId() {
