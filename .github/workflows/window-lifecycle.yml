@@ -38,7 +38,7 @@ on:
         type: boolean
         default: false
       links:
-        description: Open the links scene's links with ⌘-clicks, tooltips and menus in both Slate appearances
+        description: Open the links scene's links with ⌘-clicks, tooltips and menus in both appearances
         type: boolean
         default: false
   workflow_call:
