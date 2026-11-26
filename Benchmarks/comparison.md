@@ -180,7 +180,7 @@ A row allocates its cells once, on its first write. A line feed, an erase or a r
 
 ## Where Thrush loses time
 
-At 80 × 24 in 4 KiB chunks Thrush trails libghostty-vt on three of the nine workloads. The profile and the code trace each gap to one or two costs. The [performance plan](../docs/plan.md#closing-the-libghostty-vt-gap) turns each cost into a change.
+At 80 × 24 in 4 KiB chunks Thrush trails libghostty-vt on three of the nine workloads. The profile and the code trace each gap to one or two costs. The [performance plan](../docs/plan.md#keeping-the-core-fast-and-simple) says which of them are worth closing.
 
 | Workload | Thrush ÷ libghostty-vt | Where Thrush loses time |
 | --- | ---: | --- |

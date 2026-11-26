@@ -146,7 +146,7 @@ extension SessionActor {
 private extension SessionActor {
     func show(userInitiated: Bool, palette: Terminal.Palette, cursor: Terminal.RGB, needsRetainedScreen: Bool) async
         -> (retainedScreen: Terminal.Snapshot?, status: TerminalSession.Update?, shellRevision: UInt64) {
-        // An app transport kept its shell while the pane was hidden, so that shell hears a new appearance now.
+        // An app transport kept its shell while the view was hidden, so that shell hears a new appearance now.
         await setPalette(palette, cursor: cursor)
         let hadScreen = hasSeenReady
         show(userInitiated: userInitiated)

@@ -14,7 +14,7 @@ Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no de
 Add the package and link the `Thrush` product to your app target. Thrush needs macOS 27 or iOS 27 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ```swift
-.package(url: "https://github.com/lostintangent/thrush", from: "0.2.0")
+.package(url: "https://github.com/lostintangent/thrush", from: "0.3.0")
 ```
 
 Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. The session owns the terminal and its history. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to a `TerminalView`.
@@ -31,7 +31,7 @@ TerminalView(session)
 
 The view fits its grid to the safe area and reports each new size to the session. Like a SwiftUI background, its canvas runs under a navigation bar, a Mac toolbar, the home indicator or any other safe area its frame meets, with no `.ignoresSafeArea()`, while its first row starts below the bar. It follows the system appearance between Slate Light and Slate Dark, floats a glass key row of Esc, Ctrl, Tab, the arrows and Hide Keyboard above the iPhone keyboard, and handles focus, selection, copying and scrolling, through history or in full-screen programs like Vim and less. A program that asks hears whenever the view gains or loses keyboard focus or its theme turns dark or light. The WebSocket stays attached while the view is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the view leaves the screen or the iPhone app goes to the background.
 
-On `main`, a small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the view keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. If the server has already released the shell, the same session opens its replacement at the top of the screen. Scroll up to read the previous shell’s main screen and history. Input held for that shell is discarded. VoiceOver announces a sustained reconnect, a new shell or a shell exit once.
+A small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the view keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. If the server has already released the shell, the same session opens its replacement at the top of the screen. Scroll up to read the previous shell’s main screen and history. Input held for that shell is discarded. VoiceOver announces a sustained reconnect, a new shell or a shell exit once.
 
 An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row above the keyboard. Each argument after the session is optional.
 
@@ -66,7 +66,7 @@ On every attachment, the socket factory receives the current `Terminal.Size` in 
 
 ### Supply a transport
 
-Tag `v0.2.0` provides the socket initializer above. On `main`, an app can also supply a `TerminalTransport` for a local PTY or a remote shell over SSH. In this example, the app provides the SSH client and its sendable `ShellChannel`.
+Instead of a socket, an app can supply a `TerminalTransport` for a local PTY or a remote shell over SSH. In this example, the app provides the SSH client and its sendable `ShellChannel`.
 
 ```swift
 import Foundation
