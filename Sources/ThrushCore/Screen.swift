@@ -555,11 +555,12 @@ extension Terminal {
             shift(.delete, rows, at: column, count: count, style: style)
         }
 
-        /// As in the reference, a column past a row's stored cells wraps to its first.
+        /// As in the reference, a column past a row's stored cells wraps to its first. Each row gets its own
+        /// generation, because the rows hold different cells.
         private mutating func shift(_ edit: CharacterEdit, _ rows: ClosedRange<Int>, at column: Int, count: Int,
                                     style: Style) {
-            revision &+= 1
             for row in rows {
+                revision &+= 1
                 let index = active.index(of: row)
                 let start = column % active.rows[index].storageColumns
                 active.rows[index].editCharacters(edit, at: start, count: count, style: style)

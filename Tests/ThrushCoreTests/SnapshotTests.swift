@@ -172,6 +172,15 @@ import ThrushFixtures
     #expect(full.rows.map(\.text) == ["d", "e", "f", "g", "h"])
 }
 
+@Test func columnShiftsGiveEachRowItsOwnGeneration() {
+    // A renderer caches each row's drawing by its generation, so rows with different cells need different ones.
+    var terminal = Terminal(size: .init(columns: 6, rows: 3))
+    _ = terminal.receive("abc\r\ndef\u{1b}[H\u{1b}['}".utf8)
+    let rows = terminal.snapshot().rows
+    #expect(rows.map(\.text) == [" abc", " def", ""])
+    #expect(rows[0].generation != rows[1].generation)
+}
+
 @Test func synchronizedOutputKeepsParsingAndAnswersQueriesBeforeRelease() throws {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
     let start = "\u{1b}[?2026h", end = "\u{1b}[?2026l"
