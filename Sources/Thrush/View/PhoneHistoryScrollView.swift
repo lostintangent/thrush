@@ -451,8 +451,13 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     /// UIScrollView's normal deceleration keeps this fraction of a flick's velocity each millisecond.
     private static let deceleration = Double(UIScrollView.DecelerationRate.normal.rawValue)
 
-    /// The distance a flick at this velocity in points per second covers before it stops.
-    private static func coastingDistance(_ velocity: CGFloat) -> CGFloat { velocity / 1000 / -log(deceleration) }
+    /// UIScrollView ends a deceleration once it slows below about this many points per second.
+    private static let stoppingSpeed: CGFloat = 15
+
+    /// The distance a flick at this velocity in points per second covers before UIScrollView would stop it.
+    private static func coastingDistance(_ velocity: CGFloat) -> CGFloat {
+        copysign(max(0, abs(velocity) - stoppingSpeed), velocity) / 1000 / -log(deceleration)
+    }
 
     private func canReachRow(travelling distance: CGFloat) -> Bool { abs(programRemainder + distance) >= rowHeight }
 
