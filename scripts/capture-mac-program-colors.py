@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Capture colors a program sets in the packaged Mac window, in both Slate appearances, under the
 demo's transparent title bar and under a full-size window toolbar. The colors scene picks the canvas
-the system didn't, so every frame puts program colors against the host's chrome. Under the toolbar,
-a host's own `.ignoresSafeArea()` must change no pixel."""
+the system didn't, so every frame puts program colors against the host's chrome, and the toolbar must
+take the canvas's appearance. Under the toolbar, a host's own `.ignoresSafeArea()` must change no pixel."""
 import argparse
-import collections
 import os
 from pathlib import Path
 import plistlib
@@ -44,12 +43,10 @@ def check(image, appearance, toolbar, checker):
             raise ValueError((result.stdout + result.stderr).strip())
 
     bar = 52 if toolbar else 28
-    # A full-size toolbar's title follows the system appearance, so the theme's canvas stays beneath it.
-    below = collections.Counter(pixels.pixels[round(bar * scale) * pixels.width:]) if toolbar else pixels.hist
     total = pixels.width * pixels.height
-    if sum(below[v] for v in below if near(v, SLATE[appearance], 3)) > total * 0.005:
+    if sum(pixels.hist[v] for v in pixels.hist if near(v, SLATE[appearance], 3)) > total * 0.005:
         raise ValueError("The theme's canvas shows through the program's colors.")
-    if sum(below[v] for v in below if near(v, paper, 3)) < total * 0.5:
+    if sum(pixels.hist[v] for v in pixels.hist if near(v, paper, 3)) < total * 0.5:
         raise ValueError(f"The {name} canvas covers less than half the window.")
     if toolbar:
         # Read each native control independently. A tighter vertical margin can help Vision
@@ -70,11 +67,11 @@ def check(image, appearance, toolbar, checker):
         raise ValueError("The window title doesn't stand out from its bar.")
     read((0, bar, WIDTH, bar + 48), "palette " + name)
     if toolbar:
-        # Between the leading title and the trailing Close button, the toolbar shows the theme's canvas.
+        # Between the leading title and the trailing Close button, the program's canvas runs beneath the toolbar.
         y = round(bar / 2 * scale)
         row = pixels.pixels[y * pixels.width + round(0.40 * pixels.width):y * pixels.width + round(0.55 * pixels.width)]
-        if sum(near(value, SLATE[appearance], 3) for value in row) < 0.8 * len(row):
-            raise ValueError("The theme's canvas is missing beneath the window toolbar.")
+        if sum(near(value, paper, 3) for value in row) < 0.8 * len(row):
+            raise ValueError(f"The {name} canvas is missing beneath the window toolbar.")
 
 
 def main():

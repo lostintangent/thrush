@@ -198,7 +198,7 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     // A mounted view displays each snapshot as it arrives. On the Mac, a dark title bar overlaps the pane.
     #if os(macOS)
     _ = NSApplication.shared
-    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 402, height: 550), styleMask: [.titled, .fullSizeContentView],
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 402, height: 550), styleMask: [.titled, .closable, .fullSizeContentView],
                           backing: .buffered, defer: false)
     window.appearance = NSAppearance(named: .darkAqua)
     window.contentView = pane
@@ -223,7 +223,7 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     let theme = TerminalTheme.slateDark
     _ = try host.draw(terminal.snapshot(), theme: theme)
     #if os(macOS)
-    #expect(pane.toolbarCoverColor == nil)
+    #expect(pane.titlebarAppearance == nil)
     #endif
 
     let osc = "\u{1b}]"
@@ -240,8 +240,9 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     #expect(paneBackground() == color(0xfaf0e6))
     #expect(pane.canvasScheme == .light)
     #if os(macOS)
-    // The title bar's dark title needs the theme's canvas beneath it.
-    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
+    // The dark window's title bar takes the light canvas's appearance, so its title stays readable over it.
+    #expect(pane.titlebarAppearance == .aqua)
+    #expect(pane.toolbarCoverColor == nil)
     #endif
 
     let selection = TerminalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 0)
@@ -258,14 +259,55 @@ func programColorsPaintThePaneWhileItsChromeAndSelectionKeepTheTheme() async thr
     #expect(paneBackground() == color(pack(theme.palette.background)))
     #expect(pane.canvasScheme == .dark)
     #if os(macOS)
-    #expect(pane.toolbarCoverColor == nil)
-    // A title bar that doesn't overlap the pane needs no cover.
+    #expect(pane.titlebarAppearance == nil)
+    // A hidden pane, or one the title bar no longer overlaps, gives the title bar back to the window.
     _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
-    #expect(pane.toolbarCoverColor != nil)
+    #expect(pane.titlebarAppearance == .aqua)
+    pane.isHidden = true
+    #expect(pane.titlebarAppearance == nil)
+    pane.isHidden = false
+    #expect(pane.titlebarAppearance == .aqua)
     window.styleMask.remove(.fullSizeContentView)
     pane.layoutSubtreeIfNeeded()
+    #expect(pane.titlebarAppearance == nil)
     #expect(pane.toolbarCoverColor == nil)
+
+    // Where AppKit keeps an item over the canvas on the window's appearance, as a split view's visible toolbar
+    // background does, the bar goes back to the window and the theme stops the canvas beneath it.
+    window.styleMask.insert(.fullSizeContentView)
+    pane.layoutSubtreeIfNeeded()
+    #expect(pane.titlebarAppearance == .aqua)
+    var titlebar = try #require(window.standardWindowButton(.closeButton) as NSView?)
+    while let parent = titlebar.superview, parent !== window.contentView?.superview { titlebar = parent }
+    let pinned = NSView(frame: CGRect(x: 200, y: 0, width: 40, height: 20))
+    pinned.appearance = NSAppearance(named: .darkAqua)
+    titlebar.addSubview(pinned)
+    pane.needsLayout = true
+    pane.layoutSubtreeIfNeeded()
+    // The pane checks the bar a moment after AppKit settles it.
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(pane.titlebarAppearance == nil)
+    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
+    pane.needsLayout = true
+    pane.layoutSubtreeIfNeeded()
+    #expect(pane.titlebarAppearance == nil)
+    // A canvas the window's appearance already suits needs neither, and the next opposite one asks again.
+    pinned.removeFromSuperview()
+    _ = terminal.receive((osc + "111\u{7}").utf8)
+    host.view.display(terminal.snapshot())
+    #expect(pane.toolbarCoverColor == nil)
+    _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
+    host.view.display(terminal.snapshot())
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(pane.titlebarAppearance == .aqua)
+    #expect(pane.toolbarCoverColor == nil)
+    // Window buttons beside the canvas, over a sidebar, that followed it would leave the sidebar's ground.
+    pane.additionalSafeAreaInsets.left = 120
+    pane.layoutSubtreeIfNeeded()
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(pane.titlebarAppearance == nil)
+    #expect(pane.toolbarCoverColor == color(pack(theme.palette.background)))
     #endif
 }
 

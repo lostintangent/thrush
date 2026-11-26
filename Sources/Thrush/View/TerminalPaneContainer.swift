@@ -38,7 +38,16 @@ typealias PaneNativeView = UIView
     /// The scheme that keeps a navigation bar over the pane readable, or nil when none overlaps it.
     private(set) var barScheme: ColorScheme?
     #else
-    /// A Mac toolbar's title follows the window's appearance, so an opposite canvas stops beneath it.
+    /// The title bar of the full-size window toolbar the pane runs under, which takes the canvas's appearance
+    /// while it's opposite the window's, as a navigation bar takes its scheme on iPhone.
+    private weak var titlebar: NSView?
+    /// Whether everything in the title bar over the canvas took the appearance the pane last asked for.
+    private var titlebarFollows: (dark: Bool, follows: Bool)?
+    private var titlebarCheckPending = false
+    /// The pane that set each title bar's appearance, so a pane leaving it clears only its own.
+    private static let titlebarOwners = NSMapTable<NSView, TerminalPaneContainer>.weakToWeakObjects()
+    var titlebarAppearance: NSAppearance.Name? { window.flatMap(Self.titlebar(of:))?.appearance?.name }
+    /// Keeps the title readable where the title bar can't follow the canvas, by stopping the canvas beneath it.
     private let toolbarCover = PaneNativeView()
     var toolbarCoverColor: CGColor? { toolbarCover.isHidden ? nil : toolbarCover.layer?.backgroundColor }
     #endif
@@ -63,8 +72,8 @@ typealias PaneNativeView = UIView
         toolbarCover.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             toolbarCover.topAnchor.constraint(equalTo: topAnchor),
-            toolbarCover.leadingAnchor.constraint(equalTo: leadingAnchor),
-            toolbarCover.trailingAnchor.constraint(equalTo: trailingAnchor),
+            toolbarCover.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
+            toolbarCover.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             toolbarCover.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
         ])
         #else
@@ -166,9 +175,10 @@ typealias PaneNativeView = UIView
         super.viewDidMoveToWindow()
         closingWindow = nil
         onVisibility?()
+        updateSchemes()
     }
-    override func viewDidHide() { super.viewDidHide(); onVisibility?() }
-    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?() }
+    override func viewDidHide() { super.viewDidHide(); onVisibility?(); updateSchemes() }
+    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?(); updateSchemes() }
     override func layout() { super.layout(); updateSchemes() }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateSchemes() }
     #else
@@ -339,7 +349,6 @@ typealias PaneNativeView = UIView
         let background = terminal.color(.background).paneCGColor
         #if os(macOS)
         layer?.backgroundColor = background
-        toolbarCover.layer?.backgroundColor = terminal.resolvedTheme.palette.background.paneCGColor
         #else
         backgroundColor = UIColor(cgColor: background)
         insetCover.backgroundColor = backgroundColor
@@ -351,9 +360,7 @@ typealias PaneNativeView = UIView
         let background = terminal.color(.background)
         let canvas: ColorScheme = background.isDark ? .dark : .light
         #if os(macOS)
-        let window = (self.window?.effectiveAppearance ?? effectiveAppearance).bestMatch(from: [.aqua, .darkAqua])
-        toolbarCover.isHidden = safeAreaInsets.top == 0 || background.isDark == (window == .darkAqua)
-            || background == terminal.resolvedTheme.palette.background
+        updateTitlebar(dark: background.isDark)
         guard canvas != canvasScheme else { return }
         canvasScheme = canvas
         #else
@@ -363,6 +370,106 @@ typealias PaneNativeView = UIView
         #endif
         onCanvasChange?()
     }
+
+    #if os(macOS)
+    private func updateTitlebar(dark: Bool) {
+        let window = isShellPresented && safeAreaInsets.top > 0 ? self.window : nil
+        let next = window.flatMap(Self.titlebar(of:))
+        if titlebar !== next {
+            if let titlebar { release(titlebar) }
+            (titlebar, titlebarFollows) = (next, nil)
+        }
+        guard let window, dark != window.effectiveAppearance.isDark else {
+            if let next { release(next) }
+            titlebarFollows = nil
+            toolbarCover.isHidden = true
+            return
+        }
+        if titlebarFollows?.dark != dark { titlebarFollows = (dark, true) }
+        if let next, titlebarFollows?.follows == true, canvasSpan(under: next) != nil {
+            let name: NSAppearance.Name = dark ? .darkAqua : .aqua
+            if next.appearance?.name != name { next.appearance = NSAppearance(named: name) }
+            Self.titlebarOwners.setObject(self, forKey: next)
+            toolbarCover.isHidden = true
+            checkTitlebar()
+        } else {
+            if let next { release(next) }
+            // The theme's background where it suits the window's title, or else the window's.
+            let theme = terminal.resolvedTheme.palette.background
+            var cover = theme.paneCGColor
+            if theme.isDark == dark {
+                window.effectiveAppearance.performAsCurrentDrawingAppearance { cover = NSColor.windowBackgroundColor.cgColor }
+            }
+            toolbarCover.layer?.backgroundColor = cover
+            toolbarCover.isHidden = false
+        }
+    }
+
+    /// Checks a moment later, once AppKit has settled the title bar, that the canvas's appearance landed only over
+    /// the canvas. A split view's visible toolbar background keeps its items on the window's appearance, and some
+    /// split views let a sidebar's buttons follow the bar, so then the canvas stops beneath the bar instead.
+    private func checkTitlebar() {
+        guard !titlebarCheckPending else { return }
+        titlebarCheckPending = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard let self else { return }
+            titlebarCheckPending = false
+            guard let titlebar, let window, Self.titlebarOwners.object(forKey: titlebar) === self,
+                  let asked = titlebarFollows, let span = canvasSpan(under: titlebar) else { return }
+            titlebar.layoutSubtreeIfNeeded()
+            guard !Self.follows(titlebar, of: window, over: span, isDark: asked.dark) else { return }
+            titlebarFollows?.follows = false
+            updateSchemes()
+        }
+    }
+
+    private func release(_ titlebar: NSView) {
+        guard Self.titlebarOwners.object(forKey: titlebar) === self else { return }
+        if titlebar.appearance != nil { titlebar.appearance = nil }
+        Self.titlebarOwners.removeObject(forKey: titlebar)
+    }
+
+    /// The window span where the canvas shows through the title bar, beside any sidebar floating over the pane,
+    /// or nil when the pane doesn't span the bar, so flipping it would also flip chrome over other content.
+    private func canvasSpan(under titlebar: NSView) -> ClosedRange<CGFloat>? {
+        let pane = convert(bounds, to: nil), bar = titlebar.convert(titlebar.bounds, to: nil)
+        guard pane.minX <= bar.minX + 0.5, pane.maxX >= bar.maxX - 0.5 else { return nil }
+        let start = pane.minX + safeAreaInsets.left
+        return start...max(start, pane.maxX - safeAreaInsets.right)
+    }
+
+    /// Whether everything in the bar over the canvas took its appearance, while the window buttons and toolbar items
+    /// beside it, over a sidebar, kept the window's.
+    private static func follows(_ titlebar: NSView, of window: NSWindow, over span: ClosedRange<CGFloat>, isDark dark: Bool) -> Bool {
+        let buttons: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let beside = buttons.compactMap { window.standardWindowButton($0) as NSView? } + (window.toolbar?.items.compactMap(\.view) ?? [])
+        return everything(in: titlebar, over: span, isDark: dark) && beside.allSatisfy { view in
+            let frame = view.convert(view.bounds, to: nil)
+            let over = frame.maxX > span.lowerBound && frame.minX < span.upperBound
+            return over || view.isHiddenOrHasHiddenAncestor || view.effectiveAppearance.isDark == window.effectiveAppearance.isDark
+        }
+    }
+
+    private static func everything(in view: NSView, over span: ClosedRange<CGFloat>, isDark dark: Bool) -> Bool {
+        guard !view.isHidden else { return true }
+        let frame = view.convert(view.bounds, to: nil)
+        if span.contains(frame.minX), span.contains(frame.maxX), view.effectiveAppearance.isDark != dark { return false }
+        return view.subviews.allSatisfy { everything(in: $0, over: span, isDark: dark) }
+    }
+
+    /// The window frame's child that holds the title, window buttons and toolbar: the one holding the close button,
+    /// or else the one above the content layout rect.
+    private static func titlebar(of window: NSWindow) -> NSView? {
+        guard let frame = window.contentView?.superview else { return nil }
+        var view = window.standardWindowButton(.closeButton) as NSView?
+        while let child = view, let parent = child.superview, parent !== frame { view = parent }
+        if let view, view.superview === frame { return view }
+        let top = window.contentLayoutRect.maxY
+        return frame.subviews.last { $0 !== window.contentView && $0.frame.minY >= top }
+    }
+    #endif
+
 }
 
 private extension Terminal.RGB {
@@ -370,6 +477,12 @@ private extension Terminal.RGB {
         CGColor(srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1)
     }
 }
+
+#if os(macOS)
+private extension NSAppearance {
+    var isDark: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+}
+#endif
 
 #if os(iOS)
 extension TerminalView {
