@@ -108,7 +108,7 @@ scripts/check-ios-ui.sh "$udid"
 
 The command builds the package sources, shader and replay fixtures in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone 17 simulator for every push and pull request.
 
-The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, five short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
+The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone 17 simulator. Its artifact contains portrait and landscape screenshots, a still with the keyboard hidden, five short gesture recordings per appearance, the source revision and the device profile. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
 
 ```sh
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions
@@ -117,3 +117,17 @@ python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interacti
 For a keyboard-open rotation check in both appearances, add `--rotation-only` or dispatch the workflow with `-f rotation_only=true`. The capture turns to landscape and back twice, then opens a full log, hides the keyboard with the key row's button and taps the terminal to bring it back. The check compares the complete shell resize sequence with the two settled grids and keeps the native recordings, screenshots and peer trace. Add `--trace-rotation-layout` (`-f trace_rotation_layout=true`) to record UIKit's layouts, keyboard frames and the row a reader follows in every displayed frame. The run then fails if that row changes, leaves the viewport or jumps against it in any frame of the turn. A jump moves the row further than either viewport edge carried it and more than half a row against both for each display frame since the previous sample. Frames before the window's turn begins in its layer's time are skipped, since UIKit can hold the turn until the keyboard lays out. After a stall the main thread can read a turn further along than the one the screen then begins, so a frame further from where its turn settles than a later one is skipped too. One frame per turn whose row doesn't span its viewport is skipped too, since every commit lays out the whole tree and it was read between layout passes. A second such frame fails the turn, and so does a skipped frame where the turn settles. Each direction must be sampled while it turns, since a stalled main thread can miss a turn entirely. The row is held above the key row once the system's keyboard animations finish.
 
 Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The check records VoiceOver speech in `voiceover.log` and the focused element in `accessibility-spinner-reconnecting.json`. The hosted iOS 27.2 simulator returned `No speech available` in both Settings and Thrush. On a physical iPhone, read a terminal line, interrupt the socket and listen for “Reconnecting” once. Verify that the reading cursor stays on the same line. Let the orphan expire and return to the tab. Listen for “New shell” once and check that the prompt accepts input. End the shell and listen for “Shell ended” once. Reopening that session should be silent. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45707888711)
+
+## Tour a release
+
+Before a release, dispatch the **Release tour** workflow to see every visible surface on both platforms in both appearances. It runs the iPhone interaction proof, the four live workflow runs, the Mac spinner, program color and appearance report captures and the iPhone spinner, navigation bar and program color scenes, then lays their screenshots out on four labeled contact sheets. The `thrush-release-tour` artifact holds the sheets and `tour.json`, which names the capture behind each tile. A surface with no capture keeps a dashed tile on its sheet and an entry under `missing`, so a failed job shows as a gap rather than disappearing.
+
+```sh
+gh workflow run release-tour.yml
+```
+
+To lay out sheets from artifacts you have already downloaded, pass their parent directory and an output directory.
+
+```sh
+xcrun swift scripts/release-tour.swift ~/Downloads/thrush-captures /tmp/thrush-release-tour
+```

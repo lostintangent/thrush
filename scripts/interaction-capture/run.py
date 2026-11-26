@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 RUNNER = "PhoneInteractionProof"
 BUNDLE_ID = "app.thrush.review.interactions"
 APPEARANCES = ("dark", "light")
-PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "word-{}-menu",
+PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu",
         "line-{}-selected", "history-{}-latest")
 CLIPS = ("control", "rotate", "keyboard", "select", "history")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.

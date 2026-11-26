@@ -85,6 +85,7 @@ final class PhoneInteractionProof: XCTestCase {
         // Let the taller grid settle on screen before the keyboard returns.
         Thread.sleep(forTimeInterval: 0.75)
         XCTAssertTrue(line.exists, "Hiding the keyboard should keep the wrapped line in view.")
+        try screenshot("keyboard-\(appearance)-hidden")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
         try assertKeyboard()
         XCTAssertTrue(line.exists, "Showing the keyboard should keep the wrapped line in view.")

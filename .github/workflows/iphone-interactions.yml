@@ -15,6 +15,11 @@ on:
         description: Record the shell's UIKit layouts, keyboard frames and anchored row, and check them through rotation
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      accessibility_only: { type: boolean, default: false }
+      rotation_only: { type: boolean, default: false }
+      trace_rotation_layout: { type: boolean, default: false }
   push:
     branches: [capture/m4]
 

@@ -22,6 +22,12 @@ on:
         description: Record both ends of the scripted lifecycle WebSocket
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      platform: { type: string, default: simulator }
+      appearance: { type: string, default: dark }
+      workflow: { type: string, default: all }
+      trace_lifecycle_frames: { type: boolean, default: false }
 
 permissions:
   contents: read
