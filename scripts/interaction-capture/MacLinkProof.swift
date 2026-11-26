@@ -2,9 +2,10 @@ import AppKit
 import XCTest
 
 /// Opens the links an rg search and Claude Code's trust prompt send, and the address gh prints as plain text,
-/// through real clicks in the packaged Mac demo. A ⌘-click opens a web link in the default browser and shows a
-/// file link's menu, a plain click or a ⌘-drag away opens nothing, and a right-click adds the link's items
-/// above the terminal's own.
+/// through real clicks in the packaged Mac proofs app. ⌘ engages the link under a resting pointer, even when output
+/// brings it there. A ⌘-click opens a web link in the default browser and shows a file link's menu, a plain click
+/// or a ⌘-drag away opens nothing, and a right-click adds the link's items above the terminal's own, with
+/// nothing to AutoFill.
 @MainActor final class MacLinkProof: XCTestCase {
     private static let guide = "Security guide"
     private static let destination = "https://code.claude.com/docs/en/security"
@@ -32,14 +33,23 @@ import XCTest
         let row = guide.frame.height
         save(window.screenshot(), "rest", appearance)
 
-        // The tooltip names where a link goes, and ⌘ engages the link under a resting pointer.
+        // The tooltip names where a link goes. ⌘ engages the link under a resting pointer, and output that
+        // takes the link away or brings it back under the pointer lets it go or engages it again.
         center(of: guide).hover()
         Thread.sleep(forTimeInterval: 3)
         save(XCUIScreen.main.screenshot(), "tooltip", appearance)
         XCUIElement.perform(withKeyModifiers: .command) {
-            Thread.sleep(forTimeInterval: 0.3)
+            expectCursor("pointing hand", "⌘ should engage the link under a resting pointer.")
             save(window.screenshot(), "command-hover", appearance)
+            app.typeKey("5", modifierFlags: [])
+            XCTAssertTrue(link(Self.guide).waitForNonExistence(timeout: 5), app.debugDescription)
+            expectCursor("I-beam", "Output that takes the link away should let it go.")
+            app.typeKey("9", modifierFlags: [])
+            XCTAssertTrue(link(Self.guide).waitForExistence(timeout: 10), app.debugDescription)
+            expectCursor("pointing hand", "Output that brings a link under a resting pointer should engage it.")
+            save(window.screenshot(), "command-output", appearance)
         }
+        expectCursor("I-beam", "Letting go of ⌘ should let the link go.")
 
         // A ⌘-click opens a web link where the system opens it.
         XCUIElement.perform(withKeyModifiers: .command) { center(of: guide).click() }
@@ -64,9 +74,19 @@ import XCTest
         XCTAssertTrue(copyLink.waitForExistence(timeout: 5), app.debugDescription)
         let linkMenu = menu(with: "Copy Link")
         for title in ["Open Link", "Copy", "Paste", "Select All"] { XCTAssertTrue(linkMenu.menuItems[title].exists, title) }
+        XCTAssertFalse(linkMenu.menuItems["AutoFill"].exists, "A terminal has nothing to AutoFill.")
         save(XCUIScreen.main.screenshot(), "link-menu", appearance)
         copyLink.click()
         XCTAssertEqual(NSPasteboard.general.string(forType: .string), Self.destination)
+
+        // Away from links, a right-click shows the terminal's own items and nothing to AutoFill.
+        let autoFill = app.menuItems.matching(NSPredicate(format: "title == 'AutoFill'"))
+        let autoFills = autoFill.count
+        center(of: guide).withOffset(CGVector(dx: 0, dy: row * 5)).rightClick()
+        XCTAssertTrue(app.menuItems["Select All"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(autoFill.count, autoFills, "A terminal has nothing to AutoFill.")
+        save(XCUIScreen.main.screenshot(), "menu", appearance)
+        app.typeKey(.escape, modifierFlags: [])
 
         // Thrush never opens a file link. A ⌘-click shows its menu, titled with where it goes.
         let file = link(Self.file)
@@ -92,7 +112,7 @@ import XCTest
             CGVector(dx: page.frame.minX - window.frame.minX + cell, dy: page.frame.maxY - window.frame.minY - row / 2))
         second.hover()
         XCUIElement.perform(withKeyModifiers: .command) {
-            Thread.sleep(forTimeInterval: 0.3)
+            expectCursor("pointing hand", "⌘ should engage the wrapped address from its second row.")
             save(window.screenshot(), "wrapped-command-hover", appearance)
         }
         second.rightClick()
@@ -104,6 +124,22 @@ import XCTest
         XCUIElement.perform(withKeyModifiers: .command) { second.click() }
         XCTAssertTrue(browser.wait(for: .runningForeground, timeout: 30), "A ⌘-click should open gh's address.")
         browser.terminate()
+    }
+
+    /// Waits a moment for the system cursor to become `expected`. A still of the window doesn't show the pointer,
+    /// so the cursor is how the proof sees a link engage.
+    private func expectCursor(_ expected: String, _ message: String, file: StaticString = #filePath, line: UInt = #line) {
+        let deadline = Date().addingTimeInterval(2)
+        while cursor() != expected, Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
+        XCTAssertEqual(cursor(), expected, message, file: file, line: line)
+    }
+
+    /// The system cursor, told apart from the others by its hot spot and size.
+    private func cursor() -> String {
+        guard let current = NSCursor.currentSystem else { return "hidden" }
+        let cursors: [(String, NSCursor)] = [("pointing hand", .pointingHand), ("I-beam", .iBeam), ("arrow", .arrow)]
+        return cursors.first { $0.1.hotSpot == current.hotSpot && $0.1.image.size == current.image.size }?.0
+            ?? "\(current.hotSpot) \(current.image.size)"
     }
 
     private func link(_ text: String) -> XCUIElement {
