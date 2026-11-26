@@ -22,6 +22,7 @@ APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu",
         "line-{}-selected", "history-{}-latest")
 CLIPS = ("control", "rotate", "keyboard", "select", "history")
+SWIPES = ("less", "vim", "history", "settings")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
 ROUND_TRIPS = 2
 DISPLAY_FRAME = 1 / 60
@@ -110,24 +111,23 @@ def build_test_runner(work, out, source=HERE / (RUNNER + ".swift"), *, mac=False
     return next((derived / "Build/Products").glob("*.xctestrun"))
 
 
-def export_attachments(result, out, work, frame_times):
+def export_attachments(result, out, work, clips):
+    """Saves the runner's screenshots and its clips' intervals, and returns every attachment's file and time."""
     # XCTest retains completed frames and motion intervals when a later gesture fails.
     exported = work / "attachments"
     run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
                 "--output-path", exported], out / "attachments.log", 90)
+    attachments = {}
     for test in json.loads((exported / "manifest.json").read_text()):
         for attachment in test["attachments"]:
-            match = re.search(r"thrush-proof__([a-z-]+)__", attachment["suggestedHumanReadableName"])
+            match = re.search(r"thrush-proof__([a-z0-9-]+)__", attachment["suggestedHumanReadableName"])
             if not match:
                 continue
-            name = match.group(1)
-            is_frame = any(name == template.format(style) for template in PICS for style in APPEARANCES)
-            is_clip = any(name == f"{clip}-{style}" for clip in CLIPS for style in APPEARANCES)
-            if is_frame:
-                frame_times[name] = attachment["timestamp"]
-            if is_frame or is_clip:
-                src = exported / Path(attachment["exportedFileName"]).name
-                shutil.copyfile(src, out / (name + (".png" if is_frame else "-motion.json")))
+            name, path = match[1], exported / Path(attachment["exportedFileName"]).name
+            attachments[name] = path, attachment["timestamp"]
+            if path.suffix == ".png" or name in clips:
+                shutil.copyfile(path, out / (name + (".png" if path.suffix == ".png" else "-motion.json")))
+    return attachments
 
 
 def export_clip(name, video_start, out, work):
@@ -146,6 +146,35 @@ def export_clip(name, video_start, out, work):
     if not clip.stat().st_size:
         raise ValueError(f"Empty clip {clip.name}.")
     shutil.move(clip, out / clip.name)
+
+
+def export_clips(names, video_start, out, work, attempt):
+    for name in names:
+        attempt(name + ".mp4", export_clip, name, video_start, out, work)
+    if all((out / (name + ".mp4")).is_file() for name in names):
+        (out / "appearance-switch.mov").unlink()
+
+
+def run_gestures(phone, device, plan, result, out, attempt, observe):
+    """Runs the native gestures while the simulator records its screen, and returns when the recording began."""
+    # The runner timestamps just the gestures in the foreground app. Trim setup, launches
+    # and XCTest's transitions out of the simulator's recording before handing it to design.
+    # A simulator with no recording surface can still run UIKit gestures and return
+    # XCTest screenshots. Collect those even when its video encoder is unavailable.
+    recording = contextlib.ExitStack()
+    video_start = None
+    try:
+        try:
+            recording.enter_context(phone.record_switch())
+            video_start = time.time()
+        except (RuntimeError, TimeoutError, subprocess.SubprocessError) as error:
+            (out / "recording-error.log").write_text(str(error) + "\n")
+        attempt("native gestures", run_logged, ["xcodebuild", "test-without-building", "-xctestrun", plan,
+                "-destination", f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
+                "-resultBundlePath", result], out / "ui-gestures.log", 720, observe)
+    finally:
+        attempt("finalize gesture recording", recording.close)
+    return video_start
 
 
 def save_rotation_layouts(out, appearance, spans, frame_times):
@@ -202,35 +231,44 @@ def collect(phone, device, endpoint, plan, out, work, attempt, rotation_only=Fal
             previous = geometry
         spans[-1].append((time.time(), state))
 
-    # The runner timestamps just the gestures in the foreground app. Trim setup, launches
-    # and XCTest's transitions out of the simulator's recording before handing it to design.
-    # A simulator with no recording surface can still run UIKit gestures and return
-    # XCTest screenshots. Collect those even when its video encoder is unavailable.
-    recording = contextlib.ExitStack()
-    video_start = None
-    try:
-        try:
-            recording.enter_context(phone.record_switch())
-            video_start = time.time()
-        except (RuntimeError, TimeoutError, subprocess.SubprocessError) as error:
-            (out / "recording-error.log").write_text(str(error) + "\n")
-        attempt("native gestures", run_logged, ["xcodebuild", "test-without-building", "-xctestrun", plan,
-                "-destination", f"platform=iOS Simulator,id={device}", "-parallel-testing-enabled", "NO",
-                "-resultBundlePath", result], out / "ui-gestures.log", 720, observe_layout)
-    finally:
-        attempt("finalize gesture recording", recording.close)
-
-    if result.exists():
-        frame_times = {}
-        attempt("gesture attachments", export_attachments, result, out, work, frame_times)
-        for appearance in APPEARANCES:
-            attempt(f"{appearance} rotation layouts", save_rotation_layouts, out, appearance, spans, frame_times)
+    video_start = run_gestures(phone, device, plan, result, out, attempt, observe_layout)
     gestures = ("rotate", "keyboard") if rotation_only else CLIPS
     names = [f"{gesture}-{appearance}" for appearance in APPEARANCES for gesture in gestures]
-    for name in names:
-        attempt(name + ".mp4", export_clip, name, video_start, out, work)
-    if all((out / (name + ".mp4")).is_file() for name in names):
-        (out / "appearance-switch.mov").unlink()
+    if result.exists():
+        frame_times = {}
+
+        def export():
+            frame_times.update((name, when) for name, (path, when) in export_attachments(result, out, work, names).items()
+                               if path.suffix == ".png")
+        attempt("gesture attachments", export)
+        for appearance in APPEARANCES:
+            attempt(f"{appearance} rotation layouts", save_rotation_layouts, out, appearance, spans, frame_times)
+    export_clips(names, video_start, out, work, attempt)
+
+
+def collect_swipes(phone, device, endpoint, plan, out, work, attempt):
+    configuration = plistlib.loads(plan.read_bytes())
+    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
+    plan.write_bytes(plistlib.dumps(configuration))
+    result = work / "swipes.xcresult"
+    previous = None
+
+    with (out / "swipe-states.jsonl").open("w") as trace:
+        def observe():
+            nonlocal previous
+            state = phone.state()
+            if state and state != previous:
+                trace.write(json.dumps(dict(state, observedAt=time.time())) + "\n")
+                previous = state
+
+        video_start = run_gestures(phone, device, plan, result, out, attempt, observe)
+    names = [f"{clip}-{appearance}" for appearance in APPEARANCES for clip in SWIPES]
+    if result.exists():
+        attachments = export_attachments(result, out, work, names)
+        gestures = {name: json.loads(path.read_text()) for name, (path, _) in attachments.items()
+                    if path.suffix == ".json" and name not in names}
+        (out / "swipe-gestures.json").write_text(json.dumps(gestures, indent=1) + "\n")
+    export_clips(names, video_start, out, work, attempt)
 
 
 def collect_layout_traces(phone, out):
@@ -484,8 +522,11 @@ def main():
     scope.add_argument("--rotation-only", action="store_true",
                        help="Capture keyboard-open rotation and the keyboard hiding and returning in both appearances, "
                             "and check the shell resize sequence.")
+    scope.add_argument("--swipes-only", action="store_true",
+                       help="Swipe through less, vim and the shell's history on a real shell in both appearances, and check "
+                            "that a program glides as far as the history and stops under a resting or catching finger.")
     options = parser.parse_args()
-    if options.accessibility_only and options.trace_rotation_layout:
+    if (options.accessibility_only or options.swipes_only) and options.trace_rotation_layout:
         parser.error("--trace-rotation-layout applies to shell gestures.")
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
@@ -495,7 +536,8 @@ def main():
         parser.error("Use an empty output directory.")
     with tempfile.TemporaryDirectory(prefix="thrush-iphone-interactions-") as scratch:
         work = Path(scratch)
-        source = HERE / ("PaneVoiceOverProof.swift" if options.accessibility_only else RUNNER + ".swift")
+        source = HERE / ("PaneVoiceOverProof.swift" if options.accessibility_only else
+                         "ScrollSwipeProof.swift" if options.swipes_only else RUNNER + ".swift")
         plan = build_test_runner(work, out, source=source)
         if options.build_runner_only:
             print("Compiled the native iPhone interaction runner.")
@@ -508,7 +550,10 @@ def main():
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
-        with simulator.peer(out, cursor=options.accessibility_only) as endpoint, simulator.disposable_phone(out) as device:
+        scroll = load_helper("interaction-capture/scroll")
+        # Swipes scroll real programs, so they run on a shell rather than the scripted peer.
+        peer = scroll.shell(work, out) if options.swipes_only else simulator.peer(out, cursor=options.accessibility_only)
+        with peer as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}
             def attempt(name, action, *args):
@@ -536,8 +581,13 @@ def main():
                 attempt("quiet keyboard render log", simulator.sim, "spawn", device, "log", "config", "--subsystem",
                         "com.apple.UIKit", "--category", "UIKBRenderingLog", "--mode", "level:off")
                 attempt("keyboard warm-up", phone.warm_keyboard, "dark")
-                attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
-                        options.rotation_only, options.trace_rotation_layout)
+                if options.swipes_only:
+                    attempt("swipe capture", collect_swipes, phone, device, endpoint, plan, out, work, attempt)
+                    for appearance in APPEARANCES:
+                        attempt(f"{appearance} swipes", scroll.check, out, appearance)
+                else:
+                    attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
+                            options.rotation_only, options.trace_rotation_layout)
                 if options.trace_rotation_layout:
                     attempt("rotation layout traces", collect_layout_traces, phone, out)
                     for appearance in APPEARANCES:
@@ -547,7 +597,7 @@ def main():
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} rotation", check_images, out, (appearance,),
                                 ("shell-{}-portrait", "shell-{}-landscape"))
-                else:
+                elif not options.swipes_only:
                     attempt("interaction screenshots", check_images, out)
             if not options.rotation_only:
                 attempt("UIKit tests", run_logged, ["scripts/check-ios-ui.sh", device], out / "uikit-tests.log", 720)
@@ -566,6 +616,8 @@ def main():
         print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
     elif options.rotation_only:
         print("Verified keyboard-open iPhone rotation and shell resizes in both Slate appearances.")
+    elif options.swipes_only:
+        print("Verified that swipes glide through less and vim as far as through the shell's history and stop under a finger.")
     else:
         print("Captured the iPhone terminal, selection, controls, scrolling and rotation in both Slate appearances.")
 

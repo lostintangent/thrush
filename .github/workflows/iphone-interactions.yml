@@ -15,11 +15,16 @@ on:
         description: Record the shell's UIKit layouts, keyboard frames and anchored row, and check them through rotation
         type: boolean
         default: false
+      swipes_only:
+        description: Swipe through less, vim and the shell's history on a real shell, and check each glide and stop
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       accessibility_only: { type: boolean, default: false }
       rotation_only: { type: boolean, default: false }
       trace_rotation_layout: { type: boolean, default: false }
+      swipes_only: { type: boolean, default: false }
   push:
     branches: [capture/m4]
 
@@ -44,11 +49,13 @@ jobs:
           ACCESSIBILITY_ONLY: ${{ inputs.accessibility_only }}
           ROTATION_ONLY: ${{ inputs.rotation_only }}
           TRACE_ROTATION_LAYOUT: ${{ inputs.trace_rotation_layout }}
+          SWIPES_ONLY: ${{ inputs.swipes_only }}
         run: |
           flags=()
           if [[ "$ACCESSIBILITY_ONLY" == true ]]; then flags+=(--accessibility-only); fi
           if [[ "$ROTATION_ONLY" == true ]]; then flags+=(--rotation-only); fi
           if [[ "$TRACE_ROTATION_LAYOUT" == true ]]; then flags+=(--trace-rotation-layout); fi
+          if [[ "$SWIPES_ONLY" == true ]]; then flags+=(--swipes-only); fi
           python3 scripts/interaction-capture/run.py --output "$RUNNER_TEMP/thrush-iphone-interactions" "${flags[@]}"
       - name: Upload interaction captures and checks
         if: always()
