@@ -238,6 +238,10 @@ probe('DECSET 47', 'and back in origin mode, then CUF', `${CSI}1;3r${CSI}?6h`, `
 probe('DECSET 47', 'in origin mode with a region', `${CSI}4;7r${CSI}?6h`, `${CSI}?47h${CSI}2;5r${CSI}2;3H`);
 probe('DECRST 7', 'then a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;20H界`);
 probe('DECRST 7', 'then a combining mark after a dropped wide character', positions.middle, `${CSI}?7l${CSI}2;19Ha界\u0301`);
+// Text past the margin lands on the last column, which can hold a wide character's second half.
+probe('DECRST 7', 'then a narrow character over a wide right half at the edge', positions.middle, `${CSI}?7l${CSI}2;17Hab界c`);
+probe('DECRST 7', 'then a wide character dropped after a wide character at the edge', positions.middle, `${CSI}?7l${CSI}2;19H界界`);
+probe('DECRST 7', 'then a wide character dropped on a wide right half', positions.middle, `${CSI}?7l${CSI}2;19H界${CSI}2;20H界`);
 probe('DECSET 45', 'then BS across a wrap', '', `${CSI}2;1H${CSI}?7h${CSI}?45h${CSI}1;20Hxy\b\b\b`);
 probe('DECSET 45', 'then BS from a pending wrap', '', `${CSI}?45h${CSI}2;20Ht\b`);
 probe('DECSET 45', 'then BS across a wrap without wraparound', '', `${CSI}?45h${CSI}2;20Hxy${CSI}?7l\b\b`);
@@ -597,6 +601,10 @@ for (const [variant, [setup, steps]] of Object.entries(resizes)) {
 }
 // Narrowing with the cursor above rows that make room for the added ones.
 addSized([5, 3], 'resize', 'narrower above text', `\r\nabc\r\n12345${CSI}H`, { resize: [2, 3] }, { checkpoint: 'resize 1' }, '*');
+// Narrowing that leaves the cursor on a wide character's right half, before a combining mark for it.
+// Without the canvas no line below the cursor reflows, so the cursor stays on its own line.
+add('resize', 'narrower onto a wide right half, then a combining mark', `${CSI}2;15H界`,
+  { resize: [16, 8] }, { checkpoint: 'resize 1' }, '\u0301', { checkpoint: 'subject' }, '*');
 
 // The two recorded clear programs erase history on opposite sides of CUP and ED 2.
 // Split each CSI inside its header and observe each completed function before the prompt.
