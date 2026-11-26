@@ -176,6 +176,11 @@ def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
         subprocess.run(["git", "init", "-q", workspace], check=True)
         (home / "bin").mkdir()
         (home / "bin/codex-real").symlink_to(binary)
+        # Codex runs its code-mode host from beside the executable it was started as.
+        host = binary.with_name("codex-code-mode-host")
+        if not host.is_file():
+            raise ValueError(f"Place the matching codex-code-mode-host beside {binary}")
+        (home / "bin/codex-code-mode-host").symlink_to(host)
         executable = home / "bin/codex"
         command = 'codex-real --no-daemon -s read-only -a never "$@"'
         if local_url:

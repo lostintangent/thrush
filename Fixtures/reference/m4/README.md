@@ -4,13 +4,13 @@ The three recordings drive the standalone peer through the same WebSocket protoc
 
 | Recording | Starting grid | Interactions and checkpoints |
 | --- | --- | --- |
-| `shell-workflow` | 80 × 24 | Resize to 47 × 24, type `./builx`, press Backspace, paste `d 126 130`, then press Enter. Bash 5.3.9 enables bracketed paste. The executed command compiles five numbered headers and returns to the shell. |
+| `shell-workflow` | 80 × 24 | Resize to the iPhone Duo's 45 × 18, type `./builx`, press Backspace, paste `d 126 130`, then press Enter. Bash 5.3.9 enables bracketed paste. The executed command compiles five numbered headers and returns to the shell. |
 | `vim-resume` | 80 × 24 | Open `scratch.txt`, insert wide and combining text, resize through portrait and landscape, detach, resume on the same client ID, save and quit. The recorded Vim session checks the saved file on disk. |
 | `codex-session` | 80 × 16 | Launch Codex CLI 0.166.0 in a disposable workspace, enter a question about songbirds, watch the answer stream, press Ctrl-T, Page Up and Page Down, then enter `/quit`. |
 
 ## Shell selection
 
-At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3, column 0 to row 4, column 37 (exclusive). The expected copy is the `copy.text` field, including the original combining accent. The intermediate soft wrap contributes no newline. `shell-selection.mjs` obtains this string through the pinned browser selection service. The recorded bytes include Bash enabling and disabling bracketed paste, the input delimiters and the PTY’s echo of the corrected command.
+At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3, column 0 to row 4, column 39 (exclusive). The expected copy is the `copy.text` field, including the original combining accent. The intermediate soft wrap contributes no newline. `shell-selection.mjs` obtains this string through the pinned browser selection service. The recorded bytes include Bash enabling and disabling bracketed paste, the input delimiters and the PTY’s echo of the corrected command.
 
 ## Vim reattachment
 
@@ -25,7 +25,7 @@ At `Copy soft-wrapped compiler path`, xterm selected from absolute buffer row 3,
 | `Vim first live output after replay` | Apply Vim’s response to `:wq` after the replay |
 | `Returned to shell` | Read the eight default-colored cells of the original `thrush$ ` prompt. The cursor follows the trailing space. |
 
-The wide and iPhone replays are part of their recordings. A PTY server's scrollback serializer produced them, from the reviewed source `scrollback.ts` with SHA-256 `f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641`. Its reset before entering the alternate screen and absolute cursor placement add ten bytes to each serialized replay. On iPhone the restored frame is 1,165 bytes at 47 × 24. It comes from the next revision of that source, SHA-256 `f4857aa8af1f38ff6d9f99df3e572fcdc10681ac6a827162d97218ad73a80e1d`, without the five-byte `ESC ] 2 ; BEL` title that revision writes first. Apart from that prefix, the revision produces the wide replay byte for byte. The generator checks that each replay restores Vim's exact screen and that the later live output lands as it does on the uninterrupted terminal. `--replay FILE` substitutes another server's serialized bytes.
+The wide and iPhone replays are part of their recordings. A PTY server's scrollback serializer produced the wide one, from the reviewed source `scrollback.ts` with SHA-256 `f524554edbd7c721e42fb22536fb3faa6556f132e4029e8b17ac804d9e226641`. Its reset before entering the alternate screen and absolute cursor placement add ten bytes to the serialized replay. On iPhone the restored frame is 1,011 bytes at 45 × 18. Thrush's own serializer produced it, the one `ThrushServer` sends a resuming client, and `ThrushBench --serialize-replay` checked that it restores the source recording's checkpoint. [Serializer](../../../Sources/ThrushCore/TerminalReplay.swift) The generator checks that each replay restores Vim's exact screen and that the later live output lands as it does on the uninterrupted terminal. `--replay FILE` substitutes another server's serialized bytes.
 
 ## Codex transcript
 

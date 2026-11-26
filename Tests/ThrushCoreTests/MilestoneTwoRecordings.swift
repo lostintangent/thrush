@@ -14,7 +14,7 @@ func milestoneTwoRecording(named name: String, delivery: Delivery) throws {
 func handsetVimResumeRecording(delivery: Delivery) throws {
     // The handset reference is copied to the bundle root. The desktop fixture has the same name.
     let fixture = try Recording.load(named: "vim-resume", subdirectory: nil)
-    try #require(fixture.columns == 47 && fixture.rows == 24)
+    try #require(fixture.columns == 45 && fixture.rows == 18)
     try verifyRecording(fixture, delivery: delivery)
 }
 
