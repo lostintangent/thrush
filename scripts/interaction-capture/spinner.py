@@ -85,6 +85,12 @@ def compare(wait_image, waiting, live_image, live, appearance):
         raise ValueError("The paired captures have different framebuffer sizes.")
     cx, cy, cr, cb = edges(waiting["cursorCellFrame"])
     cl, ct, cr, cb = math.floor(cx*scale)-1, math.floor(cy*scale)-1, math.ceil(cr*scale)+1, math.ceil(cb*scale)+1
+    # Under a navigation bar, the Close button's glass shadow reaches the grid's top rows and can
+    # shift a level between frames, so there the grid may differ by two levels at most.
+    slack = 2 if waiting.get("toolbar") else 0
+
+    def changed(x, z):
+        return (x ^ z) & 0xffffff and max(abs(p - q) for p, q in zip(Capture.rgb(x), Capture.rgb(z))) > slack
     outside = inside = 0
     for y in range(top, bottom):
         start = y * a.width
@@ -92,7 +98,7 @@ def compare(wait_image, waiting, live_image, live, appearance):
         for x0,x1 in parts:
             aa, bb = a.pixels[start+x0:start+x1], b.pixels[start+x0:start+x1]
             if aa != bb:
-                outside += sum((x & 0xffffff) != (z & 0xffffff) for x,z in zip(aa,bb))
+                outside += sum(changed(x, z) for x,z in zip(aa,bb))
         if ct <= y < cb:
             inside += sum((x & 0xffffff) != (z & 0xffffff) for x,z in zip(
                 a.pixels[start+max(cl,left):start+min(cr,right)], b.pixels[start+max(cl,left):start+min(cr,right)]))

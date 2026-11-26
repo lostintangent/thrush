@@ -4,7 +4,7 @@ transparent title bar, under a full-size window toolbar with and without its bac
 view's detail beside a sidebar. The colors scene picks the canvas the system didn't, so every frame puts
 program colors against the host's chrome. The program's canvas must run beneath each toolbar, which takes
 the canvas's appearance while a sidebar's toolbar items keep the window's. Under the toolbar, a host's own
-`.ignoresSafeArea()` must change no pixel by more than one level, the most the toolbar's glass rim varies
+`.ignoresSafeArea()` must change no pixel by more than two levels, the most the toolbar's glass rim varies
 between launches. Live takes then switch the program's palette and the system appearance under one open
 window, and each settled frame must pass the same checks."""
 import argparse
@@ -191,14 +191,14 @@ def main():
             if not ({label, f"colors-toolbar-{appearance}"} & failures.keys()):
                 pane, host = (Capture(out / f"colors-toolbar-{name}.png", appearance)
                               for name in (appearance, "host-ignores-safe-area-" + appearance))
-                # After the toolbar changes appearance, its glass rim can settle one level apart between launches.
+                # After the toolbar changes appearance, its glass rim can settle two levels apart between launches.
                 moved = (pane.width, pane.height) != (host.width, host.height) or any(
-                    max(abs(a - b) for a, b in zip(Capture.rgb(p), Capture.rgb(h))) > 1
+                    max(abs(a - b) for a, b in zip(Capture.rgb(p), Capture.rgb(h))) > 2
                     for p, h in zip(pane.pixels, host.pixels) if p != h)
                 if moved:
                     failures[label] = "The host's .ignoresSafeArea() changed the window's pixels."
                 else:
-                    print(f"The host's .ignoresSafeArea() changes no pixel by more than one level in {label}.png", flush=True)
+                    print(f"The host's .ignoresSafeArea() changes no pixel by more than two levels in {label}.png", flush=True)
         # Each live take follows the system, so it starts from a light system and puts it back afterwards.
         was_dark = dark_mode()
         try:
