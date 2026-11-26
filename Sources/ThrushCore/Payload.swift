@@ -23,7 +23,9 @@ struct Payload: Sendable {
         guard isKept else { return }
         remainingCodeUnits -= run.count
         guard remainingCodeUnits >= 0 else { return drop() }
-        run.withUnsafeBufferPointer { bytes.append(contentsOf: $0) }
+        bytes.append(addingCapacity: run.count) { text in
+            for index in run.indices { text.append(run[index]) }
+        }
     }
 
     /// Appends one scalar.
