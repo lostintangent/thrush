@@ -31,6 +31,8 @@ struct EscapeParser: Sendable {
 
     private enum PendingAction { case stringEnd(Bool), execute(UInt8) }
 
+    // Reading the lazy static calls out to `swift_once` for tens of milliseconds after its first use.
+    let transitions = Self.transitions
     private(set) var state = Tag(State.ground)
     private(set) var collected: UInt32 = 0
     /// Read the completed header after a CSI or DCS start, before consuming the next scalar.
@@ -99,7 +101,7 @@ struct EscapeParser: Sendable {
             let byte = bytes[index]
             guard byte < 0x80 else { break }
             let code = UInt32(byte)
-            let transition = Self.transition(from: state, scalar: code)
+            let transition = transition(from: state, scalar: code)
             if transition.operation.matches(.parameter) {
                 state = transition.nextState
                 // All parameter bytes continue in the same CSI or DCS parameter state.
@@ -124,12 +126,12 @@ struct EscapeParser: Sendable {
     @inline(__always)
     mutating func consume(ascii byte: UInt8) -> Action? {
         let code = UInt32(byte)
-        return advance(Self.transition(from: state, scalar: code), code: code)
+        return advance(transition(from: state, scalar: code), code: code)
     }
 
     @inline(__always)
     mutating func consume(_ scalar: Unicode.Scalar) -> Action? {
-        advance(Self.transition(from: state, scalar: scalar.value), code: scalar.value)
+        advance(transition(from: state, scalar: scalar.value), code: scalar.value)
     }
 
     @inline(__always)
