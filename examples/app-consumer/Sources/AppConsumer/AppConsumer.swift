@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import Thrush
 
-// The host owns its session and terminal endpoint. The standalone demo peer listens here.
+// The app owns its URLSession and terminal endpoint. ThrushServer and the demo peer listen here.
 struct ServerAPI: Sendable {
     let session: URLSession
 
@@ -27,6 +27,7 @@ struct AppConsumer: App {
     }
 }
 
+// Command Line Tools lack SwiftUI's @State macro, so the window holds an ObservableObject.
 @MainActor private final class WindowModel: ObservableObject {
     @Published private(set) var tab = makeTab()
 
