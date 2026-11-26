@@ -28,6 +28,10 @@ struct DemoOptions {
     let checksToolbar: Bool
     /// The toolbar proof adds the `.ignoresSafeArea()` hosts wrote before the pane extended under bars itself.
     let hostIgnoresSafeArea: Bool
+    /// The Mac toolbar proof puts the pane in a split view's detail, beside a sidebar with its own toolbar item.
+    let splitsToolbar: Bool
+    /// The Mac toolbar proof keeps the window toolbar's background, which a split view draws per column.
+    let showsToolbarBackground: Bool
     let frameTraceURL: URL?
 
     init(_ arguments: [String] = CommandLine.arguments) {
@@ -38,6 +42,8 @@ struct DemoOptions {
         }
         checksToolbar = arguments.contains("--toolbar-proof")
         hostIgnoresSafeArea = arguments.contains("--host-ignores-safe-area")
+        splitsToolbar = value(after: "--toolbar-proof") == "split"
+        showsToolbarBackground = arguments.contains("--toolbar-background")
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
             ? value(after: "--workflow-output").map { URL(fileURLWithPath: $0).appending(path: "native-wire.jsonl") } : nil

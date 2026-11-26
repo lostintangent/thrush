@@ -35,7 +35,8 @@ struct DemoSurface: View {
             }
             #else
             if session.options.checksToolbar {
-                MacToolbarProof(session: terminalSession, ignoresSafeArea: session.options.hostIgnoresSafeArea)
+                MacToolbarProof(session: terminalSession, ignoresSafeArea: session.options.hostIgnoresSafeArea,
+                                split: session.options.splitsToolbar)
             } else {
                 session.pane(terminalSession)
             }

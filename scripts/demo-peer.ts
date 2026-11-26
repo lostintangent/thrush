@@ -53,14 +53,16 @@ const palettes = {
              indexed: { 2: "9ccb77", 5: "d29be0", 6: "6cc6c2", 8: "6e6a7c", 12: "86a8f2" } },
 } as const;
 
-function buildColors(host: Appearance) {
-    const name = host === "dark" ? "paper" : "night";
+function setPalette(name: keyof typeof palettes) {
     const { background, foreground, cursor, indexed } = palettes[name];
     const rgb = (hex: string) => `rgb:${hex.slice(0, 2)}/${hex.slice(2, 4)}/${hex.slice(4)}`;
     const osc = (body: string) => "\x1b]" + body + "\x1b\\";
-    const colors = osc("11;" + rgb(background)) + osc("10;" + rgb(foreground)) + osc("12;" + rgb(cursor)) +
-        osc("4;" + Object.entries(indexed).map(([index, hex]) => index + ";" + rgb(hex)).join(";"));
-    return prompt + "palette " + name + "\r\n" + colors + buildTranscript();
+    return "palette " + name + "\r\n" + osc("11;" + rgb(background)) + osc("10;" + rgb(foreground)) +
+        osc("12;" + rgb(cursor)) + osc("4;" + Object.entries(indexed).map(([index, hex]) => index + ";" + rgb(hex)).join(";"));
+}
+
+function buildColors(host: Appearance) {
+    return prompt + setPalette(host === "dark" ? "paper" : "night") + buildTranscript();
 }
 
 type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors";
@@ -149,6 +151,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
 }
 
 const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors"]);
+const colorScenes = new Set<Socket>();
 const args = process.argv.slice(2);
 if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
         || (args[2] && args[2] !== "--view") || (args[3] && args[3] !== "--driver")))
@@ -160,6 +163,12 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
     fetch(request, server) {
         const url = new URL(request.url);
         const query = url.searchParams;
+        // POST /palette?name=paper|night switches each colors scene's palette mid-session, as a program would.
+        const palette = query.get("name");
+        if (url.pathname === "/palette" && request.method === "POST" && palette && Object.hasOwn(palettes, palette)) {
+            for (const socket of colorScenes) socket.sendBinary(encode(setPalette(palette as keyof typeof palettes) + prompt));
+            return new Response(null, { status: 204 });
+        }
         const cols = Number(query.get("cols")), rows = Number(query.get("rows"));
         if (url.pathname !== "/socket" || query.get("service") !== "terminal" || !query.get("clientId") ||
             !Number.isSafeInteger(cols) || !Number.isSafeInteger(rows) || cols < 2 || rows < 1)
@@ -172,6 +181,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
         data: {} as Session,
         open(socket) {
             recordGrid("attach", socket.data);
+            if (socket.data.scene === "colors") colorScenes.add(socket);
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
             void draw(socket).catch(error => { console.error(error); socket.close(1011, "Replay failed"); });
         },
@@ -216,6 +226,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
                 socket.sendBinary(message);
             }
         },
+        close(socket) { colorScenes.delete(socket); },
     },
 });
 console.log("Thrush demo peer listening at " + server.url.origin);

@@ -35,7 +35,7 @@ private final class MacHost: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         window.minSize = NSSize(width: 320, height: 180)
         window.tabbingMode = .disallowed
         window.titlebarSeparatorStyle = .none
-        window.titlebarAppearsTransparent = true
+        window.titlebarAppearsTransparent = !session.options.showsToolbarBackground
         let toolbar = NSToolbar(identifier: "Thrush")
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
