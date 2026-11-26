@@ -77,18 +77,19 @@ private func letterAndNumberedKeyReports(_ sample: (Terminal.KeySequence, [Strin
     let chords: [(Terminal.Input.Key, Terminal.Input.Modifiers)] = [
         (.enter, []), (.enter, .shift), (.enter, .alt), (.tab, []), (.tab, .shift), (.backspace, []),
         (.backspace, .control), (.escape, []), (.escape, .alt), (.character("i"), .control),
-        (.character("A"), [.control, .shift]), (.character("a"), .alt), (.character("A"), .shift),
-        (.character("é"), .control), (.up, []),
+        (.character("A"), [.control, .shift]), (.character("b"), .alt), (.character("a"), [.control, .alt]),
+        (.character("A"), .shift), (.character("é"), .control), (.up, []),
     ]
+    // Option is Meta, as in the reference keyboard evaluator with Option as Meta.
     _ = terminal.receive(Array("\u{1b}[?1h".utf8))
     #expect(chords.map { send($0, $1) } == [
         "\r", "\r", "\u{1b}\r", "\t", "\u{1b}[Z", "\u{7f}", "\u{8}", "\u{1b}", "\u{1b}\u{1b}", "\t",
-        "", "", "A", "", "\u{1b}OA",
+        "", "\u{1b}b", "\u{1b}\u{1}", "A", "", "\u{1b}OA",
     ])
     _ = terminal.receive(Array("\u{1b}[>1u".utf8))
     #expect(chords.map { send($0, $1) } == [
         "\r", "\u{1b}[13;2u", "\u{1b}[13;3u", "\t", "\u{1b}[9;2u", "\u{7f}", "\u{1b}[127;5u",
-        "\u{1b}[27u", "\u{1b}[27;3u", "\u{1b}[105;5u", "\u{1b}[97;6u", "\u{1b}[97;3u", "A",
+        "\u{1b}[27u", "\u{1b}[27;3u", "\u{1b}[105;5u", "\u{1b}[97;6u", "\u{1b}[98;3u", "\u{1b}[97;7u", "A",
         "\u{1b}[233;5u", "\u{1b}[A",
     ])
 

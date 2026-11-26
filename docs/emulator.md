@@ -43,7 +43,7 @@ The conformance harness settles what each byte should do. It feeds the same byte
 
 `Terminal.CharacterSet` translates printable ASCII using the mapping the program selected, such as ASCII or DEC line drawing. `Terminal.CharacterSets` holds the four slots G0 through G3 and tracks which mapping is active.
 
-Input runs the other way through one key table that maps each `Terminal.Input.Key` to its sequence, with a single shared modifier rule.
+Input runs the other way through one key table that maps each `Terminal.Input.Key` to its sequence, with a single shared modifier rule. Option is Meta on a character key, sending Escape before the chord without it, so Option-B sends `ESC b`. Text that Option composes, as the Mac keyboard does by default, arrives as text instead.
 
 ## Following one chunk
 

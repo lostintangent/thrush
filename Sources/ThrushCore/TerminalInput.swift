@@ -208,8 +208,12 @@ extension Terminal {
         // Shift alone types the shifted text, as it does under the kitty protocol.
         if modifiers.isDisjoint(with: [.control, .alt]) { return Array(String(character).utf8) }
         if let report = keyReport(character, modifiers: modifiers) { return report }
-        // With the macOS Option-key default, native text input supplies the composed character.
-        guard modifiers.contains(.control) else { return [] }
+        // Option is Meta, sending Escape before the chord without it. Text that Option composes, as
+        // the Mac keyboard does by default, reaches the terminal as text instead.
+        if modifiers.contains(.alt) {
+            let chord = encodeCharacter(character, modifiers: modifiers.subtracting(.alt))
+            return chord.isEmpty ? [] : [0x1b] + chord
+        }
         guard let ascii = character.asciiValue else { return [] }
         if modifiers == .control {
             switch ascii {
