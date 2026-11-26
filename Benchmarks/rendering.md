@@ -54,6 +54,20 @@ The Mac session was locked. Its drawable callbacks returned zero presentation ti
 
 The packaged Release app at `c1c1ecf` submitted zero frames during 1.015 s at a settled prompt, 1.005 s suspended with an update pending, and 1.185 s while AppKit hid the application. All 41 workload frames recorded CPU and GPU samples. The virtual display supplied no presentation timestamps. [Hosted run](https://github.com/lostintangent/thrush/actions/runs/45608393865/attempts/2) · [Saved report](render-mac-hosted.json)
 
+## Finding plain-text links
+
+The view looks for plain `http` and `https` addresses in every frame that shows new output, before it prepares rows. On the M1 Max running macOS 27.2.1, a Release build of `933e55b` fed each recording to a `Terminal` one write at a time, as one output frame per write. It timed `LinkFinder.find` over the visible rows and then `MetalRenderer.encode` for the same snapshot, over five passes after a warm-up. The system's one-minute load was 44 on ten cores.
+
+| Workload | Frames | Find median, µs | Find p95, µs | Encode median, µs | Share of CPU preparation | Find with no changed line, µs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `shell-log` | 129 | 52.9 | 69.2 | 202.6 | 22% | 7.5 |
+| `vim-edit` | 21 | 20.7 | 49.9 | 47.8 | 29% | 7.6 |
+| `codex-session` | 222 | 11.0 | 18.7 | 28.0 | 27% | 4.9 |
+| `vim-swift-dark` | 19 | 17.3 | 34.6 | 40.5 | 27% | 6.4 |
+| Links scene, 80 × 24 | 4 | 24.2 | 29.5 | 71.9 | 28% | 7.2 |
+
+The finder rescans only the lines whose rows changed and keeps the rest from the frame before, so a frame whose visible lines haven't changed costs 5 to 8 µs. It takes about a quarter of CPU preparation on an output frame, and under 1% of a 60 Hz refresh.
+
 ## First iPhone simulator measurement
 
 The clean Release build at `be859d5` drew a 47 × 42 portrait grid with the keyboard hidden on an iPhone 17 simulator running iOS 27.2 (24B8117). The hosted arm64 Mac ran macOS 27.0.1 and exposed three cores. Its one-minute load was 615.79. The simulator reported nominal thermal state and a 16.667 ms display interval. These timings describe one heavily contended run on the host graphics stack. [Hosted job](https://github.com/lostintangent/thrush/actions/runs/45566748815/job/139043292929) · [Saved simulator samples](render-simulator.json)
