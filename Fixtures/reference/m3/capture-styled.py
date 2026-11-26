@@ -54,7 +54,7 @@ def capture_styled(appearance):
             assert proof == [appearance, "swift", "swift", "256"], (name, proof)
             session.input("Paint Swift buffer", b"\x0c")
             session.checkpoint("Styled Swift buffer")
-            for (columns, rows), checkpoint in [((47,24), "Styled Swift portrait"), ((90,9), "Styled Swift landscape")]:
+            for (columns, rows), checkpoint in [((45,18), "Styled Swift portrait"), ((71,11), "Styled Swift landscape")]:
                 session.resize(columns, rows)
                 session.checkpoint(checkpoint)
             assert session.input("Quit to shell", b":q\r", until=PROMPT).endswith(PROMPT)

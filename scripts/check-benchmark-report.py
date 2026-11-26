@@ -31,8 +31,8 @@ def styled_frames(fixture):
             rows.append((line["text"], cells))
         assert len(rows) == checkpoint["rows"]
         result[event["name"]] = rows
-    expected = {"Styled Swift buffer": (80, 24), "Styled Swift portrait": (47, 24),
-                "Styled Swift landscape": (90, 9)}
+    expected = {"Styled Swift buffer": (80, 24), "Styled Swift portrait": (45, 18),
+                "Styled Swift landscape": (71, 11)}
     assert {name: (len(rows[0][1]), len(rows)) for name, rows in result.items()} == expected
     return result
 

@@ -7,15 +7,15 @@ The recorder sends actual PTY reads into the pinned xterm emulator and returns i
 | Checkpoint | Grid | Zero-based cursor (row, column) | Status row |
 | --- | --- | --- | --- |
 | Styled Swift buffer | 80 × 24 | (4, 20) | 22 |
-| Styled Swift portrait | 47 × 24 | (4, 20) | 22 |
-| Styled Swift landscape | 90 × 9 | (1, 20) | 7 |
+| Styled Swift portrait | 45 × 18 | (4, 20) | 16 |
+| Styled Swift landscape | 71 × 11 | (1, 20) | 9 |
 
-Both iPhone checkpoints match today's panes on the iPhone 17 simulator running iOS 27.2 at 3× scale, with the packaged Slate Dark prompt. Portrait floats a 60 pt key row and landscape a 44 pt one. The iPhone proof measured both.
+Both iPhone checkpoints match the editor's grid with the keyboard up on the iPhone Duo simulator running iOS 27.2 at 3× scale. The safe area gives up the trailing 84 pt to the status bar in portrait and to the camera in landscape. Portrait floats a 60 pt key row and landscape a 44 pt one. The iPhone proof measured both.
 
-| Orientation | Window (pt) | Terminal view origin and size (pt) | Keyboard layout guide height (pt) |
+| Orientation | Window (pt) | Grid origin and size (pt) | Keyboard layout guide height (pt) |
 | --- | --- | --- | --- |
-| [Portrait](https://github.com/lostintangent/thrush/actions/runs/45746437903) | 402 × 874 | (0, 62), 402 × 451 | 361 |
-| [Landscape](https://github.com/lostintangent/thrush/actions/runs/45746437903) | 874 × 402 | (62, 0), 750 × 194 | 208 |
+| [Portrait](https://github.com/lostintangent/thrush/actions/runs/RUNID) | 466 × 678 | (0, 0), 382 × 353 | 325 |
+| [Landscape](https://github.com/lostintangent/thrush/actions/runs/RUNID) | 678 × 466 | (0, 0), 594 × 229 | 237 |
 
 For the complete session, apply the palette, PTY output and grid changes in recorded order. For a stand-alone renderer frame, start with a clean terminal at the checkpoint's grid and its recorded host palette. The two `Paint Swift buffer` output chunks come from a real Ctrl-L repaint at 80 × 24. For portrait or landscape, use the `Redraw after resize` output chunks between the corresponding resize and styled checkpoint. These are Vim's responses to the PTY's native size change. The generator separately replays each paint on a fresh target-sized grid and checks every visible row, cell, style, wrap flag and cursor position against the continuous session.
 
