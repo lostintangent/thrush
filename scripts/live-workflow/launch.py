@@ -89,7 +89,8 @@ def configure_workspace(work, home, env, codex, responses):
     (work / "build").chmod(0o700)
     subprocess.run(["/usr/bin/git", "init", "-q", work], env=env, check=True)
     if responses:
-        # Run the installed CLI itself and keep its profile, model traffic and tools local.
+        # Run the installed CLI itself and keep its profile, model traffic and tools local. Plugins stay off,
+        # since their first sync clones a 100 MB marketplace that slows Codex's start on a busy runner.
         if not codex:
             raise ValueError("Pass --codex-bin pointing to the installed native Codex 0.166.0 executable")
         binary = Path(codex).absolute()
@@ -104,6 +105,7 @@ def configure_workspace(work, home, env, codex, responses):
             '[model_providers.thrush]\nname = "Thrush local Responses"\n'
             f'base_url = {json.dumps(responses)}\nwire_api = "responses"\nrequires_openai_auth = false\n'
             f'[projects.{json.dumps(str(work))}]\ntrust_level = "trusted"\n[analytics]\nenabled = false\n'
+            '[features]\nplugins = false\n'
         )
 
 
