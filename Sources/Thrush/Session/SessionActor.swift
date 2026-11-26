@@ -166,10 +166,11 @@ package actor SessionActor {
         terminal = next
     }
 
-    func publishMetadata(title: String? = nil, hasEnded: Bool? = nil) async {
+    /// Tells the app the terminal's title and any text the program copied. A session that ended stays ended.
+    func publishMetadata(ended: Bool = false) async {
         guard let observer else { return }
-        let title = title ?? reportedTitle
-        let hasEnded = hasEnded ?? reportedEnd
+        let title = terminal.title
+        let hasEnded = reportedEnd || ended
         let copiedText = terminal.copiedText.take()
         guard title != reportedTitle || hasEnded != reportedEnd || copiedText != nil else { return }
         reportedTitle = title

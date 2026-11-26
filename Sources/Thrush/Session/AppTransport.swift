@@ -90,7 +90,7 @@ final class AppTransport: SessionActor.Transport {
         scheduledSize = size
         session.resetTerminal(size: size)
         session.lastReceiptTime = nil
-        await session.publishMetadata(title: session.terminal.title, hasEnded: false)
+        await session.publishMetadata()
         try session.checkLifetime(stamp)
         // The view can rotate while the transport is opening.
         while session.terminal.size != session.requestedSize {
@@ -114,7 +114,7 @@ final class AppTransport: SessionActor.Transport {
         subscription?.changes.continuation.yield()
         if !reply.isEmpty { try await write(.bytes(Data(reply)), in: session) }
         try session.checkLifetime(stamp)
-        await session.publishMetadata(title: session.terminal.title)
+        await session.publishMetadata()
     }
 
     func send(_ input: Terminal.Input, in session: isolated SessionActor) async throws {
@@ -176,7 +176,7 @@ final class AppTransport: SessionActor.Transport {
         // EOF arrives on the reader we just cancelled. Cleanup runs uncancelled, once per transport.
         let cleanup = Task {
             await transport?.close()
-            await session.publishMetadata(title: session.terminal.title, hasEnded: true)
+            await session.publishMetadata(ended: true)
             session.state = .ended
             closing = nil
             subscription?.changes.continuation.yield()

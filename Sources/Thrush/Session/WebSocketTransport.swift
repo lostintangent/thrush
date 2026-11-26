@@ -169,7 +169,7 @@ final class WebSocketTransport: SessionActor.Transport {
                     guard session.lifetime == stamp, pendingEvent != nil else { throw error }
                 }
                 try session.checkLifetime(stamp)
-                await session.publishMetadata(title: session.terminal.title)
+                await session.publishMetadata()
                 try session.checkLifetime(stamp)
                 return replay == nil ? .output : .replay
 
@@ -198,8 +198,7 @@ final class WebSocketTransport: SessionActor.Transport {
                         catch { guard session.lifetime == stamp, pendingEvent != nil else { throw error } }
                     }
                     try session.checkLifetime(stamp)
-                    // A resumed ready precedes the replay that supplies the authoritative title.
-                    await session.publishMetadata(title: resumed ? nil : session.terminal.title, hasEnded: false)
+                    await session.publishMetadata()
                     try session.checkLifetime(stamp)
                     return replaced ? .replaced : .ready(resumed: resumed)
                 case (.ready, .live) where control.resumed == true && nextReplay == nil:
@@ -212,7 +211,7 @@ final class WebSocketTransport: SessionActor.Transport {
                         park(as: .ended, in: session)
                     }
                     let exitLifetime = session.lifetime
-                    await session.publishMetadata(hasEnded: true)
+                    await session.publishMetadata(ended: true)
                     try session.checkLifetime(exitLifetime)
                     return .ended
                 default: throw TransportError.unexpectedMessage
@@ -305,10 +304,10 @@ final class WebSocketTransport: SessionActor.Transport {
     func close(in session: isolated SessionActor) async throws {
         do { try await requestClose(in: session) }
         catch {
-            if session.state == .ended { await session.publishMetadata(hasEnded: true) }
+            if session.state == .ended { await session.publishMetadata(ended: true) }
             throw error
         }
-        await session.publishMetadata(hasEnded: true)
+        await session.publishMetadata(ended: true)
     }
 
     private func requestClose(in session: isolated SessionActor) async throws {
