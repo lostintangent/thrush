@@ -7,18 +7,20 @@ programs/<name>.capture.json, and harness.mjs replays them through the reference
 
     python3 Fixtures/reference/conformance/capture-programs.py [--only NAME ...]
 
-Process monitors only list the recorder's own processes, git uses a fixed identity and clock, and rg
-links to a fixed host and folder, so nothing about the recording machine beyond its load and memory
-ends up in a capture.
+Process monitors only list the recorder's own processes, the account name in their user columns gives
+way to a stand-in of the same width, git uses a fixed identity and clock, and rg links to a fixed host
+and folder, so nothing about the recording machine beyond its load and memory ends up in a capture.
 """
 import argparse
 import base64
 import errno
 import fcntl
+import http.server
 import json
 import os
 from pathlib import Path
 import pty
+import pwd
 import select
 import shutil
 import signal
@@ -26,6 +28,7 @@ import struct
 import subprocess
 import tempfile
 import termios
+import threading
 import time
 
 HERE = Path(__file__).resolve().parent
@@ -95,8 +98,95 @@ Wide text keeps its line: 界面 recieve ✓ 🙂 seperate.
 """
 
 
+# Editors check a Swift file with sourcekit-lsp, and copy over the terminal the way remote sessions do.
+SHAPES = """struct Circle {
+    var radius: Double
+
+    var area: Double {
+        Double.pi * radius * radius
+    }
+}
+
+let circle = Circle(radius: 2)
+let label: Int = "Area \\(circle.area)"
+print(circle.diameter)
+"""
+NEOVIM = """vim.o.swapfile = false
+vim.o.shada = ''
+vim.o.number = true
+vim.o.cursorline = true
+vim.o.signcolumn = 'yes'
+vim.o.winborder = 'rounded'
+vim.o.completeopt = 'menuone,noselect,popup'
+vim.g.clipboard = 'osc52'
+vim.diagnostic.config({ virtual_text = true })
+vim.lsp.config('sourcekit', { cmd = { 'sourcekit-lsp' }, filetypes = { 'swift' }, root_markers = { 'Package.swift' } })
+vim.lsp.enable('sourcekit')
+vim.api.nvim_create_autocmd('LspAttach', {
+  callback = function(event)
+    vim.lsp.completion.enable(true, event.data.client_id, event.buf, { autotrigger = true })
+  end,
+})
+"""
+HELIX = """[editor]
+clipboard-provider = "termcode"
+end-of-line-diagnostics = "hint"
+
+[editor.inline-diagnostics]
+cursor-line = "warning"
+"""
+# btop names its CPU, leaves out temperatures, the GPU, disks and the battery, and its filter matches only
+# its own command line.
+BTOP = """update_ms = 1000
+custom_cpu_name = "Thrush"
+check_temp = False
+show_gpu_info = "Off"
+show_disks = False
+show_battery = False
+"""
+# Agents work in a project at a fixed path and talk to a stand-in model, so a capture needs no account and
+# their banners match on every Mac.
+AGENT = Path("/tmp/thrush-agent")
+API_KEY = "sk-ant-thrush-capture-0000"
+MODEL = "claude-sonnet-4-5"
+NOTES = "A terminal for macOS and iOS."
+EDITED_NOTES = "A fast, faithful terminal for macOS and iOS."
+SUMMARY = """## Updated the notes
+
+The notes now say what Thrush is for:
+
+- **Faithful**: every cell matches what the program meant
+- *Fast*: the core outruns the reference
+- `TerminalView` is the whole public API
+
+| Platform | View |
+| --- | --- |
+| macOS | `TerminalView` |
+| iOS | `TerminalView` |
+
+```swift
+let view = TerminalView(socket: socket)
+```
+
+Wide text stays aligned: 界面 ✓ 🙂
+"""
+
+
 def encoded(data):
     return base64.b64encode(data).decode("ascii")
+
+
+def anonymous(events):
+    """Swaps the account name, whole or cut short by a column, for a stand-in of the same width."""
+    user = pwd.getpwuid(os.getuid()).pw_name.encode()
+    stand_in = b"thrush".ljust(len(user))
+    output = [event for event in events if "bytes" in event]
+    stream = b"".join(base64.b64decode(event["bytes"]) for event in output)
+    for length in range(len(user), 3, -1):
+        stream = stream.replace(user[:length], stand_in[:length])
+    for event in output:
+        size = len(base64.b64decode(event["bytes"]))
+        event["bytes"], stream = encoded(stream[:size]), stream[size:]
 
 
 def window(fd, columns, rows):
@@ -210,6 +300,109 @@ class Session:
             break
         self.replies.stdin.close()
         self.replies.wait()
+
+
+class Model:
+    """A stand-in for the Anthropic Messages API that streams one exchange the same way every time.
+
+    Asked with tools, the agent reads the notes, edits them once the person approves, then sums up in Markdown.
+    Requests without those tools, such as naming the session, get a short answer.
+    """
+
+    def __init__(self):
+        model = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *arguments):
+                pass
+
+            def do_GET(self):
+                listing = dict(type="model", id=MODEL, display_name="Claude Sonnet 4.5", created_at="2025-09-29T00:00:00Z")
+                model.send(self, dict(data=[listing], has_more=False, first_id=MODEL, last_id=MODEL))
+
+            def do_POST(self):
+                request = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                if self.path.startswith("/v1/messages/count_tokens"):
+                    model.send(self, dict(input_tokens=2048))
+                elif self.path.startswith("/v1/messages"):
+                    model.answer(self, request)
+                else:
+                    self.send_error(404)
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    @staticmethod
+    def send(handler, value):
+        body = json.dumps(value).encode()
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    @staticmethod
+    def blocks(request):
+        """The answer's content: text, or text then a tool call."""
+        tools = {tool.get("name"): tool for tool in request.get("tools") or []}
+        read = next((tools[name] for name in ("Read", "view") if name in tools), None)
+        edit = next((tools[name] for name in ("Edit", "edit") if name in tools), None)
+        if not (read and edit):
+            return [dict(type="text", text="Tighten the notes")]
+        results = sum(block.get("type") == "tool_result" for message in request.get("messages", [])
+                      if isinstance(message.get("content"), list) for block in message["content"])
+
+        def call(tool, **values):
+            names = dict(path=("file_path", "path"), old=("old_string", "old_str"), new=("new_string", "new_str"))
+            properties = tool.get("input_schema", {}).get("properties", {})
+            arguments = {key: value for name, value in values.items() for key in names[name] if key in properties}
+            return dict(type="tool_use", id=f"toolu_thrush_{results + 1}", name=tool["name"], input=arguments)
+
+        notes = str(AGENT / "notes.md")
+        if results == 0:
+            return [dict(type="text", text="I'll read the notes first."), call(read, path=notes)]
+        if results == 1:
+            return [dict(type="text", text="Now I'll tighten the description."),
+                    call(edit, path=notes, old=NOTES, new=EDITED_NOTES)]
+        return [dict(type="text", text=SUMMARY)]
+
+    def answer(self, handler, request):
+        blocks = self.blocks(request)
+        stop = "tool_use" if blocks[-1]["type"] == "tool_use" else "end_turn"
+        message = dict(id="msg_thrush", type="message", role="assistant", model=request.get("model", MODEL),
+                       stop_sequence=None, usage=dict(input_tokens=2048, output_tokens=96))
+        if not request.get("stream"):
+            return self.send(handler, dict(message, content=blocks, stop_reason=stop))
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/event-stream")
+        handler.send_header("Cache-Control", "no-cache")
+        handler.end_headers()
+
+        def event(kind, **fields):
+            handler.wfile.write(f"event: {kind}\ndata: {json.dumps(dict(type=kind, **fields))}\n\n".encode())
+            handler.wfile.flush()
+
+        event("message_start", message=dict(message, content=[], stop_reason=None))
+        for index, block in enumerate(blocks):
+            if block["type"] == "text":
+                event("content_block_start", index=index, content_block=dict(type="text", text=""))
+                words = block["text"].split(" ")
+                for start in range(0, len(words), 4):
+                    time.sleep(0.03)
+                    piece = " ".join(words[start:start + 4]) + (" " if start + 4 < len(words) else "")
+                    event("content_block_delta", index=index, delta=dict(type="text_delta", text=piece))
+            else:
+                event("content_block_start", index=index, content_block=dict(block, input={}))
+                event("content_block_delta", index=index,
+                      delta=dict(type="input_json_delta", partial_json=json.dumps(block["input"])))
+            event("content_block_stop", index=index)
+        event("message_delta", delta=dict(stop_reason=stop, stop_sequence=None), usage=dict(output_tokens=96))
+        event("message_stop")
 
 
 def environment(home):
@@ -570,6 +763,142 @@ def lazygit(session, home):
     session.type("Quit", "q")
 
 
+def neovim(session, home):
+    shell(session)
+    run(session, "cd shapes")
+    session.type("Open Neovim", "nvim Shapes.swift\r", until=b"Cannot convert", timeout=90)
+    session.checkpoint("Diagnostics")
+    session.type("Find the area", "/area\r")
+    session.type("Hover", "K", until=b"Double")
+    session.checkpoint("Hover")
+    session.type("Close the hover", "jk")
+    session.type("Last line", "G")
+    session.type("Complete a member", "ocircle.", until=b"radius")
+    session.checkpoint("Completion")
+    session.type("Choose", "\x0e")
+    session.key("Leave insert mode", "escape")
+    session.type("Undo", "u")
+    session.type("Next diagnostic", "gg]d")
+    session.type("Show the diagnostic", "\x17d", until=b"Cannot")
+    session.checkpoint("Diagnostic float")
+    session.type("Close it", "jk")
+    session.type("Copy two lines", 'ggVj"+y')
+    session.checkpoint("Copied")
+    session.resize(100, 30)
+    session.checkpoint("Resized")
+    session.type("Quit", ":qa!\r", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def helix(session, home):
+    shell(session)
+    run(session, "cd shapes")
+    session.type("Open Helix", "hx Shapes.swift\r", until=b"Cannot convert", timeout=90)
+    session.checkpoint("Diagnostics")
+    session.type("Find the area", "/area\r")
+    session.type("Hover", " k", until=b"Double")
+    session.checkpoint("Hover")
+    session.key("Close the hover", "escape")
+    session.type("Next diagnostic", "]d")
+    session.checkpoint("Inline diagnostic")
+    session.type("Copy the line", "x y")
+    session.checkpoint("Copied")
+    session.type("Command palette", " ?")
+    session.checkpoint("Command palette")
+    session.key("Close", "escape")
+    session.type("File picker", " f", until=b"Shapes.swift")
+    session.type("Filter", "sha")
+    session.checkpoint("File picker")
+    session.key("Close", "escape")
+    session.resize(100, 30)
+    session.checkpoint("Resized")
+    session.type("Quit", ":q!\r", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def fzf(session, home):
+    shell(session)
+    session.type("Inline finder", "seq 500 | fzf --height 40% --layout reverse --border rounded --prompt 'number> '\r",
+                 until=b"number> ")
+    session.checkpoint("Inline finder")
+    session.type("Filter", "42")
+    session.key("Down", "down", 2)
+    session.checkpoint("Filtered")
+    session.key("Choose", "enter", until=PROMPT)
+    session.checkpoint("Chosen")
+    session.type("Preview", "fzf --preview 'head -40 {}' --style full\r", until=b"story.txt")
+    session.type("Filter", "story")
+    session.checkpoint("Preview")
+    session.key("Close", "escape", until=PROMPT)
+    run(session, "source <(fzf --zsh)")
+    session.type("History widget", "\x12")
+    session.checkpoint("History")
+    session.type("Filter", "seq")
+    session.key("Choose", "enter")
+    session.type("Cancel", "\x03", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def btop(session, home):
+    shell(session)
+    session.type("Open btop", "btop --filter thrush-btop\r", seconds=3)
+    session.checkpoint("btop")
+    session.key("Select the process", "down", seconds=1.5)
+    session.checkpoint("Selected")
+    session.key("Sort by the next column", "right", seconds=1.5)
+    session.key("Menu", "escape", seconds=1)
+    session.checkpoint("Menu")
+    session.key("Close", "escape", seconds=1)
+    session.resize(100, 30, seconds=2)
+    session.checkpoint("Resized")
+    session.type("Quit", "q", until=PROMPT)
+    session.type("Exit", "exit\r")
+
+
+def claude(session, home):
+    shell(session)
+    run(session, f"cd {AGENT}")
+    # Claude Code moves to each word with CHA, so the scenario waits for single words.
+    session.type("Open Claude Code", "claude\r", until=b"cancel", timeout=60)
+    session.checkpoint("Folder trust")
+    session.key("Choose trust", "down")
+    session.key("Trust the folder", "enter", until=b"shortcuts", timeout=60)
+    session.checkpoint("Ready")
+    session.type("Ask", "Tighten the notes")
+    session.key("Send", "enter", until=b"amend", timeout=60)
+    session.checkpoint("Edit permission")
+    session.type("Approve", "1", until=b"aligned", timeout=60)
+    session.checkpoint("Answer")
+    session.resize(100, 30)
+    session.checkpoint("Resized")
+    session.type("Commands", "/")
+    session.checkpoint("Command menu")
+    session.type("Quit", "exit\r", until=PROMPT)
+    session.checkpoint("Back at the prompt")
+    session.type("Exit", "exit\r")
+
+
+def copilot(session, home):
+    shell(session)
+    run(session, f"cd {AGENT}")
+    session.type("Open Copilot CLI", "copilot\r", until=b"cancel", timeout=60)
+    session.checkpoint("Folder trust")
+    session.key("Trust the folder", "enter", until=b"commands", timeout=60)
+    session.checkpoint("Ready")
+    session.type("Ask", "Tighten the notes")
+    session.key("Send", "enter", until=b"navigate", timeout=60)
+    session.checkpoint("Edit permission")
+    session.type("Approve", "1", until=b"aligned", timeout=60)
+    session.checkpoint("Answer")
+    session.resize(100, 30)
+    session.checkpoint("Resized")
+    session.type("Commands", "/")
+    session.checkpoint("Command menu")
+    session.type("Quit", "exit\r", until=PROMPT)
+    session.checkpoint("Back at the prompt")
+    session.type("Exit", "exit\r")
+
+
 SCENARIOS = {
     "zsh": (["/bin/zsh", "-i"], zsh, "zsh --version"),
     "zsh-clear": (["/bin/zsh", "-f", "-i"], zsh_clear,
@@ -583,7 +912,70 @@ SCENARIOS = {
     "python": (["python3.14", "-q"], python, "python3.14 --version"),
     "lazygit": (["lazygit", "-p", "repo"], lazygit, "lazygit --version"),
     "decorations": (["/bin/zsh", "-i"], decorations, "rg --version | head -1; vim --version | head -1"),
+    "neovim": (["/bin/zsh", "-i"], neovim, "nvim --version | head -1; sourcekit-lsp --version"),
+    "helix": (["/bin/zsh", "-i"], helix, "hx --version; sourcekit-lsp --version"),
+    "fzf": (["/bin/zsh", "-i"], fzf, "fzf --version"),
+    "btop": (["/bin/zsh", "-i"], btop, "btop --version | head -1"),
+    "claude": (["/bin/zsh", "-i"], claude, "claude --version"),
+    "copilot": (["/bin/zsh", "-i"], copilot, "copilot --version | head -1"),
 }
+
+
+def executable(name):
+    """A program on the capturer's PATH, followed to the binary itself."""
+    found = shutil.which(name)
+    if found is None:
+        raise FileNotFoundError(f"Recapturing needs {name} on the PATH")
+    path = Path(found).resolve()
+    # npm installs Copilot CLI as a Node loader beside its native binary.
+    if name == "copilot" and path.suffix == ".js":
+        path = path.parent.parent / f"copilot-darwin-{os.uname().machine}" / "copilot"
+    return path
+
+
+def setup(name, home, environ):
+    """Gives one scenario its programs and settings. Returns what to clean up afterward."""
+    commands = home / "bin"
+    commands.mkdir(exist_ok=True)
+    if name in ("neovim", "helix"):
+        (home / "shapes").mkdir()
+        (home / "shapes/Shapes.swift").write_text(SHAPES)
+        server = subprocess.check_output(["xcrun", "--find", "sourcekit-lsp"], text=True).strip()
+        (commands / "sourcekit-lsp").write_text(f'#!/bin/sh\nexec "{server}" "$@"\n')
+        (commands / "sourcekit-lsp").chmod(0o755)
+        (home / ".config/nvim").mkdir(parents=True)
+        (home / ".config/nvim/init.lua").write_text(NEOVIM)
+        (home / ".config/helix").mkdir(parents=True)
+        (home / ".config/helix/config.toml").write_text(HELIX)
+    if name == "btop":
+        (home / ".config/btop").mkdir(parents=True)
+        (home / ".config/btop/btop.conf").write_text(BTOP)
+    if name not in ("claude", "copilot"):
+        return lambda: None
+    (commands / name).symlink_to(executable(name))
+    shutil.rmtree(AGENT, ignore_errors=True)
+    AGENT.mkdir()
+    (AGENT / "notes.md").write_text(f"# Notes\n\n{NOTES}\n")
+    shutil.copyfile(home / "Screen.swift", AGENT / "Screen.swift")
+    model = Model()
+    if name == "claude":
+        state = dict(hasCompletedOnboarding=True, theme="dark", autoUpdates=False, numStartups=1,
+                     customApiKeyResponses=dict(approved=[API_KEY[-20:]], rejected=[]))
+        (home / ".claude").mkdir()
+        (home / ".claude/.claude.json").write_text(json.dumps(state))
+        environ.update(ANTHROPIC_BASE_URL=model.url, ANTHROPIC_API_KEY=API_KEY, ANTHROPIC_MODEL=MODEL,
+                       ANTHROPIC_SMALL_FAST_MODEL=MODEL, CLAUDE_CONFIG_DIR=str(home / ".claude"),
+                       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1", DISABLE_AUTOUPDATER="1")
+    else:
+        environ.update(COPILOT_HOME=str(home / ".copilot"), COPILOT_OFFLINE="true", COPILOT_MODEL=MODEL,
+                       COPILOT_PROVIDER_BASE_URL=model.url, COPILOT_PROVIDER_TYPE="anthropic",
+                       COPILOT_PROVIDER_API_KEY=API_KEY,
+                       COPILOT_PKG_CACHE_HOME=str(Path.home() / "Library/Caches/copilot"))
+
+    def clean():
+        model.close()
+        shutil.rmtree(AGENT, ignore_errors=True)
+    return clean
 
 
 def capture(name, destination):
@@ -623,17 +1015,20 @@ def capture(name, destination):
                 shutil.copyfile(home / file, PROJECT / file)
             (PROJECT / "spelling.md").write_text(SPELLING)
             environ.update(RIPGREP_CONFIG_PATH=str(home / ".ripgreprc"))
+        clean = setup(name, home, environ)
         session = Session(home, argv, environ)
         try:
             scenario(session, home)
             session.read("Exit", timeout=5)
         finally:
             session.close()
+            clean()
             if name == "decorations":
                 shutil.rmtree(PROJECT, ignore_errors=True)
             if name == "multiplexers":
                 subprocess.run(["tmux", "-L", "thrush", "kill-server"], env=environ, stderr=subprocess.DEVNULL)
                 subprocess.run(["screen", "-wipe"], env=environ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        anonymous(session.events)
         versions = subprocess.run(version, shell=True, env=environ, capture_output=True, text=True).stdout
         header = dict(name=name, command=" ".join(argv), versions=[line for line in versions.splitlines() if line][:3],
                       term="xterm-256color", columns=80, rows=24)

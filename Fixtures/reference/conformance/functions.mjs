@@ -331,7 +331,7 @@ probe('OSC 112', 'without its set', positions.middle, `${OSC}10;#111;#222;#333${
 probe('RIS', 'keeps program colors', `${positions.middle}${OSC}4;1;#111${BEL}${OSC}10;#222;#333;#444${BEL}`, `${ESC}c` + queryColors(1));
 probe('DECSTR', 'keeps program colors', `${positions.middle}${OSC}4;1;#111${BEL}${OSC}10;#222;#333;#444${BEL}`, `${CSI}!p` + queryColors(1));
 add('OSC 4 set', 'split across writes', canvas + positions.middle, `${OSC}4;1;rgb:1`, `2/34/5`, `6${ESC}`, `\\${OSC}4;1;?${BEL}`, { checkpoint: 'subject' }, '*');
-for (const mode of [1, 3, 6, 7, 12, 25, 45, 47, 66, 1000, 1002, 1003, 1004, 1006, 1047, 1048, 1049, 2004, 2026, 2031, 9999]) {
+for (const mode of [1, 3, 6, 7, 12, 25, 45, 47, 66, 69, 1000, 1002, 1003, 1004, 1006, 1007, 1047, 1048, 1049, 2004, 2026, 2027, 2031, 2048, 9999]) {
   probe(`DECRQM ?${mode}`, '', positions.middle, `${CSI}?${mode}$p`);
   probe(`DECRQM ?${mode}`, 'after DECSET', positions.middle + `${CSI}?${mode}h`, `${CSI}?${mode}$p`);
 }

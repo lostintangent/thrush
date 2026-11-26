@@ -438,6 +438,17 @@
       }
     ]
   },
+  "neovim program": {
+    "reason": "Neovim asks which modes and underline styles the terminal knows, as in DECRQM ?2031 and DECRQSS m · after a rendition. The reference doesn't know mode 2031 and always reports the default rendition. Thrush answers 2, since it sends dark and light appearance reports, and reports the curly underline Neovim set, so Neovim could turn on both.",
+    "differences": [
+      {
+        "checkpoint": "Diagnostics",
+        "path": "replies",
+        "reference": "ESC[?69;0$y ESC[?2026;2$y ESC[?2027;0$y ESC[?2031;0$y ESC[?2048;0$y ESCP1$r0m ESC\\ ESC[?1;2c ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC[O ESC[?1;2c",
+        "thrush": "ESC[?69;0$y ESC[?2026;2$y ESC[?2027;0$y ESC[?2031;2$y ESC[?2048;0$y ESCP1$r0;4:3m ESC\\ ESC[?1;2c ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC]11;rgb:0000/0000/0000 ESC\\ ESC[0n ESC[O ESC[?1;2c"
+      }
+    ]
+  },
   "OSC 8 · out of the alternate screen": {
     "reason": "Leaving the alternate screen restores the cursor as DECRC does, so the reference drops the open link from the text that follows, as in OSC 8 · then DECRC. Thrush keeps the open link.",
     "differences": [
