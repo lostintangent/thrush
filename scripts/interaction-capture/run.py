@@ -9,6 +9,7 @@ from pathlib import Path
 import plistlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,9 @@ SWIPES = ("less", "vim", "history", "settings")
 # The capture turns to landscape and back twice, since a stalled main thread can miss a turn's frames.
 ROUND_TRIPS = 2
 DISPLAY_FRAME = 1 / 60
+# An interrupted xcodebuild cancels its tests and still writes the result bundle, which keeps
+# the screenshots and clips taken before a hang. Tearing down a hung test took 68 s on a Mac.
+INTERRUPT_GRACE = 120
 
 
 def load_helper(name):
@@ -52,7 +56,11 @@ def run_logged(args, log, timeout, observe=None):
                     pass
         finally:
             if result.poll() is None:
-                result.kill()
+                result.send_signal(signal.SIGINT)
+                try:
+                    result.wait(timeout=INTERRUPT_GRACE)
+                except subprocess.TimeoutExpired:
+                    result.kill()
     if result.returncode:
         raise RuntimeError(f"{args[0]} exited {result.returncode}. See {log.name}.\n" + log.read_text()[-2800:])
 
