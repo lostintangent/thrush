@@ -286,7 +286,7 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     canvas.needsLayout = true
     canvas.layoutSubtreeIfNeeded()
     // The canvas checks the bar a moment after AppKit settles it.
-    try await Task.sleep(for: .milliseconds(300))
+    try await #require(canvas.titlebarCheck).value
     #expect(canvas.titlebarAppearance == nil)
     #expect(canvas.toolbarCoverColor == color(pack(theme.palette.background)))
     canvas.needsLayout = true
@@ -299,13 +299,13 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #expect(canvas.toolbarCoverColor == nil)
     _ = terminal.receive((osc + "11;#faf0e6\u{7}").utf8)
     host.view.display(terminal.snapshot())
-    try await Task.sleep(for: .milliseconds(300))
+    try await #require(canvas.titlebarCheck).value
     #expect(canvas.titlebarAppearance == .aqua)
     #expect(canvas.toolbarCoverColor == nil)
     // Window buttons beside the canvas, over a sidebar, that followed it would leave the sidebar's ground.
     canvas.additionalSafeAreaInsets.left = 120
     canvas.layoutSubtreeIfNeeded()
-    try await Task.sleep(for: .milliseconds(300))
+    try await #require(canvas.titlebarCheck).value
     #expect(canvas.titlebarAppearance == nil)
     #expect(canvas.toolbarCoverColor == color(pack(theme.palette.background)))
     #endif

@@ -45,7 +45,8 @@ typealias PlatformView = UIView
     private weak var titlebar: NSView?
     /// Whether everything in the title bar over the canvas took the appearance the canvas last asked for.
     private var titlebarFollows: (dark: Bool, follows: Bool)?
-    private var titlebarCheckPending = false
+    /// The pending check that the title bar followed, which tests await rather than guess when it runs.
+    private(set) var titlebarCheck: Task<Void, Never>?
     /// The canvas that set each title bar's appearance, so a canvas leaving it clears only its own.
     private static let titlebarOwners = NSMapTable<NSView, CanvasView>.weakToWeakObjects()
     var titlebarAppearance: NSAppearance.Name? { window.flatMap(Self.titlebar(of:))?.appearance?.name }
@@ -411,12 +412,11 @@ typealias PlatformView = UIView
     /// the canvas. A split view's visible toolbar background keeps its items on the window's appearance, and some
     /// split views let a sidebar's buttons follow the bar, so then the canvas stops beneath the bar instead.
     private func checkTitlebar() {
-        guard !titlebarCheckPending else { return }
-        titlebarCheckPending = true
-        Task { @MainActor [weak self] in
+        guard titlebarCheck == nil else { return }
+        titlebarCheck = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(100))
             guard let self else { return }
-            titlebarCheckPending = false
+            titlebarCheck = nil
             guard let titlebar, let window, Self.titlebarOwners.object(forKey: titlebar) === self,
                   let asked = titlebarFollows, let span = canvasSpan(under: titlebar) else { return }
             titlebar.layoutSubtreeIfNeeded()
