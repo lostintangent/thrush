@@ -104,10 +104,7 @@ def compare(first, second, appearance, scale):
 
 
 def capture(phone, options, sim):
-    # Pin the status bar so captures from separate runs and builds can match pixel for pixel.
-    sim("status_bar", phone.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode", "active",
-        "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState", "charged",
-        "--batteryLevel", "100")
+    phone.pin_status_bar()
     phone.warm_keyboard(None)
     failures = {}
     for appearance in ("dark", "light"):

@@ -408,6 +408,7 @@ def main():
                 # the gate from adding about 1,250 synchronous log sends to every keyboard turn.
                 attempt("quiet keyboard render log", simulator.sim, "spawn", device, "log", "config", "--subsystem",
                         "com.apple.UIKit", "--category", "UIKBRenderingLog", "--mode", "level:off")
+                attempt("pinned status bar", phone.pin_status_bar)
                 attempt("keyboard warm-up", phone.warm_keyboard, "dark")
                 if options.swipes_only:
                     attempt("swipe capture", collect_swipes, phone, device, endpoint, plan, out, work, attempt)

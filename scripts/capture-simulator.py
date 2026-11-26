@@ -266,6 +266,12 @@ class Phone:
         if not re.search(rf"\b{style}\s*$", style_now, re.IGNORECASE):
             raise RuntimeError(f"Requested system appearance {style}, simulator reported {style_now!r}")
 
+    def pin_status_bar(self):
+        # Pin the status bar so captures from separate runs and builds can match pixel for pixel.
+        sim("status_bar", self.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode", "active",
+            "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState", "charged",
+            "--batteryLevel", "100")
+
     def state(self):
         try:
             return json.loads(self.state_path.read_text())
