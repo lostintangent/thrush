@@ -6,7 +6,7 @@
 
 ![Slate on Mac and iPhone, with a shell transcript, a Vim buffer, keyboard-open portrait and landscape views, and cursor and selection details](slate.png)
 
-The slate canvas continues to the iPhone safe areas. On Mac, the native title bar carries the window controls. The terminal owns the space below it. The amber from the Thrush mark is reserved for the cursor. Build stages and Vim syntax keep their own ANSI colors. The iPhone accessory uses plain native buttons on one keyboard-style input view, with a separator before the arrows.
+The slate canvas continues to the iPhone safe areas. On Mac, the native title bar carries the window controls. The terminal owns the space below it. The amber from the Thrush mark is reserved for the cursor. Build stages and Vim syntax keep their own ANSI colors. On iPhone, one glass capsule of keys floats above the keyboard with Esc, Ctrl, Tab, the arrows and Hide Keyboard.
 
 | Setting | Value |
 | --- | --- |
@@ -20,20 +20,20 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Selected background / text | `#466B85` / `#F8FBFE` |
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
 | Host backing / separator | `#1D2934` / `#35424E` |
-| iPhone 17 grid, keyboard open | 47 × 25 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
+| iPhone 17 grid, keyboard open | 47 × 24 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
 
 ## Slate Light
 
 ![Slate Light on Mac and iPhone, with the same shell transcript, Vim frame, selection, cursor and keyboard-open grids as Slate Dark](slate-light.png)
 
-Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same 47 × 25 and 90 × 9 grids as Slate Dark.
+Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a two-point bar is visible on white. The same 720 × 486 pt Mac window fits 80 × 24 cells in either appearance. Portrait and landscape keep the same 47 × 24 and 90 × 9 grids as Slate Dark.
 
 | Token | sRGB value | Contrast |
 | --- | --- | --- |
 | Default foreground / background | `#233442` / `#FBFDFE` | 12.54:1 |
 | Cursor / glyph under block | `#995500` / `#FFFFFF` | Cursor on canvas 5.63:1, block glyph 5.75:1 |
 | Selected background / text | `#7391A6` / `#101C25` | Selected text 5.21:1, highlight against canvas 3.25:1 |
-| Host backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar and accessory backing |
+| Host backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar, key row dividers and the key row's opaque backing |
 
 The ratios below use WCAG relative luminance for opaque sRGB against `#FBFDFE`. Yellows are ochres. The white slots use a cool gray and a neutral gray so ordinary and bright white text both remain readable. Those two inks also reach 4.53:1 and 4.56:1 on the theme’s ANSI black. [W3C contrast calculation](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
 
@@ -104,24 +104,26 @@ SGR 8 concealed text keeps its cells, background, selection and cursor and draws
 
 ## Native surfaces and motion
 
-The Mac images show active AppKit title bars on macOS 27.2.1. The iPhone images show the English software keyboard with predictions off. In the packaged iPhone 17 simulator app, the keyboard and its 44 pt accessory together cover 345 pt of the 402 × 874 pt portrait window. The accessory runs from y = 529 to 573 pt, leaving room for 47 × 25 cells. In landscape the same controls cover 224 pt of the 874 × 402 pt window, leaving room for 90 × 9 cells. Size the grid from the actual keyboard guide on each device. [Portrait captures](https://github.com/lostintangent/thrush/actions/runs/45563860045) · [Landscape measurement](https://github.com/lostintangent/thrush/actions/runs/45563805563)
+The Mac images show active AppKit title bars on macOS 27.2.1. The iPhone images show the English software keyboard with predictions off. In the packaged iPhone 17 simulator app, the keyboard covers 301 pt of the 402 × 874 pt portrait window. The key row's 48 pt capsule floats 12 pt above it, from y = 513 to 561 pt, leaving room for 47 × 24 cells. In landscape the keyboard covers 180 pt of the 874 × 402 pt window. The capsule slims to 36 pt and floats 8 pt above it, from y = 178 to 214 pt, leaving room for 90 × 9 cells. Size the grid from the actual keyboard guide on each device. [Key row captures](keyboard-capsule.png)
 
-Shell output and Vim content in the images are examples. When an app embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, keyboard accessory and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. [Glass in Thrush](glass.md) specifies the accessory and Latest materials and shows why the grid stays opaque.
+Shell output and Vim content in the images are examples. When an app embeds the view, it supplies the surrounding window and navigation controls. Use system materials for the title bar, key row and edit menu. Respect Reduce Transparency with an opaque host backing. The Metal grid uses solid cell colors. [Glass in Thrush](glass.md) specifies the key row and Latest materials and shows why the grid stays opaque.
 
 | Moment | Behavior |
 | --- | --- |
 | Type and move the cursor | Apply the shell’s echoed character and cursor from the same displayed generation. A block occupies the cell and redraws its glyph in the block ink. A bar sits on the leading edge. An underline sits at the cell bottom. The latter two are 2 pt thick. Position and shape change on the next requested frame, without interpolation. The images show a steady cursor. |
 | Select and copy | On Mac, drag for a character range or double-click for a word. On iPhone, long-press to select a word. Cell edges define the highlight. Native iOS handles expand or contract the range and the system edit menu anchors to it on release. Use the native selection tint for handles and the specified colors for selected cells. Copy omits soft-wrap breaks and retains hard line breaks. The accessibility selection uses the same logical range. |
 | Read earlier output | Use native scrolling and deceleration in normal-screen history. Preserve the visible logical line when fresh bytes arrive. Show the system scroll indicator and a **Latest** button with a 44 pt minimum hit target while away from the live edge. Return to the bottom on activation. Hide the control at the live edge and while the alternate screen owns input. |
-| Open the keyboard | The native accessory shares the keyboard’s frame transition and system timing curve. Esc, Ctrl, Tab and four arrow buttons each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Show a filled accent capsule with a contrasting “Ctrl” label and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
-| Rotate or dismiss the keyboard | Let the system transition coordinator move the host and controls. Keep the visible logical row or live prompt anchored as the keyboard turns. Send the shell one whole-cell grid when the keyboard and pane reach their destination. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
+| Open the keyboard | Tapping the terminal brings up the keyboard with the key row floating above it. Esc, Ctrl, Tab, the four arrows and Hide Keyboard each receive at least a 44 × 44 pt hit target. A tap on Ctrl arms the next key. Fill the key in the selection colors and expose its selected state to VoiceOver. Tap again to cancel. Clear the latch after use, focus loss or detachment. Typing, character composition, paste and a hardware keyboard share the same viewport. |
+| Move with the keyboard | The terminal, key row and keyboard move together on the keyboard’s own curve, whether it rises, hides, turns with the device or changes height for predictions, emoji or a hardware keyboard. A prompt on the bottom row rides the key row’s top edge the whole way, and a prompt higher up stays where it is. While the terminal waits for its new grid, rows above the grid come from history, so no frame shows a blank band. At a shell prompt the settled grid replaces the moving frame without a visible change, and a full-screen program redraws once. With Reduce Motion, update geometry directly. |
+| Put the keyboard away | Hide Keyboard on the key row ends input and clears the latch. Swiping through history scrolls it and leaves the keyboard up. |
+| Rotate | Let the system transition coordinator move the host and controls. Keep the visible logical row or live prompt anchored as the keyboard turns. Send the shell one whole-cell grid when the keyboard and pane reach their destination. Preserve glyph proportions throughout the turn, including while the previous drawable is visible. Draw the new grid at the destination scale. With Reduce Motion, update geometry directly. |
 | Settle | Stop requesting Metal frames when the last change is presented. System menu, key-press and accessory animations belong to the native views. A settled or backgrounded terminal requests zero further frames. Visible blinking text requests frames only during its fades, at up to 60 Hz, and none while it is fully shown or hidden, while the view is hidden or suspended, or with Reduce Motion. Keep the first-echo presentation time independent of host transitions. |
 
 ## Rendering
 
 - Use the system monospaced face. Ask Core Text for the digit advance at the chosen size. Snap boundaries from cumulative advances to backing pixels. Keep incomplete columns and rows in the trailing and bottom inset. The listed sizes are defaults. Recompute advances, baselines and grid size when the user changes text size or moves to a display with a different scale.
 - Shape **A翼🐦Z** into six terminal columns. The ideograph spans two cells and the Unicode 11 bird emoji spans two. Core Text supplies the CJK fallback and Apple Color Emoji glyph. Keep the emoji’s intrinsic color and extend a selection through both halves of a wide character.
-- The Mac images use a 720 × 486 pt window with a 32 pt system title bar, which fits 80 × 24 cells. The portrait image uses 402 × 874 pt with a 62 pt top safe area. With the keyboard open, its top is at y = 583 pt. The landscape image uses 874 × 402 pt with 62 pt left and 62 pt right safe areas. Its keyboard begins at y = 222 pt. The 44 pt accessory ends at that keyboard edge. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and accessory geometry. Deduct the accessory height once. With a hardware keyboard, use the lower safe area and the controls actually on screen.
+- The Mac images use a 720 × 486 pt window with a 32 pt system title bar, which fits 80 × 24 cells. The portrait image uses 402 × 874 pt with a 62 pt top safe area. With the keyboard open, it begins at y = 573 pt and the key row’s capsule runs from y = 513 to 561 pt. The landscape image uses 874 × 402 pt with 62 pt left and 62 pt right safe areas. Its keyboard begins at y = 222 pt and the capsule runs from y = 178 to 214 pt. At runtime, measure the top edge of the combined obstruction from the keyboard layout guide and key row geometry. Deduct the key row height once. With a hardware keyboard, use the lower safe area and the controls actually on screen.
 - Keep marked text local to the input view, anchor it at the cursor, and send only the single committed string. Expose accessible terminal lines, selections, modifier state and the return-to-latest action through the native host.
 
 Sign-off compares the palette, cell boundaries, cursor ink and baseline placement against captures of the running Mac and iPhone panes. Keyboard timing, VoiceOver, physical-device legibility and idle-frame counts are checked in the running apps.
