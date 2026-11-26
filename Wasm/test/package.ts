@@ -1,4 +1,4 @@
-import { Terminal } from "thrush-wasm";
+import { Terminal } from "thrush";
 
 // Checks the installed package as Bun, Node and a Bun-compiled binary run it, and as TypeScript
 // reads its declarations.
@@ -50,4 +50,4 @@ for (const [columns, rows] of [[0, 24], [80, 1.5], [2049, 24], [80, NaN]]) {
   fails(() => next.resize(columns, rows), RangeError, `Resizing to ${columns} by ${rows}`);
 }
 fails(() => next.write("text" as unknown as Uint8Array), TypeError, "Writing a string");
-console.log(`thrush-wasm works in ${navigator.userAgent}`);
+console.log(`thrush works in ${navigator.userAgent}`);

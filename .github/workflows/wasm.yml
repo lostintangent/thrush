@@ -1,6 +1,6 @@
 name: WebAssembly package
 
-# Builds thrush-wasm whenever the core or the package changes, and checks it against native
+# Builds the thrush package whenever the core or the package changes, and checks it against native
 # ThrushCore and under Bun and Node. A published release gets the package as thrush-wasm.tgz.
 on:
   push:

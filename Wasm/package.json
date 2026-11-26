@@ -1,5 +1,5 @@
 {
-  "name": "thrush-wasm",
+  "name": "thrush",
   "version": "0.0.0",
   "description": "Thrush's terminal emulator, built for WebAssembly, for servers that keep a terminal without a display",
   "license": "MIT",

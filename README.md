@@ -95,7 +95,7 @@ The factory opens a shell at the view’s measured grid size. A local PTY implem
 
 ## Keep terminals on a JavaScript server
 
-A server that runs shells keeps a terminal for each one, so a client that attaches later sees the screen it missed. Thrush’s own server does this in Swift. For a server in Bun or Node 22 and later, each release attaches the same emulator built for WebAssembly as `thrush-wasm`, a package with types and no dependencies. Its replay redraws a terminal on any client that speaks VT, such as Thrush in a Mac or iPhone app or xterm.js in a browser.
+A server that runs shells keeps a terminal for each one, so a client that attaches later sees the screen it missed. Thrush’s own server does this in Swift. For a server in Bun or Node 22 and later, each release attaches the same emulator built for WebAssembly as `thrush-wasm.tgz`, a package named `thrush` with types and no dependencies. Its replay redraws a terminal on any client that speaks VT, such as Thrush in a Mac or iPhone app or xterm.js in a browser.
 
 Install it from a release’s own URL. A lockfile records the tarball’s hash, so a URL that moves to a newer release breaks the next fresh install.
 
@@ -104,7 +104,7 @@ bun add https://github.com/lostintangent/thrush/releases/download/v0.4.0/thrush-
 ```
 
 ```ts
-import { Terminal } from "thrush-wasm";
+import { Terminal } from "thrush";
 
 const terminal = new Terminal(80, 24);
 
