@@ -6,8 +6,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 3000,
-        "p95Nanoseconds" : 5834
+        "p50Nanoseconds" : 2292,
+        "p95Nanoseconds" : 5208
       },
       "grid" : {
         "columns" : 80,
@@ -15,7 +15,7 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 1188.132134038134,
+      "receiveMiBPerSecond" : 1541.896847778509,
       "receivedBytes" : 5243200
     },
     {
@@ -23,8 +23,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 5083,
-        "p95Nanoseconds" : 5542
+        "p50Nanoseconds" : 3584,
+        "p95Nanoseconds" : 4042
       },
       "grid" : {
         "columns" : 40,
@@ -32,7 +32,7 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 720.0655588003129,
+      "receiveMiBPerSecond" : 1009.4480948801596,
       "receivedBytes" : 5243200
     },
     {
@@ -40,8 +40,8 @@
       "bytesPerPass" : 1048640,
       "chunkBytes" : 4096,
       "chunkTime" : {
-        "p50Nanoseconds" : 2917,
-        "p95Nanoseconds" : 5709
+        "p50Nanoseconds" : 2209,
+        "p95Nanoseconds" : 5083
       },
       "grid" : {
         "columns" : 80,
@@ -49,45 +49,45 @@
       },
       "inputSHA256" : "3cc58e3d43b119ae3077f36dcbbe8a066c6e41e0e53ff67be2dc094d4a4d1c90",
       "measuredPasses" : 5,
-      "receiveMiBPerSecond" : 1232.5947113035718,
+      "receiveMiBPerSecond" : 1575.8626536037464,
       "receivedBytes" : 5243200
     }
   ],
   "environment" : {
-    "commit" : "c528777f5f666abeb100d2227c0f294179b4747f",
-    "contended" : true,
+    "commit" : "b3d9f2945c4f89f0ce294e6691a41c2f1d7d372e",
+    "contended" : false,
     "coreCount" : 10,
     "displayInterval" : "headless",
     "hardwareModel" : "MacBookPro18,4",
     "loadAverage" : {
-      "fifteenMinutes" : 35.3837890625,
-      "fiveMinutes" : 30.02880859375,
-      "oneMinute" : 15.24560546875
+      "fifteenMinutes" : 22.2939453125,
+      "fiveMinutes" : 6.73388671875,
+      "oneMinute" : 5.58935546875
     },
     "lowPowerMode" : false,
     "operatingSystem" : "Version 27.2.1 (Build 26B131)",
     "powerSource" : "AC Power",
     "processor" : "Apple M1 Max",
     "swiftToolchain" : "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
-    "thermalState" : "fair",
+    "thermalState" : "nominal",
     "worktreeDirty" : false
   },
-  "recordedAt" : "2026-11-25T21:29:39Z",
+  "recordedAt" : "2026-11-26T21:28:57Z",
   "recordings" : [
     {
       "appliedBytes" : 2604175,
       "burstDrain" : {
-        "p50Nanoseconds" : 2775125,
-        "p95Nanoseconds" : 3025792
+        "p50Nanoseconds" : 2647666,
+        "p95Nanoseconds" : 2933875
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 7250,
-        "p95Nanoseconds" : 7792
+        "p50Nanoseconds" : 5375,
+        "p95Nanoseconds" : 6042
       },
       "encodedInputBytes" : 1600,
       "fixturePeakBytesInOneSecond" : 58076,
-      "fixturePeakMultiple" : 2528.0267929565316,
-      "fixtureSHA256" : "4d85512cc865904ba436e56c5589270b33e64b153635d5473f13bd9df8b286ad",
+      "fixturePeakMultiple" : 3469.5970488374587,
+      "fixtureSHA256" : "176dfd99147734bd4263e6785ddd246ec6b03be45b1388b317131e5ef89fc368",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -97,16 +97,16 @@
           "bytesPerCall" : 8,
           "name" : "Build numbered log",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 125
+            "p50Nanoseconds" : 125,
+            "p95Nanoseconds" : 167
           }
         },
         {
           "bytesPerCall" : 18,
           "name" : "Refill landscape history",
           "timing" : {
-            "p50Nanoseconds" : 208,
-            "p95Nanoseconds" : 709
+            "p50Nanoseconds" : 166,
+            "p95Nanoseconds" : 458
           }
         },
         {
@@ -121,16 +121,16 @@
           "bytesPerCall" : 16,
           "name" : "Open scratch file",
           "timing" : {
-            "p50Nanoseconds" : 208,
-            "p95Nanoseconds" : 333
+            "p50Nanoseconds" : 125,
+            "p95Nanoseconds" : 250
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "Save and quit Vim",
           "timing" : {
-            "p50Nanoseconds" : 209,
-            "p95Nanoseconds" : 583
+            "p50Nanoseconds" : 166,
+            "p95Nanoseconds" : 542
           }
         }
       ],
@@ -143,12 +143,12 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 140.0162544515071,
+      "receiveMiBPerSecond" : 192.16567822292734,
       "receiveReplaysPerSample" : 1,
       "receiveSamples" : 25,
       "receivedBytes" : 2604175,
       "referenceCheckpointsPerReplay" : 14,
-      "replyBytes" : 2050,
+      "replyBytes" : 2125,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -167,8 +167,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 679209,
-            "p95Nanoseconds" : 716542
+            "p50Nanoseconds" : 691125,
+            "p95Nanoseconds" : 887875
           },
           "to" : {
             "columns" : 40,
@@ -189,8 +189,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 282083,
-            "p95Nanoseconds" : 285958
+            "p50Nanoseconds" : 298750,
+            "p95Nanoseconds" : 306375
           },
           "to" : {
             "columns" : 80,
@@ -211,8 +211,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 59375,
-            "p95Nanoseconds" : 61458
+            "p50Nanoseconds" : 75375,
+            "p95Nanoseconds" : 80083
           },
           "to" : {
             "columns" : 80,
@@ -233,8 +233,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 674125,
-            "p95Nanoseconds" : 800792
+            "p50Nanoseconds" : 698375,
+            "p95Nanoseconds" : 741917
           },
           "to" : {
             "columns" : 40,
@@ -255,8 +255,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 283167,
-            "p95Nanoseconds" : 304792
+            "p50Nanoseconds" : 301250,
+            "p95Nanoseconds" : 317125
           },
           "to" : {
             "columns" : 80,
@@ -277,8 +277,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 30917,
-            "p95Nanoseconds" : 34833
+            "p50Nanoseconds" : 38792,
+            "p95Nanoseconds" : 41208
           },
           "to" : {
             "columns" : 80,
@@ -291,17 +291,17 @@
     {
       "appliedBytes" : 218000,
       "burstDrain" : {
-        "p50Nanoseconds" : 27167,
-        "p95Nanoseconds" : 28792
+        "p50Nanoseconds" : 25167,
+        "p95Nanoseconds" : 29583
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 750,
-        "p95Nanoseconds" : 2167
+        "p50Nanoseconds" : 583,
+        "p95Nanoseconds" : 1708
       },
       "encodedInputBytes" : 1175,
       "fixturePeakBytesInOneSecond" : 5611,
-      "fixturePeakMultiple" : 90092.18434803272,
-      "fixtureSHA256" : "6d9077f9576ad2a0e47206eaef4679ca2854376de82682ace184fd6a94e2d7c0",
+      "fixturePeakMultiple" : 106262.57641050013,
+      "fixtureSHA256" : "2d7eb1b51a9cf8944ce7a4ed631d5f98f36cef8f2062d97ccd8806ba71b245fa",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -311,7 +311,7 @@
           "bytesPerCall" : 16,
           "name" : "Open scratch file",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -327,8 +327,8 @@
           "bytesPerCall" : 25,
           "name" : "Paste scratch text",
           "timing" : {
-            "p50Nanoseconds" : 167,
-            "p95Nanoseconds" : 250
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 209
           }
         },
         {
@@ -336,7 +336,7 @@
           "name" : "Finish insertion",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -344,7 +344,7 @@
           "name" : "Save and quit Vim",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         }
       ],
@@ -357,12 +357,12 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 482.0892776268116,
+      "receiveMiBPerSecond" : 568.6181223290598,
       "receiveReplaysPerSample" : 1,
       "receiveSamples" : 25,
       "receivedBytes" : 218000,
       "referenceCheckpointsPerReplay" : 8,
-      "replyBytes" : 2050,
+      "replyBytes" : 2125,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -381,8 +381,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 1750,
-            "p95Nanoseconds" : 1875
+            "p50Nanoseconds" : 1833,
+            "p95Nanoseconds" : 2000
           },
           "to" : {
             "columns" : 40,
@@ -403,7 +403,7 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 3083,
+            "p50Nanoseconds" : 3167,
             "p95Nanoseconds" : 3333
           },
           "to" : {
@@ -425,8 +425,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 1208,
-            "p95Nanoseconds" : 1333
+            "p50Nanoseconds" : 1333,
+            "p95Nanoseconds" : 1375
           },
           "to" : {
             "columns" : 80,
@@ -439,17 +439,17 @@
     {
       "appliedBytes" : 439075,
       "burstDrain" : {
-        "p50Nanoseconds" : 56250,
-        "p95Nanoseconds" : 61208
+        "p50Nanoseconds" : 61375,
+        "p95Nanoseconds" : 66250
       },
       "chunkTime" : {
         "p50Nanoseconds" : 125,
-        "p95Nanoseconds" : 625
+        "p95Nanoseconds" : 667
       },
       "encodedInputBytes" : 4375,
       "fixturePeakBytesInOneSecond" : 17261,
-      "fixturePeakMultiple" : 55753.21038083319,
-      "fixtureSHA256" : "226b76424fba08b1ad6d6601bdcffbc1ade1a65b205851484fc51afe2a22b63f",
+      "fixturePeakMultiple" : 55121.95078011841,
+      "fixtureSHA256" : "461200713b9937ff7ce139f05573b279af0bf337aa0dbe85ef0a26e881db0e3f",
       "initialGrid" : {
         "columns" : 2,
         "rows" : 2
@@ -467,7 +467,7 @@
           "bytesPerCall" : 3,
           "name" : "key left",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -475,8 +475,8 @@
           "bytesPerCall" : 3,
           "name" : "key right",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -499,7 +499,7 @@
           "bytesPerCall" : 1,
           "name" : "key tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -507,7 +507,7 @@
           "bytesPerCall" : 1,
           "name" : "key backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -515,15 +515,15 @@
           "bytesPerCall" : 1,
           "name" : "key enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "paste a\nb",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 125,
             "p95Nanoseconds" : 125
           }
         },
@@ -531,7 +531,7 @@
           "bytesPerCall" : 3,
           "name" : "key up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -539,23 +539,23 @@
           "bytesPerCall" : 3,
           "name" : "key left",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "key right",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "key down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -564,23 +564,23 @@
           "name" : "paste a\nb",
           "timing" : {
             "p50Nanoseconds" : 125,
-            "p95Nanoseconds" : 125
+            "p95Nanoseconds" : 167
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "Type abcdef",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Move left one character",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -619,7 +619,7 @@
           "bytesPerCall" : 6,
           "name" : "Type abcdef",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -627,7 +627,7 @@
           "bytesPerCall" : 1,
           "name" : "Move left one character",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -651,7 +651,7 @@
           "bytesPerCall" : 1,
           "name" : "Insert at cursor",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -667,7 +667,7 @@
           "bytesPerCall" : 45,
           "name" : "Type printf command",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 84,
             "p95Nanoseconds" : 125
           }
         },
@@ -676,7 +676,7 @@
           "name" : "Run printf command",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -700,14 +700,14 @@
           "name" : "Run printf command",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Return to prompt",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         }
@@ -718,19 +718,19 @@
       "meetsTwiceRecordedPeak" : true,
       "name" : "shell-edges",
       "paletteChangeTime" : {
-        "p50Nanoseconds" : 41,
+        "p50Nanoseconds" : 0,
         "p95Nanoseconds" : 42
       },
       "paletteChangesPerReplay" : 2,
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 917.7743572078339,
+      "receiveMiBPerSecond" : 907.3829578548658,
       "receiveReplaysPerSample" : 1,
       "receiveSamples" : 25,
       "receivedBytes" : 439075,
       "referenceCheckpointsPerReplay" : 63,
-      "replyBytes" : 44500,
+      "replyBytes" : 44575,
       "requestedGrid" : {
         "columns" : 1,
         "rows" : 2
@@ -749,8 +749,8 @@
             "rows" : 3
           },
           "timing" : {
-            "p50Nanoseconds" : 459,
-            "p95Nanoseconds" : 500
+            "p50Nanoseconds" : 500,
+            "p95Nanoseconds" : 583
           },
           "to" : {
             "columns" : 6,
@@ -771,8 +771,8 @@
             "rows" : 2
           },
           "timing" : {
-            "p50Nanoseconds" : 209,
-            "p95Nanoseconds" : 250
+            "p50Nanoseconds" : 250,
+            "p95Nanoseconds" : 292
           },
           "to" : {
             "columns" : 2,
@@ -793,8 +793,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 500,
-            "p95Nanoseconds" : 542
+            "p50Nanoseconds" : 541,
+            "p95Nanoseconds" : 584
           },
           "to" : {
             "columns" : 12,
@@ -815,8 +815,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 2417,
-            "p95Nanoseconds" : 2750
+            "p50Nanoseconds" : 2541,
+            "p95Nanoseconds" : 2959
           },
           "to" : {
             "columns" : 7,
@@ -837,8 +837,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 1708,
-            "p95Nanoseconds" : 1833
+            "p50Nanoseconds" : 1833,
+            "p95Nanoseconds" : 2000
           },
           "to" : {
             "columns" : 12,
@@ -859,8 +859,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 3708,
-            "p95Nanoseconds" : 4000
+            "p50Nanoseconds" : 3834,
+            "p95Nanoseconds" : 4625
           },
           "to" : {
             "columns" : 6,
@@ -881,8 +881,8 @@
             "rows" : 4
           },
           "timing" : {
-            "p50Nanoseconds" : 2250,
-            "p95Nanoseconds" : 2667
+            "p50Nanoseconds" : 2375,
+            "p95Nanoseconds" : 2542
           },
           "to" : {
             "columns" : 12,
@@ -903,8 +903,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 3292,
-            "p95Nanoseconds" : 3625
+            "p50Nanoseconds" : 3458,
+            "p95Nanoseconds" : 3750
           },
           "to" : {
             "columns" : 5,
@@ -925,8 +925,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 2958,
-            "p95Nanoseconds" : 3166
+            "p50Nanoseconds" : 3208,
+            "p95Nanoseconds" : 3375
           },
           "to" : {
             "columns" : 4,
@@ -947,8 +947,8 @@
             "rows" : 5
           },
           "timing" : {
-            "p50Nanoseconds" : 2084,
-            "p95Nanoseconds" : 2459
+            "p50Nanoseconds" : 2208,
+            "p95Nanoseconds" : 2416
           },
           "to" : {
             "columns" : 8,
@@ -969,8 +969,8 @@
             "rows" : 3
           },
           "timing" : {
-            "p50Nanoseconds" : 1209,
-            "p95Nanoseconds" : 1292
+            "p50Nanoseconds" : 1292,
+            "p95Nanoseconds" : 1375
           },
           "to" : {
             "columns" : 8,
@@ -991,8 +991,8 @@
             "rows" : 25
           },
           "timing" : {
-            "p50Nanoseconds" : 2458,
-            "p95Nanoseconds" : 6417
+            "p50Nanoseconds" : 2500,
+            "p95Nanoseconds" : 2750
           },
           "to" : {
             "columns" : 16,
@@ -1005,16 +1005,16 @@
     {
       "appliedBytes" : 375,
       "burstDrain" : {
-        "p50Nanoseconds" : 417,
-        "p95Nanoseconds" : 500
+        "p50Nanoseconds" : 375,
+        "p95Nanoseconds" : 458
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 208,
-        "p95Nanoseconds" : 334
+        "p50Nanoseconds" : 167,
+        "p95Nanoseconds" : 250
       },
       "encodedInputBytes" : 0,
       "fixturePeakBytesInOneSecond" : 15,
-      "fixturePeakMultiple" : 4444119.46313087,
+      "fixturePeakMultiple" : 4993518.467802304,
       "fixtureSHA256" : "6c49073e0aaa5daa5e650e6803be68cf00d19f90ec7a1b3369e0a55e24bf5026",
       "initialGrid" : {
         "columns" : 80,
@@ -1032,7 +1032,7 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 63.57363886543565,
+      "receiveMiBPerSecond" : 71.43285466865021,
       "receiveReplaysPerSample" : 547,
       "receiveSamples" : 25,
       "receivedBytes" : 375,
@@ -1047,19 +1047,19 @@
       ]
     },
     {
-      "appliedBytes" : 204750,
+      "appliedBytes" : 195450,
       "burstDrain" : {
-        "p50Nanoseconds" : 32209,
-        "p95Nanoseconds" : 42875
+        "p50Nanoseconds" : 30167,
+        "p95Nanoseconds" : 40208
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 708,
-        "p95Nanoseconds" : 4292
+        "p50Nanoseconds" : 542,
+        "p95Nanoseconds" : 4334
       },
       "encodedInputBytes" : 700,
-      "fixturePeakBytesInOneSecond" : 8044,
-      "fixturePeakMultiple" : 41415.99747972277,
-      "fixtureSHA256" : "58ba7b47ccf53ddff7bb8625b5eb55e6b4658c0603590d677e994163e5b5bc78",
+      "fixturePeakBytesInOneSecond" : 7669,
+      "fixturePeakMultiple" : 44403.11298536524,
+      "fixtureSHA256" : "6f026a6f4c2afee2d40a4fcdadd2bd0c295b7e0d1450dc9251bd1f9dec89eae6",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -1069,8 +1069,8 @@
           "bytesPerCall" : 17,
           "name" : "Open Swift file",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 167
           }
         },
         {
@@ -1078,14 +1078,14 @@
           "name" : "Measure Vim background",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 167
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Paint Swift buffer",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1098,25 +1098,25 @@
           }
         }
       ],
-      "maximumQueuedBytes" : 4174,
+      "maximumQueuedBytes" : 4016,
       "maximumQueuedSlots" : 16,
       "measuredReplays" : 25,
       "meetsTwiceRecordedPeak" : true,
       "name" : "vim-swift-dark",
       "paletteChangeTime" : {
-        "p50Nanoseconds" : 41,
+        "p50Nanoseconds" : 0,
         "p95Nanoseconds" : 42
       },
       "paletteChangesPerReplay" : 1,
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 317.71686909379,
+      "receiveMiBPerSecond" : 324.75230549313164,
       "receiveReplaysPerSample" : 2,
       "receiveSamples" : 25,
-      "receivedBytes" : 204750,
+      "receivedBytes" : 195450,
       "referenceCheckpointsPerReplay" : 7,
-      "replyBytes" : 2050,
+      "replyBytes" : 2125,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -1131,57 +1131,57 @@
           "historyRowsBefore" : 0,
           "normalHistoryRowsBefore" : 0,
           "requested" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "timing" : {
-            "p50Nanoseconds" : 1417,
-            "p95Nanoseconds" : 1625
+            "p50Nanoseconds" : 1750,
+            "p95Nanoseconds" : 2083
           },
           "to" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "withinDisplayInterval" : true
         },
         {
           "alternate" : true,
           "from" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "historyRowsBefore" : 0,
           "normalHistoryRowsBefore" : 0,
           "requested" : {
-            "columns" : 90,
-            "rows" : 9
+            "columns" : 71,
+            "rows" : 11
           },
           "timing" : {
-            "p50Nanoseconds" : 2625,
-            "p95Nanoseconds" : 2833
+            "p50Nanoseconds" : 2000,
+            "p95Nanoseconds" : 2375
           },
           "to" : {
-            "columns" : 90,
-            "rows" : 9
+            "columns" : 71,
+            "rows" : 11
           },
           "withinDisplayInterval" : true
         }
       ]
     },
     {
-      "appliedBytes" : 194700,
+      "appliedBytes" : 185700,
       "burstDrain" : {
-        "p50Nanoseconds" : 30292,
-        "p95Nanoseconds" : 31292
+        "p50Nanoseconds" : 29083,
+        "p95Nanoseconds" : 30625
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 625,
-        "p95Nanoseconds" : 5083
+        "p50Nanoseconds" : 583,
+        "p95Nanoseconds" : 4000
       },
       "encodedInputBytes" : 700,
-      "fixturePeakBytesInOneSecond" : 7642,
-      "fixturePeakMultiple" : 43252.05612210862,
-      "fixtureSHA256" : "d235a7a5c46ee42d8bed2180d51392001c6a117b4eca15d437e99a965a0c402f",
+      "fixturePeakBytesInOneSecond" : 7279,
+      "fixturePeakMultiple" : 45608.61001402916,
+      "fixtureSHA256" : "bca998300233fe4505690fdd53fc11d7f200c657c76879b736a1065b11e312db",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -1191,15 +1191,15 @@
           "bytesPerCall" : 17,
           "name" : "Open Swift file",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 7,
           "name" : "Measure Vim background",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1207,7 +1207,7 @@
           "bytesPerCall" : 1,
           "name" : "Paint Swift buffer",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1220,7 +1220,7 @@
           }
         }
       ],
-      "maximumQueuedBytes" : 4887,
+      "maximumQueuedBytes" : 3863,
       "maximumQueuedSlots" : 16,
       "measuredReplays" : 25,
       "meetsTwiceRecordedPeak" : true,
@@ -1233,12 +1233,12 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 315.2200821734944,
+      "receiveMiBPerSecond" : 316.60563687526536,
       "receiveReplaysPerSample" : 2,
       "receiveSamples" : 25,
-      "receivedBytes" : 194700,
+      "receivedBytes" : 185700,
       "referenceCheckpointsPerReplay" : 7,
-      "replyBytes" : 2050,
+      "replyBytes" : 2125,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -1253,38 +1253,38 @@
           "historyRowsBefore" : 0,
           "normalHistoryRowsBefore" : 0,
           "requested" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "timing" : {
-            "p50Nanoseconds" : 1375,
-            "p95Nanoseconds" : 1417
+            "p50Nanoseconds" : 1708,
+            "p95Nanoseconds" : 1833
           },
           "to" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "withinDisplayInterval" : true
         },
         {
           "alternate" : true,
           "from" : {
-            "columns" : 47,
-            "rows" : 25
+            "columns" : 45,
+            "rows" : 18
           },
           "historyRowsBefore" : 0,
           "normalHistoryRowsBefore" : 0,
           "requested" : {
-            "columns" : 90,
-            "rows" : 9
+            "columns" : 71,
+            "rows" : 11
           },
           "timing" : {
-            "p50Nanoseconds" : 2584,
-            "p95Nanoseconds" : 2625
+            "p50Nanoseconds" : 2000,
+            "p95Nanoseconds" : 2084
           },
           "to" : {
-            "columns" : 90,
-            "rows" : 9
+            "columns" : 71,
+            "rows" : 11
           },
           "withinDisplayInterval" : true
         }
@@ -1293,8 +1293,8 @@
     {
       "appliedBytes" : 250,
       "burstDrain" : {
-        "p50Nanoseconds" : 15458,
-        "p95Nanoseconds" : 17333
+        "p50Nanoseconds" : 18584,
+        "p95Nanoseconds" : 19833
       },
       "chunkTime" : {
         "p50Nanoseconds" : 42,
@@ -1302,7 +1302,7 @@
       },
       "encodedInputBytes" : 12775,
       "fixturePeakBytesInOneSecond" : 10,
-      "fixturePeakMultiple" : 11992687.385740403,
+      "fixturePeakMultiple" : 12503049.524274213,
       "fixtureSHA256" : "5b4953192e1b737be4270a4be6dcffd10b873691cb9d6c7d2d0a609c8a8a5862",
       "initialGrid" : {
         "columns" : 80,
@@ -1313,7 +1313,7 @@
           "bytesPerCall" : 3,
           "name" : "normal up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1329,7 +1329,7 @@
           "bytesPerCall" : 6,
           "name" : "normal alt up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1337,7 +1337,7 @@
           "bytesPerCall" : 6,
           "name" : "normal control up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1345,7 +1345,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift alt control up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1353,7 +1353,7 @@
           "bytesPerCall" : 3,
           "name" : "normal down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1361,7 +1361,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1369,23 +1369,23 @@
           "bytesPerCall" : 6,
           "name" : "normal alt down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal control down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift alt control down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1394,14 +1394,14 @@
           "name" : "normal left",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift left",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1409,7 +1409,7 @@
           "bytesPerCall" : 6,
           "name" : "normal alt left",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1418,22 +1418,22 @@
           "name" : "normal control left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift alt control left",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "normal right",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1441,7 +1441,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift right",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1449,15 +1449,15 @@
           "bytesPerCall" : 6,
           "name" : "normal alt right",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal control right",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1465,7 +1465,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift alt control right",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1481,7 +1481,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1489,15 +1489,15 @@
           "bytesPerCall" : 6,
           "name" : "normal alt home",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal control home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1505,7 +1505,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift alt control home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1513,7 +1513,7 @@
           "bytesPerCall" : 3,
           "name" : "normal end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1521,7 +1521,7 @@
           "bytesPerCall" : 6,
           "name" : "normal shift end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1529,7 +1529,7 @@
           "bytesPerCall" : 6,
           "name" : "normal alt end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1537,15 +1537,15 @@
           "bytesPerCall" : 6,
           "name" : "normal control end",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift alt control end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1553,31 +1553,31 @@
           "bytesPerCall" : 4,
           "name" : "normal pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 0,
           "name" : "normal shift pageUp",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "normal alt pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal control pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1586,15 +1586,15 @@
           "name" : "normal shift alt control pageUp",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "normal pageDown",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1602,22 +1602,22 @@
           "name" : "normal shift pageDown",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "normal alt pageDown",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1626,22 +1626,22 @@
           "name" : "normal shift alt control pageDown",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "normal delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1649,7 +1649,7 @@
           "bytesPerCall" : 6,
           "name" : "normal alt delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1657,15 +1657,15 @@
           "bytesPerCall" : 6,
           "name" : "normal control delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "normal shift alt control delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1674,22 +1674,22 @@
           "name" : "normal escape",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "normal shift escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "normal alt escape",
           "timing" : {
-            "p50Nanoseconds" : 0,
+            "p50Nanoseconds" : 41,
             "p95Nanoseconds" : 42
           }
         },
@@ -1697,7 +1697,7 @@
           "bytesPerCall" : 1,
           "name" : "normal control escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1705,7 +1705,7 @@
           "bytesPerCall" : 2,
           "name" : "normal shift alt control escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1713,8 +1713,8 @@
           "bytesPerCall" : 1,
           "name" : "normal enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1722,14 +1722,14 @@
           "name" : "normal shift enter",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "normal alt enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1745,7 +1745,7 @@
           "bytesPerCall" : 2,
           "name" : "normal shift alt control enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1753,8 +1753,8 @@
           "bytesPerCall" : 1,
           "name" : "normal tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1762,14 +1762,14 @@
           "name" : "normal shift tab",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "normal alt tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1777,15 +1777,15 @@
           "bytesPerCall" : 1,
           "name" : "normal control tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "normal shift alt control tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -1793,7 +1793,7 @@
           "bytesPerCall" : 1,
           "name" : "normal backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1801,7 +1801,7 @@
           "bytesPerCall" : 1,
           "name" : "normal shift backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1809,23 +1809,23 @@
           "bytesPerCall" : 2,
           "name" : "normal alt backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "normal control backspace",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "normal shift alt control backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1833,7 +1833,7 @@
           "bytesPerCall" : 3,
           "name" : "application up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1841,15 +1841,15 @@
           "bytesPerCall" : 6,
           "name" : "application shift up",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application alt up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1858,14 +1858,14 @@
           "name" : "application control up",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift alt control up",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1874,22 +1874,22 @@
           "name" : "application down",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application alt down",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 83
           }
         },
@@ -1897,16 +1897,16 @@
           "bytesPerCall" : 6,
           "name" : "application control down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift alt control down",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1921,7 +1921,7 @@
           "bytesPerCall" : 6,
           "name" : "application shift left",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -1929,8 +1929,8 @@
           "bytesPerCall" : 6,
           "name" : "application alt left",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -1938,60 +1938,20 @@
           "name" : "application control left",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift alt control left",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "application right",
-          "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
-          }
-        },
-        {
-          "bytesPerCall" : 6,
-          "name" : "application shift right",
-          "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
-          }
-        },
-        {
-          "bytesPerCall" : 6,
-          "name" : "application alt right",
-          "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
-          }
-        },
-        {
-          "bytesPerCall" : 6,
-          "name" : "application control right",
-          "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
-          }
-        },
-        {
-          "bytesPerCall" : 6,
-          "name" : "application shift alt control right",
-          "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
-          }
-        },
-        {
-          "bytesPerCall" : 3,
-          "name" : "application home",
           "timing" : {
             "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
@@ -1999,9 +1959,49 @@
         },
         {
           "bytesPerCall" : 6,
-          "name" : "application shift home",
+          "name" : "application shift right",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 6,
+          "name" : "application alt right",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 6,
+          "name" : "application control right",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
+          }
+        },
+        {
+          "bytesPerCall" : 6,
+          "name" : "application shift alt control right",
           "timing" : {
             "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
+          }
+        },
+        {
+          "bytesPerCall" : 3,
+          "name" : "application home",
+          "timing" : {
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
+          }
+        },
+        {
+          "bytesPerCall" : 6,
+          "name" : "application shift home",
+          "timing" : {
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2009,7 +2009,7 @@
           "bytesPerCall" : 6,
           "name" : "application alt home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2017,7 +2017,7 @@
           "bytesPerCall" : 6,
           "name" : "application control home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2025,7 +2025,7 @@
           "bytesPerCall" : 6,
           "name" : "application shift alt control home",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2033,15 +2033,15 @@
           "bytesPerCall" : 3,
           "name" : "application end",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2050,14 +2050,14 @@
           "name" : "application alt end",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application control end",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2065,16 +2065,16 @@
           "bytesPerCall" : 6,
           "name" : "application shift alt control end",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "application pageUp",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2082,15 +2082,15 @@
           "name" : "application shift pageUp",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "application alt pageUp",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 167
           }
         },
         {
@@ -2098,7 +2098,7 @@
           "name" : "application control pageUp",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2106,15 +2106,15 @@
           "name" : "application shift alt control pageUp",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "application pageDown",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2122,7 +2122,7 @@
           "name" : "application shift pageDown",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2130,38 +2130,38 @@
           "name" : "application alt pageDown",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 0,
           "name" : "application shift alt control pageDown",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "application delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application shift delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2169,15 +2169,15 @@
           "bytesPerCall" : 6,
           "name" : "application alt delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 6,
           "name" : "application control delete",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2186,15 +2186,15 @@
           "name" : "application shift alt control delete",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "application escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2202,14 +2202,14 @@
           "name" : "application shift escape",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "application alt escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2217,7 +2217,7 @@
           "bytesPerCall" : 1,
           "name" : "application control escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2225,7 +2225,7 @@
           "bytesPerCall" : 2,
           "name" : "application shift alt control escape",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2233,8 +2233,8 @@
           "bytesPerCall" : 1,
           "name" : "application enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2242,14 +2242,14 @@
           "name" : "application shift enter",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "application alt enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2257,7 +2257,7 @@
           "bytesPerCall" : 1,
           "name" : "application control enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2265,7 +2265,7 @@
           "bytesPerCall" : 2,
           "name" : "application shift alt control enter",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2274,15 +2274,15 @@
           "name" : "application tab",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 3,
           "name" : "application shift tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2297,7 +2297,7 @@
           "bytesPerCall" : 1,
           "name" : "application control tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2305,7 +2305,7 @@
           "bytesPerCall" : 3,
           "name" : "application shift alt control tab",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2313,7 +2313,7 @@
           "bytesPerCall" : 1,
           "name" : "application backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2321,31 +2321,31 @@
           "bytesPerCall" : 1,
           "name" : "application shift backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "application alt backspace",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "application control backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 83
           }
         },
         {
           "bytesPerCall" : 2,
           "name" : "application shift alt control backspace",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2354,7 +2354,7 @@
           "name" : "Control chord \"a\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -2362,7 +2362,7 @@
           "name" : "Control chord \"c\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -2370,15 +2370,15 @@
           "name" : "Control chord \"d\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Control chord \"t\"",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 166
           }
         },
         {
@@ -2393,7 +2393,7 @@
           "bytesPerCall" : 1,
           "name" : "Control chord \" \"",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2402,7 +2402,7 @@
           "name" : "Control chord \"3\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -2417,7 +2417,7 @@
           "bytesPerCall" : 1,
           "name" : "Control chord \"5\"",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2434,15 +2434,15 @@
           "name" : "Control chord \"7\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Control chord \"8\"",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2458,7 +2458,7 @@
           "name" : "Control chord \"\\\\\"",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -2479,7 +2479,7 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 114.37117944469836,
+      "receiveMiBPerSecond" : 119.238372080557,
       "receiveReplaysPerSample" : 820,
       "receiveSamples" : 25,
       "receivedBytes" : 250,
@@ -2496,8 +2496,8 @@
     {
       "appliedBytes" : 1050,
       "burstDrain" : {
-        "p50Nanoseconds" : 3292,
-        "p95Nanoseconds" : 4083
+        "p50Nanoseconds" : 3542,
+        "p95Nanoseconds" : 3750
       },
       "chunkTime" : {
         "p50Nanoseconds" : 83,
@@ -2505,7 +2505,7 @@
       },
       "encodedInputBytes" : 2275,
       "fixturePeakBytesInOneSecond" : 42,
-      "fixturePeakMultiple" : 4408655.360115165,
+      "fixturePeakMultiple" : 4593821.778465289,
       "fixtureSHA256" : "db1d5bd377bf75a034af7bbf3d5ed24d8382b23c131701d9e212152b36b82cfb",
       "initialGrid" : {
         "columns" : 240,
@@ -2524,7 +2524,7 @@
           "bytesPerCall" : 6,
           "name" : "X11 click",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2533,7 +2533,7 @@
           "name" : "X11 release with modifiers",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 83
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2548,8 +2548,8 @@
           "bytesPerCall" : 6,
           "name" : "X11 column limit",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2557,15 +2557,15 @@
           "name" : "Unencodable X11 column",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 0,
           "name" : "X11 ignores motion",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2588,7 +2588,7 @@
           "bytesPerCall" : 12,
           "name" : "SGR button release",
           "timing" : {
-            "p50Nanoseconds" : 166,
+            "p50Nanoseconds" : 167,
             "p95Nanoseconds" : 167
           }
         },
@@ -2596,7 +2596,7 @@
           "bytesPerCall" : 0,
           "name" : "Drag mode ignores hover",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2605,7 +2605,7 @@
           "name" : "Wheel toward history",
           "timing" : {
             "p50Nanoseconds" : 167,
-            "p95Nanoseconds" : 208
+            "p95Nanoseconds" : 167
           }
         },
         {
@@ -2620,7 +2620,7 @@
           "bytesPerCall" : 10,
           "name" : "SGR hover",
           "timing" : {
-            "p50Nanoseconds" : 125,
+            "p50Nanoseconds" : 167,
             "p95Nanoseconds" : 167
           }
         },
@@ -2628,7 +2628,7 @@
           "bytesPerCall" : 0,
           "name" : "Off-grid hit",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         },
@@ -2636,7 +2636,7 @@
           "bytesPerCall" : 0,
           "name" : "Exit leaves mouse local",
           "timing" : {
-            "p50Nanoseconds" : 41,
+            "p50Nanoseconds" : 42,
             "p95Nanoseconds" : 42
           }
         }
@@ -2650,7 +2650,7 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 176.58569824680035,
+      "receiveMiBPerSecond" : 184.00241345934117,
       "receiveReplaysPerSample" : 196,
       "receiveSamples" : 25,
       "receivedBytes" : 1050,
@@ -2667,17 +2667,17 @@
     {
       "appliedBytes" : 10650,
       "burstDrain" : {
-        "p50Nanoseconds" : 5542,
-        "p95Nanoseconds" : 6042
+        "p50Nanoseconds" : 5209,
+        "p95Nanoseconds" : 6875
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 125,
-        "p95Nanoseconds" : 1584
+        "p50Nanoseconds" : 84,
+        "p95Nanoseconds" : 1209
       },
       "encodedInputBytes" : 750,
-      "fixturePeakBytesInOneSecond" : 339,
-      "fixturePeakMultiple" : 472348.9581046432,
-      "fixtureSHA256" : "cdaa7ba845bba72da3e5a70ed1383f778ea02171a7df6a299f2d3585de63d6e3",
+      "fixturePeakBytesInOneSecond" : 368,
+      "fixturePeakMultiple" : 532233.8830584708,
+      "fixtureSHA256" : "8897951fa13cc6a842e0f1b058ece0f835cfe6b3adf03349c6cedf8f9677446a",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -2688,35 +2688,35 @@
           "name" : "Type unfinished command",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 166
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Correct typo",
           "timing" : {
-            "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 83
+            "p50Nanoseconds" : 84,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 21,
           "name" : "Paste build arguments",
           "timing" : {
-            "p50Nanoseconds" : 167,
-            "p95Nanoseconds" : 209
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 250
           }
         },
         {
           "bytesPerCall" : 1,
           "name" : "Run numbered compiler log",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 42,
+            "p95Nanoseconds" : 84
           }
         }
       ],
-      "maximumQueuedBytes" : 283,
+      "maximumQueuedBytes" : 339,
       "maximumQueuedSlots" : 16,
       "measuredReplays" : 25,
       "meetsTwiceRecordedPeak" : true,
@@ -2725,7 +2725,7 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 152.70833663699537,
+      "receiveMiBPerSecond" : 186.78862473060346,
       "receiveReplaysPerSample" : 20,
       "receiveSamples" : 25,
       "receivedBytes" : 10650,
@@ -2746,15 +2746,15 @@
           "normalHistoryRowsBefore" : 0,
           "requested" : {
             "columns" : 47,
-            "rows" : 25
+            "rows" : 24
           },
           "timing" : {
             "p50Nanoseconds" : 667,
-            "p95Nanoseconds" : 834
+            "p95Nanoseconds" : 750
           },
           "to" : {
             "columns" : 47,
-            "rows" : 25
+            "rows" : 24
           },
           "withinDisplayInterval" : true
         }
@@ -2763,17 +2763,17 @@
     {
       "appliedBytes" : 264450,
       "burstDrain" : {
-        "p50Nanoseconds" : 32792,
-        "p95Nanoseconds" : 34833
+        "p50Nanoseconds" : 30750,
+        "p95Nanoseconds" : 33542
       },
       "chunkTime" : {
-        "p50Nanoseconds" : 750,
-        "p95Nanoseconds" : 3084
+        "p50Nanoseconds" : 667,
+        "p95Nanoseconds" : 2875
       },
       "encodedInputBytes" : 1175,
       "fixturePeakBytesInOneSecond" : 6377,
-      "fixturePeakMultiple" : 79454.60162136512,
-      "fixtureSHA256" : "ccbb77f7e550c3e497a51d8ea312f79aed9493fdcf5e28d2db4b54ad85b7f3f8",
+      "fixturePeakMultiple" : 91726.04059108823,
+      "fixtureSHA256" : "6bf3e157e6c82093c94dae33e03eaf603f89181a4e375887044b17650e7c7fbd",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -2791,7 +2791,7 @@
           "bytesPerCall" : 1,
           "name" : "Enter insert mode",
           "timing" : {
-            "p50Nanoseconds" : 42,
+            "p50Nanoseconds" : 83,
             "p95Nanoseconds" : 84
           }
         },
@@ -2799,8 +2799,8 @@
           "bytesPerCall" : 25,
           "name" : "Paste scratch text",
           "timing" : {
-            "p50Nanoseconds" : 167,
-            "p95Nanoseconds" : 209
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 250
           }
         },
         {
@@ -2808,7 +2808,7 @@
           "name" : "Finish insertion",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 83
           }
         },
         {
@@ -2829,12 +2829,12 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 483.20960477776083,
+      "receiveMiBPerSecond" : 557.839356278772,
       "receiveReplaysPerSample" : 1,
       "receiveSamples" : 25,
       "receivedBytes" : 264450,
       "referenceCheckpointsPerReplay" : 10,
-      "replyBytes" : 2050,
+      "replyBytes" : 2200,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 24
@@ -2853,8 +2853,8 @@
             "rows" : 32
           },
           "timing" : {
-            "p50Nanoseconds" : 1750,
-            "p95Nanoseconds" : 1834
+            "p50Nanoseconds" : 1833,
+            "p95Nanoseconds" : 2041
           },
           "to" : {
             "columns" : 40,
@@ -2875,8 +2875,8 @@
             "rows" : 14
           },
           "timing" : {
-            "p50Nanoseconds" : 3042,
-            "p95Nanoseconds" : 3208
+            "p50Nanoseconds" : 3209,
+            "p95Nanoseconds" : 3541
           },
           "to" : {
             "columns" : 80,
@@ -2897,8 +2897,8 @@
             "rows" : 24
           },
           "timing" : {
-            "p50Nanoseconds" : 1167,
-            "p95Nanoseconds" : 1209
+            "p50Nanoseconds" : 1334,
+            "p95Nanoseconds" : 1541
           },
           "to" : {
             "columns" : 80,
@@ -2911,17 +2911,17 @@
     {
       "appliedBytes" : 459550,
       "burstDrain" : {
-        "p50Nanoseconds" : 87792,
-        "p95Nanoseconds" : 99250
+        "p50Nanoseconds" : 82250,
+        "p95Nanoseconds" : 86166
       },
       "chunkTime" : {
         "p50Nanoseconds" : 167,
-        "p95Nanoseconds" : 1750
+        "p95Nanoseconds" : 1500
       },
-      "encodedInputBytes" : 2750,
+      "encodedInputBytes" : 2925,
       "fixturePeakBytesInOneSecond" : 6717,
-      "fixturePeakMultiple" : 38163.64115899578,
-      "fixtureSHA256" : "0383a379107ea24f4332e3825585def94a3fe1808c1205a8bae532ff7a06e32a",
+      "fixturePeakMultiple" : 42319.58649412781,
+      "fixtureSHA256" : "3e13f71564ce66c7704e77e1c65a4126a3fc4b9c785b2de874259a031f2b6901",
       "initialGrid" : {
         "columns" : 80,
         "rows" : 16
@@ -2932,14 +2932,14 @@
           "name" : "Launch Codex",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
           "bytesPerCall" : 88,
           "name" : "Enter prompt",
           "timing" : {
-            "p50Nanoseconds" : 83,
+            "p50Nanoseconds" : 84,
             "p95Nanoseconds" : 125
           }
         },
@@ -2952,27 +2952,27 @@
           }
         },
         {
-          "bytesPerCall" : 1,
+          "bytesPerCall" : 8,
           "name" : "Codex transcript shortcut",
           "timing" : {
-            "p50Nanoseconds" : 84,
-            "p95Nanoseconds" : 167
+            "p50Nanoseconds" : 208,
+            "p95Nanoseconds" : 250
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "Earlier transcript page",
           "timing" : {
-            "p50Nanoseconds" : 41,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
           "bytesPerCall" : 4,
           "name" : "Later transcript page",
           "timing" : {
-            "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p50Nanoseconds" : 83,
+            "p95Nanoseconds" : 84
           }
         },
         {
@@ -2980,7 +2980,7 @@
           "name" : "Enter quit command",
           "timing" : {
             "p50Nanoseconds" : 83,
-            "p95Nanoseconds" : 84
+            "p95Nanoseconds" : 125
           }
         },
         {
@@ -2988,7 +2988,7 @@
           "name" : "Submit",
           "timing" : {
             "p50Nanoseconds" : 42,
-            "p95Nanoseconds" : 42
+            "p95Nanoseconds" : 84
           }
         }
       ],
@@ -3001,15 +3001,59 @@
       "queueByteLimit" : 8192,
       "queueSlotLimit" : 16,
       "queuedBytesAfterDrain" : 0,
-      "receiveMiBPerSecond" : 244.46981207368339,
+      "receiveMiBPerSecond" : 271.0920929728093,
       "receiveReplaysPerSample" : 1,
       "receiveSamples" : 25,
       "receivedBytes" : 459550,
       "referenceCheckpointsPerReplay" : 11,
-      "replyBytes" : 1575,
+      "replyBytes" : 1775,
       "requestedGrid" : {
         "columns" : 80,
         "rows" : 16
+      },
+      "resizes" : [
+
+      ]
+    },
+    {
+      "appliedBytes" : 27375,
+      "burstDrain" : {
+        "p50Nanoseconds" : 15291,
+        "p95Nanoseconds" : 16375
+      },
+      "chunkTime" : {
+        "p50Nanoseconds" : 125,
+        "p95Nanoseconds" : 667
+      },
+      "encodedInputBytes" : 0,
+      "fixturePeakBytesInOneSecond" : 1095,
+      "fixturePeakMultiple" : 101533.15057366231,
+      "fixtureSHA256" : "7dc6748e5f9745f9ffac818db32fc0cb2f0c53c018d2f4ed7816e59d62730296",
+      "initialGrid" : {
+        "columns" : 80,
+        "rows" : 24
+      },
+      "input" : [
+
+      ],
+      "maximumQueuedBytes" : 248,
+      "maximumQueuedSlots" : 16,
+      "measuredReplays" : 25,
+      "meetsTwiceRecordedPeak" : true,
+      "name" : "zsh-clear",
+      "paletteChangesPerReplay" : 0,
+      "queueByteLimit" : 8192,
+      "queueSlotLimit" : 16,
+      "queuedBytesAfterDrain" : 0,
+      "receiveMiBPerSecond" : 106.02836597267172,
+      "receiveReplaysPerSample" : 8,
+      "receiveSamples" : 25,
+      "receivedBytes" : 27375,
+      "referenceCheckpointsPerReplay" : 9,
+      "replyBytes" : 0,
+      "requestedGrid" : {
+        "columns" : 80,
+        "rows" : 24
       },
       "resizes" : [
 
@@ -3018,5 +3062,29 @@
   ],
   "referenceIntervalNanoseconds" : 8333333,
   "referenceRefreshHz" : 120,
-  "schemaVersion" : 1
+  "schemaVersion" : 1,
+  "shellTransitions" : {
+    "grid" : {
+      "columns" : 80,
+      "rows" : 24
+    },
+    "measuredPasses" : 25,
+    "prepareForReplay" : {
+      "historyRowsAfter" : 992,
+      "historyRowsBefore" : 1000,
+      "timing" : {
+        "p50Nanoseconds" : 20750,
+        "p95Nanoseconds" : 25166
+      }
+    },
+    "promptFixtureSHA256" : "8897951fa13cc6a842e0f1b058ece0f835cfe6b3adf03349c6cedf8f9677446a",
+    "startNewShell" : {
+      "historyRowsAfter" : 1000,
+      "historyRowsBefore" : 992,
+      "timing" : {
+        "p50Nanoseconds" : 20500,
+        "p95Nanoseconds" : 21708
+      }
+    }
+  }
 }
