@@ -14,8 +14,11 @@ let stage: "seed" | "typing" | "enter" | "done" = "seed";
 async function play(socket: ServerWebSocket<unknown>, reads: Read[], section: string) {
     const start = performance.now();
     for (const read of reads) {
-        const remaining = start + read.elapsedMs - performance.now();
-        if (remaining > 0) await Bun.sleep(remaining);
+        // A sleep can overshoot by a millisecond, longer than the gaps inside one burst, so
+        // sleep to within 2 ms of a read and spin the rest of the way.
+        const due = start + read.elapsedMs;
+        if (due - performance.now() > 2) await Bun.sleep(due - performance.now() - 2);
+        while (performance.now() < due) {}
         const bytes = Buffer.from(read.base64, "base64");
         const parts = mode === "split" && bytes.equals(Buffer.from("\x1b[3J\x1b[H\x1b[2J"))
             ? [bytes.subarray(0, 4), bytes.subarray(4, 7), bytes.subarray(7)] : [bytes];

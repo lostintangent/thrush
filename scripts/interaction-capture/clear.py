@@ -18,6 +18,13 @@ capture = runpy.run_path(str(scripts / "capture-simulator.py"))
 panes = runpy.run_path(str(scripts / "check-pane-workflows.py"))
 here = Path(__file__).resolve().parent
 app_id = "app.thrush.demo"
+# A take whose Return pieces left the peer more than this far from the recording's timing
+# no longer replays the shell's burst, so its frames can't judge it.
+TIMING_US = 250
+
+
+class MissedTiming(Exception):
+    pass
 
 
 def until(what, predicate, deadline=100):
@@ -153,6 +160,9 @@ def one(platform, mode, out, device, docs, bundle, binary):
                "grids": len(set(tuple(f["grid"]) for f in stable))}
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(platform, mode, summary, flush=True)
+    miss = max(abs(p - s) for p, s in zip(burst["peerSendOffsetsUs"], burst["sourceOffsetsUs"]))
+    if miss > TIMING_US:
+        raise MissedTiming(f"Return pieces sent at {burst['peerSendOffsetsUs']} µs for {burst['sourceOffsetsUs']} µs recorded")
     if burst["partialSubmissions"]:
         raise RuntimeError("A frame presented a partial Return burst before the command and CRLF were complete")
     if summary["offsets"] != [0] or summary["grids"] != 1:
@@ -182,8 +192,18 @@ def main():
     reservation = capture["disposable_phone"](out) if args.platform == "simulator" else contextlib.nullcontext(None)
     with reservation as device:
         docs = capture["prepare_workflow_phone"](device, bundle, out) if device else None
+        rejected = []
         for mode in ["recorded", "split"]:
-            one(args.platform, mode, out / mode, device, docs, bundle, binary)
+            for take in [mode, mode + "-2", mode + "-3"]:
+                try:
+                    one(args.platform, mode, out / take, device, docs, bundle, binary)
+                    break
+                except MissedTiming as missed:
+                    rejected.append({"take": take, "reason": str(missed)})
+                    print(f"{take}: {missed}", flush=True)
+            (out / "summary.json").write_text(json.dumps({"rejectedTakes": rejected}, indent=2) + "\n")
+            if take in (r["take"] for r in rejected):
+                raise RuntimeError(f"Every {mode} take missed the recorded Return timing")
 
 
 if __name__ == "__main__":
