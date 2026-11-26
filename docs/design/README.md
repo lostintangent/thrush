@@ -19,7 +19,8 @@ The slate canvas continues to the iPhone safe areas. On Mac, the native title ba
 | Cursor / glyph under block | `#FD9A01` / `#131D27` |
 | Selected background / text | `#466B85` / `#F8FBFE` |
 | Contrast, default / selected text | 14.03 / 5.46 to 1 |
-| Opaque backing / separator | `#1D2934` / `#35424E` |
+| Opaque backing | `#1D2934` |
+| Key row dividers | `#E3EAF0` at 30% opacity, 2.23:1 on the glass and 2.41:1 on the opaque backing |
 | iPhone 17 grid, keyboard open | 47 × 24 portrait, 90 × 9 landscape. Derive the live grid from the measured keyboard and safe areas. |
 
 ## Slate Light
@@ -33,7 +34,8 @@ Slate text sits on a cool white canvas. The amber cursor deepens to ochre so a t
 | Default foreground / background | `#233442` / `#FBFDFE` | 12.54:1 |
 | Cursor / glyph under block | `#995500` / `#FFFFFF` | Cursor on canvas 5.63:1, block glyph 5.75:1 |
 | Selected background / text | `#7391A6` / `#101C25` | Selected text 5.21:1, highlight against canvas 3.25:1 |
-| Opaque backing / separator | `#E8EEF1` / `#B7C3CA` | Native title bar, key row dividers, and the key row and Latest under Reduce Transparency |
+| Opaque backing | `#E8EEF1` | Native title bar, and the key row and Latest under Reduce Transparency |
+| Key row dividers | `#233442` at 30% opacity | 1.78:1 on the glass and 1.76:1 on the opaque backing |
 
 The ratios below use WCAG relative luminance for opaque sRGB against `#FBFDFE`. Yellows are ochres. The white slots use a cool gray and a neutral gray so ordinary and bright white text both remain readable. Those two inks also reach 4.53:1 and 4.56:1 on the theme’s ANSI black. [W3C contrast calculation](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
 
@@ -59,7 +61,7 @@ Each resolved terminal theme exposes **22 opaque sRGB colors**. `TerminalTheme` 
 | Cursor fill and block glyph ink | Use the fill for block, bar and underline cursors. Redraw a monochrome glyph under a block with the block glyph ink. |
 | Selection background and foreground | Cover whole selected cells and draw selected text in the foreground ink. Inside a selection, use that ink for the cursor and the selection background for a block’s glyph. This keeps the cursor visible where the two highlights meet. |
 
-The backing and separator colors serve the key row and can guide an app’s title bar. The pane uses the same 22-color contract in every app.
+The opaque backing serves the key row and Latest under Reduce Transparency and can guide an app’s title bar. The key row’s dividers take the default foreground at 30% opacity, so they keep their contrast on whatever the glass shows. The pane uses the same 22-color contract in every app.
 
 ### Colors a program sets
 

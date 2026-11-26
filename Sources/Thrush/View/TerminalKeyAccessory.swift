@@ -133,7 +133,10 @@ final class TerminalKeyAccessory: UIView {
     func apply(_ theme: TerminalTheme, force: Bool = false) {
         guard force || self.theme != theme else { return }
         self.theme = theme
-        tintColor = UIColor(terminalColor: theme.palette.foreground)
+        let ink = UIColor(terminalColor: theme.palette.foreground)
+        tintColor = ink
+        // Dividers are the key ink at 30%, so they keep their contrast on whatever the glass shows.
+        for divider in dividers { divider.backgroundColor = ink.withAlphaComponent(0.3) }
         if theme == .slateDark { overrideUserInterfaceStyle = .dark }
         else if theme == .slateLight { overrideUserInterfaceStyle = .light }
         else { overrideUserInterfaceStyle = .unspecified }
@@ -151,7 +154,6 @@ final class TerminalKeyAccessory: UIView {
             glass.effect = effect
         }
         glass.backgroundColor = opaque ? UIColor(terminalColor: theme.opaqueBacking) : nil
-        for divider in dividers { divider.backgroundColor = UIColor(terminalColor: theme.separator) }
     }
 
     private func refreshControl() {
