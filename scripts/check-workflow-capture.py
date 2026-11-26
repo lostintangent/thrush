@@ -85,8 +85,10 @@ def check(image, state, require_keyboard=False):
     if require_keyboard or (phone is not None and phone["keyboardHeight"] > 90):
         keyboard(image, phone)
 
-    xs, ys, _, _ = grid_edges(image, state)
+    xs, ys, sx, sy = grid_edges(image, state)
     rows, columns = state["rows"], state["columns"]
+    # The pane's own controls, such as Latest while reading history, cover these cells.
+    overlays = [(x * sx, y * sy, (x + w) * sx, (y + h) * sy) for x, y, w, h in state.get("overlays", [])]
     mask = state["inkMask"]
     require(len(mask) == rows and all(len(line) == columns and set(line) <= {"0", "1"} for line in mask),
             "Invalid expected ink mask")
@@ -106,14 +108,17 @@ def check(image, state, require_keyboard=False):
 
     slate = image.matches("background", 6)
     highlight = image.matches("selection", 6)
-    want = missing = extra = canvas = selection_missing = selection_extra = 0
+    want = missing = extra = canvas = covered = selection_missing = selection_extra = 0
     row_errors = []
     for row, expected in enumerate(mask):
-        row_want = expected.count("1")
-        row_missing = row_extra = 0
+        row_want = row_missing = row_extra = 0
         for col in range(columns):
             left, right = xs[col], xs[col + 1]
             top, bottom = ys[row], ys[row + 1]
+            if any(left < x2 and x1 < right and top < y2 and y1 < bottom for x1, y1, x2, y2 in overlays):
+                covered += 1
+                continue
+            row_want += expected[col] == "1"
             # Keep the ink at the baseline. Rounding each cell separately matches snapped Metal vertices.
             inset_x, inset_y = (right - left) // 16, (bottom - top) // 16
             left, right, top, bottom = left + inset_x, right - inset_x, top + inset_y, bottom - inset_y
@@ -141,6 +146,7 @@ def check(image, state, require_keyboard=False):
         if row_missing > max(2, row_want * 0.23) or row_extra > max(2, row_want * 0.20):
             row_errors.append(f"row {row}: {row_missing} missing, {row_extra} unexpected of {row_want} expected")
 
+    require(covered <= rows * columns * 0.10, f"Pane controls cover {covered} of {rows * columns} cells")
     require(canvas >= rows * columns * 0.20, "Expected Slate terminal background is absent from the grid")
     count = max(0, selected_end - selected_start + 1) if selection is not None else 0
     require(selection_missing <= max(1, count * 0.04) and selection_extra <= 1,
@@ -148,6 +154,8 @@ def check(image, state, require_keyboard=False):
     require(missing <= max(1, want * 0.10) and extra <= max(2, want * 0.10) and not row_errors,
             f"Glyph occupancy differs: {missing} missing, {extra} unexpected, {want} expected; " + "; ".join(row_errors[:4]))
     result = f"{want - missing}/{want} glyph cells, {extra} unexpected, {count - selection_missing}/{count} selected cells"
+    if covered:
+        result += f", {covered} cells under pane controls"
     return result
 
 

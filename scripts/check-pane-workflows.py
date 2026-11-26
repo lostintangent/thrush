@@ -126,7 +126,7 @@ def image_path(output, marker, checkpoint_name):
 def collect_capture(marker, output, platform, target, *, require_keyboard=False):
     request = json.loads(marker.read_bytes())
     index = request["eventIndex"]
-    if (type(index) is not int or index < 0 or marker.stem != f"capture-{index:03d}"
+    if (type(index) is not int or index < 0 or marker.stem not in (f"capture-{index:03d}", f"capture-{index:03d}-history")
             or not isinstance(request["name"], str) or not request["name"].strip()):
         raise ValueError(f"invalid screenshot request in {marker}")
     image = image_path(output, marker, request["name"])

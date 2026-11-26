@@ -206,7 +206,7 @@ export async function runLifecycle(run: LiveRun) {
     run.phase("resume", index("returnAfterExpiry"));
     await waitReady(4, false);
     await run.prepareFreshShell();
-    await run.checkpoint(index("replaced"), () => hasPrompt() && run.reference.buffer.active.cursorY === 0, false, false,
+    await run.checkpoint(index("replaced"), () => hasPrompt() && run.reference.buffer.active.cursorY === 0, true, false,
                          ["START:" + original, "FORE:acorn:" + original, "OTHER:acorn:" + original]);
     await command("identifyReplacement", "runIdentifyReplacement");
     const fresh = /^FRESH:unset:([0-9]+)$/;

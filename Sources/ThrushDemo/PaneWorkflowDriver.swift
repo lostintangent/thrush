@@ -271,8 +271,9 @@ final class PaneWorkflowDriver {
                     }
                     entries.append(entry)
                     lastCheckpoint = expected
-                    if let archived = state.archivedRows { try await readPreviousShell(archived) }
-                    if state.capture ?? shouldCapture(event.name) { try await capture(entry, ended: state.ended == true) }
+                    let captures = state.capture ?? shouldCapture(event.name)
+                    if captures { try await capture(entry, ended: state.ended == true) }
+                    if let archived = state.archivedRows { try await readPreviousShell(archived, capturing: captures ? entry : nil) }
                     if state.ended == true { try await pauseForLifecycleRecording() }
                     let (status, body) = try await request("ack", post: JSONEncoder().encode(entry))
                     guard status == 204 else { throw httpFailure("ack", status, body) }
@@ -383,8 +384,9 @@ final class PaneWorkflowDriver {
         }
     }
 
-    /// Read the previous shell through the mounted viewport, then return to the fresh prompt.
-    private func readPreviousShell(_ markers: [String]) async throws {
+    /// Read the previous shell through the mounted viewport, show its last rows directly above
+    /// the fresh prompt, then return to that prompt.
+    private func readPreviousShell(_ markers: [String], capturing entry: Entry?) async throws {
         guard let live = view.snapshot, view.historyOffset == 0 else { throw Failure("The replacement did not open at the live prompt") }
         defer { view.setHistoryOffset(0) }
         try await pauseForLifecycleRecording()
@@ -396,7 +398,15 @@ final class PaneWorkflowDriver {
             view.setHistoryOffset(live.history.count - index)
             guard view.snapshot?.rows.first?.text == marker else { throw Failure("Scrolling did not display \(marker)") }
         }
+        let shown = min(live.history.count, live.size.rows - live.cursorRow - 1)
+        view.setHistoryOffset(shown)
+        let seam = (live.history.count - shown..<live.history.count - shown + live.size.rows).map { live.row(atAbsoluteIndex: $0).text }
+        guard view.snapshot?.rows.map(\.text) == seam, seam.contains(markers.last ?? "") else {
+            throw Failure("The previous shell does not sit directly above the replacement prompt")
+        }
+        let scrolledAt = CACurrentMediaTime()
         try await pauseForLifecycleRecording()
+        if let entry { try await capture(entry, ended: false, scrolledAt: scrolledAt) }
         view.setHistoryOffset(0)
         guard view.snapshot?.rows.map(\.text) == live.rows.map(\.text) else { throw Failure("Returning to live lost the replacement prompt") }
     }
@@ -420,26 +430,37 @@ final class PaneWorkflowDriver {
         throw Failure(message)
     }
 
-    private func capture(_ entry: Entry, ended: Bool) async throws {
+    /// `scrolledAt` captures the checkpoint again from history, once a frame drawn after that scroll completes.
+    private func capture(_ entry: Entry, ended: Bool, scrolledAt: Double? = nil) async throws {
         if ended {
             guard session.hasEnded else { throw Failure("The session has not published its end") }
             _ = try await newShellToolbarAction()
             try await NativeWorkflowActions.verifyKeyboardDown(view)
             guard view.cursorSpinnerFrameInWindow == nil else { throw Failure("The ended terminal still shows a connecting cursor") }
         }
-        let base = String(format: "capture-%03d", entry.eventIndex)
+        var base = String(format: "capture-%03d", entry.eventIndex), name = entry.name
+        if let scrolledAt {
+            base += "-history"
+            name += ", scrolled to the previous shell"
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while (lastFrame?.submittedAt ?? 0) <= scrolledAt {
+                guard ContinuousClock.now < deadline else { throw Failure("No frame showed the previous shell") }
+                view.draw()
+                try await Task.sleep(for: .milliseconds(25))
+            }
+        }
         guard let accepted = view.snapshot, accepted.generation == entry.acceptedGeneration,
               let frame = lastFrame, frame.generation == entry.renderedGeneration else {
-            throw Failure("Missing the submitted grid for " + entry.name)
+            throw Failure("Missing the submitted grid for " + name)
         }
         let layout = ended ? try await settledFinalLayout(generation: entry.renderedGeneration) : frame.layout
-        let marker = WorkflowCapture(name: entry.name, eventIndex: entry.eventIndex, view: view,
+        let marker = WorkflowCapture(name: name, eventIndex: entry.eventIndex, view: view,
                                      snapshot: accepted, layout: layout, copied: entry.copiedText, ended: ended)
         try save(marker, as: base + ".json")
         let ack = output.appending(path: base + ".done")
         let deadline = ContinuousClock.now.advanced(by: .seconds(180))
         while !FileManager.default.fileExists(atPath: ack.path) {
-            guard ContinuousClock.now < deadline else { throw Failure("No native screenshot for " + entry.name) }
+            guard ContinuousClock.now < deadline else { throw Failure("No native screenshot for " + name) }
             try await Task.sleep(for: .milliseconds(20))
         }
     }
