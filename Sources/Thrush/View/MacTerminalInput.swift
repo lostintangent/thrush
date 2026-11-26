@@ -564,14 +564,13 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         }
     }
 
-    /// A web link opens. Any other link shows its menu below the pointer, titled with where it goes.
+    /// A web link opens. Any other link shows its menu below the link at the pointer, titled with where it goes.
     private func activate(_ link: Terminal.Link, at point: CGPoint) {
-        guard !terminal.openWebLink(link) else { return }
+        guard !terminal.openWebLink(link), let rect = terminal.linkRect(at: point) else { return }
         let menu = NSMenu()
         menu.addItem(.sectionHeader(title: link.displayedDestination))
         addItems(for: link, to: menu)
-        let row = terminal.cell(at: point)?.row ?? 0
-        menu.popUp(positioning: nil, at: CGPoint(x: point.x, y: terminal.cellRect(row: row, column: 0).maxY), in: self)
+        menu.popUp(positioning: nil, at: CGPoint(x: point.x, y: rect.maxY), in: self)
     }
 
     private func addItems(for link: Terminal.Link, to menu: NSMenu) {

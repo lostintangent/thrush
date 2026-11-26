@@ -48,8 +48,8 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var rotorLink: PhoneLinkElement?
     /// Where a tap on a link that doesn't open directly shows the link's menu. It sits behind the scroll
     /// view, so it never takes a touch.
-    private lazy var linkMenuAnchor: UIButton = {
-        let anchor = UIButton(type: .custom)
+    private lazy var linkMenuAnchor: LinkMenuAnchor = {
+        let anchor = LinkMenuAnchor()
         anchor.showsMenuAsPrimaryAction = true
         anchor.isAccessibilityElement = false
         insertSubview(anchor, belowSubview: scroll)
@@ -508,14 +508,18 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     // MARK: - Links
 
-    /// A web link opens. Any other link shows its menu at the link first, since it can launch an app.
+    /// A web link opens. Any other link shows its menu beside the link first, since it can launch an app.
+    /// The menu opens toward the side with more room. UIKit grows it over its anchor, so the anchor lies
+    /// just past the link on that side.
     private func activate(_ hit: (number: UInt32, link: Terminal.Link), at point: CGPoint) {
-        guard !terminal.openWebLink(hit.link) else { return }
-        let runs = terminal.linkRuns(of: hit.number)
-        guard let run = runs.first(where: { terminal.rect(of: $0).contains(point) }) ?? runs.first else { return }
-        linkMenuAnchor.frame = terminal.rect(of: run)
-        linkMenuAnchor.menu = menu(for: hit.link, at: linkMenuAnchor.frame)
-        linkMenuAnchor.performPrimaryAction()
+        guard !terminal.openWebLink(hit.link), let rect = terminal.linkRect(at: point) else { return }
+        let anchor = linkMenuAnchor
+        anchor.opensUp = rect.minY - bounds.minY > bounds.maxY - rect.maxY
+        anchor.frame = rect.offsetBy(dx: 0, dy: anchor.opensUp ? -rect.height : rect.height)
+        anchor.menu = menu(for: hit.link, at: rect)
+        // UIKit places the menu from the anchor's frame as of the last commit, so it opens a turn later,
+        // if the terminal is still on screen.
+        DispatchQueue.main.async { if anchor.window != nil { anchor.performPrimaryAction() } }
     }
 
     private func menu(for link: Terminal.Link, at rect: CGRect) -> UIMenu {
@@ -738,6 +742,16 @@ private final class PhoneLinkElement: UIAccessibilityElement {
     override func accessibilityActivate() -> Bool {
         activate()
         return true
+    }
+}
+
+/// The control a link's menu opens from. UIKit grows the menu down from the control's top edge when the menu
+/// attaches below its middle, and up from its bottom edge when it attaches above.
+private final class LinkMenuAnchor: UIButton {
+    var opensUp = false
+
+    override func menuAttachmentPoint(for configuration: UIContextMenuConfiguration) -> CGPoint {
+        CGPoint(x: super.menuAttachmentPoint(for: configuration).x, y: opensUp ? bounds.minY : bounds.maxY)
     }
 }
 

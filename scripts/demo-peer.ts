@@ -66,14 +66,21 @@ function buildColors(host: Appearance) {
     return prompt + setPalette(host === "dark" ? "paper" : "night") + buildTranscript();
 }
 
-// An rg search for where links open, gh's web address for that line, then Claude Code's trust prompt laid
-// out as Claude lays it out at this width. rg's file name is a link to the machine the shell runs on, and
-// Claude's "Security guide" is a link that says something other than where it goes. gh prints its address
-// as plain text, which wraps on the Mac and the iPhone, and so does the file name on the iPhone.
+const linkedPath = "Sources/Thrush/View/TerminalMetalView+Links.swift";
+
+// An rg search for where links open, which names the file as a link to it on the machine the shell runs on,
+// and the prompt after it.
+function buildSearch() {
+    const file = `\x1b]8;;file://devbox/home/robin/thrush/${linkedPath.replace("+", "%2B")}\x1b\\${reset}${esc}35m${linkedPath}${reset}\x1b]8;;\x1b\\`;
+    return [prompt + 'rg -l "func openWebLink" Sources', file, prompt].join("\r\n");
+}
+
+// The search, gh's web address for that line, then Claude Code's trust prompt laid out as Claude lays it
+// out at this width. Claude's "Security guide" is a link that says something other than where it goes.
+// gh prints its address as plain text, which wraps on the Mac and the iPhone, and so does the file name
+// on the iPhone.
 function buildLinks(cols: number) {
-    const path = "Sources/Thrush/View/TerminalMetalView+Links.swift";
-    const file = `\x1b]8;;file://devbox/home/robin/thrush/${path.replace("+", "%2B")}\x1b\\${reset}${esc}35m${path}${reset}\x1b]8;;\x1b\\`;
-    const page = `https://github.com/lostintangent/thrush/blob/main/${path}?plain=1#L176`;
+    const page = `https://github.com/lostintangent/thrush/blob/main/${linkedPath}?plain=1#L176`;
     // Claude pads its box by a column on each side and places each word with a column move.
     const words = (text: string, style = "", unstyle = "") => {
         const rows: string[] = [];
@@ -108,8 +115,7 @@ function buildLinks(cols: number) {
         "",
         ...words("Enter to confirm · Esc to cancel", gray, esc + "39m"),
     ];
-    return [prompt + 'rg -l "func openWebLink" Sources', file, prompt + `gh browse -n ${path}:176`, page, prompt + "claude"]
-        .join("\r\n") +
+    return [buildSearch() + `gh browse -n ${linkedPath}:176`, page, prompt + "claude"].join("\r\n") +
         "\x1b]2;claude\x07" + esc + "?25l" + esc + "?2004h" + esc + "?1004h\r\n" + trust.join("\r\n") +
         // Claude parks its hidden cursor on the chosen answer.
         "\r\n" + esc + "1C" + esc + "4A";
@@ -222,11 +228,13 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
             return new Response(null, { status: 204 });
         }
         // POST /links?draw=0 clears each links scene and POST /links?draw=1 lays it out again, as output that
-        // takes a link from under a resting pointer and brings it back.
+        // takes a link from under a resting pointer and brings it back. POST /links?draw=2 lays it out with
+        // Claude exited and the search run again, which puts a file link on the bottom rows.
         const drawn = query.get("draw");
-        if (url.pathname === "/links" && request.method === "POST" && (drawn === "0" || drawn === "1")) {
+        if (url.pathname === "/links" && request.method === "POST" && (drawn === "0" || drawn === "1" || drawn === "2")) {
             for (const socket of sockets) if (socket.data.scene === "links")
-                socket.sendBinary(encode(esc + "H" + esc + "2J" + (drawn === "1" ? esc + "3J" + buildLinks(socket.data.cols) : "")));
+                socket.sendBinary(encode(esc + "H" + esc + "2J" + (drawn === "0" ? "" : esc + "3J" + buildLinks(socket.data.cols)) +
+                    (drawn === "2" ? esc + "4B\r" + esc + "?1004l" + esc + "?2004l" + esc + "?25h" + buildSearch() : "")));
             return new Response(null, { status: 204 });
         }
         const cols = Number(query.get("cols")), rows = Number(query.get("rows"));

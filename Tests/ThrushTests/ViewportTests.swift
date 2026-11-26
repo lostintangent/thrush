@@ -241,6 +241,12 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
     #expect(view.link(at: center(1, 7)) == nil)
     let edge = view.cellRect(row: 0, column: 9)
     #expect(view.link(at: CGPoint(x: edge.maxX + 2, y: edge.midY)) == nil)
+
+    // A menu beside the link clears both rows it wraps across, but not the repeat two rows down.
+    let wrapped = view.rect(of: runs[0]).union(view.rect(of: runs[1]))
+    #expect(view.linkRect(at: center(0, 9)) == wrapped && view.linkRect(at: center(1, 0)) == wrapped)
+    #expect(view.linkRect(at: center(3, 0)) == view.rect(of: runs[4]))
+    #expect(view.linkRect(at: center(0, 2)) == nil)
 }
 
 @MainActor @Test func plainURLsOpenLikeLinksAcrossSoftWrapsButNotLineBreaks() throws {

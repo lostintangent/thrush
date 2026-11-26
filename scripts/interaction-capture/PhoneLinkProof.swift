@@ -2,11 +2,12 @@ import Foundation
 import XCTest
 
 /// Opens the links an rg search and Claude Code's trust prompt send, and the address gh prints as plain text,
-/// through real touches on the demo. A file link shows its menu, a long press lifts a web link into its
-/// context menu, and a tap opens it in Safari.
+/// through real touches on the proofs app. A file link shows its menu clear of its rows, a long press lifts a web
+/// link into its context menu, and a tap opens it in Safari.
 @MainActor final class PhoneLinkProof: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+    private var endpoint = ""
     private static let wrappedPath = "Sources/Thrush/View/TerminalMetalView+Links.swift"
     private static let fileDestination = "file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView+Links.swift"
     private static let page = "https://github.com/lostintangent/thrush/blob/main/\(wrappedPath)?plain=1#L176"
@@ -18,8 +19,8 @@ import XCTest
         continueAfterFailure = false
         XCUIDevice.shared.appearance = appearance == "dark" ? .dark : .light
         XCUIDevice.shared.orientation = .portrait
-        app.launchArguments = ["--endpoint", try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"]),
-                               "--scene", "links", "--hide-keyboard", "--capture-state"]
+        endpoint = try XCTUnwrap(ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"])
+        app.launchArguments = ["--endpoint", endpoint, "--scene", "links", "--hide-keyboard", "--capture-state"]
         app.launch()
         let guide = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH 'Security guide'")).firstMatch
         XCTAssertTrue(guide.waitForExistence(timeout: 15), app.debugDescription)
@@ -33,16 +34,7 @@ import XCTest
         let path = app.staticTexts[Self.wrappedPath]
         XCTAssertTrue(path.exists, app.debugDescription)
         let row = guide.frame.height
-        XCTAssertEqual(path.frame.height, row * 2, accuracy: 1, "The file name should wrap onto a second row.")
-        point(x: path.frame.minX + row * 0.75, y: path.frame.maxY - row / 2).tap()
-        let copyPath = item("Copy Path")
-        XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(item(Self.fileDestination).exists, "The menu's title should be the link's destination.")
-        XCTAssertFalse(item("Open Link").exists, "Thrush never opens a file link.")
-        XCTAssertFalse(keyboard.exists, "A tap on a link shouldn't raise the keyboard.")
-        try screenshot("links-\(appearance)-file-menu")
-        copyPath.tap()
-        XCTAssertTrue(copyPath.waitForNonExistence(timeout: 5))
+        try openFileMenu(path, row: row, still: "links-\(appearance)-file-menu")
 
         // gh's address is plain text that opens the same way. A long press on its last row lifts the whole address.
         let page = app.staticTexts[Self.page]
@@ -72,6 +64,16 @@ import XCTest
         XCTAssertTrue(copyLink.waitForNonExistence(timeout: 5))
         try finishClip("links-\(appearance)", since: start)
 
+        // On the bottom rows, the file link's menu opens upward. Claude exits and the search runs again.
+        output(draw: 2)
+        let paths = app.staticTexts.matching(NSPredicate(format: "label == %@", Self.wrappedPath))
+        XCTAssertTrue(paths.element(boundBy: 1).waitForExistence(timeout: 5), app.debugDescription)
+        let lower = try XCTUnwrap(paths.allElementsBoundByIndex.max { $0.frame.minY < $1.frame.minY })
+        XCTAssertGreaterThan(lower.frame.minY, app.frame.midY, "The search should run again on the bottom rows.")
+        try openFileMenu(lower, row: row, still: "links-\(appearance)-file-menu-bottom")
+        output(draw: 1)
+        XCTAssertTrue(paths.element(boundBy: 1).waitForNonExistence(timeout: 5), "The scene should be laid out again as it began.")
+
         // The link's target is its own cells, so a tap beside it on the same row raises the keyboard.
         point(x: guide.frame.minX + guide.frame.width * 0.75, y: guide.frame.midY).tap()
         XCTAssertTrue(keyboard.waitForExistence(timeout: 6), "A tap beside a link should raise the keyboard.")
@@ -83,6 +85,39 @@ import XCTest
         XCTAssertTrue(safari.wait(for: .runningForeground, timeout: 20), "Safari should open the Security guide.")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+    }
+
+    /// A tap on the wrapped file name's second row shows its menu, titled with its destination and clear of
+    /// both of its rows.
+    private func openFileMenu(_ path: XCUIElement, row: CGFloat, still: String) throws {
+        let link = path.frame
+        XCTAssertEqual(link.height, row * 2, accuracy: 1, "The file name should wrap onto a second row.")
+        point(x: link.minX + row * 0.75, y: link.maxY - row / 2).tap()
+        let copyPath = item("Copy Path")
+        XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
+        let title = item(Self.fileDestination)
+        XCTAssertTrue(title.exists, "The menu's title should be the link's destination.")
+        XCTAssertFalse(item("Open Link").exists, "Thrush never opens a file link.")
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "A tap on a link shouldn't raise the keyboard.")
+        // The menu's frame settles once it has grown into place.
+        Thread.sleep(forTimeInterval: 0.5)
+        let menu = title.frame.union(copyPath.frame)
+        XCTAssertFalse(menu.intersects(link), "The menu at \(menu) should leave the link's rows at \(link) in view.")
+        try screenshot(still)
+        copyPath.tap()
+        XCTAssertTrue(copyPath.waitForNonExistence(timeout: 5))
+    }
+
+    /// Has the peer lay the links scene out again, with the search run a second time when `draw` is 2.
+    private func output(draw: Int) {
+        var request = URLRequest(url: URL(string: endpoint + "/links?draw=\(draw)")!)
+        request.httpMethod = "POST"
+        let sent = expectation(description: "The peer sends the output.")
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204, String(describing: error))
+            sent.fulfill()
+        }.resume()
+        wait(for: [sent], timeout: 10)
     }
 
     private func point(x: CGFloat, y: CGFloat) -> XCUICoordinate {

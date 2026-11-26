@@ -222,6 +222,18 @@ extension TerminalMetalView {
             .union(cellRect(row: run.row, column: run.columns.upperBound - 1))
     }
 
+    /// Where the link at a point sits: its run there and its runs on adjoining rows. A menu shown beside
+    /// this rect clears every row of a link the program wrapped, without reaching a repeat of it further down.
+    func linkRect(at point: CGPoint) -> CGRect? {
+        guard let number = link(at: point)?.number else { return nil }
+        let runs = linkRuns(of: number)
+        guard let hit = runs.firstIndex(where: { rect(of: $0).contains(point) }) else { return nil }
+        var (first, last) = (hit, hit)
+        while first > 0, runs[first].row - runs[first - 1].row <= 1 { first -= 1 }
+        while last < runs.count - 1, runs[last + 1].row - runs[last].row <= 1 { last += 1 }
+        return runs[first...last].reduce(rect(of: runs[hit])) { $0.union(rect(of: $1)) }
+    }
+
     /// Opens a web link through ``openURL`` and returns true. Other destinations return false, so the
     /// caller shows the link's menu first.
     func openWebLink(_ link: Terminal.Link) -> Bool {

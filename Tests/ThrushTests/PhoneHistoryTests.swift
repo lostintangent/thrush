@@ -343,7 +343,9 @@ private final class PointTap: UITapGestureRecognizer {
     let anchor = try #require(history.subviews.compactMap { $0 as? UIButton }.first { $0.showsMenuAsPrimaryAction })
     #expect(anchor.menu?.title == "file://devbox/tmp/run.log")
     #expect(anchor.menu?.children.map(\.title) == ["Copy Path"])
-    #expect(anchor.frame == view.cellRect(row: 2, column: 0).union(view.cellRect(row: 2, column: 6)))
+    // With more room below the link, its menu opens down from just past its row.
+    let link = view.cellRect(row: 2, column: 0).union(view.cellRect(row: 2, column: 6))
+    #expect(anchor.frame == link.offsetBy(dx: 0, dy: link.height))
 
     let menus = try #require(history.interactions.compactMap { $0 as? UIContextMenuInteraction }.first)
     let beside = view.cellRect(row: 0, column: 2)
