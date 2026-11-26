@@ -482,6 +482,7 @@ const malformed = {
 };
 for (const [variant, code] of Object.entries(malformed)) probe('UTF-8', variant, positions.middle, bytes('a', code, 'b'));
 add('UTF-8', 'split across writes', canvas + positions.middle, bytes([0xe7, 0x95]), bytes([0x8c, 0x78]), { checkpoint: 'subject' }, '*');
+add('UTF-8', 'split after a 0x80 continuation byte', canvas + positions.middle, bytes([0xe2, 0x80]), bytes([0xa6, 0x78]), { checkpoint: 'subject' }, '*');
 add('CSI', 'split across writes', canvas + positions.middle, `${CSI}3`, ';4', 'H', { checkpoint: 'subject' }, '*');
 add('OSC 2', 'split across writes', canvas + positions.middle, `${OSC}2;ti`, `tle${ESC}`, '\\', { checkpoint: 'subject' }, '*');
 
