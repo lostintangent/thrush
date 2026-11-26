@@ -115,6 +115,21 @@ extension TerminalMetalView {
         return runs
     }
 
+    /// Each visible link once, in reading order of its first run, with all of its runs.
+    func visibleLinks() -> [(number: UInt32, link: Terminal.Link, runs: [LinkRun])] {
+        var links: [(number: UInt32, link: Terminal.Link, runs: [LinkRun])] = []
+        var index: [UInt32: Int] = [:]
+        for run in linkRuns() {
+            if let at = index[run.number] {
+                links[at].runs.append(run)
+            } else if let link = link(row: run.row, column: run.columns.lowerBound)?.link {
+                index[run.number] = links.count
+                links.append((run.number, link, [run]))
+            }
+        }
+        return links
+    }
+
     /// The text a link shows across its visible runs, with a space where it continues on another row.
     func linkText(_ runs: [LinkRun]) -> String {
         guard let snapshot else { return "" }

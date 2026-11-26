@@ -821,6 +821,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     package func cancelPendingInput() {
         lastPointer = nil
         capturedButtons.removeAll()
+        engagedLink = nil
         #if os(macOS)
         macInput.resetInteraction()
         #else

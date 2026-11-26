@@ -101,7 +101,6 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
         dragAnchor = nil
         initialSelection = nil
         pressedLink = nil
-        terminal.engagedLink = nil
         remoteButtons.removeAll()
         wheelRemainder = 0
         refresh()
@@ -708,15 +707,8 @@ final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemVa
     /// Each visible link is a child VoiceOver lists in its Links rotor, and pressing one acts like a ⌘-click.
     private var linkElements: [MacLinkElement] {
         if let accessibleLinks { return accessibleLinks }
-        let runs = terminal.linkRuns()
-        var numbers: [UInt32] = []
-        for run in runs where !numbers.contains(run.number) { numbers.append(run.number) }
-        let elements = numbers.compactMap { number -> MacLinkElement? in
-            let own = runs.filter { $0.number == number }
-            guard let first = own.first, let link = terminal.link(row: first.row, column: first.columns.lowerBound)?.link else {
-                return nil
-            }
-            return MacLinkElement(input: self, link: link, runs: own, text: terminal.linkText(own))
+        let elements = terminal.visibleLinks().map {
+            MacLinkElement(input: self, link: $0.link, runs: $0.runs, text: terminal.linkText($0.runs))
         }
         accessibleLinks = elements
         return elements
