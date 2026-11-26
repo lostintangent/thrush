@@ -58,18 +58,26 @@ jobs:
         run: |
           case "$(uname -m)" in
             arm64) target=aarch64-apple-darwin
-              checksum=c48824462fc57681eafb0925d97b11b589010475613904f570b42fea53e240d5 ;;
+              cli=c48824462fc57681eafb0925d97b11b589010475613904f570b42fea53e240d5
+              host=7abd50fe5f033495a7b693c45fb82dc57093a18f1c4ba3e8043577de46c5c7c5 ;;
             x86_64) target=x86_64-apple-darwin
-              checksum=db0c38713c36199b12e7c8d1629386c35a4ce8f99e1c9ce72f1725a74df67b57 ;;
+              cli=db0c38713c36199b12e7c8d1629386c35a4ce8f99e1c9ce72f1725a74df67b57
+              host=b35c775d5e5f8d60d05e0de7154e5bbbf320b6d0e28a3237d42cc8a742ccaf65 ;;
             *) exit 1 ;;
           esac
           cd "$RUNNER_TEMP"
-          curl --fail --location --retry 3 -o codex.tar.gz \
-            "https://github.com/openai/codex/releases/download/rust-v0.166.0/codex-$target.tar.gz"
-          echo "$checksum  codex.tar.gz" | shasum -a 256 --check
           mkdir codex-release
-          tar -xzf codex.tar.gz -C codex-release
+          fetch() {
+            curl --fail --location --retry 3 -o "$1.tar.gz" \
+              "https://github.com/openai/codex/releases/download/rust-v0.166.0/$1-$target.tar.gz"
+            echo "$2  $1.tar.gz" | shasum -a 256 --check
+            tar -xzf "$1.tar.gz" -C codex-release
+          }
+          fetch codex "$cli"
+          fetch codex-code-mode-host "$host"
           mv "codex-release/codex-$target" codex-cli
+          # Codex runs its code-mode host from beside its own executable, and warns on screen without it.
+          mv "codex-release/codex-code-mode-host-$target" codex-code-mode-host
           test "$(./codex-cli --version)" = "codex-cli 0.166.0"
       - name: Drive the running pane over the disposable PTY
         run: |
