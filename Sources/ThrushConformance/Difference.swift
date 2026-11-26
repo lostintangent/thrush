@@ -36,6 +36,11 @@ extension Checkpoint {
             func target(_ links: [String]) -> String { index < links.count ? links[index].debugDescription : "none" }
             compare("links[\(index + 1)]", target(expectedLinks), target(actualLinks))
         }
+        // The reference draws every cell as it holds it, so a misdrawn cell differs from what it shows.
+        if let misdrawn {
+            result.append(Difference(checkpoint: reference.name, path: "drawn[\(misdrawn.row)][\(misdrawn.column)]",
+                                     reference: Self.describe(misdrawn.holds), thrush: Self.describe(misdrawn.shows)))
+        }
         return result
     }
 

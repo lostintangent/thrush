@@ -32,9 +32,11 @@ struct ConformanceCase: Decodable, Sendable {
     var expected: [Checkpoint]?
 
     /// Replays the steps through ThrushCore and records the same checkpoints the reference recorded.
+    /// A frame can draw after any step, so each step also draws the screen the way the renderer does.
     func run() -> [Checkpoint] {
         var terminal = Terminal(size: Terminal.Size(columns: size[0], rows: size[1]), palette: thrushPalette)
         var replies: [UInt8] = []
+        var drawing = Drawing()
         var checkpoints: [Checkpoint] = []
         for step in steps {
             switch step {
@@ -47,11 +49,42 @@ struct ConformanceCase: Decodable, Sendable {
                 terminal.isFocused = focused
                 replies += terminal.encode(.focus(focused))
             case .checkpoint(let name, let includesHistory):
-                checkpoints.append(Checkpoint(terminal, name: name, includesHistory: includesHistory, replies: replies))
+                var checkpoint = Checkpoint(terminal, name: name, includesHistory: includesHistory, replies: replies)
+                checkpoint.misdrawn = drawing.misdrawn
+                checkpoints.append(checkpoint)
+                drawing.misdrawn = nil
                 replies = []
+                continue
             }
+            drawing.draw(terminal.snapshot())
         }
         return checkpoints
+    }
+
+    /// The renderer draws a row once per generation and reuses that drawing while the size and buffer
+    /// stay the same, so each generation has to name one row's cells.
+    private struct Drawing {
+        private var rows: [UInt64: [Terminal.Cell]] = [:]
+        private var base: (size: Terminal.Size, isAlternate: Bool)?
+        /// The first cell since the previous checkpoint that shows a drawing of other cells.
+        var misdrawn: Checkpoint.Misdrawn?
+
+        mutating func draw(_ snapshot: Terminal.Snapshot) {
+            if base?.size != snapshot.size || base?.isAlternate != snapshot.isAlternate {
+                rows = [:]
+                base = (snapshot.size, snapshot.isAlternate)
+            }
+            for (index, row) in snapshot.rows.enumerated() {
+                let cells = (0..<snapshot.size.columns).map { row[$0] }
+                guard let drawn = rows[row.generation] else {
+                    rows[row.generation] = cells
+                    continue
+                }
+                guard misdrawn == nil, let column = cells.indices.first(where: { cells[$0] != drawn[$0] }) else { continue }
+                misdrawn = Checkpoint.Misdrawn(row: index, column: column, holds: Checkpoint.Cell(cells[column]),
+                                               shows: Checkpoint.Cell(drawn[column]))
+            }
+        }
     }
 
     var input: [UInt8] {

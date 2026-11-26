@@ -103,6 +103,16 @@ struct Checkpoint: Codable, Equatable, Sendable {
     var links: [String]?
     /// What the reference threw while processing the writes before this checkpoint. Thrush never sets it.
     var error: String?
+    /// The first cell since the previous checkpoint that Thrush's renderer would draw as another cell,
+    /// because its row kept a generation that named other cells. The reference never sets it.
+    var misdrawn: Misdrawn?
+
+    struct Misdrawn: Codable, Equatable, Sendable {
+        var row: Int
+        var column: Int
+        var holds: Cell
+        var shows: Cell
+    }
 }
 
 extension Checkpoint {
@@ -161,10 +171,15 @@ extension Checkpoint.Line {
         wrapped = row.isWrapped
         cells = (0..<snapshot.size.columns).map { column in
             let cell = row[column]
-            let link = links.number(of: cell.style, in: snapshot)
-            return Checkpoint.Cell(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style, link: link))
+            return Checkpoint.Cell(cell, link: links.number(of: cell.style, in: snapshot))
         }
         while cells.last == .blank { cells.removeLast() }
+    }
+}
+
+extension Checkpoint.Cell {
+    init(_ cell: Terminal.Cell, link: Int? = nil) {
+        self.init(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style, link: link))
     }
 }
 

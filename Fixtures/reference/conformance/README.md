@@ -1,6 +1,6 @@
 # Conformance harness
 
-The harness feeds the same bytes to the [pinned reference emulator](../README.md) and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching. CI also runs the harness against the reference and fails if any generated file would change.
+The harness feeds the same bytes to the [pinned reference emulator](../README.md) and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. It also checks what a person would see. After every write and resize, ThrushCore's screen is drawn the way the renderer draws it, which reuses a row's drawing until the row's generation changes. A cell that would show a stale drawing differs as `drawn[row][column]`. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching. CI also runs the harness against the reference and fails if any generated file would change.
 
 ```sh
 scripts/check-conformance.sh                     # fail if any generated file would change
