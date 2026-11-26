@@ -512,6 +512,11 @@ def main():
                     simulator.sim("spawn", device, "defaults", "write", "com.apple.Accessibility", setting, "-bool", "true")
                 attempt("VoiceOver", check_voiceover, phone, device, endpoint, plan, out, work)
             else:
+                # The simulator streams every log message live, and UIKit logs five render-factory
+                # errors per key each time it lays out a keyboard. Turning that category off keeps
+                # the gate from adding about 1,250 synchronous log sends to every keyboard turn.
+                attempt("quiet keyboard render log", simulator.sim, "spawn", device, "log", "config", "--subsystem",
+                        "com.apple.UIKit", "--category", "UIKBRenderingLog", "--mode", "level:off")
                 attempt("keyboard warm-up", phone.warm_keyboard, "dark")
                 attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
                         options.rotation_only, options.trace_rotation_layout)
