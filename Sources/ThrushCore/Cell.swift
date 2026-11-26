@@ -317,8 +317,8 @@ extension Terminal {
 
         /// Keeps the styles that cells still use, in order, and renumbers the cells to match.
         private mutating func compactStyles() {
-            withUnsafeTemporaryAllocation(of: UInt32.self, capacity: styles.count + 1) { renumbered in
-                renumbered.initialize(repeating: 0)
+            withTemporaryAllocation(of: UInt32.self, capacity: styles.count + 1) { renumbered in
+                renumbered.append(repeating: 0, count: styles.count + 1)
                 for cell in cells[..<length] { renumbered[Int(cell.stylePosition)] = 1 }
                 renumbered[0] = 0
                 var kept = 0
