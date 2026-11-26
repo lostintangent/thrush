@@ -64,7 +64,6 @@ function checkSize(columns, rows) {
 
 /** A copy of the bytes a call left in the output buffer. */
 function output(thrush, length) {
-  if (length === 0) return new Uint8Array();
   return new Uint8Array(thrush.memory.buffer, thrush.thrush_output(), length).slice();
 }
 
