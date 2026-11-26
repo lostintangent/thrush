@@ -63,7 +63,7 @@ extension Terminal {
 
         /// Applies one command's requests in order and returns whether any color changed. A query
         /// reports the color shown at that point.
-        mutating func apply(_ command: TerminalControlFunction.OSC, payload: String, palette: Palette, cursor: RGB,
+        mutating func apply(_ command: ControlFunction.OSC, payload: String, palette: Palette, cursor: RGB,
                             replies: inout [UInt8]) -> Bool {
             var payload = payload
             return payload.withUTF8 { payload in

@@ -7,7 +7,7 @@ private enum Frame: Equatable {
     case osc(Int), dcs(ControlIdentifier, String)
     case put(Unicode.Scalar), end(Bool)
 
-    init(_ action: EscapeParser.Action, scalar: Unicode.Scalar, parameters: borrowing Parameters) {
+    init(_ action: Parser.Action, scalar: Unicode.Scalar, parameters: borrowing Parameters) {
         switch action {
         case .printable: self = .print(scalar)
         case .execute(let byte): self = .execute(byte)
@@ -22,7 +22,7 @@ private enum Frame: Equatable {
 }
 
 private func frames(_ chunks: String..., discardingPayloads: Bool = false) -> [Frame] {
-    var parser = EscapeParser()
+    var parser = Parser()
     var result: [Frame] = []
     for chunk in chunks {
         for scalar in chunk.unicodeScalars {

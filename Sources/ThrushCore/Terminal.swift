@@ -79,7 +79,7 @@ public struct Terminal: Sendable {
     package private(set) var programColors = ProgramColors()
     package private(set) var modes = Modes()
     private(set) var scanner = TextScanner()
-    private(set) var parser = EscapeParser()
+    private(set) var parser = Parser()
     /// The completed window title. An empty title asks the app to use its default.
     package private(set) var title = ""
     /// Text the program copied with OSC 52 that the app hasn't put on the pasteboard yet. Each copy
@@ -147,7 +147,7 @@ public struct Terminal: Sendable {
             let byte = bytes[index]
             // An ASCII byte ends any UTF-8 character left incomplete before it.
             if byte < 0x80, !scanner.isComplete { scanner = TextScanner() }
-            if byte == EscapeParser.escape || !parser.isGround {
+            if byte == Parser.escape || !parser.isGround {
                 readSequence(in: bytes, index: &index, replies: &replies)
             } else if byte < 0x20 {
                 executeControl(byte, replies: &replies)
@@ -188,7 +188,7 @@ public struct Terminal: Sendable {
     /// Prints the text that starts at `index`, up to the next control or the end of the chunk.
     private mutating func printText(in bytes: Span<UInt8>, index: inout Int, replies: inout [UInt8]) {
         let byte = bytes[index]
-        if !printsInRuns || byte == EscapeParser.delete {
+        if !printsInRuns || byte == Parser.delete {
             consume(byte, replies: &replies)
             index += 1
         } else if byte < 0x80 {
@@ -219,7 +219,7 @@ public struct Terminal: Sendable {
     /// A C0 control outside a sequence goes straight to its function. Any of them ends the text run.
     private mutating func executeControl(_ byte: UInt8, replies: inout [UInt8]) {
         followsText = false
-        if let control = TerminalControlFunction.C0(rawValue: byte) { apply(.execute(control), replies: &replies) }
+        if let control = ControlFunction.C0(rawValue: byte) { perform(.c0(control), replies: &replies) }
     }
 
     /// Reads a sequence from `index`: at most one action, or the ASCII payload of a string.
@@ -249,7 +249,7 @@ public struct Terminal: Sendable {
         }
     }
 
-    private static let selectGraphicRendition = ControlIdentifier(UInt8(TerminalControlFunction.CSI.graphicRendition.rawValue))
+    private static let selectGraphicRendition = ControlIdentifier(UInt8(ControlFunction.CSI.graphicRendition.rawValue))
 
     /// Reads one byte the general way. The run and sequence paths above must match it, and `receive`
     /// falls back to it for text that prints one character at a time and for C1 bytes inside a control.
@@ -274,29 +274,29 @@ public struct Terminal: Sendable {
         dispatch(action, replies: &replies)
     }
 
-    private mutating func dispatch(_ action: EscapeParser.Action?, replies: inout [UInt8]) {
+    private mutating func dispatch(_ action: Parser.Action?, replies: inout [UInt8]) {
         if let action {
-            if let function = TerminalControlFunction(action) { apply(function, replies: &replies) }
+            if let function = ControlFunction(action) { perform(function, replies: &replies) }
             followsText = false
         }
-        if let pending = parser.takePendingAction(), let function = TerminalControlFunction(pending) {
-            apply(function, replies: &replies)
+        if let pending = parser.takePendingAction(), let function = ControlFunction(pending) {
+            perform(function, replies: &replies)
         }
     }
 
     /// Applies one named VT function. Screen operations advance the frame generation together below.
-    private mutating func apply(_ function: TerminalControlFunction, replies: inout [UInt8]) {
+    private mutating func perform(_ function: ControlFunction, replies: inout [UInt8]) {
         switch function {
-        case .execute(.backspace): screen.backspace(reverseWraparound: modes.reverseWraparound)
-        case .execute(.horizontalTab): screen.horizontalTab()
-        case .execute(.lineFeed), .execute(.verticalTab), .execute(.formFeed):
+        case .c0(.backspace): screen.backspace(reverseWraparound: modes.reverseWraparound)
+        case .c0(.horizontalTab): screen.horizontalTab()
+        case .c0(.lineFeed), .c0(.verticalTab), .c0(.formFeed):
             if modes.newLine { screen.carriageReturn() }
             screen.lineFeed(style: style)
-        case .execute(.carriageReturn): screen.carriageReturn()
-        case .execute(.shiftIn):
+        case .c0(.carriageReturn): screen.carriageReturn()
+        case .c0(.shiftIn):
             characterSets.invoke(0)
             return
-        case .execute(.shiftOut), .escape(.lockingShift1Right):
+        case .c0(.shiftOut), .escape(.lockingShift1Right):
             characterSets.invoke(1)
             return
         case .escape(.lockingShift2), .escape(.lockingShift2Right):
@@ -336,30 +336,30 @@ public struct Terminal: Sendable {
             screen.resetScrollRegion()
             position(row: 0, column: 0)
         case .escape(.fullReset): fullReset()
-        case .control(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
-        case .control(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
-        case .control(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
-        case .control(.cursorForward), .control(.columnRelative): screen.cursorForward(parser.parameters[0, default: 1])
-        case .control(.cursorBackward): screen.cursorBackward(parser.parameters[0, default: 1])
-        case .control(.cursorNextLine): screen.cursorNextLine(parser.parameters[0, default: 1])
-        case .control(.cursorPrecedingLine): screen.cursorPrecedingLine(parser.parameters[0, default: 1])
-        case .control(.cursorColumn), .control(.columnAbsolute):
+        case .csi(.insertCharacters): screen.insertBlanks(parser.parameters[0, default: 1], style: style)
+        case .csi(.cursorUp): screen.cursorUp(parser.parameters[0, default: 1])
+        case .csi(.cursorDown): screen.cursorDown(parser.parameters[0, default: 1])
+        case .csi(.cursorForward), .csi(.columnRelative): screen.cursorForward(parser.parameters[0, default: 1])
+        case .csi(.cursorBackward): screen.cursorBackward(parser.parameters[0, default: 1])
+        case .csi(.cursorNextLine): screen.cursorNextLine(parser.parameters[0, default: 1])
+        case .csi(.cursorPrecedingLine): screen.cursorPrecedingLine(parser.parameters[0, default: 1])
+        case .csi(.cursorColumn), .csi(.columnAbsolute):
             screen.move(toRow: screen.row, column: parser.parameters[0, default: 1] - 1)
-        case .control(.repeatPrecedingCharacter):
+        case .csi(.repeatPrecedingCharacter):
             // REP repeats a character only when it was printed right before the sequence.
             guard followsText else { return }
             screen.repeatPrecedingCharacter(parser.parameters[0, default: 1], style: style,
                                             wraparound: modes.wraparound, insert: modes.insert)
-        case .control(.rowAbsolute):
+        case .csi(.rowAbsolute):
             position(row: parser.parameters[0, default: 1] - 1, column: screen.column)
-        case .control(.rowRelative):
+        case .csi(.rowRelative):
             // Unlike CUD, VPR passes the bottom margin, unless origin mode keeps the cursor within it.
             position(row: screen.row - originTop + parser.parameters[0, default: 1], column: screen.column)
-        case .control(.cursorPosition), .control(.horizontalVerticalPosition):
+        case .csi(.cursorPosition), .csi(.horizontalVerticalPosition):
             position(row: parser.parameters[0, default: 1] - 1, column: parser.parameters[1, default: 1] - 1)
-        case .control(.forwardTab): screen.horizontalTab(parser.parameters[0, default: 1])
-        case .control(.backwardTab): screen.backwardTab(parser.parameters[0, default: 1])
-        case .control(.tabClear):
+        case .csi(.forwardTab): screen.horizontalTab(parser.parameters[0, default: 1])
+        case .csi(.backwardTab): screen.backwardTab(parser.parameters[0, default: 1])
+        case .csi(.tabClear):
             // TBC 0 clears the stop at the cursor and TBC 3 clears every stop.
             switch parser.parameters[0] {
             case 0: screen.clearTabStop()
@@ -367,48 +367,48 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .control(.eraseInDisplay), .control(.selectiveEraseInDisplay):
+        case .csi(.eraseInDisplay), .csi(.selectiveEraseInDisplay):
             if parser.parameters[0] == 3 {
                 screen.eraseHistory()
             } else if let range = EraseRange(rawValue: parser.parameters[0]) {
                 screen.eraseDisplay(range, style: style)
             }
-        case .control(.eraseInLine), .control(.selectiveEraseInLine):
+        case .csi(.eraseInLine), .csi(.selectiveEraseInLine):
             if let range = EraseRange(rawValue: parser.parameters[0]) { screen.eraseLine(range, style: style) }
-        case .control(.insertLines): screen.insertLines(parser.parameters[0, default: 1], style: style)
-        case .control(.deleteLines): screen.deleteLines(parser.parameters[0, default: 1], style: style)
-        case .control(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
-        case .control(.scrollUp): screen.scrollUp(parser.parameters[0, default: 1], style: style)
-        case .control(.scrollDown): screen.scrollDown(parser.parameters[0, default: 1])
-        case .control(.eraseCharacters): screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
-        case .control(.insertColumns):
+        case .csi(.insertLines): screen.insertLines(parser.parameters[0, default: 1], style: style)
+        case .csi(.deleteLines): screen.deleteLines(parser.parameters[0, default: 1], style: style)
+        case .csi(.deleteCharacters): screen.deleteCharacters(parser.parameters[0, default: 1], style: style)
+        case .csi(.scrollUp): screen.scrollUp(parser.parameters[0, default: 1], style: style)
+        case .csi(.scrollDown): screen.scrollDown(parser.parameters[0, default: 1])
+        case .csi(.eraseCharacters): screen.eraseCharacters(parser.parameters[0, default: 1], style: style)
+        case .csi(.insertColumns):
             screen.editColumns(.insert, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .control(.deleteColumns):
+        case .csi(.deleteColumns):
             screen.editColumns(.delete, at: screen.column, count: parser.parameters[0, default: 1], style: style)
-        case .control(.scrollLeft): screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
-        case .control(.scrollRight): screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
-        case .control(.primaryDeviceAttributes):
+        case .csi(.scrollLeft): screen.editColumns(.delete, at: 0, count: parser.parameters[0, default: 1], style: style)
+        case .csi(.scrollRight): screen.editColumns(.insert, at: 0, count: parser.parameters[0, default: 1], style: style)
+        case .csi(.primaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.primaryDeviceAttributes.utf8) }
             return
-        case .control(.secondaryDeviceAttributes):
+        case .csi(.secondaryDeviceAttributes):
             if parser.parameters[0] == 0 { replies.append(contentsOf: Reply.secondaryDeviceAttributes.utf8) }
             return
-        case .control(.setMode):
+        case .csi(.setMode):
             setModes(enabled: true)
             return
-        case .control(.resetMode):
+        case .csi(.resetMode):
             setModes(enabled: false)
             return
-        case .control(.setPrivateMode):
+        case .csi(.setPrivateMode):
             setPrivateModes(enabled: true, replies: &replies)
             return
-        case .control(.resetPrivateMode):
+        case .csi(.resetPrivateMode):
             setPrivateModes(enabled: false, replies: &replies)
             return
-        case .control(.graphicRendition):
+        case .csi(.graphicRendition):
             style.applySGR(&parser.parameters)
             return
-        case .control(.deviceStatusReport):
+        case .csi(.deviceStatusReport):
             // DSR 5 asks whether the terminal is working, and DSR 6 asks for the cursor position.
             switch parser.parameters[0] {
             case 5: replies.append(contentsOf: Reply.operatingStatus.utf8)
@@ -416,7 +416,7 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .control(.privateDeviceStatusReport):
+        case .csi(.privateDeviceStatusReport):
             // DECDSR 6 asks for the cursor position, and 996 asks whether the theme is dark or light.
             switch parser.parameters[0] {
             case 6: replies.append(contentsOf: Reply.privateCursorPosition(row: screen.row - originTop, column: screen.column).utf8)
@@ -424,26 +424,26 @@ public struct Terminal: Sendable {
             default: break
             }
             return
-        case .control(.requestMode):
+        case .csi(.requestMode):
             let mode = parser.parameters[0]
             replies.append(contentsOf: Reply.modeReport(mode, modeState(mode), isPrivate: false).utf8)
             return
-        case .control(.requestPrivateMode):
+        case .csi(.requestPrivateMode):
             let mode = parser.parameters[0]
             replies.append(contentsOf: Reply.modeReport(mode, privateModeState(mode), isPrivate: true).utf8)
             return
-        case .control(.cursorStyle): setCursorStyle(parser.parameters[0])
-        case .control(.softReset): softReset()
-        case .control(.scrollMargins):
+        case .csi(.cursorStyle): setCursorStyle(parser.parameters[0])
+        case .csi(.softReset): softReset()
+        case .csi(.scrollMargins):
             let top = parser.parameters[0, default: 1]
             let bottom = min(parser.parameters[1, default: size.rows], size.rows)
             guard top < bottom else { return }
             screen.setScrollRegion(top: top - 1, bottom: bottom - 1)
             position(row: 0, column: 0)
-        case .control(.saveCursor):
+        case .csi(.saveCursor):
             saveCursor()
             return
-        case .control(.restoreCursor): restoreCursor()
+        case .csi(.restoreCursor): restoreCursor()
         case .command(let command):
             stringHandler.start(command)
             return

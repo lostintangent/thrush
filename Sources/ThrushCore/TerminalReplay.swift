@@ -256,7 +256,7 @@ extension Terminal {
 
 // A socket can detach in the middle of a control or scalar. End the repaint with an
 // equivalent unfinished prefix so the next live PTY byte completes the same operation.
-private extension EscapeParser {
+private extension Parser {
     func replayPrefix(string: ControlStringHandler) -> String {
         if isGround { return "" }
         let esc = "\u{1b}"

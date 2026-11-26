@@ -19,7 +19,7 @@ struct ControlIdentifier: Hashable, Sendable {
 
 /// Frames ASCII bytes and decoded Unicode scalars into VT controls.
 /// String payloads are forwarded as they arrive.
-struct EscapeParser: Sendable {
+struct Parser: Sendable {
     static let escape: UInt8 = 0x1b
     static let delete: UInt8 = 0x7f
 

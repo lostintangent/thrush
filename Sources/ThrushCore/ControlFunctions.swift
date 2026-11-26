@@ -1,6 +1,6 @@
 /// Names the wire identifiers for supported terminal functions. Dispatch uses those names
 /// to connect each control sequence to its effect on the screen, modes or replies.
-enum TerminalControlFunction {
+enum ControlFunction {
     enum C0: UInt8 {
         /// BS, 0x08.
         case backspace = 0x08
@@ -202,19 +202,19 @@ enum TerminalControlFunction {
         case osc(OSC), dcs(DCS)
     }
 
-    case execute(C0)
+    case c0(C0)
     case escape(Escape)
     /// SCS, ESC I F. The intermediate names the slot and the final names the set.
     case designate(Terminal.CharacterSet, slot: Int)
-    case control(CSI)
+    case csi(CSI)
     case command(ControlString)
     case ignoredString, stringPut(Unicode.Scalar), stringEnd(success: Bool)
 
-    init?(_ action: EscapeParser.Action) {
+    init?(_ action: Parser.Action) {
         switch action {
         case .execute(let byte):
             if let function = C0(rawValue: byte) {
-                self = .execute(function)
+                self = .c0(function)
             } else if let function = Escape(c1: byte) {
                 self = .escape(function)
             } else {
@@ -230,7 +230,7 @@ enum TerminalControlFunction {
             }
         case .csi(let id):
             guard let function = CSI(rawValue: id.rawValue) else { return nil }
-            self = .control(function)
+            self = .csi(function)
         case .oscStart(let id):
             self = OSC(rawValue: id).map { .command(.osc($0)) } ?? .ignoredString
         case .dcsStart(let id):

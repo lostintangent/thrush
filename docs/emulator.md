@@ -18,10 +18,10 @@ ThrushCore turns shell output into a screen and turns keys into shell input. Mea
 
 ```
 bytes ─┬─ text ─────────────▶ TextScanner ─┬─ printable text ─▶ Screen.writeASCII / writeRun / write
-       │                                   └─ C1 control ─────▶ EscapeParser
-       ├─ lone C0 control ───────────────────────────────────────────▶ Terminal.apply
-       └─ ESC or inside a sequence ─▶ EscapeParser ─┬─ complete SGR ─▶ Style.applySGR
-                                                    └─ other ────────▶ Terminal.apply
+       │                                   └─ C1 control ─────▶ Parser
+       ├─ lone C0 control ───────────────────────────────────────────▶ Terminal.perform
+       └─ ESC or inside a sequence ─▶ Parser ─┬─ complete SGR ─▶ Style.applySGR
+                                              └─ other ────────▶ Terminal.perform
 ```
 
 `Terminal.receive(_:)` is a loop that makes this choice from one byte and the parser's state, then reads as far as that kind of input goes.
@@ -29,8 +29,8 @@ bytes ─┬─ text ─────────────▶ TextScanner ─�
 | Layer | Knows | Doesn't know |
 | --- | --- | --- |
 | `TextScanner` | Where text ends. It finds printable ASCII runs, decodes other text into scalars that carry their widths, carries a split scalar across chunk boundaries and discards malformed bytes, so an interrupted prefix such as `E2 82` before `Z` leaves only `Z`. | What any control does. |
-| `EscapeParser` | Where a VT control starts and ends. It identifies the header and final byte, keeps the parameter bytes as they arrive and streams control-string payloads to `ControlStringHandler`, which enforces the size limit. | What any sequence does. Adding a function never changes it. |
-| `Terminal.apply` | Which named function a sequence is, its parameter defaults and which screen operation or mode it drives. | How the grid stores cells. |
+| `Parser` | Where a VT control starts and ends. It identifies the header and final byte, keeps the parameter bytes as they arrive and streams control-string payloads to `ControlStringHandler`, which enforces the size limit. | What any sequence does. Adding a function never changes it. |
+| `Terminal.perform` | Which named function a sequence is, its parameter defaults and which screen operation or mode it drives. | How the grid stores cells. |
 | `Screen` | Cursor, margins, cells, wraps, history and both buffers, through intention-revealing operations such as `insertBlanks(_:)` and `deleteCharacters(_:)`. | Escape sequences. |
 
 `Terminal.CharacterSet` translates printable ASCII using the mapping the program selected, such as ASCII or DEC line drawing. `Terminal.CharacterSets` holds the four slots G0 through G3 and tracks which mapping is active.
@@ -50,12 +50,12 @@ Here is how ThrushCore turns them into cells.
 1. **The chunk arrives.** The session calls `Terminal.receive(_:)` with a `Span` over the bytes. Each turn of its loop reads a run of text, a lone control or a sequence. The first byte is ESC, which starts a sequence, so `readSequence` hands the chunk to the parser. The parser can read it directly because every ASCII byte is already a complete code point.
 2. **The parser enters a control sequence.** ESC followed by `[` introduces CSI, the control sequence introducer. The parser clears its previous header. A chunk can end immediately after ESC, after `[`, or between digits. In each case, the parser retains what it needs for the next read.
 3. **The parser finds the final byte.** It scans past the ASCII digits `3` and `2` to `m`. The whole unprefixed command is present, so the parser returns to ground and lends the range containing `32` in this chunk instead of storing the digits. If the read ended between the digits, it would keep the first digit in `Parameters` and append the rest on the next read, so a split command reads exactly like a whole one.
-4. **The style reads the operands.** The parser doesn't know what `m` means. `readSequence` sees the graphic rendition command, SGR, and passes those two bytes straight to `style.applySGR`. Any other command, such as cursor position, copies the lent bytes into `Parameters` and goes to `apply`. For a command split across reads, the parser dispatches `.control(.graphicRendition)` with the bytes it kept.
+4. **The style reads the operands.** The parser doesn't know what `m` means. `readSequence` sees the graphic rendition command, SGR, and passes those two bytes straight to `style.applySGR`. Any other command, such as cursor position, copies the lent bytes into `Parameters` and goes to `perform`. For a command split across reads, the parser dispatches `.csi(.graphicRendition)` with the bytes it kept.
 5. **The foreground changes.** In either case the style reads 32 and selects palette color 2, green. The change affects future cells, so the frame generation stays the same.
 6. **Text takes the fast path.** Back in `receive`, the parser is in the ground state and `~` is printable, so `printText` reads a run. `TextScanner.endOfASCII` finds where the run stops, at the next ESC. A long run is checked 16 bytes at a time with SIMD. `Screen.writeASCII` gets those five bytes as one `Span`. It wraps at the right margin if needed, then `Row.writeASCII` stores each byte as a cell with the green style. The cursor advances five columns and the generation goes up by one, so the renderer knows to draw.
 7. **The rest repeats the pattern.** `ESC [ 0 m` resets the style through the same steps, and ` $ ` is one more run in the default style.
 
-When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `apply` would append `ESC [ 1 ; 9 R` to the replies, which `receive` returns for the session to send to the shell.
+When a program asks a question, the answer comes back from the same call. If the chunk ended with `ESC [ 6 n`, a cursor position request, `perform` would append `ESC [ 1 ; 9 R` to the replies, which `receive` returns for the session to send to the shell.
 
 Keys flow the other way. Pressing Up calls `Terminal.encode(.key(.up))`. The key table maps Up to cursor final `A`, so it sends `ESC [ A`. If the program enabled application cursor keys with `ESC [ ? 1 h`, it sends `ESC O A` instead.
 
@@ -69,7 +69,7 @@ Most output is text, so text never enters the state machine.
 - **Printing fills cells in bulk.** The screen writes an ASCII run one row at a time. For non-ASCII text it stores the decoded glyphs that fit at or past the end of the current row's cells in use in one loop, along with continuation cells for double-width characters. The ordinary scalar writer handles overwrites, combining marks and right-margin wraps. A run advances the screen and terminal generations once per scalar, just as individual writes do.
 - **Unicode widths take two lookups.** The high bits of a scalar select a 256-scalar page. The low bits select its two-bit width within that page. The generated Unicode 11 table shares identical pages across the code space. Its 4,352 one-byte page indices and 99 distinct 64-byte pages occupy 10,688 bytes.
 - **A lone control has a direct path.** In the ground state, a C0 function such as carriage return or line feed goes straight to its named handler. Like any ASCII byte, it first abandons a scalar left half decoded. Inside a control sequence, the parser handles the byte in context.
-- **The state machine is data.** [The transition table](../Sources/ThrushCore/EscapeParser+Transitions.swift) gives the next state and action for a state and byte in one load. Each parser holds the table, because reading the lazy static calls out to `swift_once` on every lookup for tens of milliseconds after its first use. When one scalar both ends a string and executes another control, `EscapeParser.PendingAction` holds the second action until the parser delivers the first.
+- **The state machine is data.** [The transition table](../Sources/ThrushCore/Parser+Transitions.swift) gives the next state and action for a state and byte in one load. Each parser holds the table, because reading the lazy static calls out to `swift_once` on every lookup for tens of milliseconds after its first use. When one scalar both ends a string and executes another control, `Parser.PendingAction` holds the second action until the parser delivers the first.
 - **A complete header lends its parameters.** When one span holds a whole `ESC [ … final` with only digits, colons and semicolons, the parser returns the identifier with the range of the parameter bytes and stores nothing. SGR reads one operand at a time from those bytes, converting the digits as it applies the attributes in order. Copying them into `Parameters` first took 3% more instructions on the SGR workload. Every other function copies the lent bytes first, the same work as a header that arrives in pieces. A cancelled header never reaches the style handler.
 - **Parameters stay as bytes.** `Parameters` keeps the digits, colons and semicolons as they arrived, and a function converts only the numbers it reads, by position. A header split across reads appends to the same bytes, so it reads exactly like a whole one. A header too long for the 1 KiB buffer compacts to what a reader can see, dropping leading zeros, digits past saturation and fields past the limits.
 - **Dispatch carries an identifier.** Functions other than a lent SGR read their parameters from fixed storage. An early draft that carried parameters in an enum payload ran about 12 times slower on control-heavy output.
@@ -118,8 +118,8 @@ When a reader resumes, `Terminal.ReplayWriter` writes VT bytes that redraw the s
 ## Adding a control function
 
 1. Add cases for the function to the conformance corpus, with omitted and zero parameters, its edges and a delivery split inside the sequence. Run `scripts/check-conformance.sh --write` to record the reference’s cells, cursor, modes and replies. The new cases join the known gaps until Thrush matches them. [Conformance harness](../Fixtures/reference/conformance/README.md)
-2. Add the named function to the appropriate family in [TerminalControlFunctions.swift](../Sources/ThrushCore/TerminalControlFunctions.swift). For example, `TerminalControlFunction.CSI.cursorForward` has wire value `0x43` and the comment `CUF, CSI Ps C`.
-3. Add its case in [Terminal.apply](../Sources/ThrushCore/Terminal.swift). The CUF handler calls `screen.cursorForward(parser.parameters[0, default: 1])`. The same subscript handles both missing and zero counts. Implement the cursor or row operation in [Screen.swift](../Sources/ThrushCore/Screen.swift). For a string command, route its OSC number to a payload handler and commit the result only on successful termination.
+2. Add the named function to the appropriate family in [ControlFunctions.swift](../Sources/ThrushCore/ControlFunctions.swift). For example, `ControlFunction.CSI.cursorForward` has wire value `0x43` and the comment `CUF, CSI Ps C`.
+3. Add its case in [Terminal.perform](../Sources/ThrushCore/Terminal.swift). The CUF handler calls `screen.cursorForward(parser.parameters[0, default: 1])`. The same subscript handles both missing and zero counts. Implement the cursor or row operation in [Screen.swift](../Sources/ThrushCore/Screen.swift). For a string command, route its OSC number to a payload handler and commit the result only on successful termination.
 4. Run `scripts/check-conformance.sh --write --report gaps.md` so the matching cases leave the known gaps. The report shows anything that still differs. Then run `swift test`, `swift run -c release ThrushBench` and `python3 scripts/check-benchmark-report.py`. The benchmark checks each reference checkpoint before measuring the recording.
 
 ## Adding a key

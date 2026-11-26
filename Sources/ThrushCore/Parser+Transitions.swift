@@ -2,7 +2,7 @@
 // The state diagram by Paul Williams describes DEC parser transitions.
 // https://vt100.net/emu/dec_ansi_parser
 
-extension EscapeParser {
+extension Parser {
     enum State: UInt8, CaseIterable {
         case ground, escape, escapeIntermediate
         case csiEntry, csiParameters, csiIntermediate, csiIgnore
