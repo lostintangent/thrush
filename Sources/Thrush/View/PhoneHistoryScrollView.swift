@@ -31,6 +31,10 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var programModifiers: Terminal.Input.Modifiers = []
     private var pageSentToProgram: (generation: UInt64, deadline: CFTimeInterval)?
     private let reading = PhoneAccessibleText()
+    private var panStart: CGFloat = 0
+    /// UIKit's measure of the last pan as the finger lifted: seconds since 1970, the points the content moved
+    /// under the finger, and the velocity in points per second that UIKit's deceleration glides on from.
+    private(set) var lastRelease: (time: Double, travel: CGFloat, velocity: CGFloat)?
 
     init(terminal: TerminalMetalView) {
         self.terminal = terminal
@@ -224,6 +228,12 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         programRemainder = 0
         programCell = terminal.cell(at: scrollView.panGestureRecognizer.location(in: self)) ?? programCell
         programModifiers = terminalModifiers(scrollView.panGestureRecognizer.modifierFlags)
+        panStart = scrollView.contentOffset.y
+    }
+
+    func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint,
+                                   targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        lastRelease = (Date.now.timeIntervalSince1970, scrollView.contentOffset.y - panStart, velocity.y * 1000)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {

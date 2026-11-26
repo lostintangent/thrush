@@ -32,6 +32,8 @@ enum PhoneCapture {
         var toolbar: Toolbar?
         var reducesMotion = false
         var historyOffset = 0
+        /// Each swipe's lift so far: seconds since 1970, points moved under the finger, and points per second.
+        var scrollReleases: [[Double]] = []
     }
 
     /// UIKit can move the completed drawable or its keyboard without changing a pixel inside it.
@@ -95,6 +97,7 @@ enum PhoneCapture {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
         let accessibility = PhoneAccessibilityCapture(scene: session.options.scene, view: view)
+        var releases: [[Double]] = []
         let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak view, weak root] in
             guard let session, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let appearance = view.resolvedTheme == .slateDark ? "dark" : view.resolvedTheme == .slateLight ? "light" : "custom"
@@ -122,6 +125,11 @@ enum PhoneCapture {
             if session.options.checksToolbar { state.toolbar = PhoneToolbarProof.measure(view) }
             state.reducesMotion = view.reducesMotion
             state.historyOffset = view.historyOffset
+            // Every swipe draws before the next one lifts, so each lift is seen here at least once.
+            if let lift = view.lastScrollRelease, lift.time != releases.last?.first {
+                releases.append([lift.time, lift.travel, lift.velocity])
+            }
+            state.scrollReleases = releases
             let drawing = Drawing(state: state, generation: view.snapshot?.generation, size: view.snapshot?.size,
                                   drawableSize: view.drawableSize, fontSize: view.fontSize,
                                   theme: view.resolvedTheme, historyOffset: view.historyOffset)

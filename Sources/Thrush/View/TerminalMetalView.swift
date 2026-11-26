@@ -269,6 +269,8 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     }
     lazy var phoneInput = PhoneTerminalInput(terminal: self)
     private lazy var historyScrollView = PhoneHistoryScrollView(terminal: self)
+    /// UIKit's measure of the last swipe as it lifted, which captures check each glide against.
+    package var lastScrollRelease: (time: Double, travel: CGFloat, velocity: CGFloat)? { historyScrollView.lastRelease }
     #endif
     private var received: Double?
     private var active = true
