@@ -168,7 +168,7 @@ extension Terminal {
     struct Buffer: Sendable {
         var size: Size
         var rows: [Row]
-        var order: [Int]
+        var order: [Int] = []
         var head = 0
         var history = History()
         var row = 0
@@ -185,18 +185,18 @@ extension Terminal {
             self.alternate = alternate
             history = History(capacity: historyCapacity)
             rows = Array(repeating: Row(columns: size.columns, generation: generation, style: style), count: size.rows)
-            order = Array(rows.indices)
             tabs = TabStops(columns: size.columns)
             scrollBottom = size.rows - 1
         }
 
         func index(of row: Int) -> Int {
-            order[position(of: row)]
+            let position = position(of: row)
+            return order.isEmpty ? position : order[position]
         }
 
         private func position(of row: Int) -> Int {
             let offset = head + row
-            return offset >= order.count ? offset - order.count : offset
+            return offset >= rows.count ? offset - rows.count : offset
         }
 
         /// Shares the row array while every row sits in its own slot.
@@ -262,6 +262,7 @@ extension Terminal {
         /// Moves the rows in `region` down by `offset`, or up when it's negative, and wraps the rows pushed
         /// past one margin around to the other.
         private mutating func rotate(_ region: ClosedRange<Int>, by offset: Int) {
+            if order.isEmpty { order = Array(rows.indices) }
             if head + region.lowerBound < order.count, head + region.upperBound >= order.count {
                 // The region crosses the end of the ring, so put the slots back in screen order first.
                 order.rotate(order.indices, by: -head)

@@ -113,7 +113,7 @@ extension Terminal.Buffer {
         history = Terminal.History(capacity: retained)
         for var line in lines[max(0, historyEnd - retained)..<historyEnd] { history.append(&line) }
         rows = Array(lines[historyEnd...])
-        order = Array(rows.indices)
+        order = []
         head = 0
         size = newSize
         scrollTop = 0
