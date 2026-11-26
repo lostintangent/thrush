@@ -127,12 +127,18 @@ extension Terminal {
             storageColumns = columns
             self.generation = generation
             isWrapped = wrapped
-            // A snapshot that still shares the cells or styles keeps them. This row copies the cells
-            // when it next writes, and its styles start over in new storage.
+            // A snapshot that still shares the cells, styles or clusters keeps them. This row copies
+            // the cells when it next writes, and its styles and clusters start over in new storage.
             length = 0
             if !styles.isEmpty { styles.removeAll(keepingCapacity: true) }
-            if !clusters.isEmpty { clusters.removeAll() }
+            if !clusters.isEmpty { emptyClusters() }
             fill(with: style)
+        }
+
+        // Out of line, so clearing a row without clusters stays small.
+        @inline(never)
+        private mutating func emptyClusters() {
+            clusters.removeAll(keepingCapacity: true)
         }
 
         // Default blanks stay implied. A blank row in any other style stores every column.
@@ -372,8 +378,8 @@ extension Terminal {
             if cells[base].scalar == 0 {
                 cells[base].glyph = scalar.value
             } else {
-                if clusters[base] == nil { clusters[base] = String(Unicode.Scalar(cells[base].scalar)!) }
-                clusters[base]!.unicodeScalars.append(scalar)
+                let first = cells[base].scalar
+                clusters[base, default: String(Unicode.Scalar(first)!)].unicodeScalars.append(scalar)
             }
         }
 
