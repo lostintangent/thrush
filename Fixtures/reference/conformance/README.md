@@ -8,7 +8,7 @@ scripts/check-conformance.sh --write             # regenerate the cases and list
 scripts/check-conformance.sh --report gaps.md    # also write the ranked gap report
 ```
 
-The script installs the reference from its lockfile, builds ThrushConformance in release and runs the harness, then the Swift conformance tests.
+The script installs the reference from its lockfile, builds ThrushConformance in release and runs the harness, then the [replay check](#replays) and the Swift conformance tests.
 
 ## Corpora
 
@@ -30,6 +30,21 @@ The `zsh-clear` program seeds 38 numbered lines on an 80 × 24 terminal before e
 The `neovim` and `helix` programs need `nvim` or `hx` on the PATH and Xcode's `sourcekit-lsp`, which reports two errors in a small Swift file. `fzf` and `btop` need those commands. The `claude` and `copilot` programs need Claude Code or Copilot CLI on the PATH and no account: the recorder serves a scripted model on a local port, which reads a note, edits it and answers in Markdown, so the agents run their real permission, diff and Markdown views without a network or cost.
 
 The `decorations` program needs ripgrep's `rg` on the PATH. rg links each match to its file's real path and host, so the scenario searches a project at `/tmp/thrush-decorations` and reports the host as `thrush`, which keeps the links the same on every Mac. Vim leaves underline styles and colors off for `xterm-256color`, so the scenario turns them on the way configurations do, first with 256 colors and then with true color.
+
+## Replays
+
+A client that falls behind or reconnects gets ThrushCore's [replay](../../../docs/protocol.md#replay) in place of the output it missed, so a replay has to rebuild everything the live terminal holds. [replays.mjs](replays.mjs) checks that for every recorded program. ThrushCore takes its replay after every write and resize, and a terminal resumed from it, in ThrushCore and in the reference, has to match a live terminal of its own kind right after the replay, after every later step and at the end. Right after the replay and at the end, the comparison includes history and the normal screen behind the alternate one.
+
+A checkpoint can't show everything a replay carries, such as the saved cursor, tab stops, character sets, keyboard flags or the colors a program set. So a probe runs on a copy of each terminal. It asks for that state or prints what reveals it, on the screen the program is on and then on each screen, in parts that each end with a visible checkpoint. ThrushCore is probed right after the replay and at the end. The reference can't be copied, so it's probed only at the end. The only reply a replay may produce is the focus report that turning on mode 1004 sends, which tells the program whether the resumed client has focus.
+
+[replay-gaps.json](replay-gaps.json) lists the programs whose resumed terminals differ, each with a reason written by hand. For each emulator, it lists the steps whose replays differ in the same way together, with where they first differ and how. The check regenerates the lists and keeps the reasons.
+
+```sh
+bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance            # regenerate the gaps
+bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance --check    # fail if they would change
+```
+
+`--reference <directory>` resumes the reference's terminals in the `@xterm/headless` and `@xterm/addon-unicode11` that resolve from another directory, such as an app's, and `--options <file>` starts them with the options in a JSON file instead of the pin's. Either holds that reference to the listed gaps, so the output shows where it resumes differently.
 
 ## The gap report
 

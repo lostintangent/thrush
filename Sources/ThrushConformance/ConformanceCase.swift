@@ -39,16 +39,7 @@ struct ConformanceCase: Decodable, Sendable {
         var drawing = Drawing()
         var checkpoints: [Checkpoint] = []
         for step in steps {
-            switch step {
-            case .write(let bytes):
-                replies += terminal.write(bytes)
-            case .resize(let size):
-                terminal.resize(to: size)
-            case .focus(let focused):
-                guard terminal.isFocused != focused else { continue }
-                terminal.isFocused = focused
-                replies += terminal.encode(.focus(focused))
-            case .checkpoint(let name, let includesHistory):
+            if case .checkpoint(let name, let includesHistory) = step {
                 var checkpoint = Checkpoint(terminal, name: name, includesHistory: includesHistory, replies: replies)
                 checkpoint.misdrawn = drawing.misdrawn
                 checkpoints.append(checkpoint)
@@ -56,6 +47,7 @@ struct ConformanceCase: Decodable, Sendable {
                 replies = []
                 continue
             }
+            replies += terminal.perform(step)
             drawing.draw(terminal.snapshot())
         }
         return checkpoints
@@ -93,7 +85,7 @@ struct ConformanceCase: Decodable, Sendable {
         }
     }
 
-    private var thrushPalette: Terminal.Palette {
+    var thrushPalette: Terminal.Palette {
         guard let palette else { return .default }
         func rgb(_ text: String) -> Terminal.RGB {
             let value = UInt32(text.dropFirst(), radix: 16) ?? 0
@@ -102,6 +94,24 @@ struct ConformanceCase: Decodable, Sendable {
         }
         return Terminal.Palette(foreground: rgb(palette.foreground), background: rgb(palette.background),
                                 ansi: palette.ansi.map(rgb))
+    }
+}
+
+extension Terminal {
+    /// Performs a step as the host would and returns the replies. A checkpoint performs nothing.
+    mutating func perform(_ step: ConformanceCase.Step) -> [UInt8] {
+        switch step {
+        case .write(let bytes):
+            return write(bytes)
+        case .resize(let size):
+            resize(to: size)
+        case .focus(let focused) where focused != isFocused:
+            isFocused = focused
+            return encode(.focus(focused))
+        case .focus, .checkpoint:
+            break
+        }
+        return []
     }
 }
 

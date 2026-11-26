@@ -40,10 +40,15 @@ export class Thrush {
 
   /** Thrush's checkpoints, differences and readable report, or `{ crashed }` when ThrushCore traps. */
   run(testCase, expected) {
+    return this.request(encodeCase(testCase, expected));
+  }
+
+  /** Sends one request ConformanceServer.swift reads, and resolves with its result or `{ crashed }`. */
+  request(request) {
     if (!this.#process) this.#start();
     return new Promise(resolve => {
       this.#pending.push({ resolve });
-      this.#process.stdin.write(JSON.stringify(encodeCase(testCase, expected)) + '\n');
+      this.#process.stdin.write(JSON.stringify(request) + '\n');
     });
   }
 

@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join, resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
 
@@ -27,9 +28,22 @@ export const { Terminal } = require('@xterm/headless');
 export const { Unicode11Addon } = require('@xterm/addon-unicode11');
 
 /** A headless reference terminal. `overrides` replaces options, such as the comparison's history length. */
-export function headless(columns, rows, overrides = {}) {
-  const t = new Terminal({ ...options, ...overrides, cols: columns, rows });
-  t.loadAddon(new Unicode11Addon());
-  t.unicode.activeVersion = reference.unicode;
-  return t;
+export const headless = factory({ Terminal, Unicode11Addon }, options);
+
+/**
+ * Makes headless terminals like `headless` from another install: the `@xterm/headless` and
+ * `@xterm/addon-unicode11` that resolve from `directory`, started with `options` in place of the pin's.
+ */
+export function installed(directory, options) {
+  const require = createRequire(join(resolve(directory), 'package.json'));
+  return factory({ ...require('@xterm/headless'), ...require('@xterm/addon-unicode11') }, options);
+}
+
+function factory({ Terminal, Unicode11Addon }, options) {
+  return (columns, rows, overrides = {}) => {
+    const t = new Terminal({ ...options, ...overrides, cols: columns, rows });
+    t.loadAddon(new Unicode11Addon());
+    t.unicode.activeVersion = reference.unicode;
+    return t;
+  };
 }

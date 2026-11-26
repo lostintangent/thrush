@@ -1,7 +1,9 @@
 #!/bin/sh
 # Checks ThrushCore against the pinned reference emulator. Every conformance case replays through the
 # reference and through a release build of ThrushConformance, and the check fails if a generated case,
-# known gap or reference defect would change. Then the Swift conformance tests run.
+# known gap or reference defect would change. Then a terminal resumes from ThrushCore's replay after
+# every write and resize of each recorded program, and the check fails if a replay gap would change.
+# Then the Swift conformance tests run.
 #
 #   scripts/check-conformance.sh [--write] [--report <gaps.md>]
 #
@@ -25,4 +27,5 @@ bun install --cwd Fixtures/reference --frozen-lockfile --silent
 swift build --product ThrushConformance -c release
 thrush="$(swift build -c release --show-bin-path)/ThrushConformance"
 bun Fixtures/reference/conformance/harness.mjs --thrush "$thrush" $check ${report:+--report "$report"}
+bun Fixtures/reference/conformance/replays.mjs --thrush "$thrush" $check
 swift test --filter ThrushConformanceTests

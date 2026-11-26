@@ -9,8 +9,9 @@ export { reference as description } from '../reference.mjs';
 const mouseTracking = { none: 'off', x10: 'x10', vt200: 'press', drag: 'drag', any: 'all' };
 const mouseEncoding = { DEFAULT: 'default', SGR: 'sgr', SGR_PIXELS: 'sgrPixels' };
 
-export function create([columns, rows], palette) {
-  const t = terminal(columns, rows, palette);
+/** A reference terminal for a case. `make` supplies the headless terminal, such as one from another install. */
+export function create([columns, rows], palette, make) {
+  const t = terminal(columns, rows, palette, make);
   t.options.logLevel = 'off'; // Malformed input is part of the corpus, and logging changes nothing else.
   return t;
 }
@@ -43,36 +44,50 @@ export function registered() {
  */
 export function run(testCase, { observe = false } = {}) {
   const t = create(testCase.size, testCase.palette);
-  let replies = '', error;
-  t.onData(data => replies += Buffer.from(data, 'utf8').toString('latin1'));
-  t.onBinary(data => replies += data);
+  const replies = collect(t);
+  let error;
   const observer = observe ? instrument(t) : undefined;
-  const writes = t._core._writeBuffer;
   const checkpoints = [], functions = [];
   const steps = testCase.steps.at(-1)?.checkpoint === 'end' ? testCase.steps : [...testCase.steps, { checkpoint: 'end' }];
   for (const step of steps) {
-    if (step.write) {
-      try {
-        writes.writeSync(step.write);
-      } catch (thrown) {
-        error ??= `${thrown.name}: ${thrown.message}`;
-        writes._isSyncWriting = false;
-        writes._writeBuffer.length = 0;
-        writes._callbacks.length = 0;
-      }
-      if (observer) functions.push(observer.names.splice(0));
-    } else if (step.resize) {
-      t.resize(...step.resize);
-    } else if (step.focus !== undefined) {
-      setFocus(t, step.focus);
-    } else if (step.checkpoint) {
-      checkpoints.push({ ...state(t, step.checkpoint, step.scope, replies), ...(error && { error }) });
-      replies = '';
+    if (step.checkpoint) {
+      checkpoints.push({ ...state(t, step.checkpoint, step.scope, replies()), ...(error && { error }) });
       error = undefined;
+      continue;
     }
+    error ??= perform(t, step);
+    if (step.write && observer) functions.push(observer.names.splice(0));
   }
   t.dispose();
   return observe ? { checkpoints, functions, identities: observer.identities } : checkpoints;
+}
+
+/** Applies a write, resize or focus step, and returns what xterm threw, if anything. */
+export function perform(t, step) {
+  if (step.write) return write(t, step.write);
+  if (step.resize) t.resize(...step.resize);
+  else if (step.focus !== undefined) setFocus(t, step.focus);
+}
+
+/** Writes through xterm's synchronous write path, and returns what xterm threw, if anything. */
+function write(t, bytes) {
+  const writes = t._core._writeBuffer;
+  try {
+    writes.writeSync(bytes);
+  } catch (thrown) {
+    writes._isSyncWriting = false;
+    writes._writeBuffer.length = 0;
+    writes._callbacks.length = 0;
+    return `${thrown.name}: ${thrown.message}`;
+  }
+}
+
+/** Collects what the terminal sends back, and returns a function that takes it, one character per byte. */
+export function collect(t) {
+  let replies = '';
+  t.onData(data => replies += Buffer.from(data, 'utf8').toString('latin1'));
+  t.onBinary(data => replies += data);
+  return () => { const taken = replies; replies = ''; return taken; };
 }
 
 // Count dispatches from xterm's own parser: each observer runs first and declines, so the real handler still runs.
@@ -131,7 +146,20 @@ function color(mode, value, kind) {
 // and link, and are only its own while it has the extended flag.
 const UNDERLINE = 0x10000000, HAS_EXTENDED = 0x10000000, COLOR_MODE = 0x3000000, COLOR = 0xffffff;
 
+// Without extended attributes, a cell's style depends only on its two attribute words, so each pair is
+// described once.
+const styles = new Map();
+
 function style(cell, links) {
+  if (cell.bg & HAS_EXTENDED) return describe(cell, links);
+  let byBackground = styles.get(cell.fg);
+  if (!byBackground) styles.set(cell.fg, byBackground = new Map());
+  let described = byBackground.get(cell.bg);
+  if (described === undefined) byBackground.set(cell.bg, described = describe(cell, links));
+  return described;
+}
+
+function describe(cell, links) {
   const parts = [color(cell.getFgColorMode(), cell.getFgColor(), 'fg'), color(cell.getBgColorMode(), cell.getBgColor(), 'bg')];
   if (cell.isBold()) parts.push('bold');
   if (cell.isDim()) parts.push('dim');
@@ -207,7 +235,7 @@ export function state(t, name, scope, replies) {
       bracketedPaste: modes.bracketedPasteMode, insert: modes.insertMode, origin: modes.originMode,
       wraparound: modes.wraparoundMode, reverseWraparound: modes.reverseWraparoundMode,
       cursorBlink: t.options.cursorBlink, sendFocus: modes.sendFocusMode, synchronizedOutput: modes.synchronizedOutputMode,
-      mouseTracking: mouseTracking[modes.mouseTrackingMode], mouseEncoding: mouseEncoding[core.coreMouseService.activeEncoding],
+      mouseTracking: mouseTracking[modes.mouseTrackingMode], mouseEncoding: mouseEncoding[(core.coreMouseService ?? core.mouseStateService).activeEncoding],
     },
     title: core._inputHandler._windowTitle,
     replies,

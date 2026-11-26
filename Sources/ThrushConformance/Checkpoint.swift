@@ -132,54 +132,68 @@ extension Checkpoint {
             mouseTracking: "\(modes.mouseTracking)", mouseEncoding: modes.mouseSGR ? "sgr" : "default")
         title = terminal.title
         self.replies = String(String.UnicodeScalarView(replies.map(Unicode.Scalar.init)))
-        var links = Links()
-        active = Screen(snapshot, includesHistory: includesHistory, links: &links)
+        var styles = Styles()
+        active = Screen(snapshot, includesHistory: includesHistory, styles: &styles)
         if snapshot.isAlternate && includesHistory {
             // Leaving the alternate screen on a copy reveals the normal screen as the user returns to it.
             var normal = terminal
             _ = normal.write(Array("\u{1b}[?1049l".utf8))
-            self.normal = Screen(normal.snapshot(), includesHistory: true, links: &links)
+            self.normal = Screen(normal.snapshot(), includesHistory: true, styles: &styles)
         }
-        self.links = links.targets.isEmpty ? nil : links.targets
+        links = styles.links.isEmpty ? nil : styles.links
     }
 
-    /// Numbers links in the order they first appear, so checkpoints agree whatever numbers each
-    /// emulator uses inside.
-    struct Links {
+    /// Names styles as checkpoints write them. Links are numbered in the order they first appear, so
+    /// checkpoints agree whatever numbers each emulator uses inside.
+    struct Styles {
+        private var names: [Terminal.Style: String] = [:]
+        // Neighboring cells mostly share a style, so the last one named is checked first.
+        private var last = (style: Terminal.Style(), name: "")
         private var numbers: [UInt32: Int] = [:]
-        private(set) var targets: [String] = []
+        private(set) var links: [String] = []
 
-        mutating func number(of style: Terminal.Style, in snapshot: Terminal.Snapshot) -> Int? {
+        mutating func name(of style: Terminal.Style, in snapshot: Terminal.Snapshot) -> String {
+            if style == last.style { return last.name }
+            if let name = names[style] {
+                last = (style, name)
+            } else {
+                last = (style, Checkpoint.style(style, link: number(of: style, in: snapshot)))
+                names[style] = last.name
+            }
+            return last.name
+        }
+
+        private mutating func number(of style: Terminal.Style, in snapshot: Terminal.Snapshot) -> Int? {
             guard let link = snapshot.link(for: style) else { return nil }
             if let number = numbers[style.link] { return number }
-            targets.append("\(link.id ?? "");\(link.uri)")
-            numbers[style.link] = targets.count
-            return targets.count
+            links.append("\(link.id ?? "");\(link.uri)")
+            numbers[style.link] = links.count
+            return links.count
         }
     }
 }
 
 extension Checkpoint.Screen {
-    init(_ snapshot: Terminal.Snapshot, includesHistory: Bool, links: inout Checkpoint.Links) {
-        history = includesHistory ? snapshot.history.map { Checkpoint.Line($0, in: snapshot, links: &links) } : nil
-        visible = snapshot.rows.map { Checkpoint.Line($0, in: snapshot, links: &links) }
+    init(_ snapshot: Terminal.Snapshot, includesHistory: Bool, styles: inout Checkpoint.Styles) {
+        history = includesHistory ? snapshot.history.map { Checkpoint.Line($0, in: snapshot, styles: &styles) } : nil
+        visible = snapshot.rows.map { Checkpoint.Line($0, in: snapshot, styles: &styles) }
     }
 }
 
 extension Checkpoint.Line {
-    init(_ row: Terminal.Row, in snapshot: Terminal.Snapshot, links: inout Checkpoint.Links) {
+    init(_ row: Terminal.Row, in snapshot: Terminal.Snapshot, styles: inout Checkpoint.Styles) {
         wrapped = row.isWrapped
         cells = (0..<snapshot.size.columns).map { column in
             let cell = row[column]
-            return Checkpoint.Cell(cell, link: links.number(of: cell.style, in: snapshot))
+            return Checkpoint.Cell(text: cell.text, width: cell.width, style: styles.name(of: cell.style, in: snapshot))
         }
         while cells.last == .blank { cells.removeLast() }
     }
 }
 
 extension Checkpoint.Cell {
-    init(_ cell: Terminal.Cell, link: Int? = nil) {
-        self.init(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style, link: link))
+    init(_ cell: Terminal.Cell) {
+        self.init(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style))
     }
 }
 

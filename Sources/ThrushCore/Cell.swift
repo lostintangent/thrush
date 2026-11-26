@@ -33,7 +33,7 @@ extension Terminal {
 
     /// A style packs both colors and the rendition flags into one integer, and the underline color and
     /// link into a second, so the default style is zero and comparing two styles is a pair of compares.
-    package struct Style: Equatable, Sendable {
+    package struct Style: Hashable, Sendable {
         // The foreground in the low 26 bits, the background in the next 26, eight flags above them
         // and then the underline in three bits.
         private var bits: UInt64 = 0

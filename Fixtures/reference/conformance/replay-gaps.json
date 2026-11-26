@@ -1,0 +1,23 @@
+{
+  "multiplexers": {
+    "reason": "tmux leaves the alternate screen at 100×30, the terminal shrinks to 80×24, and then GNU screen enters it. Both emulators keep the alternate screen's 30 rows from before the shrink, so GNU screen's output scrolls 6 of them into its history. A terminal resumed at 80×24 never had those rows, so its alternate screen has no history. Everything else matches, and the alternate screen's history goes when GNU screen leaves it.",
+    "thrush": [
+      {
+        "after steps": "82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 98",
+        "at": "replay",
+        "differences": [
+          "active.history.count: live 6, resumed 0"
+        ]
+      }
+    ],
+    "reference": [
+      {
+        "after steps": "82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 98",
+        "at": "replay",
+        "differences": [
+          "active.history.count: live 6, resumed 0"
+        ]
+      }
+    ]
+  }
+}
