@@ -102,7 +102,7 @@ import XCTest
         let copyPath = app.menuItems["Copy Path"]
         XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
         let fileMenu = menu(with: "Copy Path")
-        XCTAssertTrue(item(Self.host + Self.file.replacingOccurrences(of: "+", with: "%2B"), in: fileMenu).exists,
+        XCTAssertTrue(item(Self.host + Self.file, in: fileMenu).exists,
                       "The menu's title should be the link's destination.")
         XCTAssertFalse(fileMenu.menuItems["Open Link"].exists, "Thrush never opens a file link.")
         save(XCUIScreen.main.screenshot(), "file-menu", appearance)

@@ -51,10 +51,16 @@ extension Terminal.Link {
     }
 
     /// The destination as menus, tooltips and VoiceOver show it. A parsed URI shows percent escapes for
-    /// anything outside ASCII, so direction overrides and lookalike letters can't disguise it, and a long
-    /// one keeps its start and end.
+    /// anything outside ASCII, so direction overrides and lookalike letters can't disguise it, and for the
+    /// delimiters that shape it, so `https://paypal.com%2F@evil.com` can't read as paypal.com. Escapes for
+    /// the other visible ASCII characters read as what they stand for, so a path reads as the file it names.
+    /// A long one keeps its start and end.
     var displayedDestination: String {
-        let text = URL(string: uri)?.absoluteString ?? String(String.UnicodeScalarView(uri.unicodeScalars.filter {
+        let text = URL(string: uri)?.absoluteString.replacing(/%[0-9A-Fa-f]{2}/) { escape in
+            let byte = UInt8(escape.output.dropFirst(), radix: 16)!
+            let character = Character(Unicode.Scalar(byte))
+            return (0x21...0x7E).contains(byte) && !"%:/?#[]@".contains(character) ? String(character) : String(escape.output)
+        } ?? String(String.UnicodeScalarView(uri.unicodeScalars.filter {
             $0.properties.generalCategory != .format && $0.properties.generalCategory != .control
         }))
         let limit = 160

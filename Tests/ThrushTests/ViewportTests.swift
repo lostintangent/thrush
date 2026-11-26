@@ -203,6 +203,9 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
         #expect(link(uri)?.destination == .inert, "\(uri)")
     }
     #expect(link("https://example.com/\u{202E}gpj.exe")?.displayedDestination == "https://example.com/%E2%80%AEgpj.exe")
+    #expect(link("file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView%2BLinks.swift")?.displayedDestination
+        == "file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView+Links.swift")
+    #expect(link("https://paypal.com%2F@evil.com/a%20b%7e%25%3f")?.displayedDestination == "https://paypal.com%2F@evil.com/a%20b~%25%3f")
     let long = try #require(link("https://example.com/" + String(repeating: "a", count: 300) + "/end")?.displayedDestination)
     #expect(long.count == 160 && long.hasPrefix("https://example.com/aaa") && long.hasSuffix("aaa/end"))
 }

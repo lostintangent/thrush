@@ -8,7 +8,7 @@ import XCTest
     private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
     private static let wrappedPath = "Sources/Thrush/View/TerminalMetalView+Links.swift"
-    private static let fileDestination = "file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView%2BLinks.swift"
+    private static let fileDestination = "file://devbox/home/robin/thrush/Sources/Thrush/View/TerminalMetalView+Links.swift"
     private static let page = "https://github.com/lostintangent/thrush/blob/main/\(wrappedPath)?plain=1#L176"
 
     func testDarkLinks() throws { try capture(appearance: "dark") }
