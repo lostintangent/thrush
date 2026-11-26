@@ -109,8 +109,7 @@ struct LifecycleCheck {
         try await expectOutput(final, rows: ["last bytes", "", ""])
         let expected = Data("last bytes".utf8)
         guard try await final.nextEvent() == .ended, await final.text(inRow: 0) == "last bytes",
-              observed.withLock({ $0 }) == expected, await final.receivedBytes == expected.count,
-              await final.appliedBytes == expected.count else {
+              observed.withLock({ $0 }) == expected, await final.receivedBytes == expected.count else {
             throw Failure("Exit must follow the final output and preserve it on screen")
         }
         try await expectEnded(final)

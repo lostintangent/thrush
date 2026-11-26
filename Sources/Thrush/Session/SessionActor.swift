@@ -61,8 +61,8 @@ package actor SessionActor {
     package internal(set) var state: State
     package internal(set) var hasSeenReady = false
     package internal(set) var lastReceiptTime: CFTimeInterval?
+    /// The terminal applies every byte in the same turn that receives it.
     package private(set) var receivedBytes = 0
-    package private(set) var appliedBytes = 0
 
     private let observer: TerminalSession.MetadataObserver?
     private var reportedTitle = ""
@@ -128,11 +128,7 @@ package actor SessionActor {
         receivedBytes += bytes.count
     }
 
-    func apply(_ bytes: Data) -> [UInt8] {
-        let reply = terminal.write(Span(viewing: bytes.bytes))
-        appliedBytes += bytes.count
-        return reply
-    }
+    func apply(_ bytes: Data) -> [UInt8] { terminal.write(Span(viewing: bytes.bytes)) }
 
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
     package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }

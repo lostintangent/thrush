@@ -38,7 +38,7 @@ private final class InputWrites: WebSocketFrameTrace {
     var all: [String] { writes.withLock { $0 } }
 
     func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
-                 note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+                 note: String?, stale: Bool?, closeCode: Int?, received: Int?) {
         guard event == "input-write", case .data(let bytes) = message else { return }
         writes.withLock { $0.append(String(decoding: bytes, as: UTF8.self)) }
     }

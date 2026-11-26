@@ -86,8 +86,6 @@ def exercise(binary, endpoint, work, name, reader, env, profile="paced16", probe
 
     produced = read_json(run / "production.json")
     result = read_json(run / "client.json")
-    if result.get("appliedBytes", result["receivedBytes"]) != result["receivedBytes"]:
-        raise RuntimeError("Thrush applied-byte count diverged")
     if probe:
         if result["replayFrames"]:
             screen = subprocess.run([binary, "check-exit-screen", run / "final-screen.bin"], capture_output=True, timeout=10)

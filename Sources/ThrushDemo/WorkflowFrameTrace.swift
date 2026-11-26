@@ -11,32 +11,32 @@ final class WorkflowFrameTrace: WebSocketFrameTrace {
     init(url: URL) throws { records = try Mutex(Records(url: url)) }
 
     /// New app sessions start their counters at zero. The workflow trace covers the whole exchange.
-    func continuing(after attachments: Int, received: Int, applied: Int) -> any WebSocketFrameTrace {
-        SessionTrace(trace: self, attachments: attachments, received: received, applied: applied)
+    func continuing(after attachments: Int, received: Int) -> any WebSocketFrameTrace {
+        SessionTrace(trace: self, attachments: attachments, received: received)
     }
 
     private struct SessionTrace: WebSocketFrameTrace {
         let trace: WorkflowFrameTrace
-        let attachments, received, applied: Int
+        let attachments, received: Int
 
         func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
-                     note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+                     note: String?, stale: Bool?, closeCode: Int?, received: Int?) {
             trace.observe(event, attachment: attachments + attachment, message: message, note: note, stale: stale,
-                          closeCode: closeCode, received: received.map { self.received + $0 }, applied: applied.map { self.applied + $0 })
+                          closeCode: closeCode, received: received.map { self.received + $0 })
         }
     }
 
     func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
-                 note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+                 note: String?, stale: Bool?, closeCode: Int?, received: Int?) {
         records.withLock {
             $0.record(event, attachment: attachment, message: message, note: note, stale: stale,
-                      closeCode: closeCode, received: received, applied: applied)
+                      closeCode: closeCode, received: received)
         }
     }
 
-    func finish(_ result: String, attachment: Int, received: Int, applied: Int) async {
+    func finish(_ result: String, attachment: Int, received: Int) async {
         let writer = records.withLock { records in
-            records.finish(result, attachment: attachment, received: received, applied: applied)
+            records.finish(result, attachment: attachment, received: received)
             return records.writer
         }
         // Publish the footer before the report or error file releases the launcher.
@@ -52,7 +52,7 @@ private struct Records: Sendable {
         let event: String
         let length: Int?, hex: String?, text: String?
         let stale: Bool?, closeCode: Int?
-        let receivedBytes: Int?, appliedBytes: Int?
+        let receivedBytes: Int?
     }
 
     private final class Output: Sendable {
@@ -78,7 +78,7 @@ private struct Records: Sendable {
 
     mutating func record(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message? = nil,
                          note: String? = nil, stale: Bool? = nil, closeCode: Int? = nil,
-                         received: Int? = nil, applied: Int? = nil) {
+                         received: Int? = nil) {
         guard !finished, !truncated else { return }
         var data: Data?
         var text = note
@@ -98,18 +98,18 @@ private struct Records: Sendable {
         // Frame numbers count received messages, so a write has none.
         let frame = message != nil && !event.hasSuffix("-write") ? frames[attachment] : nil
         append(event, attachment: attachment, frame: frame, data: data, text: text, length: length,
-               stale: stale, closeCode: closeCode, received: received, applied: applied)
+               stale: stale, closeCode: closeCode, received: received)
     }
 
-    mutating func finish(_ result: String, attachment: Int, received: Int, applied: Int) {
+    mutating func finish(_ result: String, attachment: Int, received: Int) {
         guard !finished else { return }
         finished = true
-        append("finished", attachment: attachment, text: result, received: received, applied: applied)
+        append("finished", attachment: attachment, text: result, received: received)
     }
 
     private mutating func append(_ event: String, attachment: Int, frame: Int? = nil, data: Data? = nil,
                                  text: String? = nil, length: Int? = nil, stale: Bool? = nil,
-                                 closeCode: Int? = nil, received: Int? = nil, applied: Int? = nil) {
+                                 closeCode: Int? = nil, received: Int? = nil) {
         sequence += 1
         let time = CACurrentMediaTime() * 1_000
         let wall = event == "open" ? Date().timeIntervalSince1970 * 1_000 : nil
@@ -120,7 +120,7 @@ private struct Records: Sendable {
             }
             let record = Record(sequence: sequence, monotonicMs: time, wallUnixMs: wall, attachment: attachment, frame: frame,
                                 event: event, length: length, hex: hex, text: text, stale: stale, closeCode: closeCode,
-                                receivedBytes: received, appliedBytes: applied)
+                                receivedBytes: received)
             do {
                 var line = try JSONEncoder().encode(record)
                 line.append(10)

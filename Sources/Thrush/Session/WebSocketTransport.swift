@@ -147,7 +147,7 @@ final class WebSocketTransport: SessionActor.Transport {
                     throw TransportError.unexpectedMessage
                 }
                 session.recordReceipt(of: bytes)
-                frameTrace?.record("accepted", attachment: attachment, message: message, received: session.receivedBytes, applied: session.appliedBytes)
+                frameTrace?.record("accepted", attachment: attachment, message: message, received: session.receivedBytes)
                 let replay = nextReplay
                 nextReplay = nil
                 if let replay {
@@ -159,7 +159,7 @@ final class WebSocketTransport: SessionActor.Transport {
                 // The reply reports the focus of this moment, so it's queued before anything can suspend
                 // and let a later focus report overtake it.
                 let replyFocus = session.terminal.isFocused
-                frameTrace?.record("applied", attachment: attachment, message: message, received: session.receivedBytes, applied: session.appliedBytes)
+                frameTrace?.record("applied", attachment: attachment, message: message, received: session.receivedBytes)
                 do {
                     if !reply.isEmpty && session.state != .closing { try await write(.data(Data(reply)), to: current, in: session) }
                     if session.state == .awaitingReplay { try await activate(current, replyFocus: replyFocus, in: session) }

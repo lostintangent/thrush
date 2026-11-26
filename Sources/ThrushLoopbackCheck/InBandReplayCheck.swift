@@ -70,8 +70,9 @@ struct InBandReplayCheck {
             "oldest\r\nnewer\r\none\r\ntwo\r\nthree\u{1b}[?2004h", "!", "\r\nbye",
         ].map { Data($0.utf8) }
         let bytes = frames.reduce(0) { $0 + $1.count }
-        guard observed.withLock({ $0 }) == frames, await session.receivedBytes == bytes,
-              await session.appliedBytes == bytes else { throw Failure("Dropped or duplicated replay or live bytes") }
+        guard observed.withLock({ $0 }) == frames, await session.receivedBytes == bytes else {
+            throw Failure("Dropped or duplicated replay or live bytes")
+        }
 
         for invalid in ["in-band fresh ready", "duplicate ready without a replay"] {
             let rejected = SessionActor(size: size, makeSocket: socket)

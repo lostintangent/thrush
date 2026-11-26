@@ -8,7 +8,6 @@ enum ReaderComparison {
         var reader: String
         var setupBytes = 0
         var receivedBytes = 0
-        var appliedBytes: Int?
         var binaryFrames = 0
         var replayBytes = 0
         var replayFrames = 0
@@ -79,7 +78,6 @@ enum ReaderComparison {
             }
             guard await session.state == .ended else { throw PTYCheckFailure("Expected shell exit") }
             result.receivedBytes = await session.receivedBytes - result.setupBytes
-            result.appliedBytes = await session.appliedBytes - result.setupBytes
         } else {
             // A transport-only reader opens the same socket as the session's.
             let socket = try terminalSocket(at: url, clientID: id)(.init(columns: 80, rows: 24))

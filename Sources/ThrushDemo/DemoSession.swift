@@ -157,9 +157,9 @@ final class DemoSession: ObservableObject {
             let trace = try options.frameTraceURL.map(WorkflowFrameTrace.init)
             guard let next = openShell(trace: trace) else { return }
             if options.runsWorkflowDriver {
-                WorkflowDriver.startIfRequested(view: view, session: next, trace: trace, setActive: setActive) { sockets, received, applied, activate in
+                WorkflowDriver.startIfRequested(view: view, session: next, trace: trace, setActive: setActive) { sockets, received, activate in
                     let previous = self.terminalSession
-                    self.nextShellTrace = trace?.continuing(after: sockets, received: received, applied: applied)
+                    self.nextShellTrace = trace?.continuing(after: sockets, received: received)
                     defer { self.nextShellTrace = nil }
                     try activate()
                     let deadline = ContinuousClock.now.advanced(by: .seconds(5))

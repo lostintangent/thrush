@@ -30,7 +30,7 @@ struct AppliedFrames: WebSocketFrameTrace {
     let body: @Sendable (Data) -> Void
 
     func observe(_ event: String, attachment: Int, message: URLSessionWebSocketTask.Message?,
-                 note: String?, stale: Bool?, closeCode: Int?, received: Int?, applied: Int?) {
+                 note: String?, stale: Bool?, closeCode: Int?, received: Int?) {
         if event == "applied", case .data(let bytes) = message { body(bytes) }
     }
 }

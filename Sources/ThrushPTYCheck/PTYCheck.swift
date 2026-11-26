@@ -84,7 +84,6 @@ private final class WireCapture: Sendable {
 struct PTYCheck {
     private struct Result: Encodable {
         var receivedBytes: Int
-        var appliedBytes: Int
         var replayBytes: Int
         var replayFrames: Int
         var commandToLiveEndMs: Double
@@ -170,7 +169,7 @@ struct PTYCheck {
             throw PTYCheckFailure("Missing final screen row at exit")
         }
         let captureResult = capture.result
-        let result = Result(receivedBytes: await live.receivedBytes, appliedBytes: await live.appliedBytes,
+        let result = Result(receivedBytes: await live.receivedBytes,
                             replayBytes: captureResult.replayBytes, replayFrames: captureResult.replayFrames,
                             commandToLiveEndMs: Double(liveEnd - start) / 1e6,
                             commandToExitMs: Double(exited - start) / 1e6, liveRows: liveRows, replayRows: replayRows)

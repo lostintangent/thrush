@@ -7,7 +7,6 @@ enum SilentRecoveryCheck {
         let reader = "silent"
         let setupBytes: Int
         let receivedBytes: Int
-        let appliedBytes: Int
         let liveNumberedBytes: Int
         let replayBytes: Int
         let restoredLastMarker: Int
@@ -59,7 +58,6 @@ enum SilentRecoveryCheck {
                 }
                 guard echo, await session.state == .ended else { throw PTYCheckFailure("Missing live echo before exit") }
                 let result = Result(setupBytes: setupBytes, receivedBytes: await session.receivedBytes - setupBytes,
-                                    appliedBytes: await session.appliedBytes - setupBytes,
                                     liveNumberedBytes: liveBytes, replayBytes: replayBytes, restoredLastMarker: 131072,
                                     matchingRows: expected.count, liveEchoReceived: echo)
                 try JSONEncoder().encode(result).write(to: directory.appending(path: "client.json"))

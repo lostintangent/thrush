@@ -30,7 +30,7 @@ final class WorkflowDriver {
     }
     private struct Entry: Codable {
         let name: String, eventIndex: Int
-        let columns: Int, rows: Int, receivedBytes: Int, appliedBytes: Int, attachments: Int
+        let columns: Int, rows: Int, receivedBytes: Int, attachments: Int
         let generation: UInt64, acceptedGeneration: UInt64, renderedGeneration: UInt64
         let synchronized: Bool, hasPresentationTime: Bool
         let copiedText: String?
@@ -51,7 +51,7 @@ final class WorkflowDriver {
         let layout: WorkflowCapture.Layout
     }
 
-    typealias NewSession = @MainActor (Int, Int, Int, @MainActor () throws -> Void) async throws -> TerminalSession
+    typealias NewSession = @MainActor (Int, Int, @MainActor () throws -> Void) async throws -> TerminalSession
 
     private let control: URL, output: URL
     private let view: TerminalMetalView
@@ -62,7 +62,6 @@ final class WorkflowDriver {
     private let setActive: (Bool) -> Void
     private let newSession: NewSession
     private var previousReceived = 0
-    private var previousApplied = 0
     private var previousAttachments = 0
     private let http = URLSession(configuration: .ephemeral)
     private var lastFrame: SubmittedFrame?
@@ -115,8 +114,7 @@ final class WorkflowDriver {
     private func finishTrace(_ result: String) async {
         guard let trace else { return }
         await trace.finish(result, attachment: previousAttachments + session.actor.socketAttempts,
-                           received: previousReceived + session.actor.receivedBytes,
-                           applied: previousApplied + session.actor.appliedBytes)
+                           received: previousReceived + session.actor.receivedBytes)
     }
 
     private func request(_ path: String, index: Int? = nil, post: Data? = nil) async throws -> (Int, Data) {
@@ -230,10 +228,9 @@ final class WorkflowDriver {
                 }
                 firstSubmission = CACurrentMediaTime()
                 previousReceived += await session.actor.receivedBytes
-                previousApplied += await session.actor.appliedBytes
                 previousAttachments += await session.actor.socketAttempts
                 let action = try await newShellToolbarAction()
-                session = try await newSession(previousAttachments, previousReceived, previousApplied, action)
+                session = try await newSession(previousAttachments, previousReceived, action)
                 checkKeyboardAfterShellAction = true
             case .failed:
                 throw Failure(state.error ?? "The peer rejected the workflow.")
@@ -322,9 +319,8 @@ final class WorkflowDriver {
         var copied: String?
         var copiedAt: Double?
         while ContinuousClock.now < deadline {
-            let applied = await session.actor.appliedBytes + previousApplied
             let received = await session.actor.receivedBytes + previousReceived
-            if applied == state.outputBytes, received == state.outputBytes {
+            if received == state.outputBytes {
                 let snapshot = await session.actor.snapshot()
                 let accepted = view.snapshot
                 // MTKView's initial on-demand draw can run before a drawable becomes available.
@@ -368,7 +364,7 @@ final class WorkflowDriver {
                         guard remaining.isEmpty else { throw Failure("The native scrollback lost earlier shell rows") }
                     }
                     return Entry(name: expected.name, eventIndex: state.eventIndex, columns: snapshot.size.columns,
-                                 rows: snapshot.size.rows, receivedBytes: received, appliedBytes: applied,
+                                 rows: snapshot.size.rows, receivedBytes: received,
                                  attachments: state.attachments, generation: snapshot.generation,
                                  acceptedGeneration: accepted.generation, renderedGeneration: frame.generation,
                                  synchronized: snapshot.synchronizedOutputID != nil, hasPresentationTime: lastTimedSubmission == frame.submittedAt,
@@ -378,7 +374,7 @@ final class WorkflowDriver {
                     detail = "\(error) (session cursor row \(snapshot.cursorRow), displayed \(accepted?.cursorRow ?? -1), history offset \(view.historyOffset))"
                 }
             } else {
-                detail = "peer sent \(state.outputBytes), session received \(received) and applied \(applied)"
+                detail = "peer sent \(state.outputBytes), session received \(received)"
             }
             try await Task.sleep(for: .milliseconds(8))
         }

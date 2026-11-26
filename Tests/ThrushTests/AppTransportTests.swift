@@ -199,7 +199,7 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
     }
     try #require(try await actor.nextEvent() == .ended)
     #expect(await actor.text(inRow: 0) == "last output")
-    #expect(await actor.appliedBytes == finalOutput.utf8.count)
+    #expect(await actor.receivedBytes == finalOutput.utf8.count)
     #expect(await first.writes == (operation == .write ? [Data("uncertain".utf8)] : []))
     #expect(await first.closes == 1)
     #expect(session.hasEnded)
