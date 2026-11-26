@@ -434,7 +434,7 @@ public struct Terminal: Sendable {
             replies += Reply.statusString(parser.payload.text, style: style, cursorStyle: cursorStyle,
                                           scrollTop: screen.scrollTop, scrollBottom: screen.scrollBottom).utf8
         case .requestCapabilities:
-            replies += Reply.capabilities(parser.payload.text).utf8
+            replies += Reply.capabilities(parser.payload.bytes)
         }
     }
 

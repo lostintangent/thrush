@@ -47,7 +47,8 @@ private func reply(_ terminal: inout Terminal, _ text: String) -> String {
 
 @Test func capabilitiesReportOnlyHowToCopy() {
     var terminal = Terminal(size: .init(columns: 8, rows: 2))
-    let answer = reply(&terminal, "\(esc)P+q4d73;544e;5 \r;4D73\(esc)\\")
+    // Only the hex letter is read in either case. A control byte doesn't fold into a digit.
+    let answer = reply(&terminal, "\(esc)P+q4d73;544e;5 \r;4D73;\u{14}d73\(esc)\\")
     #expect(answer == "\(esc)P1+r4d73=1B5D35323B25703125733B257032257307\(esc)\\"
         + "\(esc)P1+r4D73=1B5D35323B25703125733B257032257307\(esc)\\")
 

@@ -301,11 +301,20 @@ extension Terminal {
 
         /// XTGETTCAP names capabilities in hex, separated by semicolons. The terminal answers only Ms, which
         /// tells a program it can copy with OSC 52, and leaves every other name unanswered, as Ghostty does.
-        static func capabilities(_ payload: String) -> String {
-            // Ms is `ESC ] 52 ; %p1%s ; %p2%s BEL`, which takes the selections and then the text.
-            payload.split(separator: ";").filter { $0.lowercased() == "4d73" }.map { name in
-                "\u{1b}P1+r\(name)=1B5D35323B25703125733B257032257307\u{1b}\\"
-            }.joined()
+        static func capabilities(_ payload: [UInt8]) -> [UInt8] {
+            var answer: [UInt8] = []
+            for name in payload.split(separator: UInt8(ascii: ";")) where isMs(name) {
+                // Ms is `ESC ] 52 ; %p1%s ; %p2%s BEL`, which takes the selections and then the text.
+                answer += "\u{1b}P1+r".utf8
+                answer += name
+                answer += "=1B5D35323B25703125733B257032257307\u{1b}\\".utf8
+            }
+            return answer
+        }
+
+        /// Whether a capability name is Ms, `4d73` in hex, whose letter can arrive in either case.
+        private static func isMs(_ name: ArraySlice<UInt8>) -> Bool {
+            name.elementsEqual("4d73".utf8) { byte, hex in byte == hex || hex >= UInt8(ascii: "a") && byte | 0x20 == hex }
         }
     }
 
