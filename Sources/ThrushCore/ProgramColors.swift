@@ -63,49 +63,46 @@ extension Terminal {
 
         /// Applies one command's requests in order and returns whether any color changed. A query
         /// reports the color shown at that point.
-        mutating func apply(_ command: ControlFunction.OSC, payload: String, palette: Palette, cursor: RGB,
+        mutating func apply(_ command: ControlFunction.OSC, payload: [UInt8], palette: Palette, cursor: RGB,
                             replies: inout [UInt8]) -> Bool {
-            var payload = payload
-            return payload.withUTF8 { payload in
-                var fields = Fields(rest: payload[...])
-                var changed = false
-                func set(_ slot: ColorSlot, _ color: RGB?) {
-                    if self[slot] != color {
-                        self[slot] = color
-                        changed = true
-                    }
+            var fields = Fields(payload[...])
+            var changed = false
+            func set(_ slot: ColorSlot, _ color: RGB?) {
+                if self[slot] != color {
+                    self[slot] = color
+                    changed = true
                 }
-                func setOrReport(_ slot: ColorSlot, _ specification: Field) {
-                    if specification.elementsEqual("?".utf8) {
-                        slot.report(resolve(slot, palette: palette, cursor: cursor), to: &replies)
-                    } else if let color = RGB(specification: specification) {
-                        set(slot, color)
-                    }
-                }
-                switch command {
-                case .indexedColor:
-                    // Fields pair an index with a specification. A trailing index without one is ignored.
-                    while let index = fields.next(), fields.rest != nil, let specification = fields.next() {
-                        if let index = Self.index(index) { setOrReport(.indexed(index), specification) }
-                    }
-                case .foregroundColor, .backgroundColor, .cursorColor:
-                    // Each field advances to the next of foreground, background and cursor.
-                    let first = command == .foregroundColor ? 0 : command == .backgroundColor ? 1 : 2
-                    for (slot, specification) in zip(Self.defaultSlots[first...], fields) {
-                        setOrReport(slot, specification)
-                    }
-                case .restoreIndexedColors where payload.isEmpty:
-                    changed = !indexed.isEmpty
-                    indexed = []
-                case .restoreIndexedColors:
-                    for field in fields { if let index = Self.index(field) { set(.indexed(index), nil) } }
-                case .restoreForegroundColor: set(.foreground, nil)
-                case .restoreBackgroundColor: set(.background, nil)
-                case .restoreCursorColor: set(.cursor, nil)
-                case .setIconAndWindowTitle, .setWindowTitle, .hyperlink, .clipboard: break
-                }
-                return changed
             }
+            func setOrReport(_ slot: ColorSlot, _ specification: Field) {
+                if specification.elementsEqual("?".utf8) {
+                    slot.report(resolve(slot, palette: palette, cursor: cursor), to: &replies)
+                } else if let color = RGB(specification: specification) {
+                    set(slot, color)
+                }
+            }
+            switch command {
+            case .indexedColor:
+                // Fields pair an index with a specification. A trailing index without one is ignored.
+                while let index = fields.next(), fields.rest != nil, let specification = fields.next() {
+                    if let index = Self.index(index) { setOrReport(.indexed(index), specification) }
+                }
+            case .foregroundColor, .backgroundColor, .cursorColor:
+                // Each field advances to the next of foreground, background and cursor.
+                let first = command == .foregroundColor ? 0 : command == .backgroundColor ? 1 : 2
+                for (slot, specification) in zip(Self.defaultSlots[first...], fields) {
+                    setOrReport(slot, specification)
+                }
+            case .restoreIndexedColors where payload.isEmpty:
+                changed = !indexed.isEmpty
+                indexed = []
+            case .restoreIndexedColors:
+                for field in fields { if let index = Self.index(field) { set(.indexed(index), nil) } }
+            case .restoreForegroundColor: set(.foreground, nil)
+            case .restoreBackgroundColor: set(.background, nil)
+            case .restoreCursorColor: set(.cursor, nil)
+            case .setIconAndWindowTitle, .setWindowTitle, .hyperlink, .clipboard: break
+            }
+            return changed
         }
 
         private static let defaultSlots: [ColorSlot] = [.foreground, .background, .cursor]
@@ -120,24 +117,6 @@ extension Terminal {
             }
             return UInt8(exactly: value)
         }
-    }
-}
-
-private typealias Field = Slice<UnsafeBufferPointer<UInt8>>
-
-/// A payload's semicolon-separated fields, including empty ones.
-private struct Fields: Sequence, IteratorProtocol {
-    /// The bytes after the last field read, or nil after the final field.
-    var rest: Field?
-
-    mutating func next() -> Field? {
-        guard let field = rest else { return nil }
-        guard let semicolon = field.firstIndex(of: UInt8(ascii: ";")) else {
-            rest = nil
-            return field
-        }
-        rest = field[(semicolon + 1)...]
-        return field[..<semicolon]
     }
 }
 

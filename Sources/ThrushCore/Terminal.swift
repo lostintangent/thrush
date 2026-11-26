@@ -433,7 +433,7 @@ public struct Terminal: Sendable {
         case .clipboard:
             if let text = Self.clipboardText(parser.payload.text) { copiedText = text }
         default:
-            if programColors.apply(function, payload: parser.payload.text, palette: palette,
+            if programColors.apply(function, payload: parser.payload.bytes, palette: palette,
                                    cursor: cursorColor, replies: &replies) {
                 generation &+= 1
             }

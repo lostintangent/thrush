@@ -41,3 +41,24 @@ struct Payload: Sendable {
         bytes = []
     }
 }
+
+/// One of a payload's semicolon-separated fields.
+typealias Field = ArraySlice<UInt8>
+
+/// A payload's semicolon-separated fields, including empty ones.
+struct Fields: Sequence, IteratorProtocol {
+    /// The bytes after the last field read, or nil after the final field.
+    private(set) var rest: Field?
+
+    init(_ payload: Field) { rest = payload }
+
+    mutating func next() -> Field? {
+        guard let field = rest else { return nil }
+        guard let semicolon = field.firstIndex(of: UInt8(ascii: ";")) else {
+            rest = nil
+            return field
+        }
+        rest = field[(semicolon + 1)...]
+        return field[..<semicolon]
+    }
+}
