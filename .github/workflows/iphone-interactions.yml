@@ -11,10 +11,15 @@ on:
         description: Swipe through less, vim and the shell's history on a real shell, and check each glide and stop
         type: boolean
         default: false
+      links_only:
+        description: Tap, long-press and open the links in the proofs app's links scene
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       accessibility_only: { type: boolean, default: false }
       swipes_only: { type: boolean, default: false }
+      links_only: { type: boolean, default: false }
   push:
     branches: [capture/m4]
 
@@ -38,10 +43,12 @@ jobs:
         env:
           ACCESSIBILITY_ONLY: ${{ inputs.accessibility_only }}
           SWIPES_ONLY: ${{ inputs.swipes_only }}
+          LINKS_ONLY: ${{ inputs.links_only }}
         run: |
           flags=()
           if [[ "$ACCESSIBILITY_ONLY" == true ]]; then flags+=(--accessibility-only); fi
           if [[ "$SWIPES_ONLY" == true ]]; then flags+=(--swipes-only); fi
+          if [[ "$LINKS_ONLY" == true ]]; then flags+=(--links-only); fi
           python3 scripts/interaction-capture/run.py --output "$RUNNER_TEMP/thrush-iphone-interactions" "${flags[@]}"
       - name: Upload interaction captures and checks
         if: always()

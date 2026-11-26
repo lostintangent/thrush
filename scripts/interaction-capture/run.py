@@ -265,6 +265,18 @@ def collect_swipes(phone, device, endpoint, plan, out, work, attempt):
     export_clips(names, video_start, out, work, attempt)
 
 
+def collect_links(phone, device, endpoint, plan, out, work, attempt):
+    configuration = plistlib.loads(plan.read_bytes())
+    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
+    plan.write_bytes(plistlib.dumps(configuration))
+    result = work / "links.xcresult"
+    video_start = run_gestures(phone, device, plan, result, out, attempt, None)
+    names = [f"links-{appearance}" for appearance in APPEARANCES]
+    if result.exists():
+        attempt("link attachments", export_attachments, result, out, work, names)
+    export_clips(names, video_start, out, work, attempt)
+
+
 def check_images(out):
     oracle = load_helper("check-demo-capture")
     for appearance in APPEARANCES:
@@ -356,6 +368,9 @@ def main():
     scope.add_argument("--swipes-only", action="store_true",
                        help="Swipe through less, vim and the shell's history on a real shell in both appearances, and check "
                             "that a program glides as far as the history and stops under a resting or catching finger.")
+    scope.add_argument("--links-only", action="store_true",
+                       help="Tap, long-press and open the links an rg search and Claude Code's trust prompt send, "
+                            "in both appearances.")
     options = parser.parse_args()
     sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
@@ -366,7 +381,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix="thrush-iphone-interactions-") as scratch:
         work = Path(scratch)
         source = HERE / ("PaneVoiceOverProof.swift" if options.accessibility_only else
-                         "ScrollSwipeProof.swift" if options.swipes_only else RUNNER + ".swift")
+                         "ScrollSwipeProof.swift" if options.swipes_only else
+                         "PhoneLinkProof.swift" if options.links_only else RUNNER + ".swift")
         plan = build_test_runner(work, out, source=source)
         if options.build_runner_only:
             print("Compiled the native iPhone interaction runner.")
@@ -415,6 +431,8 @@ def main():
                     attempt("swipe capture", collect_swipes, phone, device, endpoint, plan, out, work, attempt)
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} swipes", scroll.check, out, appearance)
+                elif options.links_only:
+                    attempt("link capture", collect_links, phone, device, endpoint, plan, out, work, attempt)
                 else:
                     attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt)
                     attempt("interaction screenshots", check_images, out)
@@ -434,6 +452,8 @@ def main():
         print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
     elif options.swipes_only:
         print("Verified that swipes glide through less and vim as far as through the shell's history and stop under a finger.")
+    elif options.links_only:
+        print("Verified that iPhone links open with a tap, show their menus and lift under a long press.")
     else:
         print("Captured the iPhone terminal, selection, controls, scrolling and landscape in both appearances.")
 
