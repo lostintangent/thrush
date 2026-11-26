@@ -143,14 +143,14 @@ private final class MacAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         edit.addItem(.separator())
         edit.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
 
-        let replay = submenu("Replay")
+        let scenes = submenu("Scenes")
         let titles: [(DemoOptions.Scene, String)] = [
             (.shell, "Build"), (.editor, "Swift in Vim"), (.log, "Recorded Compiler Log"),
             (.vim, "Recorded Vim Edit"), (.prompt, "Shell Prompt"), (.glyphs, "Wide Glyphs"),
             (.styles, "Text Styles"), (.colors, "Program Colors"),
         ]
         for (index, pair) in titles.enumerated() {
-            let item = replay.addItem(withTitle: pair.1, action: #selector(selectScene(_:)), keyEquivalent: String(index + 1))
+            let item = scenes.addItem(withTitle: pair.1, action: #selector(selectScene(_:)), keyEquivalent: String(index + 1))
             item.representedObject = pair.0.rawValue
             item.target = self
         }

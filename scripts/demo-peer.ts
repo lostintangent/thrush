@@ -183,7 +183,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
             recordGrid("attach", socket.data);
             if (socket.data.scene === "colors") colorScenes.add(socket);
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
-            void draw(socket).catch(error => { console.error(error); socket.close(1011, "Replay failed"); });
+            void draw(socket).catch(error => { console.error(error); socket.close(1011, "Scene failed"); });
         },
         async message(socket, message) {
             const state = socket.data;
