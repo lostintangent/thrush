@@ -261,14 +261,16 @@ import Testing
 
     // Another attachment may have told the shell otherwise, so a resumed program hears the current
     // appearance once, whether or not it changed while the shell was detached.
+    // A drop discards whatever the peer hasn't read yet, so the first resume's report must arrive before it.
     await session.actor.hide()
     await session.setTheme(.slateLight)
     try await resume(replaying: reports)
+    try await expectWrites([light, dark, "1", light], through: "2")
     try await resume(replaying: reports, afterDrop: true)
-    try await expectWrites([light, dark, "1", light, light], through: "2")
+    try await expectWrites([light, dark, "1", light, "2", light], through: "3")
 
     // A resumed program that hasn't asked hears nothing.
     await session.actor.hide()
     try await resume(replaying: "")
-    try await expectWrites([light, dark, "1", light, light, "2"], through: "3")
+    try await expectWrites([light, dark, "1", light, "2", light, "3"], through: "4")
 }
