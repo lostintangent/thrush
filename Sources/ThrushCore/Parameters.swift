@@ -43,7 +43,7 @@ struct Parameters: Sendable, CustomStringConvertible {
     /// Lends the digits, colons and semicolons for a reader that takes the numbers in order.
     @inline(__always)
     mutating func withBytes<Result>(_ body: (Span<UInt8>) -> Result) -> Result {
-        body(storage.span.extracting(first: length))
+        body(storage.span.extracting(0..<length))
     }
 
     /// Reads the number at `index`, saturating at `Int32.max`. An omitted number is nil.
@@ -75,24 +75,24 @@ struct Parameters: Sendable, CustomStringConvertible {
         length += 1
     }
 
-    /// Copies the run `range` of `bytes` 16 bytes at a time, which is one load and one store for most
-    /// headers. A block can carry bytes past the run, and the next append or the length hides them.
+    /// Copies a run of `bytes`. Most headers are 16 bytes or less and take one load and one store,
+    /// whose bytes past the run the length hides. A run near the end of a read, or a longer one, is
+    /// copied a byte at a time, and only a header past 1 KiB compacts.
     @inline(__always)
     mutating func append(_ range: Range<Int>, of bytes: Span<UInt8>) {
-        var index = range.lowerBound
-        while index < range.upperBound {
-            guard bytes.count &- index >= 16, Storage.count &- length >= 16 else {
-                append(bytes[index])
-                index &+= 1
-                continue
-            }
+        if range.count <= 16, bytes.count &- range.lowerBound >= 16, length <= Storage.count &- 16 {
             var span = storage.mutableSpan
             var output = span.mutableBytes
-            output.storeBytes(of: bytes.bytes.load(fromByteOffset: index, as: SIMD16<UInt8>.self),
+            output.storeBytes(of: bytes.bytes.load(fromByteOffset: range.lowerBound, as: SIMD16<UInt8>.self),
                               toByteOffset: length, as: SIMD16<UInt8>.self)
-            let copied = min(16, range.upperBound &- index)
-            length &+= copied
-            index &+= copied
+            length &+= range.count
+        } else if range.count <= Storage.count &- length {
+            for index in range {
+                storage[length] = bytes[index]
+                length &+= 1
+            }
+        } else {
+            for index in range { append(bytes[index]) }
         }
     }
 

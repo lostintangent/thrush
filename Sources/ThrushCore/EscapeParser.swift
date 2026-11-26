@@ -92,8 +92,10 @@ struct EscapeParser: Sendable {
                 state = .ground
                 return .csi(identifier)
             }
-            parameters.append(start..<index, of: bytes)
-            if start < index { state = .csiParameters }
+            if start < index {
+                parameters.append(start..<index, of: bytes)
+                state = .csiParameters
+            }
         }
         while index < bytes.count {
             let byte = bytes[index]

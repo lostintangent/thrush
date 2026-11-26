@@ -295,11 +295,12 @@ extension Terminal {
         private var alternateCapacity: Int
         private var revision: UInt64 = 0
 
-        var row: Int { active.row }
-        var column: Int { active.column }
+        // Inlined because an out-of-line call copies the whole Screen first.
+        @inline(__always) var row: Int { active.row }
+        @inline(__always) var column: Int { active.column }
         var size: Size { active.size }
-        var scrollTop: Int { active.scrollTop }
-        var scrollBottom: Int { active.scrollBottom }
+        @inline(__always) var scrollTop: Int { active.scrollTop }
+        @inline(__always) var scrollBottom: Int { active.scrollBottom }
         var isAlternate: Bool { active.alternate }
 
         init(size: Size, generation: UInt64 = 0) {
