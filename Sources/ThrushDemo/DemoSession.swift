@@ -180,9 +180,8 @@ final class DemoSession: ObservableObject {
     }
 
     func terminalView(_ session: TerminalSession) -> some View {
-        var terminalView = TerminalView(session, isActive: isActive, theme: theme)
-        let assumesVisible = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
-        terminalView.probe = .init(metalView: view, assumesVisible: assumesVisible) { [weak self] event in
+        let isVisible = options.interactionURL != nil || options.runsWorkflowDriver || options.cyclesAppearance
+        let probe = TerminalView.Probe(metalView: view, isVisible: isVisible ? true : nil) { [weak self] event in
             guard let self else { return }
             switch event {
             case .ready(let resumed):
@@ -202,11 +201,13 @@ final class DemoSession: ObservableObject {
             case .canvas: onCanvasChange?()
             }
         }
-        return terminalView.onChange(of: session.hasEnded) {
-            guard self.terminalSession === session else { return }
-            if session.hasEnded { self.hasUsableSession = false }
-            self.onShellEndedChange?()
-        }
+        return TerminalView(session, isActive: isActive, theme: theme)
+            .environment(\.terminalProbe, probe)
+            .onChange(of: session.hasEnded) {
+                guard self.terminalSession === session else { return }
+                if session.hasEnded { self.hasUsableSession = false }
+                self.onShellEndedChange?()
+            }
     }
 
     private func markSessionUsable(_ session: TerminalSession) {

@@ -9,11 +9,9 @@ import Testing
     let session: TerminalSession
     let shown: Bool
 
-    private var terminalView: TerminalView {
-        var terminalView = TerminalView(session)
-        // Command-line windows may be occluded. SwiftUI still mounts and removes the actual view.
-        terminalView.probe.assumesVisible = true
-        return terminalView
+    // Command-line windows may be occluded. SwiftUI still mounts and removes the actual view.
+    private var terminalView: some View {
+        TerminalView(session).environment(\.terminalProbe, .init(isVisible: true))
     }
 
     var body: some View {

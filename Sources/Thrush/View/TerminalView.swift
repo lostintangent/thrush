@@ -43,7 +43,8 @@ import ThrushCore
     }
     #endif
 
-    /// How the sample apps' benchmarks, captures and tests reach inside the view.
+    /// How the proofs, benchmarks and tests reach inside each terminal view in an app they don't own,
+    /// set with `.environment(\.terminalProbe, probe)` above it.
     package struct Probe {
         package enum Event {
             /// The shell is ready, or a resumed shell awaits its replay.
@@ -58,20 +59,22 @@ import ThrushCore
 
         /// A native view to present instead of a new one, so a check can drive it directly.
         package var metalView: TerminalMetalView?
-        /// Keeps the session attached when the window can't be seen, as on a headless runner.
-        package var assumesVisible = false
+        /// Overrides whether the window shows the view. `true` keeps the session attached when the window
+        /// can't be seen, as on a headless runner, and `false` detaches it as a hidden tab would.
+        package var isVisible: Bool?
         /// Called on the main actor for each event.
         package var observe: ((Event) -> Void)?
+        /// Runs before the view first shows each session, so a check can trace its first attachment.
+        package var prepare: (@MainActor (TerminalSession) async -> Void)?
 
-        package init(metalView: TerminalMetalView? = nil, assumesVisible: Bool = false,
-                     observe: ((Event) -> Void)? = nil) {
+        package init(metalView: TerminalMetalView? = nil, isVisible: Bool? = nil,
+                     observe: ((Event) -> Void)? = nil, prepare: (@MainActor (TerminalSession) async -> Void)? = nil) {
             self.metalView = metalView
-            self.assumesVisible = assumesVisible
+            self.isVisible = isVisible
             self.observe = observe
+            self.prepare = prepare
         }
     }
-
-    package var probe = Probe()
 
     // SwiftUI may retain a tab or navigation destination's native view while it is offscreen.
     // The coordinator combines appearance callbacks with actual window and scene visibility.
@@ -89,7 +92,7 @@ import ThrushCore
             #endif
     }
 
-    fileprivate func makeCanvas(_ coordinator: Coordinator) -> CanvasView {
+    fileprivate func makeCanvas(_ coordinator: Coordinator, probe: Probe) -> CanvasView {
         let canvas = CanvasView(terminal: probe.metalView ?? TerminalMetalView(frame: .zero))
         coordinator.bind(canvas)
         return canvas
@@ -106,6 +109,7 @@ import ThrushCore
         @Published private(set) var barScheme: ColorScheme?
         #endif
         private var view: TerminalView?
+        private var probe = Probe()
         private var active = false
         private var reportedFocus = false
         private var isPresented = false
@@ -139,13 +143,13 @@ import ThrushCore
                     #if os(iOS)
                     self.barScheme = canvas.barScheme
                     #endif
-                    if let scheme = canvas.canvasScheme { self.view?.probe.observe?(.canvas(scheme)) }
+                    if let scheme = canvas.canvasScheme { self.probe.observe?(.canvas(scheme)) }
                 }
             }
             canvas.terminal.onGridSizeChange = { [weak self] in self?.resize($0) }
             canvas.terminal.onThemeChange = { [weak self] theme in
                 guard let self else { return }
-                view?.probe.observe?(.theme(theme))
+                probe.observe?(.theme(theme))
                 perform { session, _ in await session.setTheme(theme) }
             }
             canvas.terminal.beforeOutputDraw = { [weak self] in self?.presentOutput() }
@@ -153,8 +157,9 @@ import ThrushCore
             canvas.terminal.onInputFocusChange = { [weak self] in self?.updateFocus() }
         }
 
-        fileprivate func apply(_ next: TerminalView) {
+        fileprivate func apply(_ next: TerminalView, probe: Probe) {
             let sessionChanged = view?.session !== next.session
+            self.probe = probe
             if sessionChanged {
                 stop()
                 phase = .initial
@@ -162,12 +167,13 @@ import ThrushCore
                 deliveredEnd = false
                 metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
                 metalView?.reset()
+                if let prepare = probe.prepare { enqueue { await prepare(next.session) } }
             }
             view = next
             guard let metalView else { return }
             let previousTheme = metalView.resolvedTheme
             if metalView.theme != next.theme { metalView.theme = next.theme }
-            if sessionChanged && previousTheme == metalView.resolvedTheme { next.probe.observe?(.theme(metalView.resolvedTheme)) }
+            if sessionChanged && previousTheme == metalView.resolvedTheme { probe.observe?(.theme(metalView.resolvedTheme)) }
             if metalView.fontSize != next.fontSize { metalView.fontSize = next.fontSize }
             #if os(iOS)
             metalView.showsKeyRow = next.showsKeyRow
@@ -182,12 +188,12 @@ import ThrushCore
 
         private func updateActivity() {
             guard let view, let canvas else { return }
-            let shouldShow = isPresented && view.isActive && (canvas.isShellPresented || view.probe.assumesVisible)
+            let shouldShow = isPresented && view.isActive && (probe.isVisible ?? canvas.isShellPresented)
             guard shouldShow else {
                 if active { stop() }
                 return
             }
-            let visible = canvas.isDrawingVisible || view.probe.assumesVisible
+            let visible = probe.isVisible ?? canvas.isDrawingVisible
             if drawingVisible != visible {
                 drawingVisible = visible
                 metalView?.setDrawingVisible(visible)
@@ -352,7 +358,7 @@ import ThrushCore
         private func present(_ frame: OutputMailbox.Frame) {
             let firstReceipt = metalView?.displayOutput(frame)
             hasScreen = true
-            if let receipt = firstReceipt { view?.probe.observe?(.output(generation: frame.screen.generation, receivedAt: receipt)) }
+            if let receipt = firstReceipt { probe.observe?(.output(generation: frame.screen.generation, receivedAt: receipt)) }
         }
 
         @discardableResult
@@ -364,17 +370,17 @@ import ThrushCore
                 metalView?.display(screen)
                 hasScreen = true
                 becomeLive()
-                view?.probe.observe?(.ready(resumed: false))
+                probe.observe?(.ready(resumed: false))
             case .replaced:
                 shellRevision = update.shellRevision
                 metalView?.cancelPendingInput()
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil, archivingMainScreen: true)
                 hasScreen = true
                 becomeLive()
-                view?.probe.observe?(.ready(resumed: false))
+                probe.observe?(.ready(resumed: false))
                 metalView?.announce("New shell")
             case .ready(resumed: true):
-                view?.probe.observe?(.ready(resumed: true))
+                probe.observe?(.ready(resumed: true))
             case .screen:
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil)
                 hasScreen = true
@@ -382,12 +388,12 @@ import ThrushCore
             case .output:
                 metalView?.display(screen, receivedAt: update.receivedAt)
                 hasScreen = true
-                if let time = update.receivedAt { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
+                if let time = update.receivedAt { probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .replay:
                 metalView?.replaceDisplayedSnapshot(screen, receivedAt: update.receivedAt)
                 hasScreen = true
                 if phase != .live { becomeLive() }
-                if let time = update.receivedAt { view?.probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
+                if let time = update.receivedAt { probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .reconnecting:
                 phase = hasScreen ? .reconnecting : .connecting
                 metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
@@ -455,6 +461,18 @@ import ThrushCore
     }
 }
 
+// A plain key rather than @Entry, since Command Line Tools have no SwiftUI macros.
+private struct TerminalProbeKey: EnvironmentKey {
+    static var defaultValue: TerminalView.Probe { .init() }
+}
+
+extension EnvironmentValues {
+    package var terminalProbe: TerminalView.Probe {
+        get { self[TerminalProbeKey.self] }
+        set { self[TerminalProbeKey.self] = newValue }
+    }
+}
+
 extension TerminalView {
     @MainActor fileprivate struct Representable {
         let view: TerminalView
@@ -465,16 +483,18 @@ extension TerminalView {
 
 #if os(macOS)
 extension TerminalView.Representable: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { view.makeCanvas(coordinator) }
-    func updateNSView(_ canvas: NSView, context: Context) { coordinator.apply(view) }
+    func makeNSView(context: Context) -> NSView { view.makeCanvas(coordinator, probe: context.environment.terminalProbe) }
+    func updateNSView(_ canvas: NSView, context: Context) { coordinator.apply(view, probe: context.environment.terminalProbe) }
     static func dismantleNSView(_ canvas: NSView, coordinator: TerminalView.Coordinator) { coordinator.dismantle(canvas) }
 }
 #else
 extension TerminalView.Representable: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> PhoneCanvasController {
-        PhoneCanvasController(view.makeCanvas(coordinator))
+        PhoneCanvasController(view.makeCanvas(coordinator, probe: context.environment.terminalProbe))
     }
-    func updateUIViewController(_ controller: PhoneCanvasController, context: Context) { coordinator.apply(view) }
+    func updateUIViewController(_ controller: PhoneCanvasController, context: Context) {
+        coordinator.apply(view, probe: context.environment.terminalProbe)
+    }
     static func dismantleUIViewController(_ controller: PhoneCanvasController, coordinator: TerminalView.Coordinator) {
         coordinator.dismantle(controller.view)
         controller.releaseHold()

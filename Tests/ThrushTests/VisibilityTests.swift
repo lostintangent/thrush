@@ -11,11 +11,10 @@ import ThrushCore
     let session: TerminalSession
     let shown: Bool
     let selected: Bool
+    var visible = true
 
-    private var terminalView: TerminalView {
-        var result = TerminalView(session, isActive: selected)
-        result.probe.assumesVisible = true
-        return result
+    private var terminalView: some View {
+        TerminalView(session, isActive: selected).environment(\.terminalProbe, .init(isVisible: visible))
     }
 
     var body: some View {
@@ -27,7 +26,8 @@ import ThrushCore
     }
 }
 
-@MainActor @Test func viewAttachesOnlyWhilePresentedAndSelected() async throws {
+// A probe's visibility reaches the view on its own, so a harness can detach a view it doesn't own.
+@MainActor @Test func viewAttachesOnlyWhilePresentedSelectedAndVisible() async throws {
     let opened = Mutex<[Terminal.Size]>([])
     let session = TerminalSession { measured in
         opened.withLock { $0.append(measured) }
@@ -42,8 +42,8 @@ import ThrushCore
     window.orderFront(nil)
     defer { window.close() }
 
-    func update(shown: Bool, selected: Bool) {
-        host.rootView = VisibilityHost(session: session, shown: shown, selected: selected)
+    func update(shown: Bool, selected: Bool, visible: Bool = true) {
+        host.rootView = VisibilityHost(session: session, shown: shown, selected: selected, visible: visible)
         host.layoutSubtreeIfNeeded()
     }
     func waitFor(_ predicate: () async -> Bool) async throws {
@@ -65,11 +65,62 @@ import ThrushCore
     #expect(attachments() == first)
     update(shown: true, selected: true)
     try await waitFor { attachments().count > first.count }
+    update(shown: true, selected: true, visible: false)
+    try await waitFor { await session.actor.state == .idle }
+    let hidden = attachments()
+    try await Task.sleep(for: .milliseconds(350))
+    #expect(attachments() == hidden)
+    update(shown: true, selected: true)
+    try await waitFor { attachments().count > hidden.count }
     update(shown: false, selected: true)
     try await waitFor { await session.actor.state == .idle }
     let removed = attachments()
     try await Task.sleep(for: .milliseconds(350))
     #expect(attachments() == removed)
+}
+
+@MainActor @Test func probePreparesEachSessionBeforeTheViewAttachesIt() async throws {
+    let log = Mutex<[String]>([])
+    func session(_ name: String) -> TerminalSession {
+        TerminalSession { _ in
+            log.withLock { $0.append("open " + name) }
+            throw URLError(.cannotConnectToHost)
+        }
+    }
+    let first = session("first"), second = session("second")
+    let probe = TerminalView.Probe(isVisible: true, prepare: { prepared in
+        let name = prepared === first ? "first" : "second"
+        log.withLock { $0.append("prepare " + name) }
+        try? await Task.sleep(for: .milliseconds(50))
+        log.withLock { $0.append("prepared " + name) }
+    })
+    func root(_ session: TerminalSession) -> AnyView { AnyView(TerminalView(session).environment(\.terminalProbe, probe)) }
+    let host = NSHostingView(rootView: root(first))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
+                          styleMask: .borderless, backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = host
+    window.orderFront(nil)
+    defer { window.close() }
+    host.layoutSubtreeIfNeeded()
+    func waitFor(_ entry: String) async throws {
+        let until = ContinuousClock.now.advanced(by: .seconds(5))
+        while !log.withLock({ $0.contains(entry) }) {
+            try #require(ContinuousClock.now < until, "The view never logged \(entry).")
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    try await waitFor("open first")
+    host.rootView = root(second)
+    host.layoutSubtreeIfNeeded()
+    try await waitFor("open second")
+    let entries = log.withLock { $0 }
+    for name in ["first", "second"] {
+        let prepared = try #require(entries.firstIndex(of: "prepared " + name))
+        #expect(prepared < entries.firstIndex(of: "open " + name)!)
+        #expect(entries.filter { $0 == "prepare " + name }.count == 1)
+    }
 }
 #endif
 

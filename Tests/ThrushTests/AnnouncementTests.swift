@@ -38,9 +38,9 @@ import Testing
         return view
     }
     func terminalView(_ view: TerminalMetalView) -> some View {
-        var terminalView = TerminalView(session)
-        terminalView.probe = .init(metalView: view, assumesVisible: true)
-        return terminalView.id(ObjectIdentifier(view))
+        TerminalView(session)
+            .environment(\.terminalProbe, .init(metalView: view, isVisible: true))
+            .id(ObjectIdentifier(view))
     }
     let view = surface()
     #if os(macOS)

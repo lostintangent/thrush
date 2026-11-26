@@ -27,9 +27,7 @@ import UIKit
     }
 
     let terminal = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
-    var terminalView = TerminalView(session)
-    terminalView.probe.metalView = terminal
-    let host = UIHostingController(rootView: terminalView)
+    let host = UIHostingController(rootView: TerminalView(session).environment(\.terminalProbe, .init(metalView: terminal)))
     let window: UIWindow
     if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
         window = UIWindow(windowScene: scene)
