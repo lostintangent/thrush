@@ -316,7 +316,7 @@ extension Terminal {
         /// tells a program it can copy with OSC 52, and leaves every other name unanswered, as Ghostty does.
         static func capabilities(_ payload: [UInt8]) -> [UInt8] {
             var answer: [UInt8] = []
-            for name in payload.split(separator: UInt8(ascii: ";")) where isMs(name) {
+            for name in Fields(payload[...]) where isMs(name) {
                 // Ms is `ESC ] 52 ; %p1%s ; %p2%s BEL`, which takes the selections and then the text.
                 answer += "\u{1b}P1+r".utf8
                 answer += name
@@ -326,7 +326,7 @@ extension Terminal {
         }
 
         /// Whether a capability name is Ms, `4d73` in hex, whose letter can arrive in either case.
-        private static func isMs(_ name: ArraySlice<UInt8>) -> Bool {
+        private static func isMs(_ name: Field) -> Bool {
             name.elementsEqual("4d73".utf8) { byte, hex in byte == hex || hex >= UInt8(ascii: "a") && byte | 0x20 == hex }
         }
     }
