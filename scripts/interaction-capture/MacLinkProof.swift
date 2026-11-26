@@ -13,6 +13,7 @@ import XCTest
     private static let host = "file://devbox/home/robin/thrush/"
     private static let page = "https://github.com/lostintangent/thrush/blob/main/\(file)?plain=1#L176"
     private var app: XCUIApplication!
+    private var endpoint = ""
 
     func testDarkLinks() throws { try capture(appearance: "dark") }
     func testLightLinks() throws { try capture(appearance: "light") }
@@ -22,8 +23,8 @@ import XCTest
         let opener = try XCTUnwrap(NSWorkspace.shared.urlForApplication(toOpen: URL(string: Self.destination)!))
         let browser = XCUIApplication(bundleIdentifier: try XCTUnwrap(Bundle(url: opener)?.bundleIdentifier))
         app = XCUIApplication(url: URL(fileURLWithPath: try XCTUnwrap(env["THRUSH_LINKS_APP"])))
-        app.launchArguments = ["--scene", "links", "--appearance", appearance,
-                               "--endpoint", try XCTUnwrap(env["THRUSH_CAPTURE_ENDPOINT"])]
+        endpoint = try XCTUnwrap(env["THRUSH_CAPTURE_ENDPOINT"])
+        app.launchArguments = ["--scene", "links", "--appearance", appearance, "--endpoint", endpoint]
         app.launch()
         defer { app.terminate() }
         let window = app.windows.firstMatch
@@ -31,25 +32,31 @@ import XCTest
         XCTAssertTrue(guide.waitForExistence(timeout: 20), app.debugDescription)
         Thread.sleep(forTimeInterval: 0.5)
         let row = guide.frame.height
-        save(window.screenshot(), "rest", appearance)
+        let rest = window.screenshot()
+        save(rest, "rest", appearance)
 
         // The tooltip names where a link goes. ⌘ engages the link under a resting pointer, and output that
         // takes the link away or brings it back under the pointer lets it go or engages it again.
         center(of: guide).hover()
         Thread.sleep(forTimeInterval: 3)
         save(XCUIScreen.main.screenshot(), "tooltip", appearance)
+        let resting = cursor()
+        XCTAssertNotEqual(resting, "pointing hand", "A link should wait for ⌘ before it engages.")
         XCUIElement.perform(withKeyModifiers: .command) {
             expectCursor("pointing hand", "⌘ should engage the link under a resting pointer.")
-            save(window.screenshot(), "command-hover", appearance)
-            app.typeKey("5", modifierFlags: [])
+            let plain = pixels(of: guide, in: rest)
+            let engaged = expectStill(of: guide, { $0 != plain }, "An engaged link should look engaged.")
+            save(engaged, "command-hover", appearance)
+            let look = pixels(of: guide, in: engaged)
+            output(drawn: false)
             XCTAssertTrue(link(Self.guide).waitForNonExistence(timeout: 5), app.debugDescription)
-            expectCursor("I-beam", "Output that takes the link away should let it go.")
-            app.typeKey("9", modifierFlags: [])
+            expectCursor(resting, "Output that takes the link away should let it go.")
+            output(drawn: true)
             XCTAssertTrue(link(Self.guide).waitForExistence(timeout: 10), app.debugDescription)
             expectCursor("pointing hand", "Output that brings a link under a resting pointer should engage it.")
-            save(window.screenshot(), "command-output", appearance)
+            save(expectStill(of: guide, { $0 == look }, "The link should look engaged again."), "command-output", appearance)
         }
-        expectCursor("I-beam", "Letting go of ⌘ should let the link go.")
+        expectCursor(resting, "Letting go of ⌘ should let the link go.")
 
         // A ⌘-click opens a web link where the system opens it.
         XCUIElement.perform(withKeyModifiers: .command) { center(of: guide).click() }
@@ -134,12 +141,53 @@ import XCTest
         XCTAssertEqual(cursor(), expected, message, file: file, line: line)
     }
 
-    /// The system cursor, told apart from the others by its hot spot and size.
+    /// The system cursor, told apart from the pointing hand by its hot spot and size.
     private func cursor() -> String {
         guard let current = NSCursor.currentSystem else { return "hidden" }
-        let cursors: [(String, NSCursor)] = [("pointing hand", .pointingHand), ("I-beam", .iBeam), ("arrow", .arrow)]
-        return cursors.first { $0.1.hotSpot == current.hotSpot && $0.1.image.size == current.image.size }?.0
-            ?? "\(current.hotSpot) \(current.image.size)"
+        let hand = NSCursor.pointingHand
+        return hand.hotSpot == current.hotSpot && hand.image.size == current.image.size
+            ? "pointing hand" : "\(current.hotSpot) \(current.image.size)"
+    }
+
+    /// Waits a moment for a still of the window in which `element` looks the way `matches` wants. The pointer
+    /// changes as soon as a link engages, and the link draws its new look on the next frame.
+    private func expectStill(of element: XCUIElement, _ matches: (Data) -> Bool, _ message: String,
+                             file: StaticString = #filePath, line: UInt = #line) -> XCUIScreenshot {
+        let deadline = Date().addingTimeInterval(3)
+        var still = app.windows.firstMatch.screenshot()
+        while !matches(pixels(of: element, in: still)), Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+            still = app.windows.firstMatch.screenshot()
+        }
+        XCTAssertTrue(matches(pixels(of: element, in: still)), message, file: file, line: line)
+        return still
+    }
+
+    /// The pixels of an element in a still of its window, so the proof can tell how a link looks.
+    private func pixels(of element: XCUIElement, in still: XCUIScreenshot) -> Data {
+        let window = app.windows.firstMatch.frame
+        guard let image = still.image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return Data() }
+        let scale = CGFloat(image.width) / window.width
+        let frame = element.frame.offsetBy(dx: -window.minX, dy: -window.minY)
+        guard let crop = image.cropping(to: CGRect(x: frame.minX * scale, y: frame.minY * scale,
+                                                   width: frame.width * scale, height: frame.height * scale)),
+              let context = CGContext(data: nil, width: crop.width, height: crop.height, bitsPerComponent: 8,
+                                      bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return Data() }
+        context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        return Data(bytes: context.data!, count: crop.width * crop.height * 4)
+    }
+
+    /// Has the peer send output that clears the links scene, or lays it out again.
+    private func output(drawn: Bool) {
+        var request = URLRequest(url: URL(string: endpoint + "/links?draw=" + (drawn ? "1" : "0"))!)
+        request.httpMethod = "POST"
+        let sent = expectation(description: "The peer sends the output.")
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204, String(describing: error))
+            sent.fulfill()
+        }.resume()
+        wait(for: [sent], timeout: 10)
     }
 
     private func link(_ text: String) -> XCUIElement {

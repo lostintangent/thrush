@@ -202,7 +202,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
 }
 
 const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors", "links"]);
-const colorScenes = new Set<Socket>();
+const sockets = new Set<Socket>();
 const args = process.argv.slice(2);
 if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
         || (args[2] && args[2] !== "--view") || (args[3] && args[3] !== "--driver")))
@@ -217,7 +217,16 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
         // POST /palette?name=paper|night switches each colors scene's palette mid-session, as a program would.
         const palette = query.get("name");
         if (url.pathname === "/palette" && request.method === "POST" && palette && Object.hasOwn(palettes, palette)) {
-            for (const socket of colorScenes) socket.sendBinary(encode(setPalette(palette as keyof typeof palettes) + prompt));
+            const bytes = encode(setPalette(palette as keyof typeof palettes) + prompt);
+            for (const socket of sockets) if (socket.data.scene === "colors") socket.sendBinary(bytes);
+            return new Response(null, { status: 204 });
+        }
+        // POST /links?draw=0 clears each links scene and POST /links?draw=1 lays it out again, as output that
+        // takes a link from under a resting pointer and brings it back.
+        const drawn = query.get("draw");
+        if (url.pathname === "/links" && request.method === "POST" && (drawn === "0" || drawn === "1")) {
+            for (const socket of sockets) if (socket.data.scene === "links")
+                socket.sendBinary(encode(esc + "H" + esc + "2J" + (drawn === "1" ? esc + "3J" + buildLinks(socket.data.cols) : "")));
             return new Response(null, { status: 204 });
         }
         const cols = Number(query.get("cols")), rows = Number(query.get("rows"));
@@ -234,7 +243,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
         data: {} as Session,
         open(socket) {
             recordGrid("attach", socket.data);
-            if (socket.data.scene === "colors") colorScenes.add(socket);
+            sockets.add(socket);
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
             void draw(socket).catch(error => { console.error(error); socket.close(1011, "Scene failed"); });
         },
@@ -282,7 +291,7 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
                 socket.sendBinary(message);
             }
         },
-        close(socket) { colorScenes.delete(socket); },
+        close(socket) { sockets.delete(socket); },
     },
 });
 console.log("Thrush demo peer listening at " + server.url.origin);
