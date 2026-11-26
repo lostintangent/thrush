@@ -585,6 +585,7 @@ def main():
                     attempt("swipe capture", collect_swipes, phone, device, endpoint, plan, out, work, attempt)
                     for appearance in APPEARANCES:
                         attempt(f"{appearance} swipes", scroll.check, out, appearance)
+                    attempt("swipe glides", scroll.compare, out)
                 else:
                     attempt("gesture capture", collect, phone, device, endpoint, plan, out, work, attempt,
                             options.rotation_only, options.trace_rotation_layout)

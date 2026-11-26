@@ -59,6 +59,9 @@ import XCTest
         try swipe("history-\(appearance)-enter-2", from: 0.3, to: 0.75, velocity: 3000)
         // XCUITest waits for UIScrollView to come to rest, so a tap can't catch the history's flick.
         try swipeSequence("history-\(appearance)", catching: false)
+        // The same flick glides a little differently each time, so history plays each one again for a range.
+        try swipe("history-\(appearance)-flick-2", from: 0.7, to: 0.45, velocity: 800)
+        try swipe("history-\(appearance)-fast-2", from: 0.7, to: 0.45, velocity: 1600)
         try finishClip("history-\(appearance)", since: start)
     }
 
