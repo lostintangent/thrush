@@ -91,11 +91,11 @@ final class AppTransport: SessionActor.Transport {
         session.resetTerminal(size: size)
         session.lastReceiptTime = nil
         await session.publishMetadata(title: session.terminal.title, hasEnded: false)
-        guard session.lifetime == stamp else { throw CancellationError() }
+        try session.checkLifetime(stamp)
         // The view can rotate while the transport is opening.
         while session.terminal.size != session.requestedSize {
             try await resizeIfNeeded(in: session)
-            guard session.lifetime == stamp else { throw CancellationError() }
+            try session.checkLifetime(stamp)
         }
         session.state = .live
         session.hasSeenReady = true
@@ -113,7 +113,7 @@ final class AppTransport: SessionActor.Transport {
         subscription?.hasOutput = true
         subscription?.changes.continuation.yield()
         if !reply.isEmpty { try await write(.bytes(Data(reply)), in: session) }
-        guard session.lifetime == stamp else { throw CancellationError() }
+        try session.checkLifetime(stamp)
         await session.publishMetadata(title: session.terminal.title)
     }
 
@@ -140,18 +140,18 @@ final class AppTransport: SessionActor.Transport {
         guard let transport else { throw SessionActor.TransportError.inactiveTransport }
         let stamp = session.lifetime
         let next = session.orderWrite { session in
-            guard session.lifetime == stamp else { throw CancellationError() }
+            try session.checkLifetime(stamp)
             switch operation {
             case .bytes(let data): try await transport.write(data)
             case .resize(let size):
                 try await transport.resize(to: size)
-                guard session.lifetime == stamp else { throw CancellationError() }
+                try session.checkLifetime(stamp)
                 session.terminal.resize(to: size)
             }
         }
         do {
             try await next.value
-            guard session.lifetime == stamp else { throw CancellationError() }
+            try session.checkLifetime(stamp)
         } catch {
             if session.lifetime == stamp { await close(in: session) }
             throw error

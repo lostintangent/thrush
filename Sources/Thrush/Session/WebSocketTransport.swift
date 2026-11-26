@@ -134,7 +134,7 @@ final class WebSocketTransport: SessionActor.Transport {
             if let event = takePendingEvent() { return event }
             throw error
         }
-        guard session.lifetime == stamp else { throw CancellationError() }
+        try session.checkLifetime(stamp)
         guard socket === current else {
             if let event = takePendingEvent() { return event }
             throw CancellationError()
@@ -168,9 +168,9 @@ final class WebSocketTransport: SessionActor.Transport {
                     // Output was already applied. Present it before reporting its reply's transport failure.
                     guard session.lifetime == stamp, pendingEvent != nil else { throw error }
                 }
-                guard session.lifetime == stamp else { throw CancellationError() }
+                try session.checkLifetime(stamp)
                 await session.publishMetadata(title: session.terminal.title)
-                guard session.lifetime == stamp else { throw CancellationError() }
+                try session.checkLifetime(stamp)
                 return replay == nil ? .output : .replay
 
             case .string(let json):
@@ -197,10 +197,10 @@ final class WebSocketTransport: SessionActor.Transport {
                         do { try await activate(current, in: session) }
                         catch { guard session.lifetime == stamp, pendingEvent != nil else { throw error } }
                     }
-                    guard session.lifetime == stamp else { throw CancellationError() }
+                    try session.checkLifetime(stamp)
                     // A resumed ready precedes the replay that supplies the authoritative title.
                     await session.publishMetadata(title: resumed ? nil : session.terminal.title, hasEnded: false)
-                    guard session.lifetime == stamp else { throw CancellationError() }
+                    try session.checkLifetime(stamp)
                     return replaced ? .replaced : .ready(resumed: resumed)
                 case (.ready, .live) where control.resumed == true && nextReplay == nil:
                     frameTrace?.record("ready", attachment: attachment, message: message)
@@ -213,7 +213,7 @@ final class WebSocketTransport: SessionActor.Transport {
                     }
                     let exitLifetime = session.lifetime
                     await session.publishMetadata(hasEnded: true)
-                    guard session.lifetime == exitLifetime else { throw CancellationError() }
+                    try session.checkLifetime(exitLifetime)
                     return .ended
                 default: throw TransportError.unexpectedMessage
                 }

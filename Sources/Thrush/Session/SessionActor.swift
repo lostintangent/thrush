@@ -52,6 +52,7 @@ package actor SessionActor {
     let transport: any Transport
     var terminal: Terminal
     var requestedSize: Terminal.Size
+    /// Opening, parking or closing a transport starts a new lifetime. Work begun in an earlier one is cancelled.
     var lifetime: UInt64 = 0
     // A native action may still be queued for the screen displayed before a replacement.
     var shellRevision: UInt64 = 0
@@ -91,6 +92,11 @@ package actor SessionActor {
         }
         lifetime &+= 1
         return true
+    }
+
+    /// Throws when work begun at `stamp` belongs to an earlier lifetime.
+    func checkLifetime(_ stamp: UInt64) throws {
+        guard lifetime == stamp else { throw CancellationError() }
     }
 
     /// The view owns one event reader while visible.
