@@ -10,7 +10,7 @@ struct ProofApp: App {
 
     var body: some Scene {
         WindowGroup { ProofWindow(proof: .shared) }
-            .defaultSize(width: 720, height: 454)
+            .defaultSize(width: 720, height: 486)
     }
 }
 
@@ -81,6 +81,8 @@ private struct RendererSurface: UIViewRepresentable {
     private let proof = Proof.shared
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // SwiftUI restores the frame a previous run left, so each proof starts from the sample's default window.
+        UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
         NSWindow.allowsAutomaticWindowTabbing = false
         setAppearance(proof.options.cyclesAppearance ? .dark : proof.options.appearance)
         if proof.options.cyclesAppearance { proof.onFirstOutput = { [weak self] in self?.cycleAppearance() } }

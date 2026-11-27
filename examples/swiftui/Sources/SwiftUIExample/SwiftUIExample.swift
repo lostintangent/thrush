@@ -4,6 +4,6 @@ import SwiftUI
 struct SwiftUIExample: App {
     var body: some Scene {
         WindowGroup { ShellWindow() }
-            .defaultSize(width: 720, height: 454)
+            .defaultSize(width: 720, height: 486)
     }
 }
