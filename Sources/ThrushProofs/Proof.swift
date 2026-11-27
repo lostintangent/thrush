@@ -57,8 +57,11 @@ struct ProofOptions {
         runsWorkflowDriver = value(after: "--workflow-driver") != nil && value(after: "--workflow-output") != nil
         frameTraceURL = runsWorkflowDriver && arguments.contains("--trace-lifecycle-frames")
             ? value(after: "--workflow-output").map { URL(fileURLWithPath: $0).appending(path: "native-wire.jsonl") } : nil
-        scene = value(after: "--scene").flatMap(Scene.init(rawValue:)) ?? .shell
-        endpoint = value(after: "--endpoint").map { Self.endpoint($0, scene: value(after: "--scene")) }
+        let sceneName = value(after: "--scene")
+        scene = sceneName.flatMap(Scene.init(rawValue:)) ?? .shell
+        // A scene alone plays from the peer on the sample's default port.
+        endpoint = (value(after: "--endpoint") ?? sceneName.map { _ in "http://127.0.0.1:9138" })
+            .map { Self.endpoint($0, scene: sceneName) }
         appearance = value(after: "--appearance").flatMap(Appearance.init(rawValue:)) ?? .system
         cyclesAppearance = arguments.contains("--cycle-appearance")
         if arguments.contains("--benchmark") {
