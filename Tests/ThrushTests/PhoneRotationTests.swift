@@ -318,7 +318,9 @@ func keyboardHoldDrawsEveryRowWhereTheResizedGridWill(reading offset: Int, lower
     }
     try await Task.sleep(for: .milliseconds(20))
     UIView.animate(withDuration: 1) { host.resize(to: CGSize(width: 402, height: 768)) }
-    try await Task.sleep(for: .milliseconds(200))
+    // A loaded runner can take a while to show the turn growing the viewport past the keyboard's shrink.
+    let turning = ContinuousClock.now + .seconds(2)
+    while presentedHeight() <= start + 1 && ContinuousClock.now < turning { try await Task.sleep(for: .milliseconds(8)) }
     let before = presentedHeight()
     #expect(before > start + 1)
     host.resize(to: host.portrait)
