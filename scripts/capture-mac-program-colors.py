@@ -93,11 +93,11 @@ def check(image, appearance, palette, args, checker):
         read((WIDTH - 50, 5, WIDTH - 8, 39), "Close", exact_line=True)
     if max(contrasts(crop(*title, 4, bar - 4))) < 4.5:
         raise ValueError("The window title doesn't stand out from its bar.")
-    # The palette command opens the scene. A live take's later ones land just above the prompt at the canvas's foot.
+    # The palette command opens the scene. A live take's later ones land among the canvas's last six rows.
     try:
         read((sidebar, bar, WIDTH, bar + 48), "palette " + palette)
     except ValueError:
-        read((sidebar, height - 98, WIDTH, height - 4), "palette " + palette)
+        read((sidebar, height - 112, WIDTH, height - 4), "palette " + palette)
     if split:
         read((0, bar, sidebar, bar + 48), "Thrush")
     if toolbar:
