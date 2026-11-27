@@ -94,7 +94,7 @@ Add `--accessibility-only` to run with the largest Dynamic Type size, Reduce Mot
 
 ## Tour a release
 
-Before a release, dispatch the **Release tour** workflow to see every visible surface on both platforms in both appearances. It runs the iPhone interaction proof, the four live workflow runs, the Mac spinner, program color and appearance report captures and the iPhone spinner, navigation bar and program color scenes, then lays their screenshots out on four labeled contact sheets. The `thrush-release-tour` artifact holds the sheets and `tour.json`, which names the capture behind each tile. A surface with no capture keeps a dashed tile on its sheet and an entry under `missing`, so a failed job shows as a gap rather than disappearing.
+Before a release, dispatch the **Release tour** workflow to see every visible surface on both platforms in both appearances. It runs the iPhone interaction and link proofs, the four live workflow runs, the Mac spinner, program color, appearance report and link captures and the iPhone spinner, navigation bar and program color scenes, then lays their screenshots out on four labeled contact sheets. The link proofs keep their stills in their own artifacts. The `thrush-release-tour` artifact holds the sheets and `tour.json`, which names the capture behind each tile. A surface with no capture keeps a dashed tile on its sheet and an entry under `missing`, so a failed job shows as a gap rather than disappearing.
 
 ```sh
 gh workflow run release-tour.yml

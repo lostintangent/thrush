@@ -54,7 +54,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: thrush-iphone-interactions-${{ github.run_id }}-${{ github.run_attempt }}
+          # The release tour calls this workflow twice, so each scope names its own artifact.
+          name: thrush-iphone-${{ inputs.links_only && 'links' || inputs.swipes_only && 'swipes' || inputs.accessibility_only && 'accessibility' || 'interactions' }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/thrush-iphone-interactions/*.png
             ${{ runner.temp }}/thrush-iphone-interactions/*.mp4

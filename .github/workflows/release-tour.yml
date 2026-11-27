@@ -10,6 +10,11 @@ jobs:
   interactions:
     uses: ./.github/workflows/iphone-interactions.yml
 
+  iphone-links:
+    uses: ./.github/workflows/iphone-interactions.yml
+    with:
+      links_only: true
+
   live:
     strategy:
       fail-fast: false
@@ -31,6 +36,15 @@ jobs:
     uses: ./.github/workflows/window-lifecycle.yml
     with:
       appearance_reports: true
+
+  # Every window lifecycle call in a run shares one concurrency group, which keeps only one call
+  # pending, so the third call waits for the other two rather than displacing one.
+  mac-links:
+    needs: [mac, mac-appearance]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/window-lifecycle.yml
+    with:
+      links: true
 
   iphone-scenes:
     name: iPhone ${{ matrix.artifact }}
@@ -67,7 +81,7 @@ jobs:
           path: ${{ runner.temp }}/tour/*.png
 
   sheets:
-    needs: [interactions, live, mac, mac-appearance, iphone-scenes]
+    needs: [interactions, iphone-links, live, mac, mac-appearance, mac-links, iphone-scenes]
     if: ${{ !cancelled() }}
     runs-on: xcode-27
     timeout-minutes: 15
