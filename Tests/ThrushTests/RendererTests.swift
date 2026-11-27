@@ -198,7 +198,8 @@ func livePaletteChangesRecolorCachedRows() async throws {
 func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async throws {
     let host = try await OffscreenTerminal()
     let canvas = CanvasView(terminal: host.view)
-    // A mounted view displays each snapshot as it arrives. On the Mac, a dark title bar overlaps the canvas.
+    // A mounted view displays each snapshot as it arrives. A dark title bar overlaps the canvas on the Mac, and a
+    // navigation bar does on iPhone.
     #if os(macOS)
     _ = NSApplication.shared
     let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 402, height: 550), styleMask: [.titled, .closable, .fullSizeContentView],
@@ -207,8 +208,17 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     window.contentView = canvas
     canvas.layoutSubtreeIfNeeded()
     #else
+    let controller = UIViewController()
+    controller.additionalSafeAreaInsets.top = 54
     let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 550))
-    window.addSubview(canvas)
+    window.rootViewController = controller
+    canvas.frame = controller.view.bounds
+    controller.view.addSubview(canvas)
+    window.isHidden = false
+    defer { window.isHidden = true }
+    window.layoutIfNeeded()
+    var barReports = 0
+    canvas.onBarSchemeChange = { barReports += 1 }
     #endif
     defer { withExtendedLifetime(window) {} }
     func canvasBackground() -> CGColor? {
@@ -227,6 +237,8 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     _ = try host.draw(terminal.snapshot(), theme: theme)
     #if os(macOS)
     #expect(canvas.titlebarAppearance == nil)
+    #else
+    #expect(canvas.barScheme == .dark)
     #endif
 
     let osc = "\u{1b}]"
@@ -241,11 +253,13 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #expect(shot[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
     #expect(shot[Probe.edges[2] + 1, Probe.top + 1] == 0xff0000)
     #expect(canvasBackground() == color(0xfaf0e6))
-    #expect(canvas.canvasScheme == .light)
     #if os(macOS)
     // The dark window's title bar takes the light canvas's appearance, so its title stays readable over it.
     #expect(canvas.titlebarAppearance == .aqua)
     #expect(canvas.toolbarCoverColor == nil)
+    #else
+    // The navigation bar takes the light canvas's scheme, so its title stays readable over it.
+    #expect(canvas.barScheme == .light)
     #endif
 
     let selection = TerminalMetalView.Selection(anchorRow: 0, anchorColumn: 0, headRow: 0, headColumn: 0)
@@ -260,7 +274,6 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     #expect(reset[0, 0] == pack(theme.palette.background))
     #expect(reset[Probe.edges[1] + 1, Probe.top + 1] == 0x336699)
     #expect(canvasBackground() == color(pack(theme.palette.background)))
-    #expect(canvas.canvasScheme == .dark)
     #if os(macOS)
     #expect(canvas.titlebarAppearance == nil)
     // A hidden canvas, or one the title bar no longer overlaps, gives the title bar back to the window.
@@ -311,6 +324,17 @@ func programColorsPaintTheCanvasWhileItsChromeAndSelectionKeepTheTheme() async t
     try await #require(canvas.titlebarCheck).value
     #expect(canvas.titlebarAppearance == nil)
     #expect(canvas.toolbarCoverColor == color(pack(theme.palette.background)))
+    #else
+    #expect(canvas.barScheme == .dark)
+    // Below the bars, the canvas reports no scheme, and a program's background then changes nothing.
+    canvas.frame.origin.y = controller.view.safeAreaInsets.top
+    window.layoutIfNeeded()
+    #expect(canvas.barScheme == nil)
+    let reports = barReports
+    _ = terminal.write((osc + "11;#faf0e6\u{7}").utf8)
+    host.view.display(terminal.snapshot())
+    #expect(canvasBackground() == color(0xfaf0e6))
+    #expect(barReports == reports)
     #endif
 }
 

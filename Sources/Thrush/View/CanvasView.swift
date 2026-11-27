@@ -39,12 +39,10 @@ typealias PlatformView = UIView
     private var visibilityObservations: [NSKeyValueObservation] = []
     #endif
 
-    /// The scheme of the background the canvas draws.
-    private(set) var canvasScheme: ColorScheme?
     #if os(iOS)
     /// The scheme that keeps a navigation bar over the canvas readable, or nil when none overlaps it.
     private(set) var barScheme: ColorScheme?
-    var onCanvasChange: (() -> Void)?
+    var onBarSchemeChange: (() -> Void)?
     #else
     /// The title bar of the full-size window toolbar the canvas runs under, which takes the canvas's appearance
     /// while it's opposite the window's, as a navigation bar takes its scheme on iPhone.
@@ -192,12 +190,12 @@ typealias PlatformView = UIView
         super.viewDidMoveToWindow()
         closingWindow = nil
         onVisibility?()
-        updateSchemes()
+        updateBar()
     }
-    override func viewDidHide() { super.viewDidHide(); onVisibility?(); updateSchemes() }
-    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?(); updateSchemes() }
-    override func layout() { super.layout(); updateSchemes() }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateSchemes() }
+    override func viewDidHide() { super.viewDidHide(); onVisibility?(); updateBar() }
+    override func viewDidUnhide() { super.viewDidUnhide(); onVisibility?(); updateBar() }
+    override func layout() { super.layout(); updateBar() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateBar() }
     #else
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -286,7 +284,7 @@ typealias PlatformView = UIView
             easeViewportIntoTurn(from: turning.frame, presented: presented)
         }
         alignHeldGrid()
-        updateSchemes()
+        updateBar()
     }
 
     private var turnMovesViewport: Bool {
@@ -378,20 +376,19 @@ typealias PlatformView = UIView
         backgroundColor = UIColor(cgColor: background)
         for cover in [insetCover, bottomCover] { cover.backgroundColor = backgroundColor }
         #endif
-        updateSchemes()
+        updateBar()
     }
 
-    private func updateSchemes() {
-        let background = terminal.color(.background)
-        let canvas: ColorScheme = background.isDark ? .dark : .light
+    /// A bar over the canvas takes the scheme of the background the canvas draws, so its title stays readable.
+    private func updateBar() {
+        let dark = terminal.color(.background).isDark
         #if os(macOS)
-        updateTitlebar(dark: background.isDark)
-        canvasScheme = canvas
+        updateTitlebar(dark: dark)
         #else
-        let bar = safeAreaInsets.top > 0 ? canvas : nil
-        guard canvas != canvasScheme || bar != barScheme else { return }
-        (canvasScheme, barScheme) = (canvas, bar)
-        onCanvasChange?()
+        let scheme: ColorScheme? = safeAreaInsets.top > 0 ? (dark ? .dark : .light) : nil
+        guard scheme != barScheme else { return }
+        barScheme = scheme
+        onBarSchemeChange?()
         #endif
     }
 
@@ -443,7 +440,7 @@ typealias PlatformView = UIView
             titlebar.layoutSubtreeIfNeeded()
             guard !Self.follows(titlebar, of: window, over: span, isDark: asked.dark) else { return }
             titlebarFollows?.follows = false
-            updateSchemes()
+            updateBar()
         }
     }
 

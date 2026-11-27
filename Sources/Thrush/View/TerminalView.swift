@@ -138,8 +138,8 @@ import ThrushCore
             self.canvas = canvas
             canvas.onVisibility = { [weak self] in self?.updateActivity() }
             #if os(iOS)
-            canvas.onCanvasChange = { [weak self] in
-                // Layout reports the schemes, and SwiftUI can't observe a change during its own update.
+            canvas.onBarSchemeChange = { [weak self] in
+                // Layout reports the scheme, and SwiftUI can't observe a change during its own update.
                 Task { @MainActor in
                     guard let self, let canvas = self.canvas else { return }
                     self.barScheme = canvas.barScheme
