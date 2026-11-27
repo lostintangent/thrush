@@ -54,7 +54,10 @@ actor ControlledTransport: TerminalTransport {
         if failure == .write { throw Failure.interrupted }
     }
 
+    private(set) var resizes: [Terminal.Size] = []
+
     func resize(to size: Terminal.Size) throws {
+        resizes.append(size)
         if failure == .resize { throw Failure.interrupted }
     }
     func close() {

@@ -113,4 +113,40 @@ import Testing
     #expect(!view.subviews.contains { $0 is CursorSpinner })
     try await session.close()
 }
+
+// A window toolbar's safe area can settle after the window resizes, so one layout passes through two grids.
+@MainActor @Test func macShellHearsOnlyTheGridALayoutSettlesOn() async throws {
+    _ = NSApplication.shared
+    let transport = ControlledTransport()
+    let session = TerminalSession(openTransport: { _ in transport })
+    let hostingView = NSHostingView(rootView: SessionTestView(session: session, shown: true))
+    hostingView.sizingOptions = []
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 240),
+                          styleMask: .borderless, backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = hostingView
+    window.orderFront(nil)
+    defer { window.close() }
+    hostingView.layoutSubtreeIfNeeded()
+    await transport.emit("first")
+    try await waitForView("the first native grid") { terminal(in: hostingView)?.snapshot?.rows.first?.text == "first" }
+    let view = try #require(terminal(in: hostingView))
+    let first = try #require(view.gridSize)
+
+    window.setContentSize(NSSize(width: 440, height: 280))
+    hostingView.layoutSubtreeIfNeeded()
+    let passing = try #require(view.gridSize)
+    window.setContentSize(NSSize(width: 440, height: 260))
+    hostingView.layoutSubtreeIfNeeded()
+    let settled = try #require(view.gridSize)
+    #expect(first != passing && passing != settled && settled != first)
+
+    let deadline = ContinuousClock.now + .seconds(5)
+    while await transport.resizes.last != settled {
+        try #require(ContinuousClock.now < deadline, "Timed out waiting for the settled grid")
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(await transport.resizes == [settled])
+    try await session.close()
+}
 #endif
