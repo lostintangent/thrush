@@ -5,7 +5,7 @@ import XCTest
 /// The runner saves the app's framebuffer at each reviewed state and the intervals of motion.
 @MainActor
 final class PhoneInteractionProof: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private static let wrappedText = "1024  compile units/café/界/e\u{301}/long-dependency/with/nested-source-folders/unit-1024.h"
 
     func testDarkInteractions() throws { try capture(appearance: "dark") }

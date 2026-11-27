@@ -51,9 +51,10 @@ const server = Bun.serve({
             write(opening[0]!, csi + "6n");
             return new Response(null, { status: 204 });
         }
+        // The proofs choose a scene with their endpoint's path, so its terminal attaches at /<scene>/socket.
         const id = url.searchParams.get("clientId") ?? "";
-        const scene = scenes.find(name => id.startsWith("thrush-" + name + "-"));
-        if (!scene || url.pathname !== "/socket" || url.searchParams.get("service") !== "terminal")
+        const scene = scenes.find(name => url.pathname === "/" + name + "/socket");
+        if (!scene || !id || url.searchParams.get("service") !== "terminal")
             return new Response("Expected a capture scene terminal attachment.", { status: 400 });
         const session = sessions.get(id) ?? { count: 0 };
         const data = { id, scene, url: request.url.replace(/^http/, "ws"), index: session.count + 1, acknowledged: false };

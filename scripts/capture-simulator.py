@@ -19,12 +19,12 @@ import uuid
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_ID = "app.thrush.demo"
+APP_ID = "app.thrush.proofs"
 ORACLE = ROOT / "scripts/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors"}
-PANE_CHECKER = ROOT / ".build/demo/check-pane-capture"
+PANE_CHECKER = ROOT / ".build/proofs/check-pane-capture"
 PHONE = "iPhone Duo"
 
 
@@ -540,9 +540,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("The output directory must be empty.")
-    app = args.app.resolve() if args.app else ROOT / ".build/demo/simulator/Thrush.app"
+    app = args.app.resolve() if args.app else ROOT / ".build/proofs/simulator/Thrush.app"
     if not args.app:
-        build = run("scripts/build-demo.sh", "simulator", timeout=400, check=False)
+        build = run("scripts/build-app.sh", "proofs", "simulator", timeout=400, check=False)
         (out / "build.log").write_text(build.stdout + build.stderr)
         if build.returncode:
             raise RuntimeError("Simulator packaging failed: " + (build.stdout + build.stderr)[-1600:])
@@ -586,7 +586,7 @@ def main():
                     save_json(out / "last-native-state.json", state)
             try:
                 logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact",
-                           "--predicate", 'process == "ThrushDemo"', timeout=20, check=False)
+                           "--predicate", 'process == "ThrushProofs"', timeout=20, check=False)
                 (out / "app.log").write_text((logs.stdout + logs.stderr)[-100_000:])
             except subprocess.TimeoutExpired:
                 pass

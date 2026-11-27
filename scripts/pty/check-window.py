@@ -53,7 +53,7 @@ def main():
     from check import local_endpoint, server
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--app", type=Path, default=ROOT / ".build/demo/mac/Thrush.app")
+    parser.add_argument("--app", type=Path, default=ROOT / ".build/proofs/mac/Thrush.app")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--endpoint", type=local_endpoint, help="Optional disposable loopback terminal. The check runs a shell loop and closes it.")
     parser.add_argument("--sample-server", action="store_true", help="Save a system stack sample while the local ThrushServer carries the shell’s live ticks.")
@@ -66,7 +66,7 @@ def main():
         parser.error("The output directory must be empty.")
     app = args.app.resolve()
     if not app.is_dir():
-        subprocess.run(["scripts/build-demo.sh", "mac"], cwd=ROOT, check=True)
+        subprocess.run(["scripts/build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
     with (app / "Contents/Info.plist").open("rb") as f:
         info = plistlib.load(f)
     (out / "source.json").write_text(json.dumps({"commit": info["ThrushGitCommit"], "dirty": info["ThrushWorktreeDirty"]}) + "\n")

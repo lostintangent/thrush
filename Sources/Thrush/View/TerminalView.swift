@@ -51,10 +51,6 @@ import ThrushCore
             case ready(resumed: Bool)
             /// Output from the wire reached the screen.
             case output(generation: UInt64, receivedAt: CFTimeInterval)
-            /// The theme the view resolved from its override and the system appearance.
-            case theme(TerminalTheme)
-            /// The scheme of the canvas under any bars.
-            case canvas(ColorScheme)
         }
 
         /// A native view to present instead of a new one, so a check can drive it directly.
@@ -136,21 +132,18 @@ import ThrushCore
         fileprivate func bind(_ canvas: CanvasView) {
             self.canvas = canvas
             canvas.onVisibility = { [weak self] in self?.updateActivity() }
+            #if os(iOS)
             canvas.onCanvasChange = { [weak self] in
                 // Layout reports the schemes, and SwiftUI can't observe a change during its own update.
                 Task { @MainActor in
                     guard let self, let canvas = self.canvas else { return }
-                    #if os(iOS)
                     self.barScheme = canvas.barScheme
-                    #endif
-                    if let scheme = canvas.canvasScheme { self.probe.observe?(.canvas(scheme)) }
                 }
             }
+            #endif
             canvas.terminal.onGridSizeChange = { [weak self] in self?.resize($0) }
             canvas.terminal.onThemeChange = { [weak self] theme in
-                guard let self else { return }
-                probe.observe?(.theme(theme))
-                perform { session, _ in await session.setTheme(theme) }
+                self?.perform { session, _ in await session.setTheme(theme) }
             }
             canvas.terminal.beforeOutputDraw = { [weak self] in self?.presentOutput() }
             canvas.terminal.onInput = { [weak self] in self?.input($0) }
@@ -171,9 +164,7 @@ import ThrushCore
             }
             view = next
             guard let metalView else { return }
-            let previousTheme = metalView.resolvedTheme
             if metalView.theme != next.theme { metalView.theme = next.theme }
-            if sessionChanged && previousTheme == metalView.resolvedTheme { probe.observe?(.theme(metalView.resolvedTheme)) }
             if metalView.fontSize != next.fontSize { metalView.fontSize = next.fontSize }
             #if os(iOS)
             metalView.showsKeyRow = next.showsKeyRow

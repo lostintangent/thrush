@@ -9,7 +9,7 @@ func runPackagedRenderer(arguments: [String]) throws {
     }
     let app = URL(fileURLWithPath: arguments[1], isDirectory: true)
     guard let executable = Bundle(url: app)?.executableURL else {
-        throw BenchmarkError("No executable in \(app.path). Build the Mac demo with scripts/build-demo.sh mac.")
+        throw BenchmarkError("No executable in \(app.path). Build the Mac proofs app with scripts/build-app.sh proofs mac.")
     }
     let defaultName = interactions ? "interactions.json" : "render.json"
     let output = URL(fileURLWithPath: arguments.count == 4 ? arguments[3] : ".build/benchmarks/" + defaultName)

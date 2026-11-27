@@ -44,6 +44,7 @@ typealias PlatformView = UIView
     #if os(iOS)
     /// The scheme that keeps a navigation bar over the canvas readable, or nil when none overlaps it.
     private(set) var barScheme: ColorScheme?
+    var onCanvasChange: (() -> Void)?
     #else
     /// The title bar of the full-size window toolbar the canvas runs under, which takes the canvas's appearance
     /// while it's opposite the window's, as a navigation bar takes its scheme on iPhone.
@@ -59,7 +60,6 @@ typealias PlatformView = UIView
     private let toolbarCover = PlatformView()
     var toolbarCoverColor: CGColor? { toolbarCover.isHidden ? nil : toolbarCover.layer?.backgroundColor }
     #endif
-    var onCanvasChange: (() -> Void)?
 
     init(terminal: TerminalMetalView) {
         self.terminal = terminal
@@ -386,14 +386,13 @@ typealias PlatformView = UIView
         let canvas: ColorScheme = background.isDark ? .dark : .light
         #if os(macOS)
         updateTitlebar(dark: background.isDark)
-        guard canvas != canvasScheme else { return }
         canvasScheme = canvas
         #else
         let bar = safeAreaInsets.top > 0 ? canvas : nil
         guard canvas != canvasScheme || bar != barScheme else { return }
         (canvasScheme, barScheme) = (canvas, bar)
-        #endif
         onCanvasChange?()
+        #endif
     }
 
     #if os(macOS)

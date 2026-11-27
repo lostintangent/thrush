@@ -24,7 +24,7 @@ import UIKit
     private var mounted = [PhoneCapture.State]()
     private var visibleRows = [String]()
 
-    init?(scene: DemoOptions.Scene, view: TerminalMetalView) {
+    init?(scene: ProofOptions.Scene, view: TerminalMetalView) {
         guard CommandLine.arguments.contains("--capture-accessibility"), scene.capturesSessionState else { return nil }
         self.view = view
         destination = URL.documentsDirectory.appending(path: "accessibility-" + scene.rawValue + ".json")

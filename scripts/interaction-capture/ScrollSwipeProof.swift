@@ -4,7 +4,7 @@ import XCTest
 /// Swipes through less, vim and the shell's history on a real shell, then makes the same gestures in Settings.
 /// Each gesture saves its timing so the capture can line it up with the bytes the program read.
 @MainActor final class ScrollSwipeProof: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
     private let environment = ProcessInfo.processInfo.environment
 

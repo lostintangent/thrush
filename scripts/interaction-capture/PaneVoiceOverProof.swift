@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 
 @MainActor final class PaneVoiceOverProof: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let reader = XCUIDevice.shared.voiceOverService
     private var disableAtEnd = false
 

@@ -24,7 +24,7 @@ application, save, wait = (spinners[name] for name in ("application", "save", "w
 blink = runpy.run_path(str(SCRIPTS / "capture-mac-text-blink.py"))
 WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
 server = runpy.run_path(str(SCRIPTS / "pty/check.py"))["server"]
-# The demo's --cycle-appearance chooses these Appearance menu items 4 s apart, beginning at its first output.
+# The proofs' --cycle-appearance steps through these appearances 4 s apart, beginning at its first output.
 STEPS = ("dark", "light", "custom")
 SETTLE = 2.5
 # Asks whether mode 2031 is set, sets it, asks again and asks for the current appearance. Then it logs
@@ -79,7 +79,7 @@ def take(name, program, bundle, finder, server_binary, out, scratch, after_step)
     (scratch / name).mkdir()
     with server(scratch / name, wrapper, out / f"{name}-server.log", server_binary) as endpoint:
         host_log = out / f"{name}-host.log"
-        args = ["--endpoint", endpoint, "--scene", "shell", "--cycle-appearance"]
+        args = ["--endpoint", endpoint, "--cycle-appearance"]
         with application(bundle, args, host_log) as process:
             window_id = window(finder, process)
             subprocess.run(["open", "-a", bundle], check=True)
@@ -103,11 +103,11 @@ def main():
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
     neovim = opts.neovim or (Path(found) if (found := shutil.which("nvim")) else None)
-    subprocess.run([SCRIPTS / "build-demo.sh", "mac"], cwd=ROOT, check=True)
+    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
     build = ["swift", "build", "--package-path", ROOT, "-c", "release"]
     subprocess.run([*build, "--product", "ThrushServer"], check=True)
     server_binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushServer"
-    bundle = ROOT / ".build/demo/mac/Thrush.app"
+    bundle = ROOT / ".build/proofs/mac/Thrush.app"
     info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
     version = subprocess.check_output([neovim, "--version"], text=True).splitlines()[0] if neovim else None
     save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],

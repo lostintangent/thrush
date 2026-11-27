@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture colors a program sets in the packaged Mac window, in both appearances: under the demo's
+"""Capture colors a program sets in the packaged Mac window, in both appearances: under the sample's
 transparent title bar, under a full-size window toolbar with and without its background, and in a split
 view's detail beside a sidebar. The colors scene picks the canvas the system didn't, so every frame puts
 program colors against the host's chrome. The program's canvas must run beneath each toolbar, which takes
@@ -26,12 +26,12 @@ blink = runpy.run_path(str(SCRIPTS / "capture-mac-text-blink.py"))
 WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
 Capture = runpy.run_path(str(SCRIPTS / "check-demo-capture.py"))["Capture"]
 # The palettes in scripts/demo-peer.ts, the one the colors scene opens with by system appearance, and the
-# demo window's width, compact toolbar height and split view sidebar in points.
+# window's width, title bar and toolbar heights and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
 PROGRAM = {"dark": "paper", "light": "night"}
 CANVAS = {"dark": "131D27", "light": "FBFDFE"}
-WIDTH, BAR, SIDEBAR = 720, 40, 200
-# Each window's demo arguments.
+WIDTH, TITLE_BAR, TOOLBAR, SIDEBAR = 720, 32, 52, 200
+# Each window's proof arguments.
 WINDOWS = {
     "colors": [],
     "colors-toolbar": ["--toolbar-proof"],
@@ -63,7 +63,7 @@ def check(image, appearance, palette, args, checker):
         if result.returncode:
             raise ValueError((result.stdout + result.stderr).strip())
 
-    bar, height, sidebar = BAR, pixels.height / scale, SIDEBAR if split else 0
+    bar, height, sidebar = TOOLBAR if toolbar else TITLE_BAR, pixels.height / scale, SIDEBAR if split else 0
     total = pixels.width * pixels.height
     below = collections.Counter(pixels.pixels[round(bar * scale) * pixels.width:])
     if sum(count for value, count in below.items() if near(value, CANVAS[appearance], 3)) > total * 0.005:
@@ -90,9 +90,9 @@ def check(image, appearance, palette, args, checker):
         except ValueError:
             read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
         # Inside the button's border, which Vision can read as a comma.
-        read((WIDTH - 50, 5, WIDTH - 8, 39), "Close", exact_line=True)
+        read((WIDTH - 52, 8, WIDTH - 10, 44), "Close", exact_line=True)
     else:
-        read((0, 0, WIDTH, bar), "Thrush")
+        read((0, 0, WIDTH, bar), "Terminal")
     if max(contrasts(crop(*title, 4, bar - 4))) < 4.5:
         raise ValueError("The window title doesn't stand out from its bar.")
     # The palette command opens the scene. A live take's later ones land just above the prompt at the canvas's foot.
@@ -103,7 +103,7 @@ def check(image, appearance, palette, args, checker):
     if split:
         read((0, bar, sidebar, bar + 48), "Thrush")
     if toolbar:
-        if max(contrasts(crop(0.93, 0.98, 12, 30))) < 4.5:
+        if max(contrasts(crop(0.93, 0.98, 17, 35))) < 4.5:
             raise ValueError("The Close label doesn't stand out from its button.")
         # Between the leading title and the trailing Close button, the program's canvas runs beneath the
         # toolbar.
@@ -160,8 +160,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
-    subprocess.run([SCRIPTS / "build-demo.sh", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/demo/mac/Thrush.app"
+    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
+    bundle = ROOT / ".build/proofs/mac/Thrush.app"
     info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
     save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                  toolchain=info["ThrushToolchain"],

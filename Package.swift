@@ -10,8 +10,10 @@ let package = Package(
     targets: [
         .target(name: "ThrushCore"),
         .target(name: "Thrush", dependencies: ["ThrushCore"]),
-        .executableTarget(name: "ThrushDemo", dependencies: ["Thrush", "ThrushRecordings"]),
-        .testTarget(name: "ThrushDemoTests", dependencies: ["ThrushDemo", "Thrush", "ThrushCore"]),
+        // The proofs mount the sample app's window, which they compile from examples/swiftui through Sample.
+        .executableTarget(name: "ThrushProofs", dependencies: ["Thrush", "ThrushRecordings"],
+                          exclude: ["Sample/SwiftUIExample.swift"]),
+        .testTarget(name: "ThrushProofsTests", dependencies: ["ThrushProofs", "Thrush", "ThrushCore"]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
         .target(name: "ThrushPTY"),
         .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore", "ThrushPTY"]),

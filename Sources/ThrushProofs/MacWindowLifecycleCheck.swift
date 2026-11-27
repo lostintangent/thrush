@@ -20,7 +20,7 @@ final class MacWindowLifecycleCheck {
         let intervals: [Interval]
     }
 
-    private let session: DemoSession
+    private let proof: Proof
     private let window: NSWindow
     private let coverURL: URL
     private let coverID = "app.thrush.lifecycle-cover"
@@ -33,17 +33,17 @@ final class MacWindowLifecycleCheck {
     private var inFlight: [Double: UInt64] = [:]
     private var lastCompleted: UInt64?
 
-    private init(_ session: DemoSession, _ window: NSWindow, _ coverURL: URL) {
-        self.session = session
+    private init(_ proof: Proof, _ window: NSWindow, _ coverURL: URL) {
+        self.proof = proof
         self.window = window
         self.coverURL = coverURL
     }
 
-    static func startIfRequested(session: DemoSession, window: NSWindow) {
+    static func startIfRequested(proof: Proof, window: NSWindow) {
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "--window-lifecycle-check"), index + 2 < arguments.count else { return }
         let destination = URL(fileURLWithPath: arguments[index + 1])
-        let check = Self(session, window, URL(fileURLWithPath: arguments[index + 2]))
+        let check = Self(proof, window, URL(fileURLWithPath: arguments[index + 2]))
         check.observe()
         Task {
             do {
@@ -61,14 +61,14 @@ final class MacWindowLifecycleCheck {
     }
 
     private func observe() {
-        session.onReady = { [weak self] _ in self?.readyEvents += 1 }
-        session.view.onFrameSubmitted = { [weak self] time, _, _ in
+        proof.onReady = { [weak self] _ in self?.readyEvents += 1 }
+        proof.view.onFrameSubmitted = { [weak self] time, _, _ in
             guard let self else { return }
             submitted += 1
-            if let generation = session.view.snapshot?.generation { inFlight[time] = generation }
+            if let generation = proof.view.snapshot?.generation { inFlight[time] = generation }
             if let phase, isObscured(phase) { hiddenSubmissions += 1 }
         }
-        session.view.onFrameCompleted = { [weak self] frame in
+        proof.view.onFrameCompleted = { [weak self] frame in
             guard let self, let generation = inFlight.removeValue(forKey: frame.submittedAt), frame.gpuCompleted else { return }
             completed += 1
             lastCompleted = max(lastCompleted ?? 0, generation)
@@ -92,22 +92,22 @@ final class MacWindowLifecycleCheck {
         let deadline = CACurrentMediaTime() + timeout
         while !(await predicate()) {
             guard CACurrentMediaTime() < deadline else {
-                throw RenderBenchmark.Failure("\(description); frontmost=\(frontmost ?? "none"), windowVisible=\(visible), ready=\(readyEvents), submitted=\(submitted), completed=\(completed), nativeGeneration=\(String(describing: session.view.snapshot?.generation)), completedGeneration=\(String(describing: lastCompleted)).")
+                throw RenderBenchmark.Failure("\(description); frontmost=\(frontmost ?? "none"), windowVisible=\(visible), ready=\(readyEvents), submitted=\(submitted), completed=\(completed), nativeGeneration=\(String(describing: proof.view.snapshot?.generation)), completedGeneration=\(String(describing: lastCompleted)).")
             }
             try await Task.sleep(for: .milliseconds(60))
         }
     }
 
     private func run() async throws -> Report {
-        guard let terminalSession = session.terminalSession else { throw RenderBenchmark.Failure("Missing terminal session.") }
+        guard let terminalSession = proof.session else { throw RenderBenchmark.Failure("Missing terminal session.") }
         let actor = terminalSession.actor
         try await wait("The uncovered terminal must have a usable shell", timeout: 25) { readyEvents == 1 && visible }
         // The terminal itself must be a tty, and the shell supplies its own PID and monotonic tick.
         let command = #"if test -t 0; then i=0; while test "$i" -lt 145; do printf 'thrush-cover %s %s\n' "$$" "$i"; i=$((i+1)); sleep 1; done; fi"#
-        try NativeWorkflowActions.input(.text(command + "\r"), view: session.view)
+        try NativeWorkflowActions.input(.text(command + "\r"), view: proof.view)
         try await wait("The real shell must write its PID into the emulator") { self.marker(in: await actor.snapshot()) != nil }
         try await wait("The uncovered terminal must render its first shell marker", timeout: 25) {
-            guard let snapshot = self.session.view.snapshot, self.marker(in: snapshot) != nil,
+            guard let snapshot = self.proof.view.snapshot, self.marker(in: snapshot) != nil,
                   let completed = self.lastCompleted else { return false }
             return self.visible && completed >= snapshot.generation
         }
@@ -169,7 +169,7 @@ final class MacWindowLifecycleCheck {
         try await wait("A completed frame must include the output parsed during \(step.rawValue)") {
             visible && (lastCompleted ?? 0) >= generation
         }
-        guard let revealed = marker(in: session.view.snapshot), revealed.pid == final.pid, revealed.tick >= final.tick else {
+        guard let revealed = marker(in: proof.view.snapshot), revealed.pid == final.pid, revealed.tick >= final.tick else {
             throw RenderBenchmark.Failure("The native display did not present the parsed shell output after reveal.")
         }
         return Interval(phase: step.rawValue, durationSeconds: elapsed, shellPID: final.pid, firstTick: first.tick,

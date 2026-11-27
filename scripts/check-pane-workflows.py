@@ -22,7 +22,7 @@ CAPTURES = {
     "vim": {"Edited scratch file", "Vim before detach", "Vim serialized replay", "Returned to shell"},
     "codex": {"Codex ready", "First three songbirds streamed", "Received Codex answer", "Earlier transcript page", "Returned to shell"},
 }
-BUNDLE_ID = "app.thrush.demo"
+BUNDLE_ID = "app.thrush.proofs"
 # Longer than the native driver's 150 seconds without a new controller phase.
 DRIVER_PATIENCE = 180
 
@@ -268,7 +268,7 @@ def run_workflow(name, output, platform, device, documents, app_bundle, *, dispo
                 launch.extend([device, BUNDLE_ID])
             else:
                 # An obscured capture window still needs its foreground input and network turns.
-                launch = [app_bundle / "Contents/MacOS/ThrushDemo", "-NSAppSleepDisabled", "YES"]
+                launch = [app_bundle / "Contents/MacOS/ThrushProofs", "-NSAppSleepDisabled", "YES"]
             with running([*launch, *options], output / "app.log") as host:
                 await_report(name, host, peer, driver, output, platform, device or str(host.pid))
     finally:
@@ -295,9 +295,9 @@ def main():
     install_reference(output)
     print(f"Building packaged {args.platform} host; see {output / 'build.log'}", flush=True)
     with (output / "build.log").open("xb") as log:
-        subprocess.run(["scripts/build-demo.sh", args.platform], check=True, stdout=log,
+        subprocess.run(["scripts/build-app.sh", "proofs", args.platform], check=True, stdout=log,
                        stderr=subprocess.STDOUT, timeout=900)
-    app = Path(".build/demo", args.platform, "Thrush.app").resolve()
+    app = Path(".build/proofs", args.platform, "Thrush.app").resolve()
     with reservation as device:
         documents = None
         if device:

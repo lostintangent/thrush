@@ -8,10 +8,11 @@ on:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - Sources/ThrushDemo/**
+      - Sources/ThrushProofs/**
       - Sources/ThrushServer/**
       - Sources/ThrushPTY/**
-      - scripts/build-demo.sh
+      - examples/swiftui/**
+      - scripts/build-app.sh
       - scripts/pty/**
       - .github/workflows/window-lifecycle.yml
   workflow_dispatch:

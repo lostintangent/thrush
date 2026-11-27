@@ -1,6 +1,6 @@
 import QuartzCore
 import Testing
-@testable import ThrushDemo
+@testable import ThrushProofs
 @testable import Thrush
 
 private func frame(_ submission: Double, receivedAt: Double? = nil, presentedTime: Double? = nil,

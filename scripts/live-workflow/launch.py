@@ -282,7 +282,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                 except Exception as failure:
                     # The controller can still be waiting for the native acknowledgement that failed.
                     try:
-                        with urlopen(control + "/observations?clientId=thrush-native-workflow", timeout=5) as response:
+                        with urlopen(control + "/observations", timeout=5) as response:
                             observations = json.load(response)
                         (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
                     except (OSError, ValueError) as error:
@@ -357,7 +357,7 @@ def main():
     if args.bash is None:
         parser.error("Pass --bash pointing to GNU Bash with Readline bracketed paste")
     out = args.output.resolve()
-    app = args.app.resolve() if args.app else ROOT / ".build/demo" / args.platform / "Thrush.app"
+    app = args.app.resolve() if args.app else ROOT / ".build/proofs" / args.platform / "Thrush.app"
     bash = Path(args.bash).absolute()
     codex = Path(args.codex_bin).absolute() if args.codex_bin else None
     os.chdir(ROOT)
@@ -368,7 +368,7 @@ def main():
     if not args.app:
         # Xcode can mount a read-only Metal toolchain under the build user's home.
         with (out / "build.log").open("xb") as log:
-            subprocess.run([ROOT / "scripts/build-demo.sh", args.platform], stdout=log,
+            subprocess.run([ROOT / "scripts/build-app.sh", "proofs", args.platform], stdout=log,
                            stderr=subprocess.STDOUT, timeout=900, check=True)
     pane = load(ROOT / "scripts/check-pane-workflows.py")
     pane.install_reference(out)

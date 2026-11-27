@@ -3,7 +3,7 @@ import XCTest
 
 /// Drives the visible English keyboard before, during and after a real socket interruption.
 @MainActor final class ReconnectTypingProof: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.thrush.demo")
+    private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let base = URL(string: ProcessInfo.processInfo.environment["THRUSH_CAPTURE_ENDPOINT"]!)!
 
     func testTypingThroughReconnect() async throws {

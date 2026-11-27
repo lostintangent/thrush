@@ -93,18 +93,18 @@ enum PhoneCapture {
     }
 
     #if os(iOS)
-    static func observe(_ session: DemoSession, view: TerminalMetalView, in root: UIView) -> (() -> Void)? {
+    static func observe(_ proof: Proof, view: TerminalMetalView, in root: UIView) -> (() -> Void)? {
         guard CommandLine.arguments.contains("--capture-state") else { return nil }
         let destination = URL.documentsDirectory.appending(path: "capture-state.json")
-        let accessibility = PhoneAccessibilityCapture(scene: session.options.scene, view: view)
+        let accessibility = PhoneAccessibilityCapture(scene: proof.options.scene, view: view)
         var releases: [[Double]] = []
-        let layout: () -> (state: State, drawing: Drawing?)? = { [weak session, weak view, weak root] in
-            guard let session, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
+        let layout: () -> (state: State, drawing: Drawing?)? = { [weak proof, weak view, weak root] in
+            guard let proof, let view, let root, let scene = root.window?.windowScene, !root.bounds.isEmpty else { return nil }
             let appearance = view.resolvedTheme == .dark ? "dark" : view.resolvedTheme == .light ? "light" : "custom"
             let selection = view.selection.map { [$0.anchorRow, $0.anchorColumn, $0.headRow, $0.headColumn] }
             let input = view.subviews.first(where: \.isFirstResponder)
             let accessory = input?.inputAccessoryView
-            var state = State(scene: session.options.scene.rawValue, appearance: appearance,
+            var state = State(scene: proof.options.scene.rawValue, appearance: appearance,
                 orientation: scene.effectiveGeometry.interfaceOrientation.isLandscape ? "landscape" : "portrait",
                 pid: ProcessInfo.processInfo.processIdentifier,
                 columns: view.gridSize?.columns ?? 0, rows: view.gridSize?.rows ?? 0,
@@ -112,7 +112,7 @@ enum PhoneCapture {
                 displayScale: view.traitCollection.displayScale, keyboardHeight: root.keyboardLayoutGuide.layoutFrame.height,
                 accessoryHeight: accessory?.window == nil ? 0 : accessory?.bounds.height ?? 0,
                 keys: keyFrames(of: accessory, in: root), selection: selection)
-            if session.options.scene.capturesSessionState {
+            if proof.options.scene.capturesSessionState {
                 state.cursorSpinner = view.cursorSpinnerFrameInWindow
                 state.cursorSpinnerLabel = view.subviews.first {
                     $0 is UIActivityIndicatorView && !$0.isHidden && $0.isAccessibilityElement
@@ -122,7 +122,7 @@ enum PhoneCapture {
                 state.firstCellFrame = view.cellFrameInWindow(row: 0, column: 0)
                 state.keyboardLanguage = input?.textInputMode?.primaryLanguage
             }
-            if session.options.checksToolbar { state.toolbar = PhoneToolbarProof.measure(view) }
+            if proof.options.checksToolbar { state.toolbar = PhoneToolbarProof.measure(view) }
             state.reducesMotion = view.reducesMotion
             state.historyOffset = view.historyOffset
             // Every swipe draws before the next one lifts, so each lift is seen here at least once.

@@ -43,7 +43,7 @@ const peer = Bun.serve({
 const work = await mkdtemp(join(tmpdir(), "thrush-interactions-"));
 let report = join(work, "interactions.json");
 let child: ReturnType<typeof Bun.spawn> | undefined;
-const identifier = "app.thrush.demo";
+const identifier = "app.thrush.proofs";
 const deadline = Date.now() + 150_000;
 function simctl(...arguments_: string[]): string {
     const result = Bun.spawnSync(["xcrun", "simctl", ...arguments_], {env: {
@@ -60,7 +60,7 @@ try {
         report = join(container, "Documents", "interaction-" + crypto.randomUUID() + ".json");
         simctl("launch", "--terminate-running-process", simulator, identifier, ...options, "--interaction-check", report);
     } else {
-        child = Bun.spawn([join(app, "Contents/MacOS/ThrushDemo"), ...options, "--interaction-check", report],
+        child = Bun.spawn([join(app, "Contents/MacOS/ThrushProofs"), ...options, "--interaction-check", report],
                           {stdout: "inherit", stderr: "inherit"});
     }
     while (!(await Bun.file(report).exists())) {

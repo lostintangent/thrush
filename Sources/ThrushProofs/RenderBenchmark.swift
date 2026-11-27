@@ -119,7 +119,7 @@ enum RenderBenchmark {
 
     static func run(on view: TerminalMetalView, size: Terminal.Size, reportURL: URL) async throws {
         #if DEBUG
-        throw Failure("Build the packaged demo in Release to measure rendering.")
+        throw Failure("Build the packaged proofs app in Release to measure rendering.")
         #else
         guard size.columns >= 24, size.rows >= 2 else { throw Failure("Render benchmark needs at least 24 × 2.") }
         let frames = RenderFrameObservations(view: view)

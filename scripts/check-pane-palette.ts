@@ -1,12 +1,12 @@
-// Query the packaged Mac pane after each native Appearance menu action on the same socket.
+// Query the packaged Mac pane after each step of the proofs' appearance cycle on the same socket.
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 
-const app = resolve(process.argv[2] ?? ".build/demo/mac/Thrush.app");
-const executable = join(app, "Contents/MacOS/ThrushDemo");
-if (!(await Bun.file(executable).exists())) throw Error("Build the app with scripts/build-demo.sh mac");
+const app = resolve(process.argv[2] ?? ".build/proofs/mac/Thrush.app");
+const executable = join(app, "Contents/MacOS/ThrushProofs");
+if (!(await Bun.file(executable).exists())) throw Error("Build the app with scripts/build-app.sh proofs mac");
 
 // Independent sRGB expectations from the built-in and Ember palettes in docs/design/README.md.
 const palettes = [
@@ -75,9 +75,9 @@ async function verify() {
         if (!line.startsWith("appearance=")) continue;
         const palette = palettes[index];
         phase = palette.name;
-        assert.equal(line, "appearance=" + phase, "Unexpected native menu action");
-        assert.ok(sendQuery, "Menu cycled before the first terminal output");
-        // The native menu action can precede the SwiftUI environment update by one run-loop turn.
+        assert.equal(line, "appearance=" + phase, "Unexpected appearance step");
+        assert.ok(sendQuery, "Appearance cycled before the first terminal output");
+        // The appearance step can precede the SwiftUI environment update by one run-loop turn.
         const until = Date.now() + 3_000;
         for (;;) {
             bytes = "";

@@ -66,16 +66,17 @@ jobs:
         run: |
           swift build
           swift test
-      - name: Build the standalone Mac and iPhone Simulator apps
+      - name: Build the Mac and iPhone Simulator proofs apps
         run: |
-          scripts/build-demo.sh mac
-          scripts/build-demo.sh simulator
+          scripts/build-app.sh proofs mac
+          scripts/build-app.sh proofs simulator
       - name: Check core imports and package dependencies
         run: scripts/check-core.sh
-      - name: Link the public Thrush product for iPhone and iPhone Simulator
+      - name: Link the public Thrush product for iPhone and iPhone Simulator, and wrap the simulator sample
         run: |
           scripts/check-swiftui-example.sh device
           scripts/check-swiftui-example.sh simulator
+          scripts/build-app.sh sample simulator
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.5

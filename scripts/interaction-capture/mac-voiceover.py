@@ -28,11 +28,11 @@ def main():
         plan = capture.build_test_runner(work, out, capture.HERE / (name + ".swift"), mac=True, name=name)
         if args.build_only:
             return
-        capture.run_logged(["scripts/build-demo.sh", "mac"], out / "app-build.log", 360)
+        capture.run_logged(["scripts/build-app.sh", "proofs", "mac"], out / "app-build.log", 360)
         with capture.load_helper("capture-simulator").peer(out) as endpoint:
             settings = plistlib.loads(plan.read_bytes())
             settings[name]["EnvironmentVariables"].update(
-                THRUSH_VOICEOVER_APP=str(capture.ROOT / ".build/demo/mac/Thrush.app"),
+                THRUSH_VOICEOVER_APP=str(capture.ROOT / ".build/proofs/mac/Thrush.app"),
                 THRUSH_CAPTURE_ENDPOINT=endpoint)
             plan.write_bytes(plistlib.dumps(settings))
             capture.run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan,
