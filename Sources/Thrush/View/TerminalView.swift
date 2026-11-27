@@ -95,8 +95,9 @@ import ThrushCore
     }
 
     @MainActor fileprivate final class Coordinator: ObservableObject {
+        /// The session's states as a person sees them. Every way the session waits for a shell is connecting.
         private enum Phase: Equatable {
-            case initial, connecting, reconnecting, live, displaced, ended
+            case idle, connecting, live, displaced, ended
         }
         private weak var canvas: CanvasView?
         private var metalView: TerminalMetalView? { canvas?.terminal }
@@ -117,14 +118,17 @@ import ThrushCore
         private var actions: Task<Void, Never>?
         private var spinnerDelay: Task<Void, Never>?
         private var announcedReconnect = false
-        private var phase = Phase.initial {
+        private var phase = Phase.idle {
             didSet {
                 guard phase != oldValue else { return }
-                if phase != .reconnecting { announcedReconnect = false }
+                if phase != .connecting { announcedReconnect = false }
                 updateSpinner()
             }
         }
-        private var hasScreen = false
+        /// Whether the view was handed a screen. While connecting, it holds keys and says "Reconnecting".
+        private var hasScreen = false {
+            didSet { if hasScreen != oldValue, phase == .connecting { updateSpinner() } }
+        }
         private var size: Terminal.Size?
         private var deliveredEnd = false
         private var finishingEndStamp: UInt64?
@@ -155,7 +159,7 @@ import ThrushCore
             self.probe = probe
             if sessionChanged {
                 stop()
-                phase = .initial
+                phase = .idle
                 hasScreen = false
                 deliveredEnd = false
                 metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
@@ -286,7 +290,7 @@ import ThrushCore
                 default: return
                 }
             }
-            guard phase == .live || phase == .reconnecting else { return }
+            guard phase == .live || (phase == .connecting && hasScreen) else { return }
             // A pointer position belongs to the screen that was under the pointer.
             if case .pointer = input, phase != .live { return }
             // A queued keystroke belongs to the shell that was on screen when it was typed.
@@ -296,7 +300,7 @@ import ThrushCore
 
         private func reclaim() {
             guard active, phase == .displaced else { return }
-            phase = .reconnecting
+            phase = .connecting
             metalView?.onDisplacedTap = nil
             perform { [weak self] session, stamp in
                 // Let the read that reported displacement finish before starting another.
@@ -327,7 +331,7 @@ import ThrushCore
                 becomeLive()
             case .idle, .connecting, .closing, .reconnecting, .awaitingReplay:
                 restore(showing.screen)
-                becomeWaiting()
+                becomeConnecting()
             }
 
             let mailbox = OutputMailbox()
@@ -392,7 +396,7 @@ import ThrushCore
                 if phase != .live { becomeLive() }
                 if let time = update.receivedAt { probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .reconnecting:
-                becomeWaiting()
+                becomeConnecting()
             case .displaced:
                 becomeDisplaced()
                 return false
@@ -412,7 +416,7 @@ import ThrushCore
         private func finishEnd(_ final: Terminal.Snapshot, stamp: UInt64) async {
             guard epoch == stamp, active, !deliveredEnd, finishingEndStamp != stamp else { return }
             finishingEndStamp = stamp
-            let announceEnd = phase != .initial && phase != .ended
+            let announceEnd = phase != .idle && phase != .ended
             phase = .ended
             metalView?.onDisplacedTap = nil
             defer { if finishingEndStamp == stamp { finishingEndStamp = nil } }
@@ -440,8 +444,8 @@ import ThrushCore
             metalView?.onDisplacedTap = nil
         }
 
-        private func becomeWaiting() {
-            phase = hasScreen ? .reconnecting : .connecting
+        private func becomeConnecting() {
+            phase = .connecting
             metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
         }
 
@@ -454,7 +458,7 @@ import ThrushCore
         private func updateSpinner() {
             spinnerDelay?.cancel()
             spinnerDelay = nil
-            guard drawingVisible, phase == .connecting || phase == .reconnecting else {
+            guard drawingVisible, phase == .connecting else {
                 metalView?.setWaiting(nil)
                 return
             }
@@ -463,9 +467,8 @@ import ThrushCore
                 do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
                 // A transition can cancel the wait after the sleep ends but before this resumes.
                 guard !Task.isCancelled, let self else { return }
-                let reconnecting = phase == .reconnecting
-                metalView?.setWaiting(reconnecting ? "Reconnecting" : "Connecting")
-                if reconnecting, !announcedReconnect {
+                metalView?.setWaiting(hasScreen ? "Reconnecting" : "Connecting")
+                if hasScreen, !announcedReconnect {
                     announcedReconnect = true
                     metalView?.announce("Reconnecting")
                 }
