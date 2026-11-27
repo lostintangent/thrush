@@ -227,6 +227,9 @@ class Phone:
     def warm_keyboard(self, appearance):
         # A fresh runtime can cover its first keyboard with the system QuickPath
         # introduction. Give that first attachment its own process before recording.
+        # It also waits for a drawn frame. A fresh simulator can take seconds to compile
+        # Thrush's shaders, and a warm-up that quits first can leave the next launch
+        # showing only the canvas until they compile.
         pid = self.launch("prompt", appearance, "portrait", "visible")
         observed = None
         since = time.monotonic()
@@ -234,7 +237,7 @@ class Phone:
         def ready():
             nonlocal observed, since
             state = self.state()
-            if (state.get("pid") != pid or state.get("keyboardHeight", 0) <= 90
+            if (state.get("pid") != pid or not state.get("gpuCompleted") or state.get("keyboardHeight", 0) <= 90
                     or state.get("accessoryHeight", 0) < 44):
                 observed = None
                 return False
@@ -245,7 +248,7 @@ class Phone:
 
         print("Waiting for the first native keyboard attachment", flush=True)
         try:
-            state = wait_for("the warm-up keyboard and accessory", ready, 100)
+            state = wait_for("the warm-up keyboard, accessory and first frame", ready, 100)
             save_json(self.out / "keyboard-warmup.json", state)
         finally:
             try:
