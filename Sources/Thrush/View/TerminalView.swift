@@ -261,7 +261,9 @@ import ThrushCore
             guard active, measured != size else { return }
             size = measured
             perform { [weak self] session, stamp in
-                guard let self else { return }
+                // One layout can pass through several grids, as when a window toolbar's safe area settles after
+                // the window resizes. The shell hears only the grid it settles on.
+                guard let self, size == measured else { return }
                 let screen = try await session.resize(to: measured, needsScreen: reader != nil && phase == .live)
                 guard epoch == stamp else { return }
                 if reader == nil {
