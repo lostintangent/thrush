@@ -52,9 +52,8 @@ SwiftUI observes `session.title` and `session.hasEnded` directly. When the shell
 ```swift
 TerminalView(model.tab.session)
     .toolbar {
-        ToolbarSpacer(.flexible)    // keeps the Mac toolbar, so the grid keeps its rows
         if model.tab.session.hasEnded {
-            ToolbarItem { Button("New Shell", action: model.newShell) }
+            Button("New Shell", action: model.newShell)
         }
     }
 ```
