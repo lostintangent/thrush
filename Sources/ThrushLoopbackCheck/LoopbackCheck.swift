@@ -2,7 +2,7 @@ import Foundation
 import Thrush
 import ThrushFixtures
 
-/// Drives the same attachment, input and row access that a demo host uses.
+/// Drives the same attachment, input and row access that an app uses.
 @main
 struct LoopbackCheck {
     struct CheckFailure: Error, CustomStringConvertible {

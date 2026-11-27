@@ -8,8 +8,6 @@ import ThrushRecordings
 /// listener holds each reference boundary until the view, Metal, and capture runner have caught up.
 @MainActor
 final class WorkflowDriver {
-    static let clientID = "thrush-native-workflow"
-
     private struct Failure: Error, CustomStringConvertible {
         let description: String
         init(_ description: String) { self.description = description }
@@ -119,9 +117,7 @@ final class WorkflowDriver {
 
     private func request(_ path: String, index: Int? = nil, post: Data? = nil) async throws -> (Int, Data) {
         var url = control.appending(path: path)
-        var query = [URLQueryItem(name: "clientId", value: Self.clientID)]
-        if let index { query.append(.init(name: "eventIndex", value: String(index))) }
-        url.append(queryItems: query)
+        if let index { url.append(queryItems: [.init(name: "eventIndex", value: String(index))]) }
         var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         if let post {
             req.httpMethod = "POST"
@@ -144,7 +140,7 @@ final class WorkflowDriver {
     }
 
     private func run() async throws {
-        // Keep the demo app scheduled while a capture utility reads an obscured window.
+        // Keep the proofs app scheduled while a capture utility reads an obscured window.
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated], reason: "Capture native terminal checkpoints")
         defer { ProcessInfo.processInfo.endActivity(activity) }
         let trace = output.appending(path: "workflow-events.log")

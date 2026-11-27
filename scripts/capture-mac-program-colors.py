@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture colors a program sets in the packaged Mac window, in both appearances: under the demo's
+"""Capture colors a program sets in the packaged Mac window, in both appearances: under the sample's
 transparent title bar, under a full-size window toolbar with and without its background, and in a split
 view's detail beside a sidebar. The colors scene picks the canvas the system didn't, so every frame puts
 program colors against the host's chrome. The program's canvas must run beneath each toolbar, which takes
@@ -26,12 +26,12 @@ blink = runpy.run_path(str(SCRIPTS / "capture-mac-text-blink.py"))
 WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
 Capture = runpy.run_path(str(SCRIPTS / "check-demo-capture.py"))["Capture"]
 # The palettes in scripts/demo-peer.ts, the one the colors scene opens with by system appearance, and the
-# demo window's width, compact toolbar height and split view sidebar in points.
+# window's width, compact toolbar height and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
 PROGRAM = {"dark": "paper", "light": "night"}
 CANVAS = {"dark": "131D27", "light": "FBFDFE"}
 WIDTH, BAR, SIDEBAR = 720, 40, 200
-# Each window's demo arguments.
+# Each window's proof arguments.
 WINDOWS = {
     "colors": [],
     "colors-toolbar": ["--toolbar-proof"],
@@ -81,25 +81,23 @@ def check(image, appearance, palette, args, checker):
         return [(max(a, ground) + 0.05) / (min(a, ground) + 0.05) for a in map(luminance, span)]
 
     title = (0.29, 0.45) if split else (0.12, 0.40)
+    # Read each native control independently. A tighter vertical margin can help Vision
+    # separate 1x title strokes from the surrounding bar without changing the expected word.
+    title_left, title_right = (edge * WIDTH for edge in title)
+    try:
+        read((title_left, 0, title_right, bar), "Terminal", exact_line=True)
+    except ValueError:
+        read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
     if toolbar:
-        # Read each native control independently. A tighter vertical margin can help Vision
-        # separate 1x title strokes from the surrounding bar without changing the expected word.
-        title_left, title_right = (edge * WIDTH for edge in title)
-        try:
-            read((title_left, 0, title_right, bar), "Terminal", exact_line=True)
-        except ValueError:
-            read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
         # Inside the button's border, which Vision can read as a comma.
         read((WIDTH - 50, 5, WIDTH - 8, 39), "Close", exact_line=True)
-    else:
-        read((0, 0, WIDTH, bar), "Thrush")
     if max(contrasts(crop(*title, 4, bar - 4))) < 4.5:
         raise ValueError("The window title doesn't stand out from its bar.")
-    # The palette command opens the scene. A live take's later ones land just above the prompt at the canvas's foot.
+    # The palette command opens the scene. A live take's later ones land among the canvas's last six rows.
     try:
         read((sidebar, bar, WIDTH, bar + 48), "palette " + palette)
     except ValueError:
-        read((sidebar, height - 98, WIDTH, height - 4), "palette " + palette)
+        read((sidebar, height - 112, WIDTH, height - 4), "palette " + palette)
     if split:
         read((0, bar, sidebar, bar + 48), "Thrush")
     if toolbar:
@@ -160,8 +158,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
-    subprocess.run([SCRIPTS / "build-demo.sh", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/demo/mac/Thrush.app"
+    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
+    bundle = ROOT / ".build/proofs/mac/Thrush.app"
     info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
     save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                  toolchain=info["ThrushToolchain"],

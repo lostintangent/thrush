@@ -11,7 +11,7 @@ const colors = { compile: 94, link: 35, check: 32 };
 const steps = [
     ["compile", "Terminal.swift"], ["compile", "Screen.swift"], ["compile", "Input.swift"],
     ["compile", "TerminalView.swift"], ["compile", "GlyphAtlas.swift"], ["compile", "ShaderPipeline.swift"],
-    ["link", "ThrushDemo"], ["check", "prompt and reply"], ["check", "cursor keys"],
+    ["link", "Thrush"], ["check", "prompt and reply"], ["check", "cursor keys"],
     ["check", "wide text  翼 🐦"], ["check", "soft wraps"], ["check", "selection and copy"],
 ] as const;
 
@@ -171,10 +171,12 @@ const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "
             return new Response(null, { status: 204 });
         }
         const cols = Number(query.get("cols")), rows = Number(query.get("rows"));
-        if (url.pathname !== "/socket" || query.get("service") !== "terminal" || !query.get("clientId") ||
+        // The proofs choose a scene with their endpoint's path, so its terminal attaches at /<scene>/socket.
+        const path = /^(?:\/([a-z-]+))?\/socket$/.exec(url.pathname);
+        if (!path || query.get("service") !== "terminal" || !query.get("clientId") ||
             !Number.isSafeInteger(cols) || !Number.isSafeInteger(rows) || cols < 2 || rows < 1)
             return new Response("Expected a terminal attachment", { status: 400 });
-        const candidate = query.get("clientId")?.split("-")[1] as Scene;
+        const candidate = path[1] as Scene;
         const data: Session = { scene: scenes.has(candidate) ? candidate : "shell", cols, rows, input: "" };
         if (!server.upgrade(request, { data })) return new Response("Expected a WebSocket upgrade", { status: 426 });
     },

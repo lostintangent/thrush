@@ -43,8 +43,9 @@ const terminal = Bun.serve({
         const url = new URL(request.url), q = url.searchParams;
         const grid = { columns: Number(q.get("cols")), rows: Number(q.get("rows")) };
         if (request.method !== "GET" || url.pathname !== "/socket" || q.get("service") !== "terminal" ||
-            q.get("clientId") !== run.clientID || !validGrid(grid.columns, grid.rows)) return new Response(null, { status: 400 });
+            !q.get("clientId") || !validGrid(grid.columns, grid.rows)) return new Response(null, { status: 400 });
         if (run.downstreamOpen || run.state.phase === "completed" || run.failure) return new Response(null, { status: 409 });
+        run.clientID = q.get("clientId")!;
         if (!server.upgrade(request, { data: { url: url.pathname + url.search, grid } })) return new Response(null, { status: 426 });
     },
     websocket: {
@@ -65,7 +66,6 @@ const control = Bun.serve({
         if (request.method !== method) return new Response(null, {status: 405, headers: { Allow: method }});
         const json = (value: unknown) => Response.json(value, { headers: { "Cache-Control": "no-store" } });
         if (pathname === "/fixture") return json(fixture);
-        if (searchParams.get("clientId") !== run.clientID) return new Response(null, {status: 400});
         if (pathname === "/observations") return json({ workflow, ...run.observations });
         if (pathname === "/state") return json(run.driverState);
         if (pathname === "/checkpoint") {

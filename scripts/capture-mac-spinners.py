@@ -169,8 +169,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
-    subprocess.run([SCRIPTS / "build-demo.sh", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/demo/mac/Thrush.app"
+    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
+    bundle = ROOT / ".build/proofs/mac/Thrush.app"
     info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
     save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                  toolchain=info["ThrushToolchain"],

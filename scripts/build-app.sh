@@ -1,8 +1,16 @@
 #!/bin/bash
-# Build the native SwiftPM executable and wrap it in a launchable application.
+# Build the sample app, or the proofs that mount its window, and wrap it in a launchable application.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-platform=${1:-}
+usage="Usage: scripts/build-app.sh sample|proofs mac|simulator"
+kind=${1:-}
+platform=${2:-}
+case "$kind" in
+    # The sample shares scripts/check-swiftui-example.sh's build, so wrapping it after that check costs only packaging.
+    sample) package=(--package-path examples/swiftui --explicit-target-dependency-import-check error); product=SwiftUIExample ;;
+    proofs) package=(); product=ThrushProofs ;;
+    *) echo "$usage" >&2; exit 2 ;;
+esac
 case "$platform" in
     mac) sdk=macosx; minimum=27.0; triple="$(uname -m)-apple-macosx$minimum" ;;
     simulator)
@@ -12,17 +20,20 @@ case "$platform" in
         minimum=27.2
         triple="$(uname -m)-apple-ios$minimum-simulator"
         ;;
-    *) echo "Usage: scripts/build-demo.sh mac|simulator" >&2; exit 2 ;;
+    *) echo "$usage" >&2; exit 2 ;;
 esac
 
-out="$PWD/.build/demo/$platform"
+out="$PWD/.build/$kind/$platform"
 mkdir -p "$out"
 stage=$(mktemp -d "$out/package.XXXXXX")
 trap 'rm -rf "$stage"' EXIT
 app="$stage/Thrush.app"
 sdk_path=$(xcrun --sdk "$sdk" --show-sdk-path)
 sdk_version=$(xcrun --sdk "$sdk" --show-sdk-version)
-build=(xcrun swift build -c release --scratch-path "$out/swiftpm" --sdk "$sdk_path" --triple "$triple" --product ThrushDemo)
+scratch="$out/swiftpm"
+if [[ "$kind" == sample ]]; then scratch="$PWD/.build/swiftui-example/$sdk"; fi
+build=(xcrun swift build -c release ${package[@]+"${package[@]}"} --scratch-path "$scratch" --sdk "$sdk_path" --triple "$triple"
+       --product "$product")
 "${build[@]}"
 bin=$("${build[@]}" --show-bin-path)
 if [[ "$platform" == mac ]]; then
@@ -35,7 +46,7 @@ else
     resources="$app"
 fi
 mkdir -p "$executable" "$resources"
-cp "$bin/ThrushDemo" "$executable/"
+cp "$bin/$product" "$executable/"
 if [[ "$platform" == mac ]]; then
     iconset="$stage/thrush.iconset"
     mkdir "$iconset"
@@ -54,12 +65,12 @@ commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)
 dirty=false
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then dirty=true; fi
 toolchain=$(xcrun swift --version | head -1)
-python3 - "$bundle/Info.plist" "$platform" "$commit" "$dirty" "$toolchain" "$sdk_version" "$minimum" <<'PY'
+python3 - "$bundle/Info.plist" "$kind" "$product" "$platform" "$commit" "$dirty" "$toolchain" "$sdk_version" "$minimum" <<'PY'
 import plistlib
 import sys
-path, platform, commit, dirty, toolchain, sdk, minimum = sys.argv[1:]
-info = dict(CFBundleDevelopmentRegion="en", CFBundleExecutable="ThrushDemo",
-            CFBundleIdentifier="app.thrush.demo", CFBundleName="Thrush", CFBundleDisplayName="Thrush",
+path, kind, product, platform, commit, dirty, toolchain, sdk, minimum = sys.argv[1:]
+info = dict(CFBundleDevelopmentRegion="en", CFBundleExecutable=product,
+            CFBundleIdentifier="app.thrush." + kind, CFBundleName="Thrush", CFBundleDisplayName="Thrush",
             CFBundlePackageType="APPL", CFBundleShortVersionString="0.1", CFBundleVersion="1",
             CFBundleInfoDictionaryVersion="6.0", ThrushGitCommit=commit, ThrushWorktreeDirty=dirty == "true",
             ThrushToolchain=toolchain)
@@ -71,18 +82,16 @@ else:
                 CFBundleSupportedPlatforms=["iPhoneSimulator"], DTPlatformName="iphonesimulator",
                 DTSDKName="iphonesimulator"+sdk, UILaunchScreen={},
                 CFBundleIcons={"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["Icon60"]}},
-                UIApplicationSceneManifest={"UIApplicationSupportsMultipleScenes": False,
-                    "UISceneConfigurations": {"UIWindowSceneSessionRoleApplication": [
-                        {"UISceneConfigurationName": "Terminal", "UISceneDelegateClassName": "ThrushPhoneScene"}]}},
+                UIApplicationSceneManifest={"UIApplicationSupportsMultipleScenes": False},
                 UISupportedInterfaceOrientations=["UIInterfaceOrientationPortrait",
                     "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
-info["NSLocalNetworkUsageDescription"] = "Connect to the Thrush demo terminal running on your Mac."
+info["NSLocalNetworkUsageDescription"] = "Connect to the Thrush terminal server running on your Mac."
 info["NSAppTransportSecurity"] = {"NSAllowsLocalNetworking": True}
 with open(path, "wb") as f:
     plistlib.dump(info, f)
 PY
 if [[ -n "$(find "$app" \( -name '*.bundle' -o -name '*.metallib' \) -print -quit)" ]]; then
-    echo "Unexpected package or shader resource in the demo app." >&2
+    echo "Unexpected package or shader resource in the app." >&2
     exit 1
 fi
 codesign --force --sign - "$app" >/dev/null

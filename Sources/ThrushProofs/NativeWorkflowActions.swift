@@ -37,16 +37,13 @@ enum NativeWorkflowActions {
     /// Drive the app's mounted toolbar item, using the same action as a person activating it.
     static func newShellAction(in view: TerminalMetalView) -> (@MainActor () throws -> Void)? {
         #if os(macOS)
-        guard let toolbar = view.window?.toolbar, toolbar.isVisible else { return nil }
-        for item in toolbar.visibleItems ?? [] {
-            guard let button = item.view as? NSButton, button.window != nil, button.isEnabled,
-                  button.accessibilityIdentifier() == "demo.newShell" else { continue }
-            return { button.performClick(nil) }
-        }
+        guard let window = view.window, let button = newShellButton(in: window) else { return nil }
+        return { guard button.press() else { throw Failure("Something covers the New Shell toolbar item") } }
         #else
+        func isNewShell(_ label: String?) -> Bool { label == "New Shell" }
         for bar in navigationBars(in: view) {
             for item in trailingItems(in: bar) where item.isEnabled &&
-                    (item.accessibilityIdentifier == "demo.newShell" || item.title == "New Shell") {
+                    (isNewShell(item.title) || isNewShell(item.accessibilityLabel)) {
                 if let action = item.action, item.primaryAction == nil {
                     return {
                         guard UIApplication.shared.sendAction(action, to: item.target, from: item, for: nil) else {
@@ -55,7 +52,7 @@ enum NativeWorkflowActions {
                     }
                 }
             }
-            for element in descendants(of: bar) where element.accessibilityIdentifier == "demo.newShell" {
+            for element in descendants(of: bar) where isNewShell(element.accessibilityLabel) {
                 if let control = element as? UIControl, control.isEnabled {
                     return { control.performPrimaryAction() }
                 }
@@ -64,15 +61,50 @@ enum NativeWorkflowActions {
                 }
             }
             if let element = (bar.accessibilityElements ?? []).compactMap({ $0 as? UIAccessibilityElement })
-                .first(where: { $0.accessibilityIdentifier == "demo.newShell" }) {
+                .first(where: { isNewShell($0.accessibilityLabel) }) {
                 return {
                     guard element.accessibilityActivate() else { throw Failure("The toolbar accessibility action failed") }
                 }
             }
         }
-        #endif
         return nil
+        #endif
     }
+
+    #if os(macOS)
+    /// The sample's New Shell toolbar item. SwiftUI draws it inside a hosting view rather than as an AppKit button.
+    struct NewShellButton {
+        /// The item's frame in window coordinates.
+        let frame: CGRect
+        /// Clicks the item, returning false when something else would take the click.
+        let press: @MainActor () -> Bool
+    }
+
+    /// The sample's toolbar shows one item, New Shell, and only once the shell ends.
+    static func newShellButton(in window: NSWindow) -> NewShellButton? {
+        guard let toolbar = window.toolbar, toolbar.isVisible else { return nil }
+        let views = toolbar.items.compactMap(\.view).filter { $0.window === window && !$0.isHiddenOrHasHiddenAncestor }
+        guard views.count == 1, let item = views.first else { return nil }
+        let frame = item.convert(item.bounds, to: nil)
+        return NewShellButton(frame: frame) { click(item, at: CGPoint(x: frame.midX, y: frame.midY), in: window) }
+    }
+
+    /// Clicks through the window's own event dispatch, so the press hit-tests like a person's.
+    private static func click(_ view: NSView, at point: CGPoint, in window: NSWindow) -> Bool {
+        guard let frame = window.contentView?.superview,
+              frame.hitTest(frame.convert(point, from: nil))?.isDescendant(of: view) == true else { return false }
+        func event(_ type: NSEvent.EventType) -> NSEvent? {
+            NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                               windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                               pressure: type == .leftMouseDown ? 1 : 0)
+        }
+        guard let down = event(.leftMouseDown), let up = event(.leftMouseUp) else { return false }
+        // The release waits in the queue, so it arrives whether the control tracks the press in its own loop or not.
+        NSApp.postEvent(up, atStart: false)
+        window.sendEvent(down)
+        return true
+    }
+    #endif
 
     #if os(iOS)
     private static func descendants(of root: UIView) -> [UIView] {

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ThrushCore
-@testable import ThrushDemo
+@testable import ThrushProofs
 @testable import Thrush
 
 @Test @MainActor func keyboardCanSettleAroundAnUnchangedCompletedDrawable() throws {

@@ -108,9 +108,8 @@ function serveDriver(port: number, drivers: Map<string, Driver>, fixtureFile: Bu
             const method = url.pathname === "/ack" || url.pathname === "/layout" ? "POST" : "GET";
             if (request.method !== method) return new Response(null, { status: 405, headers: { Allow: method } });
             if (url.pathname === "/fixture") return new Response(fixtureFile, { headers });
-            const id = url.searchParams.get("clientId");
-            if (!id) return new Response("Missing clientId", { status: 400 });
-            const driver = drivers.get(id);
+            // The app's driver follows the shell it shows, which attached most recently.
+            const driver = [...drivers.values()].at(-1);
             if (url.pathname === "/state") return Response.json(driver?.state ?? initialState(fixture), { headers });
             if (url.pathname === "/checkpoint") {
                 const index = url.searchParams.get("eventIndex");

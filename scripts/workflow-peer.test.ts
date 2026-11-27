@@ -128,11 +128,7 @@ test("view mode drops the pane's focus reports and rejects a fragmented out-of-g
 });
 
 function control(origin: URL) {
-    const url = (path: string) => {
-        const endpoint = new URL(path, origin);
-        endpoint.searchParams.set("clientId", "fixture client");
-        return endpoint;
-    };
+    const url = (path: string) => new URL(path, origin);
     const state = async () => (await fetch(url("/state"), { cache: "no-store" })).json();
     async function wait(phase: string, index?: number) {
         const deadline = performance.now() + 5_000;

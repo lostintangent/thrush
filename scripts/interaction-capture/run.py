@@ -373,8 +373,8 @@ def main():
             return
 
         simulator = load_helper("capture-simulator")
-        run_logged(["scripts/build-demo.sh", "simulator"], out / "app-build.log", 480)
-        app = ROOT / ".build/demo/simulator/Thrush.app"
+        run_logged(["scripts/build-app.sh", "proofs", "simulator"], out / "app-build.log", 480)
+        app = ROOT / ".build/proofs/simulator/Thrush.app"
         info = plistlib.loads((app / "Info.plist").read_bytes())
         simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
