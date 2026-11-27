@@ -88,10 +88,12 @@ import XCTest
     }
 
     /// A tap on the wrapped file name's second row shows its menu, titled with its destination and clear of
-    /// both of its rows.
+    /// both of its rows. The link stays pressed while its menu is up and lets go as the menu closes.
     private func openFileMenu(_ path: XCUIElement, row: CGFloat, still: String) throws {
         let link = path.frame
         XCTAssertEqual(link.height, row * 2, accuracy: 1, "The file name should wrap onto a second row.")
+        let firstRow = CGRect(x: link.minX, y: link.minY, width: link.width, height: row)
+        let canvas = ground(of: firstRow, in: XCUIScreen.main.screenshot())
         point(x: link.minX + row * 0.75, y: link.maxY - row / 2).tap()
         let copyPath = item("Copy Path")
         XCTAssertTrue(copyPath.waitForExistence(timeout: 5), app.debugDescription)
@@ -103,9 +105,40 @@ import XCTest
         Thread.sleep(forTimeInterval: 0.5)
         let menu = title.frame.union(copyPath.frame)
         XCTAssertFalse(menu.intersects(link), "The menu at \(menu) should leave the link's rows at \(link) in view.")
-        try screenshot(still)
+        let shown = XCUIScreen.main.screenshot()
+        save(shown.pngRepresentation, name: still, type: "public.png")
+        // The press tints the canvas under the link a sixth of the way to the text. The menu's shadow is fainter.
+        let pressed = ground(of: firstRow, in: shown)
+        XCTAssertGreaterThan(zip(pressed, canvas).map { abs($0 - $1) }.max() ?? 0, 12,
+                             "The link should stay pressed under its menu, not \(pressed) on \(canvas).")
         copyPath.tap()
         XCTAssertTrue(copyPath.waitForNonExistence(timeout: 5))
+        let deadline = Date.now.addingTimeInterval(3)
+        var released = ground(of: firstRow, in: XCUIScreen.main.screenshot())
+        while released != canvas, Date.now < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+            released = ground(of: firstRow, in: XCUIScreen.main.screenshot())
+        }
+        XCTAssertEqual(released, canvas, "The link should let go as its menu closes.")
+    }
+
+    /// The commonest color in a rect of a still, which under a row of text is the canvas between its glyphs.
+    private func ground(of rect: CGRect, in still: XCUIScreenshot) -> [Int] {
+        guard let image = still.image.cgImage else { return [] }
+        let scale = CGFloat(image.width) / app.frame.width
+        let pixels = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale)
+        guard let crop = image.cropping(to: pixels.insetBy(dx: 1, dy: 1).integral),
+              let context = CGContext(data: nil, width: crop.width, height: crop.height, bitsPerComponent: 8,
+                                      bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue),
+              let data = context.data else { return [] }
+        context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        let bytes = UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: crop.width * crop.height * 4)
+        var counts: [[Int]: Int] = [:]
+        for pixel in stride(from: 0, to: bytes.count, by: 4) {
+            counts[[Int(bytes[pixel]), Int(bytes[pixel + 1]), Int(bytes[pixel + 2])], default: 0] += 1
+        }
+        return counts.max { $0.value < $1.value }?.key ?? []
     }
 
     /// Has the peer lay the links scene out again, with the search run a second time when `draw` is 2.

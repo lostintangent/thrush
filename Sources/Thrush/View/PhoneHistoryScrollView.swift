@@ -40,7 +40,8 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private var touchedLink: UInt32?
     /// The link a ⌘-click pressed with a trackpad or mouse.
     private var clickedLink: UInt32?
-    /// The link whose context menu is up, which stays out of the grid until the menu has closed.
+    /// The link whose menu is up. A tapped link stays pressed until its menu starts to close, and a link a long
+    /// press lifts into its context menu stays out of the grid until the menu has closed.
     private var menuLink: UInt32?
     /// The copy of a link lifted into its menu, which returns to the link's cells as the menu closes.
     private var liftedLink: (number: UInt32, preview: UITargetedPreview)?
@@ -52,6 +53,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         let anchor = LinkMenuAnchor()
         anchor.showsMenuAsPrimaryAction = true
         anchor.isAccessibilityElement = false
+        anchor.menuWillClose = { [weak self] in self?.releaseMenuLink() }
         insertSubview(anchor, belowSubview: scroll)
         return anchor
     }()
@@ -517,9 +519,23 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         anchor.opensUp = rect.minY - bounds.minY > bounds.maxY - rect.maxY
         anchor.frame = rect.offsetBy(dx: 0, dy: anchor.opensUp ? -rect.height : rect.height)
         anchor.menu = menu(for: hit.link, at: rect)
+        // The link stays pressed under its menu, as it was under the finger.
+        menuLink = hit.number
+        terminal.engagedLink = .init(number: hit.number, pressed: true)
         // UIKit places the menu from the anchor's frame as of the last commit, so it opens a turn later,
-        // if the terminal is still on screen.
-        DispatchQueue.main.async { if anchor.window != nil { anchor.performPrimaryAction() } }
+        // if the terminal is still on screen. A menu that doesn't open lets the link go.
+        DispatchQueue.main.async { [weak self] in
+            if anchor.window != nil { anchor.performPrimaryAction() }
+            if !anchor.isMenuUp { self?.releaseMenuLink() }
+        }
+    }
+
+    /// Lets go of the link whose menu has closed, unless a finger has come down on it since.
+    private func releaseMenuLink() {
+        guard menuLink != nil else { return }
+        menuLink = nil
+        liftedLink = nil
+        if touchedLink == nil { terminal.engagedLink = nil }
     }
 
     private func menu(for link: Terminal.Link, at rect: CGRect) -> UIMenu {
@@ -612,13 +628,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
 
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willEndFor configuration: UIContextMenuConfiguration,
                                 animator: (any UIContextMenuInteractionAnimating)?) {
-        let close = { [weak self] in
-            guard let self, menuLink != nil else { return }
-            menuLink = nil
-            liftedLink = nil
-            if touchedLink == nil { terminal.engagedLink = nil }
-        }
-        if let animator { animator.addCompletion(close) } else { close() }
+        if let animator { animator.addCompletion { [weak self] in self?.releaseMenuLink() } } else { releaseMenuLink() }
     }
 
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configuration: UIContextMenuConfiguration,
@@ -749,9 +759,25 @@ private final class PhoneLinkElement: UIAccessibilityElement {
 /// attaches below its middle, and up from its bottom edge when it attaches above.
 private final class LinkMenuAnchor: UIButton {
     var opensUp = false
+    /// Whether the menu is up, from as it opens until it starts to close.
+    private(set) var isMenuUp = false
+    var menuWillClose: () -> Void = {}
 
     override func menuAttachmentPoint(for configuration: UIContextMenuConfiguration) -> CGPoint {
         CGPoint(x: super.menuAttachmentPoint(for: configuration).x, y: opensUp ? bounds.minY : bounds.maxY)
+    }
+
+    override func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willDisplayMenuFor configuration: UIContextMenuConfiguration,
+                                         animator: (any UIContextMenuInteractionAnimating)?) {
+        super.contextMenuInteraction(interaction, willDisplayMenuFor: configuration, animator: animator)
+        isMenuUp = true
+    }
+
+    override func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willEndFor configuration: UIContextMenuConfiguration,
+                                         animator: (any UIContextMenuInteractionAnimating)?) {
+        super.contextMenuInteraction(interaction, willEndFor: configuration, animator: animator)
+        isMenuUp = false
+        menuWillClose()
     }
 }
 

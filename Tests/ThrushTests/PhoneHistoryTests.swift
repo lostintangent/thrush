@@ -306,12 +306,17 @@ private final class PointTap: UITapGestureRecognizer {
 }
 
 /// The Links rotor reads each visible link once in reading order, a wrapped link as one, and
-/// activating one does what a tap does. A link that could launch an app shows its menu first.
+/// activating one does what a tap does. A link that could launch an app shows its menu first, and stays
+/// pressed until the menu starts to close.
 @MainActor
-@Test func phoneLinksReadInTheRotorAndExplainThemselvesInMenus() throws {
+@Test func phoneLinksReadInTheRotorAndExplainThemselvesInMenus() async throws {
     let view = TerminalMetalView(frame: CGRect(x: 0, y: 0, width: 400, height: 500))
-    let window = mountTestView(view)
-    defer { withExtendedLifetime(window) {} }
+    // UIKit presents a menu only from a view a view controller holds.
+    let window = UIWindow(frame: view.frame)
+    window.rootViewController = UIViewController()
+    window.rootViewController?.view.addSubview(view)
+    window.isHidden = false
+    defer { window.isHidden = true }
     view.layoutIfNeeded()
     var terminal = Terminal(size: .init(columns: 12, rows: 4))
     _ = terminal.write("see \u{1B}]8;;https://example.com/docs\u{1B}\\the long docs\u{1B}]8;;\u{1B}\\\r\n".utf8)
@@ -340,12 +345,18 @@ private final class PointTap: UITapGestureRecognizer {
     #expect(docs.accessibilityActivate() && opened == [URL(string: "https://example.com/docs")!])
 
     #expect(log.accessibilityActivate() && opened.count == 1)
+    #expect(view.engagedLink?.mark == .pressed)
     let anchor = try #require(history.subviews.compactMap { $0 as? UIButton }.first { $0.showsMenuAsPrimaryAction })
     #expect(anchor.menu?.title == "file://devbox/tmp/run.log")
     #expect(anchor.menu?.children.map(\.title) == ["Copy Path"])
     // With more room below the link, its menu opens down from just past its row.
     let link = view.cellRect(row: 2, column: 0).union(view.cellRect(row: 2, column: 6))
     #expect(anchor.frame == link.offsetBy(dx: 0, dy: link.height))
+    // The menu opens a turn later, with the link still pressed, and lets it go as it closes.
+    await mainQueueTurn()
+    #expect(view.engagedLink?.mark == .pressed)
+    anchor.contextMenuInteraction?.dismissMenu()
+    #expect(view.engagedLink == nil)
 
     let menus = try #require(history.interactions.compactMap { $0 as? UIContextMenuInteraction }.first)
     let beside = view.cellRect(row: 0, column: 2)
@@ -367,5 +378,16 @@ private final class PointTap: UITapGestureRecognizer {
     #expect(returning.view === lifted.view && returning.target.center == lifted.target.center)
     history.contextMenuInteraction(menus, willEndFor: configuration, animator: nil)
     #expect(view.engagedLink == nil)
+
+    // A menu that can't open because the terminal has left the screen lets its link go.
+    #expect(log.accessibilityActivate() && view.engagedLink?.mark == .pressed)
+    view.removeFromSuperview()
+    await mainQueueTurn()
+    #expect(view.engagedLink == nil)
+}
+
+/// Waits for the blocks already queued on the main queue to run.
+@MainActor private func mainQueueTurn() async {
+    await withCheckedContinuation { turned in DispatchQueue.main.async { turned.resume() } }
 }
 #endif
