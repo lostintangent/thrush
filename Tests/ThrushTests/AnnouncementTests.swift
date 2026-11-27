@@ -37,9 +37,9 @@ import Testing
         }
         return view
     }
-    func terminalView(_ view: TerminalMetalView) -> some View {
+    func terminalView(_ view: TerminalMetalView, isVisible: Bool = true) -> some View {
         TerminalView(session)
-            .environment(\.terminalProbe, .init(metalView: view, isVisible: true))
+            .environment(\.terminalProbe, .init(metalView: view, isVisible: isVisible))
             .id(ObjectIdentifier(view))
     }
     let view = surface()
@@ -126,10 +126,37 @@ import Testing
     try await waitFor("The replacement shell receives its new input.") { peer.receivedBinary.contains("new-shell-only") }
     #expect(peer.receivedBinary == ["new-shell-only"])
 
+    // A hidden view parks the shell. Shown again, it reattaches over the screen it kept, as a tab does.
+    let closes = peer.closes
+    host.rootView = terminalView(view, isVisible: false)
+    try await waitFor("Hiding the view parks its socket.") { peer.closes == closes + 1 }
+    host.rootView = terminalView(view)
+    try await waitFor("The shown view announces its reattachment.") {
+        label(in: view) == "Reconnecting" && announcements.count == 6 && peer.opens == 8
+    }
+    #expect(view.snapshot?.rows.first?.text == newPrompt)
+    try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
+    try peer.send(newPrompt, opcode: .binary)
+    try await waitFor("The replay restored the shown view.") { label(in: view) == nil }
+
+    // A new view on a parked session shows the screen the session kept before the replay arrives.
+    host.rootView = terminalView(view, isVisible: false)
+    try await waitFor("Hiding the view parks its socket again.") { peer.closes == closes + 2 }
+    let returning = surface()
+    host.rootView = terminalView(returning)
+    try await waitFor("The new view announces its reattachment over the kept screen.") {
+        label(in: returning) == "Reconnecting" && announcements.count == 7 && peer.opens == 9
+    }
+    #expect(returning.snapshot?.rows.first?.text == newPrompt)
+    try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
+    try peer.send(newPrompt, opcode: .binary)
+    try await waitFor("The replay restored the new view.") { label(in: returning) == nil }
+
     try peer.send(#"{"type":"exit"}"#, opcode: .text)
     try await waitFor("The shell end is announced.") { announcements.last == "Shell ended" }
     let reopened = surface()
     host.rootView = terminalView(reopened)
     try await waitFor("A new view displays the ended session's final screen.") { reopened.snapshot?.rows.first?.text == newPrompt }
-    #expect(announcements == ["Reconnecting", "Reconnecting", "Reconnecting", "New shell", "Reconnecting", "Shell ended"])
+    #expect(announcements == ["Reconnecting", "Reconnecting", "Reconnecting", "New shell", "Reconnecting",
+                              "Reconnecting", "Reconnecting", "Shell ended"])
 }
