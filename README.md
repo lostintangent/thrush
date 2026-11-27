@@ -14,7 +14,7 @@ Thrush is a native terminal for Mac and iPhone apps. A Swift emulator with no de
 Add the package and link the `Thrush` product to your app target. Thrush needs macOS 27 or iOS 27.2 and Swift 6.4. It builds from the command line with Xcode 27.2 or, for Mac, Command Line Tools.
 
 ```swift
-.package(url: "https://github.com/lostintangent/thrush", from: "0.4.0")
+.package(url: "https://github.com/lostintangent/thrush", from: "0.5.0")
 ```
 
 Keep the tab’s `TerminalSession` in a main-actor model that outlives the view. The session owns the terminal and its history. To use the WebSocket transport, capture the tab’s stable client ID in the socket factory and pass the session to a `TerminalView`.
@@ -100,7 +100,7 @@ A server that runs shells keeps a terminal for each one, so a client that attach
 Install it from a release’s own URL. A lockfile records the tarball’s hash, so a URL that moves to a newer release breaks the next fresh install.
 
 ```sh
-bun add https://github.com/lostintangent/thrush/releases/download/v0.4.0/thrush-wasm.tgz
+bun add https://github.com/lostintangent/thrush/releases/download/v0.5.0/thrush-wasm.tgz
 ```
 
 ```ts
