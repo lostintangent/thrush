@@ -1,45 +1,23 @@
-# Run the Thrush demo
+# Prove Thrush in the sample's window
 
-Start a real shell server from the repository root and leave it running. The Mac app and iPhone Simulator share the loopback address it prints. Each app gets an interactive shell in a private working directory. When the shell exits, its final screen stays available for reading and copying. Choose **New Shell** in the app’s toolbar to start another.
-
-```sh
-swift run ThrushServer
-```
-
-Build and open the Mac app from a second terminal.
+ThrushProofs is the internal app that proves Thrush in the [sample app](sample.md)'s own window. It compiles the sample's `ShellWindow.swift` and `ShellTab.swift` by path, hands its `TerminalView` a package-scoped probe and adds the recorded scenes, checks, captures and benchmarks around it. Nothing it adds is public API.
 
 ```sh
-scripts/build-demo.sh mac
-open .build/demo/mac/Thrush.app
+scripts/build-app.sh proofs mac
+scripts/build-app.sh proofs simulator
 ```
 
-Build the iPhone app, then install it on a booted iOS 27.2 simulator. Use the device identifier from `simctl list devices` in place of `$udid`.
-
-```sh
-export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-scripts/build-demo.sh simulator
-xcrun simctl install "$udid" .build/demo/simulator/Thrush.app
-xcrun simctl launch "$udid" app.thrush.demo
-```
-
-Both commands build the shared SwiftPM package in Release. Thrush embeds its shader source in the binary. Creating a view starts Metal’s asynchronous compiler, and other views on that device reuse the pipeline. On Mac, `DEVELOPER_DIR=/Library/Developer/CommandLineTools scripts/build-demo.sh mac` builds the same app with Command Line Tools. The server defaults to port 9138. Use `swift run ThrushServer --port 0` to choose an available port, then pass the URL to either app.
-
-```sh
-open -n .build/demo/mac/Thrush.app --args --endpoint http://127.0.0.1:PORT
-xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --endpoint http://127.0.0.1:PORT
-```
-
-The same `--endpoint` accepts the http or ws base URL of another server implementing the [terminal protocol](protocol.md). The apps open each shell the way the [README](../README.md) shows, with their own `URLSession` and a socket factory passed to `TerminalSession`.
+The Mac app is `.build/proofs/mac/Thrush.app`. The iPhone app at `.build/proofs/simulator/Thrush.app` installs as `app.thrush.proofs`. Pass `--endpoint` with the http or ws base URL of a server, and the proofs hand it to the sample as its `endpoint` default.
 
 ## Scenes and appearance
 
-For the recorded scenes, stop the shell server and start the mock peer with `bun scripts/demo-peer.ts`. The peer listens on port 9138 by default. The initial recorded shell scene shows the numbered build log from the design study. The Mac **Scenes** menu also opens the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, and a program that sets its own colors. That program asks for the terminal’s background, then sets the opposite canvas. The **Appearance** menu can follow the system or switch the running window to Light, Dark or the app’s custom palette.
+For the recorded scenes, start the mock peer with `bun scripts/demo-peer.ts`. It listens on port 9138 by default, so stop any shell server there first. Pass `--scene` to open one. The shell scene shows the numbered build log from the design study. The others are the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, and a program that sets its own colors. That program asks for the terminal’s background, then sets the opposite canvas. The proofs put the scene in the endpoint's path, where the peer reads it.
 
-For repeatable launches, pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors`, `--appearance system|dark|light` or `--theme custom` as application arguments. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
+Pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
 
 ```sh
-open -n .build/demo/mac/Thrush.app --args --scene editor --appearance light
-xcrun simctl launch --terminate-running-process "$udid" app.thrush.demo --scene glyphs --appearance dark
+open -n .build/proofs/mac/Thrush.app --args --scene editor --appearance light
+xcrun simctl launch --terminate-running-process "$udid" app.thrush.proofs --scene glyphs --appearance dark
 ```
 
 ## Capture the running iPhone
@@ -54,15 +32,15 @@ gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f o
 
 Run `gh workflow run headless.yml --ref main -f scene=render-benchmark` for the packaged simulator render benchmark alone.
 
-Pass `-f scene=cursor-spinners -f appearance=dark` to the hosted iPhone workflow for the opening and reconnect captures. Repeat with `light` for the other appearance. Each pair brackets a controlled WebSocket handshake or interruption in the same app process. The checker measures spoke contrast at the expected cursor cell and compares every grid pixel outside that cell against the live capture. For the Mac matrix, run `gh workflow run window-lifecycle.yml --ref main -f spinner_matrix=true`. It captures each appearance with the window active and inactive. A separate pair of shell attachments verifies the Mac titlebar action appears on exit, starts another shell and leaves the terminal grid in place. [Session lifecycle checks](design/lifecycle.md)
+Pass `-f scene=cursor-spinners -f appearance=dark` to the hosted iPhone workflow for the opening and reconnect captures. Repeat with `light` for the other appearance. Each pair brackets a controlled WebSocket handshake or interruption in the same app process. The checker measures spoke contrast at the expected cursor cell and compares every grid pixel outside that cell against the live capture. For the Mac matrix, run `gh workflow run window-lifecycle.yml --ref main -f spinner_matrix=true`. It captures each appearance with the window active and inactive. A separate pair of shell attachments verifies that the sample's **New Shell** toolbar item appears on exit and starts another shell in the same view. [Session lifecycle checks](design/lifecycle.md)
 
 Pass `-f scene=text-blink` to check blinking and concealed text in the styles scene. The simulator opens the scene in both appearances, first with motion and then with Reduce Motion, and takes a jittered burst of screenshots each time. `scripts/check-text-blink.py` requires blinking rows to alternate between fully shown and fully hidden while every other row holds still, Reduce Motion frames to match the shown text, and concealed text to leave its cells blank. The artifact keeps a shown, hidden and Reduce Motion still for each appearance. On a disposable Mac runner, `gh workflow run window-lifecycle.yml --ref main -f text_blink=true` runs the packaged Mac render benchmark, then the same captures and checks in a real window.
 
 Pass `-f scene=toolbar-proof` to check the initial spinner and the first prompt inside the same safe-area grid. The app owns the navigation title and Close button.
 
-Pass `-f scene=program-colors` to capture the colors scene in both appearances, full screen and under the same navigation stack. Each frame must show the program's canvas around the first row, above the grid and beside the home indicator, and none of the theme's. Vision reads the first command and, under the navigation stack, the title and Close. The title must reach 4.5:1 against the canvas. On a disposable Mac runner, `gh workflow run window-lifecycle.yml --ref main -f program_colors=true` makes the same checks under the demo's title bar, a full-size window toolbar with and without its background, and in a split view's detail beside a sidebar. The program's canvas must run beneath the toolbar, the window title and Close must reach 4.5:1, and the sidebar's toolbar buttons must keep the window's appearance. Live takes then switch the program's palette, through the peer's `POST /palette?name=paper` or `night`, and the system appearance under one open window, and each settled frame must pass the same checks. Pass `--toolbar-proof`, `--toolbar-proof split` and `--toolbar-background` to open the same Mac windows.
+Pass `-f scene=program-colors` to capture the colors scene in both appearances, full screen and under the same navigation stack. Each frame must show the program's canvas around the first row, above the grid and beside the home indicator, and none of the theme's. Vision reads the first command and, under the navigation stack, the title and Close. The title must reach 4.5:1 against the canvas. On a disposable Mac runner, `gh workflow run window-lifecycle.yml --ref main -f program_colors=true` makes the same checks under the sample's title bar, a full-size window toolbar with and without its background, and in a split view's detail beside a sidebar. The program's canvas must run beneath the toolbar, the window title and Close must reach 4.5:1, and the sidebar's toolbar buttons must keep the window's appearance. Live takes then switch the program's palette, through the peer's `POST /palette?name=paper` or `night`, and the system appearance under one open window, and each settled frame must pass the same checks. Pass `--toolbar-proof`, `--toolbar-proof split` and `--toolbar-background` to open the same Mac windows.
 
-`gh workflow run window-lifecycle.yml --ref main -f appearance_reports=true` checks that programs follow the window between dark and light. The Mac demo opens `--cycle-appearance` over a real shell that runs a printer, which sets mode 2031 and logs every reply. Choosing Dark again sends nothing, Light reports `CSI ? 997 ; 2 n` and the dark Custom theme reports `CSI ? 997 ; 1 n`, once each. A background the printer sets itself sends nothing. Neovim then runs under the same flips, and its `background` option must follow each one. The artifact keeps a screenshot of each program after each step.
+`gh workflow run window-lifecycle.yml --ref main -f appearance_reports=true` checks that programs follow the window between dark and light. The Mac proofs open `--cycle-appearance` over a real shell that runs a printer, which sets mode 2031 and logs every reply. Choosing Dark again sends nothing, Light reports `CSI ? 997 ; 2 n` and the dark Custom theme reports `CSI ? 997 ; 1 n`, once each. A background the printer sets itself sends nothing. Neovim then runs under the same flips, and its `background` option must follow each one. The artifact keeps a screenshot of each program after each step.
 
 Pass `-f scene=reconnect-typing` to record held input with the iPhone software keyboard. The test types `git` in the live shell, interrupts its WebSocket and types ` status` during the outage. After replay the shell should echo the full `git status` command. Compare the bytes before and after replay and check that the keyboard kept its position.
 
@@ -80,19 +58,11 @@ On macOS 27 with Xcode 27, this check opens the packaged Mac terminal. VoiceOver
 python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output /tmp/thrush-mac-voiceover
 ```
 
-## Embed the terminal view
-
-Keep a `TerminalSession` for each tab and pass it to `TerminalView(session)` from SwiftUI. Supply `isActive: selected` when a tab stays in the view hierarchy while another is selected. The view measures its grid, applies the palette and routes input. SwiftUI can read `session.title` for the tab title and observe `session.hasEnded` when the shell exits or the app calls `try await session.close()`. The user can still read and copy the last screen and history. The app decides when to remove that view or present another `TerminalSession`. Both sample apps offer **New Shell** in their toolbar after the session ends. Choosing it presents another session in the same view and removes the toolbar action. When an orphan expires, the existing session instead opens the new shell at row one and keeps the previous main screen in history.
-
-Pass `theme:` or `fontSize:` to customize the running view. With the default theme it follows system appearance. On iPhone, pass `showsKeyRow: false` to hide the key row above the keyboard.
-
-To change individual colors, edit a copy of `TerminalTheme.dark` or `.light` and pass it to the view. The view uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Theme palettes and cell metrics](design/README.md)
-
 ## Verify window and scene lifetime
 
 A covered, minimized or hidden Mac window keeps its socket. Thrush continues parsing while it draws zero frames, then displays the latest generation on reveal. A foreground iPhone scene keeps its socket during Control Center and system alerts. A background scene, a removed destination or a tab hidden by the app detaches the WebSocket. With an app-supplied transport, the session keeps reading while the view is hidden and the app can run.
 
-On an unlocked Mac desktop, the following check covers the demo with a second app, minimizes it, then hides the app. Each interval exceeds the server’s 30-second orphan deadline. The report checks the live shell PID, socket count, incoming output and Metal submissions across each interval. The same proof runs in the **Mac terminal window lifecycle** workflow.
+On an unlocked Mac desktop, the following check covers the proofs app with a second app, minimizes it, then hides the app. Each interval exceeds the server’s 30-second orphan deadline. The report checks the live shell PID, socket count, incoming output and Metal submissions across each interval. The same proof runs in the **Mac terminal window lifecycle** workflow.
 
 ```sh
 python3 scripts/pty/check-window.py --output /tmp/thrush-window-proof
@@ -108,7 +78,7 @@ scripts/check-ios-ui.sh "$udid"
 
 The command builds the package sources, shader and recordings in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone Duo simulator for every push and pull request.
 
-The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release demo with XCUITest on a fresh iPhone Duo simulator. Its artifact contains portrait and landscape screenshots, the modifier chooser with Control, Shift and a held slide to Option armed and with Shift armed in landscape, a still with the keyboard hidden, a word selected on the last row under the home indicator, four short gesture recordings per appearance for the modifier chooser, the keyboard, selection and history, the source revision and the device profile. The simulated Duo's resizable scene doesn't turn with the device, so the proof opens the shell already turned for its landscape stills, and the UIKit tests cover the turn itself. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
+The **M4 iPhone interaction proof** Actions workflow runs the same native tests and drives the installed Release proofs app with XCUITest on a fresh iPhone Duo simulator. Its artifact contains portrait and landscape screenshots, the modifier chooser with Control, Shift and a held slide to Option armed and with Shift armed in landscape, a still with the keyboard hidden, a word selected on the last row under the home indicator, four short gesture recordings per appearance for the modifier chooser, the keyboard, selection and history, the source revision and the device profile. The simulated Duo's resizable scene doesn't turn with the device, so the proof opens the shell already turned for its landscape stills, and the UIKit tests cover the turn itself. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
 
 ```sh
 python3 scripts/interaction-capture/run.py --output /tmp/thrush-iphone-interactions

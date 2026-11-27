@@ -1,19 +1,19 @@
 # Measuring the packaged renderer
 
-Build the native Mac demo and run its Release benchmark from a logged-in graphical session. The benchmark opens a real window, measures the drawable presentations, then closes it. It runs without a WebSocket peer.
+Build the Mac [proofs app](../docs/proofs.md) and run its Release benchmark from a logged-in graphical session. The benchmark opens a real window, measures the drawable presentations, then closes it. It runs without a WebSocket peer.
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-scripts/build-demo.sh mac
-swift run -c release ThrushBench --render .build/demo/mac/Thrush.app
+scripts/build-app.sh proofs mac
+swift run -c release ThrushBench --render .build/proofs/mac/Thrush.app
 python3 scripts/check-render-report.py .build/benchmarks/render.json
 ```
 
-The simulator uses the same Release workload. Supply the UDID of a booted iPhone. The script installs the packaged demo and briefly opens Settings on that simulator to exercise the app's background transition.
+The simulator uses the same Release workload. Supply the UDID of a booted iPhone. The script installs the packaged proofs app and briefly opens Settings on that simulator to exercise the app's background transition.
 
 ```sh
-scripts/build-demo.sh simulator
-scripts/benchmark-simulator.sh "$udid" .build/demo/simulator/Thrush.app .build/benchmarks/render-simulator.json
+scripts/build-app.sh proofs simulator
+scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json
 ```
 
 The first update draws every row with indexed cyan, default text, single-column digits, a CJK ideograph and a color emoji. The six-cell prefix is `A翼🐦Z`. Ten rounds follow. Each moves the cursor, replaces text on one row, scrolls a line into the bottom of the viewport and repaints the full grid. Every warm round uses the same glyphs and styles. The script verifies the input stream's SHA-256 independently from the emulator and checks the dirty rows, glyph uploads and monotonic screen generations.
@@ -28,7 +28,7 @@ Schema version 4 adds blinking text. After the settled prompt, four blinking dig
 
 The JSON includes the commit and worktree state from app packaging, the device model, OS, toolchain, load average, core count, thermal and power state and grid dimensions. A simulator run measures a shared Mac's graphics stack. Use the Mac and physical iPhone for device timing baselines. Use five quiet passes to estimate variance before setting timing gates.
 
-For a capture of a running demo, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
+For a capture of the running app, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
 
 ## First Mac measurement
 
@@ -79,11 +79,11 @@ The simulator SDK exposes command-buffer timing but no drawable presentation tim
 Build the Release app, then run the same input sequence through its native text responder and a fresh loopback socket.
 
 ```sh
-scripts/build-demo.sh mac
-swift run -c release ThrushBench --interactions .build/demo/mac/Thrush.app
+scripts/build-app.sh proofs mac
+swift run -c release ThrushBench --interactions .build/proofs/mac/Thrush.app
 
-scripts/build-demo.sh simulator
-bun scripts/interaction-peer.ts --simulator "$udid" .build/demo/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
+scripts/build-app.sh proofs simulator
+bun scripts/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
 ```
 
 The peer expects 22 binary input frames. It checks one committed Japanese glyph after two marked-text updates, one bracketed paste and 20 printable keys. Each echo has a distinct terminal generation. The app also selects and copies a wide glyph across a soft wrap, reads a history row, and activates Latest.

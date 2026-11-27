@@ -1,6 +1,6 @@
 # Recorded shell, Vim and Codex workflows
 
-The three recordings drive the standalone peer through the same WebSocket protocol as the native demo. Each PTY read keeps its original byte boundary. Checkpoints carry the pinned xterm viewport, attributes, cursor, modes and scrollback. Replaying the committed files is offline. [Reference setup](../m2/README.md)
+The three recordings drive the standalone peer through the same WebSocket protocol as the native app. Each PTY read keeps its original byte boundary. Checkpoints carry the pinned xterm viewport, attributes, cursor, modes and scrollback. Replaying the committed files is offline. [Reference setup](../m2/README.md)
 
 | Recording | Starting grid | Interactions and checkpoints |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ The wide and iPhone replays are part of their recordings. A PTY server's scrollb
 
 ## Codex transcript
 
-The captured response came from OpenAI’s GPT-6.1-Sol through the installed Codex CLI. The recording includes the submitted prompt, the working indicator, a partial numbered answer, the twelfth answer, the earlier transcript page and the return to the shell. The default Release, CI and demo workflows consume these captured bytes and make no model request. The public trace replaces the resumable thread UUID with a sample of identical length, preserving every read boundary. [Codex capture procedure and checkpoints](codex-readme.md)
+The captured response came from OpenAI’s GPT-6.1-Sol through the installed Codex CLI. The recording includes the submitted prompt, the working indicator, a partial numbered answer, the twelfth answer, the earlier transcript page and the return to the shell. The default Release, CI and proofs workflows consume these captured bytes and make no model request. The public trace replaces the resumable thread UUID with a sample of identical length, preserving every read boundary. [Codex capture procedure and checkpoints](codex-readme.md)
 
 Codex uses synchronized output while drawing its interface. The core continues parsing and answering queries in each batch. The screen snapshot carries the active batch identifier so the view can delay presentation until the reset or xterm’s one-second presentation timeout.
 
@@ -61,7 +61,7 @@ bun Fixtures/reference/m2/generate.mjs pointer-input
 
 ## Running the native pane
 
-The packaged demo can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed successfully on the GPU. The report records whether the drawable supplied a presentation timestamp by the checkpoint.
+The packaged [proofs app](../../../docs/proofs.md) can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed successfully on the GPU. The report records whether the drawable supplied a presentation timestamp by the checkpoint.
 
 ```sh
 scripts/check-pane-workflows.sh mac /tmp/thrush-mac-workflows
@@ -74,15 +74,15 @@ The phone fixture uses real Vim, its server's serializer and the installed Codex
 
 ### Control protocol
 
-Launch the packaged app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. Only the controller must be an HTTP listener on loopback. The shared test client ID is `thrush-native-workflow`. The terminal receives normal binary input and JSON resize, attach and close messages.
+Launch the packaged app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. Only the controller must be an HTTP listener on loopback. The app connects with the sample's own client ID, a new one for each shell, and the controller follows the latest terminal socket. The terminal receives normal binary input and JSON resize, attach and close messages.
 
 | Request | Meaning |
 | --- | --- |
 | `GET /fixture` | Return the complete v1 workflow with its semantic actions, lifecycle events and expected checkpoint names. |
-| `GET /state?clientId=ID` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
-| `POST /layout?clientId=ID` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
-| `GET /checkpoint?clientId=ID&eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the xterm cells and lines for the actual pane geometry. |
-| `POST /ack?clientId=ID` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
+| `GET /state` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
+| `POST /layout` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
+| `GET /checkpoint?eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the xterm cells and lines for the actual pane geometry. |
+| `POST /ack` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
 
 The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` checks the xterm snapshot and the GPU-completed generation. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
 
