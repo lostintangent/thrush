@@ -111,7 +111,8 @@ import ThrushCore
         private var reportedFocus = false
         private var isPresented = false
         private var drawingVisible = false
-        private var epoch: UInt64 = 0
+        /// Each showing is one lifetime. Work stamped with an earlier one stops, as it does on the session actor.
+        private var lifetime: UInt64 = 0
         private var shellRevision: UInt64 = 0
         private var output: OutputMailbox?
         private var reader: Task<Void, Never>?
@@ -224,7 +225,7 @@ import ThrushCore
         private func stop() {
             presentOutput()
             output = nil
-            epoch &+= 1
+            lifetime &+= 1
             reader?.cancel()
             reader = nil
             size = nil
@@ -253,9 +254,9 @@ import ThrushCore
 
         private func perform(_ operation: @escaping @MainActor (TerminalSession, UInt64) async throws -> Void) {
             guard let session = view?.session else { return }
-            let stamp = epoch
+            let stamp = lifetime
             enqueue { [weak self] in
-                guard let self, epoch == stamp, active else { return }
+                guard let self, lifetime == stamp, active else { return }
                 do { try await operation(session, stamp) }
                 catch { await handleError(stamp: stamp) }
             }
@@ -269,7 +270,7 @@ import ThrushCore
                 // the window resizes. The shell hears only the grid it settles on.
                 guard let self, size == measured else { return }
                 let screen = try await session.resize(to: measured, needsScreen: reader != nil && phase == .live)
-                guard epoch == stamp else { return }
+                guard lifetime == stamp else { return }
                 if reader == nil {
                     await start(session, userInitiated: false, stamp: stamp)
                 } else if phase == .live, let screen {
@@ -310,9 +311,9 @@ import ThrushCore
         }
 
         private func start(_ session: TerminalSession, userInitiated: Bool, stamp: UInt64) async {
-            guard epoch == stamp, active, reader == nil, let metalView else { return }
+            guard lifetime == stamp, active, reader == nil, let metalView else { return }
             let showing = await session.show(userInitiated: userInitiated, theme: metalView.resolvedTheme)
-            guard epoch == stamp else { return }
+            guard lifetime == stamp else { return }
             shellRevision = showing.shellRevision
             switch showing.state {
             case .ended:
@@ -338,18 +339,18 @@ import ThrushCore
             output = mailbox
             // The producer keeps only the session actor and this attachment's mailbox while waiting.
             reader = Task { [weak self, actor = session.actor] in
-                defer { if self?.epoch == stamp { self?.reader = nil } }
+                defer { if self?.lifetime == stamp { self?.reader = nil } }
                 do {
                     try await actor.readUpdates(into: mailbox) { [weak self] in
-                        guard let self, epoch == stamp, output === mailbox else { return }
+                        guard let self, lifetime == stamp, output === mailbox else { return }
                         presentOutput(notification: true)
                     } deliver: { [weak self] update in
-                        guard let self, epoch == stamp, output === mailbox else { return false }
+                        guard let self, lifetime == stamp, output === mailbox else { return false }
                         presentOutput()
                         return await apply(update, stamp: stamp)
                     }
                 } catch {
-                    guard let self, !Task.isCancelled, epoch == stamp else { return }
+                    guard let self, !Task.isCancelled, lifetime == stamp else { return }
                     presentOutput()
                     await handleError(stamp: stamp)
                 }
@@ -408,13 +409,13 @@ import ThrushCore
         }
 
         private func handleError(stamp: UInt64) async {
-            guard epoch == stamp, active, let status = await view?.session.statusAfterError() else { return }
-            guard epoch == stamp, active else { return }
+            guard lifetime == stamp, active, let status = await view?.session.statusAfterError() else { return }
+            guard lifetime == stamp, active else { return }
             await apply(status, stamp: stamp)
         }
 
         private func finishEnd(_ final: Terminal.Snapshot, stamp: UInt64) async {
-            guard epoch == stamp, active, !deliveredEnd, finishingEndStamp != stamp else { return }
+            guard lifetime == stamp, active, !deliveredEnd, finishingEndStamp != stamp else { return }
             finishingEndStamp = stamp
             let announceEnd = phase != .idle && phase != .ended
             phase = .ended
@@ -423,7 +424,7 @@ import ThrushCore
             // Present the final bytes at the pre-dismissal keyboard size, including synchronized output.
             metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
             await metalView?.presentFinal(final)
-            guard epoch == stamp, active, !deliveredEnd else { return }
+            guard lifetime == stamp, active, !deliveredEnd else { return }
             deliveredEnd = true
             hasScreen = true
             metalView?.setInputAvailability(.blocked, dismissKeyboard: true)
