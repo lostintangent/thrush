@@ -6,6 +6,8 @@ import Thrush
 struct ProofApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor private var delegate: ProofDelegate
+    #else
+    @UIApplicationDelegateAdaptor private var delegate: ProofDelegate
     #endif
 
     var body: some Scene {
@@ -117,6 +119,16 @@ private struct RendererSurface: UIViewRepresentable {
         case .light: NSAppearance(named: .aqua)
         case .dark: NSAppearance(named: .darkAqua)
         }
+    }
+}
+#else
+@MainActor final class ProofDelegate: NSObject, UIApplicationDelegate {
+    // The proof's Metal view asks UIKit for its scene's text effects window, and making that window
+    // inside the window group evaluates the group again. So the proof starts before any scene connects.
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        _ = Proof.shared
+        return true
     }
 }
 #endif
