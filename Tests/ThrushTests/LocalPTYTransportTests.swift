@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import Synchronization
 import Testing
-import Thrush
+@testable import Thrush
 
 /// An app-supplied transport with a real PTY as the shell's standard input, output and error.
 private actor LocalShellPTY: TerminalTransport {
@@ -124,10 +124,10 @@ private actor LocalShellPTY: TerminalTransport {
     await actor.hide()
     try Data().write(to: gate)
     try await waitForPTY("output produced while hidden") { await actor.text(inRow: 2) == "HIDDEN \(shell.pid)" }
-    #expect(await !actor.show())
-    try #require(try await actor.nextEvent() == .screen)
-    #expect(await actor.text(inRow: 0) == first)
-    #expect(await actor.text(inRow: 2) == "HIDDEN \(shell.pid)")
+    let showing = await session.show(userInitiated: false, theme: .dark)
+    #expect(showing.state == .live)
+    #expect(showing.screen?.rows[0].text == first)
+    #expect(showing.screen?.rows[2].text == "HIDDEN \(shell.pid)")
     #expect(opened.withLock { $0.count } == 1)
     try await actor.send(.text("finish\r"))
     try await waitForPTY("shell EOF") { session.hasEnded }

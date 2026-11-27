@@ -95,10 +95,17 @@ extension TerminalSession {
         let shellRevision: UInt64
     }
 
-    func show(userInitiated: Bool, theme: TerminalTheme, needsRetainedScreen: Bool) async
-        -> (retainedScreen: Terminal.Snapshot?, status: Update?, shellRevision: UInt64) {
-        await actor.show(userInitiated: userInitiated, palette: theme.palette, cursor: theme.cursor,
-                         needsRetainedScreen: needsRetainedScreen)
+    /// What the session is when a view shows it, from one turn of the session actor.
+    struct Showing: Sendable {
+        let state: SessionActor.State
+        /// The screen the session kept, nil until a shell has drawn. An ended session always has its final screen.
+        let screen: Terminal.Snapshot?
+        /// The shell that input typed over this screen belongs to.
+        let shellRevision: UInt64
+    }
+
+    func show(userInitiated: Bool, theme: TerminalTheme) async -> Showing {
+        await actor.show(userInitiated: userInitiated, palette: theme.palette, cursor: theme.cursor)
     }
 
     func hide() async { await actor.hide() }
@@ -139,16 +146,12 @@ extension SessionActor {
 }
 
 private extension SessionActor {
-    func show(userInitiated: Bool, palette: Terminal.Palette, cursor: Terminal.RGB, needsRetainedScreen: Bool) async
-        -> (retainedScreen: Terminal.Snapshot?, status: TerminalSession.Update?, shellRevision: UInt64) {
+    func show(userInitiated: Bool, palette: Terminal.Palette, cursor: Terminal.RGB) async -> TerminalSession.Showing {
         // An app transport kept its shell while the view was hidden, so that shell hears a new appearance now.
         await setPalette(palette, cursor: cursor)
-        let hadScreen = hasSeenReady
         show(userInitiated: userInitiated)
-        if state == .ended { return (nil, update(.ended), shellRevision) }
-        // A live app transport provides its current screen as the first update.
-        let retainedScreen = needsRetainedScreen && hadScreen && state != .live ? snapshot() : nil
-        return (retainedScreen, state == .displaced ? update(.displaced) : nil, shellRevision)
+        let screen = hasSeenReady || state == .ended ? snapshot() : nil
+        return .init(state: state, screen: screen, shellRevision: shellRevision)
     }
 
     func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {

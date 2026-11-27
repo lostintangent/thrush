@@ -18,18 +18,15 @@ final class AppTransport: SessionActor.Transport {
     /// A slow view needs the latest screen. Terminal bytes never pass through this buffer.
     private final class Subscription {
         let changes = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        var firstEvent: SessionActor.Event?
+        var hasOpened = false
         var hasOutput = false
         var isReading = false
     }
 
     func show(userInitiated _: Bool, in session: isolated SessionActor) -> Bool {
         if subscription == nil, session.state == .live || session.state == .connecting || session.state == .closing {
+            // The shell kept running or opening while the view was hidden. The view reads on from what show answers.
             subscription = Subscription()
-            if session.state == .live {
-                subscription?.firstEvent = .screen
-                return false
-            }
         }
         guard session.beginOpening() else { return false }
         subscription?.changes.continuation.finish()
@@ -71,9 +68,9 @@ final class AppTransport: SessionActor.Transport {
         while true {
             try Task.checkCancellation()
             guard view === subscription else { throw CancellationError() }
-            if let event = view.firstEvent {
-                view.firstEvent = nil
-                return event
+            if view.hasOpened {
+                view.hasOpened = false
+                return .ready(resumed: false)
             }
             if view.hasOutput {
                 view.hasOutput = false
@@ -99,7 +96,7 @@ final class AppTransport: SessionActor.Transport {
         }
         session.state = .live
         session.hasSeenReady = true
-        subscription?.firstEvent = .ready(resumed: false)
+        subscription?.hasOpened = true
         subscription?.changes.continuation.yield()
     }
 

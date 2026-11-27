@@ -14,8 +14,6 @@ package actor SessionActor {
         case ready(resumed: Bool)
         /// The old shell expired. Its main screen is in history and the new shell accepts input.
         case replaced
-        /// The app transport kept reading while hidden. Display its current screen.
-        case screen
         /// The terminal applied new program output.
         case output
         /// The terminal applied the WebSocket server's complete replay.

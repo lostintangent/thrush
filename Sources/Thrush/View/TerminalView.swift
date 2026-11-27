@@ -307,20 +307,28 @@ import ThrushCore
 
         private func start(_ session: TerminalSession, userInitiated: Bool, stamp: UInt64) async {
             guard epoch == stamp, active, reader == nil, let metalView else { return }
-            let attachment = await session.show(userInitiated: userInitiated, theme: metalView.resolvedTheme,
-                                                needsRetainedScreen: !hasScreen)
+            let showing = await session.show(userInitiated: userInitiated, theme: metalView.resolvedTheme)
             guard epoch == stamp else { return }
-            shellRevision = attachment.shellRevision
-            if let retainedScreen = attachment.retainedScreen {
-                metalView.replaceDisplayedSnapshot(retainedScreen, receivedAt: nil)
-                hasScreen = true
-            }
-            if let status = attachment.status {
-                await apply(status, stamp: stamp)
+            shellRevision = showing.shellRevision
+            switch showing.state {
+            case .ended:
+                if let final = showing.screen { await finishEnd(final, stamp: stamp) }
                 return
+            case .displaced:
+                restore(showing.screen)
+                becomeDisplaced()
+                return
+            case .live:
+                // The shell stayed live while this view wasn't reading, as an app transport's does while hidden.
+                if let screen = showing.screen {
+                    metalView.replaceDisplayedSnapshot(screen, receivedAt: nil)
+                    hasScreen = true
+                }
+                becomeLive()
+            case .idle, .connecting, .closing, .reconnecting, .awaitingReplay:
+                restore(showing.screen)
+                becomeWaiting()
             }
-            phase = hasScreen ? .reconnecting : .connecting
-            metalView.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
 
             let mailbox = OutputMailbox()
             output = mailbox
@@ -374,10 +382,6 @@ import ThrushCore
                 metalView?.announce("New shell")
             case .ready(resumed: true):
                 probe.observe?(.ready(resumed: true))
-            case .screen:
-                metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil)
-                hasScreen = true
-                becomeLive()
             case .output:
                 metalView?.display(screen, receivedAt: update.receivedAt)
                 hasScreen = true
@@ -388,12 +392,9 @@ import ThrushCore
                 if phase != .live { becomeLive() }
                 if let time = update.receivedAt { probe.observe?(.output(generation: screen.generation, receivedAt: time)) }
             case .reconnecting:
-                phase = hasScreen ? .reconnecting : .connecting
-                metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
+                becomeWaiting()
             case .displaced:
-                phase = .displaced
-                metalView?.setInputAvailability(.holdingKeys, dismissKeyboard: false)
-                metalView?.onDisplacedTap = { [weak self] in self?.reclaim() }
+                becomeDisplaced()
                 return false
             case .ended:
                 await finishEnd(screen, stamp: stamp)
@@ -425,10 +426,29 @@ import ThrushCore
             if announceEnd { metalView?.announce("Shell ended") }
         }
 
+        /// A view without a screen shows the one the session kept, so a parked shell reattaches under its last output.
+        /// Replacing a screen already on display would drop captured buttons, the pointer and held synchronized output.
+        private func restore(_ screen: Terminal.Snapshot?) {
+            guard !hasScreen, let screen else { return }
+            metalView?.replaceDisplayedSnapshot(screen, receivedAt: nil)
+            hasScreen = true
+        }
+
         private func becomeLive() {
             phase = .live
             metalView?.setInputAvailability(.live, dismissKeyboard: false)
             metalView?.onDisplacedTap = nil
+        }
+
+        private func becomeWaiting() {
+            phase = hasScreen ? .reconnecting : .connecting
+            metalView?.setInputAvailability(hasScreen ? .holdingKeys : .blocked, dismissKeyboard: false)
+        }
+
+        private func becomeDisplaced() {
+            phase = .displaced
+            metalView?.setInputAvailability(.holdingKeys, dismissKeyboard: false)
+            metalView?.onDisplacedTap = { [weak self] in self?.reclaim() }
         }
 
         private func updateSpinner() {
