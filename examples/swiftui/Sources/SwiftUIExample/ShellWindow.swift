@@ -24,8 +24,10 @@ struct ShellWindow: View {
             TerminalView(model.tab.session)
                 .navigationTitle(title)
                 .toolbar {
+                    // The spacer keeps the Mac toolbar while the shell runs, so New Shell doesn't take a row from the grid.
+                    ToolbarSpacer(.flexible)
                     if model.tab.session.hasEnded {
-                        Button("New Shell", action: model.newShell)
+                        ToolbarItem { Button("New Shell", action: model.newShell) }
                     }
                 }
                 #if os(iOS)

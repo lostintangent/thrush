@@ -12,7 +12,10 @@ struct ProofApp: App {
 
     var body: some Scene {
         WindowGroup { ProofWindow(proof: .shared) }
-            .defaultSize(width: 720, height: 486)
+            .defaultSize(width: 720, height: 494)
+            #if os(macOS)
+            .windowToolbarStyle(.unifiedCompact)
+            #endif
     }
 }
 
@@ -85,6 +88,8 @@ private struct RendererSurface: UIViewRepresentable {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // SwiftUI restores the frame a previous run left, so each proof starts from the sample's default window.
         UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
+        // The proofs pass paths as arguments, which AppKit would otherwise open as documents in place of the window.
+        UserDefaults.standard.register(defaults: ["NSTreatUnknownArgumentsAsOpen": false])
         NSWindow.allowsAutomaticWindowTabbing = false
         setAppearance(proof.options.cyclesAppearance ? .dark : proof.options.appearance)
         if proof.options.cyclesAppearance { proof.onFirstOutput = { [weak self] in self?.cycleAppearance() } }

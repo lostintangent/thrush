@@ -80,7 +80,7 @@ enum NativeWorkflowActions {
         let press: @MainActor () -> Bool
     }
 
-    /// The sample's toolbar holds one item, New Shell, and only once the shell ends.
+    /// The sample's toolbar shows one item, New Shell, and only once the shell ends.
     static func newShellButton(in window: NSWindow) -> NewShellButton? {
         guard let toolbar = window.toolbar, toolbar.isVisible else { return nil }
         let views = toolbar.items.compactMap(\.view).filter { $0.window === window && !$0.isHiddenOrHasHiddenAncestor }

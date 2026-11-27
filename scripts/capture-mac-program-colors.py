@@ -26,11 +26,11 @@ blink = runpy.run_path(str(SCRIPTS / "capture-mac-text-blink.py"))
 WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
 Capture = runpy.run_path(str(SCRIPTS / "check-demo-capture.py"))["Capture"]
 # The palettes in scripts/demo-peer.ts, the one the colors scene opens with by system appearance, and the
-# window's width, title bar and toolbar heights and split view sidebar in points.
+# window's width, compact toolbar height and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
 PROGRAM = {"dark": "paper", "light": "night"}
 CANVAS = {"dark": "131D27", "light": "FBFDFE"}
-WIDTH, TITLE_BAR, TOOLBAR, SIDEBAR = 720, 32, 52, 200
+WIDTH, BAR, SIDEBAR = 720, 40, 200
 # Each window's proof arguments.
 WINDOWS = {
     "colors": [],
@@ -63,7 +63,7 @@ def check(image, appearance, palette, args, checker):
         if result.returncode:
             raise ValueError((result.stdout + result.stderr).strip())
 
-    bar, height, sidebar = TOOLBAR if toolbar else TITLE_BAR, pixels.height / scale, SIDEBAR if split else 0
+    bar, height, sidebar = BAR, pixels.height / scale, SIDEBAR if split else 0
     total = pixels.width * pixels.height
     below = collections.Counter(pixels.pixels[round(bar * scale) * pixels.width:])
     if sum(count for value, count in below.items() if near(value, CANVAS[appearance], 3)) > total * 0.005:
@@ -81,18 +81,16 @@ def check(image, appearance, palette, args, checker):
         return [(max(a, ground) + 0.05) / (min(a, ground) + 0.05) for a in map(luminance, span)]
 
     title = (0.29, 0.45) if split else (0.12, 0.40)
+    # Read each native control independently. A tighter vertical margin can help Vision
+    # separate 1x title strokes from the surrounding bar without changing the expected word.
+    title_left, title_right = (edge * WIDTH for edge in title)
+    try:
+        read((title_left, 0, title_right, bar), "Terminal", exact_line=True)
+    except ValueError:
+        read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
     if toolbar:
-        # Read each native control independently. A tighter vertical margin can help Vision
-        # separate 1x title strokes from the surrounding bar without changing the expected word.
-        title_left, title_right = (edge * WIDTH for edge in title)
-        try:
-            read((title_left, 0, title_right, bar), "Terminal", exact_line=True)
-        except ValueError:
-            read((title_left, 4, title_right, bar - 4), "Terminal", exact_line=True)
         # Inside the button's border, which Vision can read as a comma.
-        read((WIDTH - 52, 8, WIDTH - 10, 44), "Close", exact_line=True)
-    else:
-        read((0, 0, WIDTH, bar), "Terminal")
+        read((WIDTH - 50, 5, WIDTH - 8, 39), "Close", exact_line=True)
     if max(contrasts(crop(*title, 4, bar - 4))) < 4.5:
         raise ValueError("The window title doesn't stand out from its bar.")
     # The palette command opens the scene. A live take's later ones land just above the prompt at the canvas's foot.
@@ -103,7 +101,7 @@ def check(image, appearance, palette, args, checker):
     if split:
         read((0, bar, sidebar, bar + 48), "Thrush")
     if toolbar:
-        if max(contrasts(crop(0.93, 0.98, 17, 35))) < 4.5:
+        if max(contrasts(crop(0.93, 0.98, 12, 30))) < 4.5:
             raise ValueError("The Close label doesn't stand out from its button.")
         # Between the leading title and the trailing Close button, the program's canvas runs beneath the
         # toolbar.
