@@ -47,7 +47,7 @@ TerminalView(
 
 To customize the colors, edit a copy of `TerminalTheme.dark` or `.light` and pass it as `theme:`. A `Terminal.Palette` holds the foreground, background and 16 ANSI colors as `Terminal.RGB` values.
 
-SwiftUI observes `session.title` and `session.hasEnded` directly. When the shell exits or the app closes the session, its final screen and history remain readable. Both sample apps keep that screen until the user chooses **New Shell** in the app’s toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Session lifecycle](docs/design/lifecycle.md)
+SwiftUI observes `session.title` and `session.hasEnded` directly. When the shell exits or the app closes the session, its final screen and history remain readable. The sample app keeps that screen until the user chooses **New Shell** in its toolbar. The button makes a new `TerminalSession` with the app’s socket factory. [Session lifecycle](docs/design/lifecycle.md)
 
 ```swift
 TerminalView(model.tab.session)
@@ -58,7 +58,7 @@ TerminalView(model.tab.session)
     }
 ```
 
-Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/swiftui/Sources/SwiftUIExample/SwiftUIExample.swift)
+Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/swiftui/Sources/SwiftUIExample/ShellWindow.swift)
 
 ### WebSocket transport
 
@@ -127,7 +127,7 @@ terminal.dispose();
 
 The package carries ThrushCore as a 333 KB WebAssembly module and starts it synchronously, in a few milliseconds, when it makes the first terminal. It also runs in a binary compiled with `bun build --compile`. CI checks that it returns the same replies and replays as native ThrushCore, byte for byte, through every recorded program.
 
-## Try the sample apps
+## Try the sample app
 
 From the repository root, start the local server. It prints its loopback URL and opens a real shell when the app connects.
 
@@ -138,10 +138,10 @@ swift run ThrushServer
 In a second terminal, build and open the Mac app. The same server works with the iPhone Simulator.
 
 ```sh
-scripts/build-demo.sh mac && open .build/demo/mac/Thrush.app
+scripts/build-app.sh sample mac && open .build/sample/mac/Thrush.app
 ```
 
-`scripts/build-demo.sh simulator` builds the iPhone app. Pass `--endpoint URL` to either app to use another server. A scripted peer supplies the recorded demo scenes for offline playback. [Running the sample apps](docs/demo.md)
+`scripts/build-app.sh sample simulator` builds the iPhone app. Launch either app with `-endpoint ws://host:port` to use another server. [Running the sample app](docs/sample.md)
 
 ## Benchmarks
 

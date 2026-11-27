@@ -54,4 +54,4 @@ The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSessi
 
 `scripts/check-wasm.sh` builds the WebAssembly package with the swift.org Swift 6.4.2 toolchain and its Wasm SDK, then checks it against native ThrushCore and under Bun and Node. [Wasm/build.sh](Wasm/build.sh) lists what the build needs.
 
-Build the Release sample apps with `scripts/build-demo.sh mac` and `scripts/build-demo.sh simulator`. See [running the sample apps](docs/demo.md) and [measuring the packaged renderer](Benchmarks/rendering.md).
+Build the Release sample app with `scripts/build-app.sh sample mac` or `simulator`, and the proofs app that mounts its window with `scripts/build-app.sh proofs mac` or `simulator`. See [running the sample app](docs/sample.md), [the proofs app](docs/proofs.md) and [measuring the packaged renderer](Benchmarks/rendering.md).

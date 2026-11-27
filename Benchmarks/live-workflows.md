@@ -1,4 +1,4 @@
-# Real PTY workflows in the sample apps
+# Real PTY workflows in the sample app
 
 The Release Mac or iPhone Simulator app connects to the package’s standalone `ThrushServer` on loopback. The native responder types, pastes, navigates and copies through the same terminal view an app embeds. A loopback relay forwards the original WebSocket messages and gives each output frame to the pinned independent reference emulator. At each checkpoint the native driver compares the model and the rendered generation against the reference at the view’s actual grid. It also verifies the session’s received and applied byte counts. [Native checkpoint driver](../scripts/check-pane-workflows.py)
 
@@ -14,7 +14,7 @@ python3 -B scripts/live-workflow/launch.py --platform simulator --appearance dar
   --output .build/benchmarks/live-iphone
 ```
 
-The launcher builds the sample, starts a private server and removes its shell workspace after the run. For another implementation, add `--endpoint http://127.0.0.1:3129` and use a disposable server on the same Mac that can start the fixture through a POSIX shell. The simulator launcher opens the system keyboard in a throwaway prompt before testing the terminal, accessory controls and keyboard letter rows on screen. It deletes its disposable iPhone after the run.
+The launcher builds the [proofs app](../docs/proofs.md), which mounts the sample's window, starts a private server and removes its shell workspace after the run. For another implementation, add `--endpoint http://127.0.0.1:3129` and use a disposable server on the same Mac that can start the fixture through a POSIX shell. The simulator launcher opens the system keyboard in a throwaway prompt before testing the terminal, accessory controls and keyboard letter rows on screen. It deletes its disposable iPhone after the run.
 
 The default runs shell, Vim, Codex and lifecycle. Use `--workflow recovery` for a separate 8 MiB backpressure run, or select an individual flow by name. Use `--app /path/to/Thrush.app` for an existing build and `--appearance light` for the light palette. The hosted workflow verifies the Codex executable against its release checksum. [Hosted workflow](../.github/workflows/live-pty.yml)
 

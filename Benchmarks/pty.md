@@ -10,7 +10,7 @@ scripts/check-pty.sh --recovery
 
 The reports are `.build/benchmarks/pty-smoke.json`, `pty-readers.json` and `pty-recovery.json` in the same directory. The smoke check exercises four numbered logs and the 30-second orphan timeout. The reader comparison measures three clients against the same producer. The recovery check requires missing live output and an in-band replay during silence, successful input and a complete final screen before exit. [Recovery procedure](pty-recovery.md)
 
-To use the server with a demo app or a separate client, supply an empty data directory and a loopback port. Port zero selects a free port and prints the origin. Control-C stops the server and leaves its data directory available for inspection.
+To use the server with the sample app or a separate client, supply an empty data directory and a loopback port. Port zero selects a free port and prints the origin. Control-C stops the server and leaves its data directory available for inspection.
 
 ```sh
 pty_data=$(mktemp -d)
