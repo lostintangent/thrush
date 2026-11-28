@@ -27,16 +27,52 @@ private func checkSerialization(_ fixture: Recording) throws {
         if let palette = event.palette { original.palette = palette; resumed.palette = palette }
         _ = original.write(event.bytes)
         _ = resumed.write(event.bytes)
-        guard event.checkpoint != nil else { continue }
+        guard let expected = event.checkpoint else { continue }
         // This checkpoint sees all subsequent output on the previous reconstruction.
-        do { try event.verify(resumed.snapshot(), serialized: event.resize == nil) } catch { throw ReplayFailure("\(fixture.name) #\(index) continued: \(error)") }
+        try check(resumed, against: event.resize == nil ? replayed(expected) : expected, "\(fixture.name) #\(index) continued")
         resumed = Terminal(size: original.size, palette: original.palette)
         // A restored focus mode answers with the new host's focus, which starts out.
         let reply = resumed.write(original.replayBytes())
         #expect(reply == (original.modes.sendFocus ? Array("\u{1b}[O".utf8) : []))
-        do { try event.verify(resumed.snapshot(), serialized: true) } catch { throw ReplayFailure("\(fixture.name) #\(index) fresh: \(error)") }
-        #expect(resumed.title == original.title)
+        try check(resumed, against: replayed(expected), "\(fixture.name) #\(index) fresh")
     }
+}
+
+private func check(_ terminal: Terminal, against expected: Checkpoint, _ context: String) throws {
+    let differences = Checkpoint(terminal, name: expected.name, includesHistory: true).differences(from: expected)
+    if let first = differences.first { throw ReplayFailure("\(context): \(first)") }
+}
+
+/// The screens a replay can restore. A glyph clipped at the right margin can't be printed whole,
+/// so its one visible cell stays empty. Widening a clipped glyph may leave an old character under
+/// its second column, and printing the glyph restores the continuation.
+private func replayed(_ checkpoint: Checkpoint) -> Checkpoint {
+    let columns = checkpoint.size[0]
+    func replayed(_ lines: [Checkpoint.Line]) -> [Checkpoint.Line] {
+        lines.map { line in
+            var line = line
+            let clipped = line.cells.count == columns && line.cells.last?.width == 2
+            for column in line.cells.indices {
+                if column > 0, line.cells[column - 1].width == 2, line.cells[column].width != 0 {
+                    line.cells[column] = .init(text: "", width: 0, style: line.cells[column - 1].style)
+                } else if clipped && column == columns - 1 {
+                    line.cells[column] = .blank
+                }
+            }
+            while line.cells.last == .blank { line.cells.removeLast() }
+            return line
+        }
+    }
+    func replayed(_ screen: Checkpoint.Screen) -> Checkpoint.Screen {
+        var screen = screen
+        screen.history = screen.history.map(replayed)
+        screen.visible = replayed(screen.visible)
+        return screen
+    }
+    var checkpoint = checkpoint
+    checkpoint.active = replayed(checkpoint.active)
+    checkpoint.normal = checkpoint.normal.map(replayed)
+    return checkpoint
 }
 
 private struct ReplayFailure: Error, CustomStringConvertible {

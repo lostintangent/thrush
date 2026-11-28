@@ -330,9 +330,9 @@ def verify_vim_replay(driver, output):
     for name in ("Vim before detach", "Vim serialized replay"):
         marker = driver / f"capture-{index[name]:03d}.json"
         pair += [image_path(output, marker, name), marker]
-    cursor = events[index["Vim before detach"]]["checkpoint"]
+    cursor = events[index["Vim before detach"]]["checkpoint"]["cursor"]
     subprocess.run([sys.executable, ROOT / "scripts/check-workflow-capture.py", *pair[:2], "--compare-grid", *pair[2:],
-                    "--block-cursor", str(cursor["cursorRow"]), str(cursor["cursorColumn"])], check=True, timeout=60)
+                    "--block-cursor", str(cursor["row"]), str(cursor["column"])], check=True, timeout=60)
 
 
 def stall_upstream(proxy, host, log, work, output, device):

@@ -25,10 +25,10 @@ let package = Package(
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"],
                           path: "Benchmarks/ThrushBench"),
-        .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore"]),
+        .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore", "ThrushFixtures"]),
         .testTarget(
             name: "ThrushConformanceTests",
-            dependencies: ["ThrushConformance"],
+            dependencies: ["ThrushConformance", "ThrushFixtures"],
             resources: [.copy("Cases"), .copy("KnownGaps.json"), .copy("ReferenceDefects.json")]
         ),
         .executableTarget(name: "ThrushLoopbackCheck", dependencies: ["Thrush", "ThrushFixtures"]),

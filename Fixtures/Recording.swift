@@ -96,75 +96,6 @@ package struct Recording: Sendable {
         }
     }
 
-    private struct RawCell: Decodable {
-        let text: String
-        let width: Int
-        let flags: UInt8
-        let foreground: Int
-        let background: Int
-
-        func style() -> Terminal.Style {
-            var s = Terminal.Style()
-            s.foreground = Self.color(foreground)
-            s.background = Self.color(background)
-            s.bold = flags & 1 != 0
-            s.dim = flags & 2 != 0
-            s.italic = flags & 4 != 0
-            s.underline = flags & 8 != 0 ? .single : .none
-            s.blink = flags & 16 != 0
-            s.inverse = flags & 32 != 0
-            s.invisible = flags & 64 != 0
-            s.strikethrough = flags & 128 != 0
-            return s
-        }
-
-        static func color(_ code: Int) -> Terminal.Color {
-            if code < 0 { return .default }
-            if code < 256 { return .indexed(UInt8(code)) }
-            let rgb = code - 256
-            return .rgb(UInt8(rgb >> 16), UInt8(truncatingIfNeeded: rgb >> 8), UInt8(truncatingIfNeeded: rgb))
-        }
-    }
-
-    fileprivate struct Cell: Sendable {
-        let text: String
-        let width: Int
-        let style: Terminal.Style
-
-        func matches(_ cell: Terminal.Cell) -> Bool {
-            width == cell.width && style == cell.style && text.utf8.elementsEqual(cell.text.utf8)
-        }
-    }
-
-    fileprivate struct Line: Decodable, Sendable {
-        let wrapped: Bool
-        let text: String
-        // Pairs of repetition count and cell index. The omitted tail consists of blank cells.
-        let runs: [Int]
-    }
-
-    fileprivate struct Pool: Sendable {
-        let cells: [Cell]
-        let lines: [Line]
-    }
-
-    package struct Checkpoint: Decodable, Sendable {
-        fileprivate struct Modes: Decodable, Equatable, Sendable {
-            let applicationCursorKeys, applicationKeypad, bracketedPaste, insert, origin, wraparound, cursorVisible, cursorBlink, sendFocus: Bool
-        }
-        package let columns: Int
-        package let rows: Int
-        package let cursorColumn: Int
-        package let cursorRow: Int
-        fileprivate let cursorShape: String
-        fileprivate let cursorBlink: Bool
-        fileprivate let synchronizedOutput: Bool?
-        package let isAlternate: Bool
-        package let history: [Int]
-        package let visible: [Int]
-        fileprivate let modes: Modes
-    }
-
     package struct Lifecycle: Decodable, Sendable {
         package enum Kind: String, Decodable, Sendable { case detach, ready }
         package let type: Kind
@@ -203,8 +134,6 @@ package struct Recording: Sendable {
         let version: Int
         let columns: Int
         let rows: Int
-        let cells: [RawCell]
-        let lines: [Line]
         let events: [RawEvent]
     }
 
@@ -222,7 +151,6 @@ package struct Recording: Sendable {
         package let normalHistoryRowsBefore, historyRowsBefore: Int?
         package let checkpoint: Checkpoint?
         package let semanticInput: Terminal.Input?
-        fileprivate let pool: Pool
 
         /// A ready control precedes any serialized replay on the new attachment.
         package func applyReady(to terminal: inout Terminal) {
@@ -237,84 +165,23 @@ package struct Recording: Sendable {
             if let encoded = encodedInput(using: terminal), encoded != input {
                 throw Failure("\(name) input: got \(encoded), expected \(input)")
             }
-            if checkpoint != nil { try verify(terminal.snapshot()) }
-        }
-
-        package func verify(_ snapshot: Terminal.Snapshot, serialized: Bool = false) throws {
             guard let checkpoint else { return }
-            let modes = snapshot.modes
-            if let expected = checkpoint.synchronizedOutput, (snapshot.synchronizedOutputID != nil) != expected {
-                throw Failure("\(name) synchronized output should be \(expected)")
-            }
-            let actualModes = Checkpoint.Modes(applicationCursorKeys: modes.applicationCursorKeys,
-                applicationKeypad: modes.applicationKeypad, bracketedPaste: modes.bracketedPaste,
-                insert: modes.insert, origin: modes.origin, wraparound: modes.wraparound,
-                cursorVisible: modes.cursorVisible, cursorBlink: modes.cursorBlink, sendFocus: modes.sendFocus)
-            guard actualModes == checkpoint.modes, snapshot.cursorVisible == checkpoint.modes.cursorVisible else {
-                throw Failure("\(name) modes: got \(actualModes), expected \(checkpoint.modes)")
-            }
-            guard snapshot.cursorShape.rawValue == checkpoint.cursorShape, snapshot.cursorBlink == checkpoint.cursorBlink else {
-                throw Failure("\(name) cursor style: got \(snapshot.cursorShape) blink \(snapshot.cursorBlink), expected \(checkpoint.cursorShape) blink \(checkpoint.cursorBlink)")
-            }
-            guard snapshot.size.columns == checkpoint.columns, snapshot.size.rows == checkpoint.rows else {
-                throw Failure("\(name) size: got \(snapshot.size), expected \(checkpoint.columns)×\(checkpoint.rows)")
-            }
-            guard snapshot.isAlternate == checkpoint.isAlternate,
-                  snapshot.cursorRow == checkpoint.cursorRow, snapshot.cursorColumn == checkpoint.cursorColumn else {
-                throw Failure("\(name) alternate/cursor: got \(snapshot.isAlternate) \(snapshot.cursorRow),\(snapshot.cursorColumn), expected \(checkpoint.isAlternate) \(checkpoint.cursorRow),\(checkpoint.cursorColumn)")
-            }
-            try verifyRows(snapshot.history, expected: checkpoint.history, columns: checkpoint.columns, group: "history", serialized: serialized)
-            try verifyRows(snapshot.rows, expected: checkpoint.visible, columns: checkpoint.columns, group: "viewport", serialized: serialized)
+            try check(Checkpoint(terminal, name: name, includesHistory: true), against: checkpoint)
         }
 
-        private func verifyRows<Rows: Collection>(_ actual: Rows, expected: [Int], columns: Int, group: String, serialized: Bool) throws
-        where Rows.Element == Terminal.Row {
-            guard actual.count == expected.count else {
-                throw Failure("\(name) \(group) count: got \(actual.count), expected \(expected.count)")
-            }
-            for (index, row) in actual.enumerated() {
-                let line = pool.lines[expected[index]]
-                let endsAtMargin = stride(from: 0, to: line.runs.count, by: 2).reduce(0) { $0 + line.runs[$1] } == columns
-                let clipped = serialized && endsAtMargin && line.runs.last.map { pool.cells[$0].width == 2 } == true
-                // When the last glyph extends past the grid, a repaint leaves its one visible cell empty.
-                // The cell-by-cell check below also distinguishes a printed space from an empty cell.
-                guard clipped || row.text.utf8.elementsEqual(line.text.utf8) else {
-                    throw Failure("\(name) \(group) row \(index): got \(row.text.debugDescription), expected \(line.text.debugDescription)")
-                }
-                guard row.isWrapped == line.wrapped else {
-                    throw Failure("\(name) \(group) row \(index) wrap: got \(row.isWrapped), expected \(line.wrapped), text \(row.text.debugDescription)")
-                }
-                var column = 0
-                var wideLead: Cell?
-                for pair in stride(from: 0, to: line.runs.count, by: 2) {
-                    let cell = pool.cells[line.runs[pair + 1]]
-                    guard line.runs[pair] <= columns - column else {
-                        throw Failure("\(name) \(group) row \(index) exceeds \(columns) columns")
-                    }
-                    let end = column + line.runs[pair]
-                    for x in column..<end {
-                        let expected: Cell
-                        if serialized, let wideLead, cell.width != 0 {
-                            // Widening a clipped glyph may leave an old character underneath
-                            // its second column. Printing the glyph restores the continuation.
-                            expected = Cell(text: "", width: 0, style: wideLead.style)
-                        } else {
-                            expected = clipped && x == columns - 1 ? pool.cells[0] : cell
-                        }
-                        if !expected.matches(row[x]) { throw mismatch(group, index, x, row[x], expected) }
-                        wideLead = expected.width == 2 ? expected : nil
-                    }
-                    column = end
-                }
-                let blank = pool.cells[0]
-                for x in column..<columns where !blank.matches(row[x]) {
-                    throw mismatch(group, index, x, row[x], blank)
-                }
-            }
+        package func verify(_ snapshot: Terminal.Snapshot) throws {
+            guard var expected = checkpoint else { return }
+            // A snapshot holds neither the title nor the normal screen behind the alternate one.
+            expected.title = ""
+            expected.normal = nil
+            try check(Checkpoint(snapshot, name: name, includesHistory: true), against: expected)
         }
 
-        private func mismatch(_ group: String, _ y: Int, _ x: Int, _ actual: Terminal.Cell, _ expected: Cell) -> Failure {
-            Failure("\(name) \(group) [\(y),\(x)]: got \(actual), expected \(expected)")
+        private func check(_ actual: Checkpoint, against expected: Checkpoint) throws {
+            let differences = actual.differences(from: expected)
+            guard differences.isEmpty else {
+                throw Failure("\(name): " + differences.prefix(4).map(\.description).joined(separator: "; "))
+            }
         }
     }
 
@@ -334,40 +201,17 @@ package struct Recording: Sendable {
     }
 
     package static func decode(_ data: Data) throws -> Self {
-        let recording = try JSONDecoder().decode(RawRecording.self, from: data)
+        let recording = try LinePool(decoding: data).decoder.decode(RawRecording.self, from: data)
         guard recording.version == 1 else { throw Failure("Unsupported recording version \(recording.version)") }
-        guard recording.columns > 0, recording.rows > 0, !recording.cells.isEmpty else {
-            throw Failure("Missing terminal grid or reference cells")
-        }
-        for cell in recording.cells {
-            guard (0...2).contains(cell.width), (-1...0x10000FF).contains(cell.foreground),
-                  (-1...0x10000FF).contains(cell.background) else { throw Failure("Invalid reference cell") }
-        }
-        for line in recording.lines {
-            guard line.runs.count.isMultiple(of: 2) else { throw Failure("Incomplete reference cell run") }
-            for i in stride(from: 0, to: line.runs.count, by: 2) {
-                guard line.runs[i] > 0, recording.cells.indices.contains(line.runs[i + 1]) else {
-                    throw Failure("Invalid reference cell run")
-                }
-            }
-        }
-        let pool = Pool(cells: recording.cells.map { Cell(text: $0.text, width: $0.width, style: $0.style()) },
-                        lines: recording.lines)
+        guard recording.columns > 0, recording.rows > 0 else { throw Failure("Missing terminal grid") }
         let events = try recording.events.map { event in
-            if let check = event.checkpoint {
-                guard check.columns > 0, check.visible.count == check.rows,
-                      check.visible.allSatisfy(recording.lines.indices.contains),
-                      check.history.allSatisfy(recording.lines.indices.contains) else {
-                    throw Failure("Invalid reference rows in \(event.name)")
-                }
-            }
-            return Event(name: event.name, offsetMicroseconds: event.offsetMicroseconds,
+            Event(name: event.name, offsetMicroseconds: event.offsetMicroseconds,
                   bytes: Array(event.bytes ?? Data()), input: Array(event.input ?? Data()),
                   reply: Array(event.reply ?? Data()), resize: event.resize, palette: try event.palette?.palette(),
                   lifecycle: event.lifecycle, copy: event.copy,
                   normalHistoryRowsBefore: event.normalHistoryRowsBefore, historyRowsBefore: event.historyRowsBefore,
                   checkpoint: event.checkpoint,
-                  semanticInput: try event.action?.terminalInput(), pool: pool)
+                  semanticInput: try event.action?.terminalInput())
         }
         return Self(name: recording.name, columns: recording.columns, rows: recording.rows, events: events,
                     sha256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())

@@ -1,12 +1,12 @@
 {"version":1,"name":"hardware-keys","reference":{"packages":{"@xterm/addon-unicode11":"0.9.0","@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0"},"options":{"scrollback":1000,"allowProposedApi":true},"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"columns":80,"rows":24,
 "cells":[
-{"text":"","width":1,"flags":0,"foreground":-1,"background":-1}
+
 ],
 "lines":[
-{"wrapped":false,"text":"","runs":[]}
+[0]
 ],
 "events":[
-{"name":"Use normal cursor keys","offsetMicroseconds":0,"bytes":"G1s/MWw=","checkpoint":{"columns":80,"rows":24,"cursorRow":0,"cursorColumn":0,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":false,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}},
+{"name":"Use normal cursor keys","offsetMicroseconds":0,"bytes":"G1s/MWw=","checkpoint":{"name":"Use normal cursor keys","size":[80,24],"cursor":{"row":0,"column":0,"visible":true,"shape":"block","blink":false},"buffer":"normal","modes":{"applicationCursorKeys":false,"applicationKeypad":false,"bracketedPaste":false,"insert":false,"origin":false,"wraparound":true,"reverseWraparound":false,"cursorBlink":false,"sendFocus":false,"synchronizedOutput":false,"mouseTracking":"off","mouseEncoding":"default"},"title":"","active":{"history":[],"visible":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}},
 {"name":"normal up","offsetMicroseconds":1000,"action":{"kind":"key","value":"up","modifiers":[]},"input":"G1tB"},
 {"name":"normal shift up","offsetMicroseconds":2000,"action":{"kind":"key","value":"up","modifiers":["shift"]},"input":"G1sxOzJB"},
 {"name":"normal alt up","offsetMicroseconds":3000,"action":{"kind":"key","value":"up","modifiers":["alt"]},"input":"G1sxOzNB"},
@@ -72,7 +72,7 @@
 {"name":"normal alt backspace","offsetMicroseconds":63000,"action":{"kind":"key","value":"backspace","modifiers":["alt"]},"input":"G38="},
 {"name":"normal control backspace","offsetMicroseconds":64000,"action":{"kind":"key","value":"backspace","modifiers":["control"]},"input":"CA=="},
 {"name":"normal shift alt control backspace","offsetMicroseconds":65000,"action":{"kind":"key","value":"backspace","modifiers":["shift","alt","control"]},"input":"Gwg="},
-{"name":"Use application cursor keys","offsetMicroseconds":66000,"bytes":"G1s/MWg=","checkpoint":{"columns":80,"rows":24,"cursorRow":0,"cursorColumn":0,"cursorShape":"block","cursorBlink":false,"isAlternate":false,"modes":{"applicationCursorKeys":true,"bracketedPaste":false,"applicationKeypad":false,"insert":false,"origin":false,"wraparound":true,"cursorVisible":true,"cursorBlink":false,"sendFocus":false},"history":[],"visible":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}},
+{"name":"Use application cursor keys","offsetMicroseconds":66000,"bytes":"G1s/MWg=","checkpoint":{"name":"Use application cursor keys","size":[80,24],"cursor":{"row":0,"column":0,"visible":true,"shape":"block","blink":false},"buffer":"normal","modes":{"applicationCursorKeys":true,"applicationKeypad":false,"bracketedPaste":false,"insert":false,"origin":false,"wraparound":true,"reverseWraparound":false,"cursorBlink":false,"sendFocus":false,"synchronizedOutput":false,"mouseTracking":"off","mouseEncoding":"default"},"title":"","active":{"history":[],"visible":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}},
 {"name":"application up","offsetMicroseconds":67000,"action":{"kind":"key","value":"up","modifiers":[]},"input":"G09B"},
 {"name":"application shift up","offsetMicroseconds":68000,"action":{"kind":"key","value":"up","modifiers":["shift"]},"input":"G1sxOzJB"},
 {"name":"application alt up","offsetMicroseconds":69000,"action":{"kind":"key","value":"up","modifiers":["alt"]},"input":"G1sxOzNB"},

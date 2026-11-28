@@ -55,8 +55,8 @@ for recording in recordings:
     for resize, event in zip(recording["resizes"], expected):
         checkpoint = event["checkpoint"]
         assert resize["requested"] == event["resize"], event["name"]
-        assert resize["to"] == {k: checkpoint[k] for k in ("columns", "rows")}, event["name"]
-        assert resize["alternate"] == checkpoint["isAlternate"], event["name"]
+        assert resize["to"] == dict(zip(("columns", "rows"), checkpoint["size"])), event["name"]
+        assert resize["alternate"] == (checkpoint["buffer"] == "alternate"), event["name"]
         assert resize["historyRowsBefore"] == event["historyRowsBefore"], event["name"]
         assert resize["normalHistoryRowsBefore"] == event["normalHistoryRowsBefore"], event["name"]
 

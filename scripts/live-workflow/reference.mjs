@@ -1,7 +1,8 @@
 // Observe the bytes delivered to the native pane with the independent reference emulator.
 import assert from 'node:assert/strict';
 import { headless } from '../../Fixtures/reference/headless.mjs';
-import { Pool, checkpoint } from '../../Fixtures/reference/m2/checkpoint.mjs';
+import { Pool, pack } from '../../Fixtures/reference/conformance/state.mjs';
+import { state } from '../../Fixtures/reference/conformance/xterm.mjs';
 
 export function openReference(grid) {
     return headless(grid.columns, grid.rows);
@@ -25,17 +26,17 @@ export function logicalLines(terminal, viewportOnly = false) {
 }
 
 export function referenceDocument(terminal, fixture, event, previousScreen = undefined) {
-    const cells = new Pool(), lines = new Pool();
-    cells.get({ text: '', width: 1, flags: 0, foreground: -1, background: -1 });
-    const expected = checkpoint(terminal, cells, lines);
+    // The event carries no replies, as in a recording.
+    const { replies: _, ...expected } = state(terminal, event.name, undefined, '');
     if (previousScreen) {
-        const old = checkpoint(previousScreen, cells, lines);
-        assert(!old.isAlternate, 'The Bash lifecycle fixture archives the main screen');
-        const last = old.visible.findLastIndex(id => lines.values[id].wrapped || lines.values[id].runs.length);
-        expected.history.unshift(...old.history, ...old.visible.slice(0, last + 1));
+        const old = state(previousScreen, event.name, undefined, '');
+        assert(old.buffer === 'normal', 'The Bash lifecycle fixture archives the main screen');
+        const last = old.active.visible.findLastIndex(line => line.wrapped || line.cells.length);
+        expected.active.history.unshift(...old.active.history, ...old.active.visible.slice(0, last + 1));
     }
-    expected.synchronizedOutput = terminal.modes.synchronizedOutputMode;
-    const entry = { name: event.name, offsetMicroseconds: 0, checkpoint: expected, lifecycle: event.lifecycle };
+    const cells = new Pool(), lines = new Pool();
+    const entry = { name: event.name, offsetMicroseconds: 0, checkpoint: pack(expected, { cells, lines }),
+        lifecycle: event.lifecycle };
     let copy;
     if (event.copy) {
         const text = event.copy.text;

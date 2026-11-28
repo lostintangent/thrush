@@ -19,8 +19,10 @@ def published_answer():
     for event in fixture["events"]:
         if event["name"] not in ("Earlier transcript page", "Later transcript page") or "checkpoint" not in event:
             continue
-        for row in event["checkpoint"]["visible"]:
-            text = fixture["lines"][row]["text"].strip().removeprefix("• ")
+        for row in event["checkpoint"]["active"]["visible"]:
+            # A pooled line is its wrap flag and its cells, each [text, width, style].
+            cells = [fixture["cells"][cell] for cell in fixture["lines"][row][1:]]
+            text = "".join(text or " " for text, width, _ in cells if width).strip().removeprefix("• ")
             match = re.fullmatch(r"(\d+)\. ([\w -]+)", text)
             if match:
                 n = int(match[1])

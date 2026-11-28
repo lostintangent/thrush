@@ -1,5 +1,6 @@
 import Foundation
 import ThrushCore
+import ThrushFixtures
 
 // A reader who falls behind or reconnects gets one replay in place of the output it missed, so a replay
 // has to rebuild everything the live terminal holds: what a checkpoint shows, and the state that only

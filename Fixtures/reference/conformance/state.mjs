@@ -4,7 +4,7 @@
 // A screen is { history?, visible } and a line is { wrapped, cells } where each cell is
 // [text, width, style]. Trailing blank cells are omitted. Replies are bytes in a latin1 string.
 // A style's `link=n` names the nth entry of links, each an `id;uri` numbered by first appearance.
-// Sources/ThrushConformance/Checkpoint.swift decodes the same shape and owns comparison.
+// Fixtures/Checkpoint.swift decodes the same shape, and Fixtures/Difference.swift compares two of them.
 
 /** A case's steps, ending with the checkpoint named `end` that every case reaches. */
 export const withEnd = steps => steps.at(-1)?.checkpoint === 'end' ? steps : [...steps, { checkpoint: 'end' }];

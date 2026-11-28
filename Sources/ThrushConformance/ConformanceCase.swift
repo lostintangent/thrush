@@ -1,5 +1,6 @@
 import Foundation
 import ThrushCore
+import ThrushFixtures
 
 /// Bytes fed to a fresh terminal, with the checkpoints the reference emulator reached on the same bytes.
 ///
@@ -139,27 +140,54 @@ extension ConformanceCase.Step: Decodable {
 extension ConformanceCase {
     /// Loads a generated case file, whose checkpoints name lines by index into shared pools.
     static func load(contentsOf url: URL) throws -> [ConformanceCase] {
-        struct Pools: Decodable {
-            var cells: [Checkpoint.Cell]
-            var lines: [[Int]]
-        }
         struct File: Decodable { var cases: [ConformanceCase] }
         let data = try Data(contentsOf: url)
-        let pools = try JSONDecoder().decode(Pools.self, from: data)
-        let lines = pools.lines.map { line in
-            Checkpoint.Line(wrapped: line[0] == 1, cells: line.dropFirst().map { pools.cells[$0] })
-        }
-        let decoder = JSONDecoder()
-        decoder.userInfo[.linePool] = LinePool(lines: lines)
-        return try decoder.decode(File.self, from: data).cases
+        return try LinePool(decoding: data).decoder.decode(File.self, from: data).cases
     }
 }
 
-final class LinePool: Sendable {
-    let lines: [Checkpoint.Line]
-    init(lines: [Checkpoint.Line]) { self.lines = lines }
+extension ConformanceCase {
+    /// The differences from the reference across every checkpoint, or none when Thrush matches.
+    func differences(in actual: [Checkpoint]) -> [Difference] {
+        guard let expected else { return [] }
+        if actual.count != expected.count {
+            return [Difference(checkpoint: "end", path: "checkpoints", reference: "\(expected.count)", thrush: "\(actual.count)")]
+        }
+        return zip(expected, actual).flatMap { $1.differences(from: $0) }
+    }
+
+    /// A readable account of the first checkpoint that differs, with both grids side by side.
+    func report(_ actual: [Checkpoint]) -> String? {
+        let differences = differences(in: actual)
+        guard let first = differences.first, let expected,
+              let reference = expected.first(where: { $0.name == first.checkpoint }),
+              let thrush = actual.first(where: { $0.name == first.checkpoint }) else { return nil }
+        let input = Checkpoint.printable(self.input)
+        var lines = [
+            "\(name) differs from the reference at checkpoint \"\(first.checkpoint)\".",
+            "Input: \(input.count > 400 ? input.prefix(400) + "…" : input[...])",
+            "",
+        ]
+        lines += differences.filter { $0.checkpoint == first.checkpoint }.prefix(12).map { "  \($0)" }
+        // Grid rows are exactly one display column per cell, so the two grids line up.
+        let blank = String(repeating: " ", count: reference.size[0])
+        let header = "Reference" + String(repeating: " ", count: max(0, reference.size[0] - 9))
+        lines += ["", "      \(header)    Thrush"]
+        for row in 0..<max(reference.grid.count, thrush.grid.count) {
+            let left = reference.grid[safe: row] ?? blank, right = thrush.grid[safe: row] ?? ""
+            let marker = reference.active.visible[safe: row] == thrush.active.visible[safe: row] ? " " : "≠"
+            lines.append("  \(String(row).leftPadded(to: 2)) │\(left)│ \(marker) │\(right)│")
+        }
+        lines.append("  cursor: reference row \(reference.cursor.row), column \(reference.cursor.column) · "
+                     + "Thrush row \(thrush.cursor.row), column \(thrush.cursor.column)")
+        return lines.joined(separator: "\n")
+    }
 }
 
-extension CodingUserInfoKey {
-    static let linePool = CodingUserInfoKey(rawValue: "linePool")!
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
+private extension String {
+    func leftPadded(to width: Int) -> String { String(repeating: " ", count: max(0, width - count)) + self }
 }

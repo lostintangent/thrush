@@ -1,4 +1,5 @@
 import Foundation
+import ThrushFixtures
 
 /// Serves the differential harness: reads one JSON request per line and writes one JSON result per line.
 ///

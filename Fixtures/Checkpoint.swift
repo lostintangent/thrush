@@ -1,49 +1,50 @@
+import Foundation
 import ThrushCore
 
-/// Everything a program can observe about a terminal at one point in a conformance case.
+/// Everything a program can observe about a terminal at one point in a conformance case or recording.
 ///
-/// The reference emulator and ThrushCore both report this shape, so a case passes when the two are equal.
+/// The reference emulator and ThrushCore both report this shape, so a checkpoint passes when the two are equal.
 /// The tooling in `Fixtures/reference/conformance` reads the same fields from the reference.
-struct Checkpoint: Decodable, Equatable, Sendable {
-    struct Cursor: Decodable, Equatable, Sendable {
-        var row: Int
-        var column: Int
-        var visible: Bool
-        var shape: String
-        var blink: Bool
+package struct Checkpoint: Decodable, Equatable, Sendable {
+    package struct Cursor: Decodable, Equatable, Sendable {
+        package var row: Int
+        package var column: Int
+        package var visible: Bool
+        package var shape: String
+        package var blink: Bool
     }
 
-    struct Modes: Decodable, Equatable, Sendable {
-        var applicationCursorKeys: Bool
-        var applicationKeypad: Bool
-        var bracketedPaste: Bool
-        var insert: Bool
-        var origin: Bool
-        var wraparound: Bool
-        var reverseWraparound: Bool
-        var cursorBlink: Bool
-        var sendFocus: Bool
-        var synchronizedOutput: Bool
-        var mouseTracking: String
-        var mouseEncoding: String
+    package struct Modes: Decodable, Equatable, Sendable {
+        package var applicationCursorKeys: Bool
+        package var applicationKeypad: Bool
+        package var bracketedPaste: Bool
+        package var insert: Bool
+        package var origin: Bool
+        package var wraparound: Bool
+        package var reverseWraparound: Bool
+        package var cursorBlink: Bool
+        package var sendFocus: Bool
+        package var synchronizedOutput: Bool
+        package var mouseTracking: String
+        package var mouseEncoding: String
     }
 
     /// One grid cell. Styles are space-separated attributes such as `fg=1 bold`, or empty for the default.
     /// `link=n` names the checkpoint's `n`th link.
-    struct Cell: Decodable, Hashable, Sendable {
-        static let blank = Cell(text: "", width: 1, style: "")
+    package struct Cell: Decodable, Hashable, Sendable {
+        package static let blank = Cell(text: "", width: 1, style: "")
 
-        var text: String
-        var width: Int
-        var style: String
+        package var text: String
+        package var width: Int
+        package var style: String
 
-        init(text: String, width: Int, style: String) {
+        package init(text: String, width: Int, style: String) {
             self.text = text
             self.width = width
             self.style = style
         }
 
-        init(from decoder: any Decoder) throws {
+        package init(from decoder: any Decoder) throws {
             var container = try decoder.unkeyedContainer()
             self.init(text: try container.decode(String.self), width: try container.decode(Int.self),
                       style: try container.decode(String.self))
@@ -51,23 +52,28 @@ struct Checkpoint: Decodable, Equatable, Sendable {
     }
 
     /// A row without its trailing blank cells. `wrapped` means it continues the row above.
-    struct Line: Decodable, Hashable, Sendable {
-        var wrapped: Bool
-        var cells: [Cell]
+    package struct Line: Decodable, Hashable, Sendable {
+        package var wrapped: Bool
+        package var cells: [Cell]
 
         private enum CodingKeys: CodingKey { case wrapped, cells }
 
-        subscript(column: Int) -> Cell { column < cells.count ? cells[column] : .blank }
+        package subscript(column: Int) -> Cell { column < cells.count ? cells[column] : .blank }
 
-        init(wrapped: Bool, cells: [Cell]) {
+        package init(wrapped: Bool, cells: [Cell]) {
             self.wrapped = wrapped
             self.cells = cells
         }
 
-        /// Generated case files name each line by its index in a shared pool.
-        init(from decoder: any Decoder) throws {
+        /// Generated files name each line by its index in a shared pool.
+        package init(from decoder: any Decoder) throws {
             if let pool = decoder.userInfo[.linePool] as? LinePool {
-                self = pool.lines[try decoder.singleValueContainer().decode(Int.self)]
+                let container = try decoder.singleValueContainer()
+                let index = try container.decode(Int.self)
+                guard pool.lines.indices.contains(index) else {
+                    throw DecodingError.dataCorruptedError(in: container, debugDescription: "No pooled line \(index)")
+                }
+                self = pool.lines[index]
                 return
             }
             let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -76,43 +82,66 @@ struct Checkpoint: Decodable, Equatable, Sendable {
         }
     }
 
-    struct Screen: Decodable, Equatable, Sendable {
+    package struct Screen: Decodable, Equatable, Sendable {
         /// Scrolled-off rows, oldest first. Absent when the checkpoint only records the visible grid.
-        var history: [Line]?
-        var visible: [Line]
+        package var history: [Line]?
+        package var visible: [Line]
     }
 
-    var name: String
-    var size: [Int]
-    var cursor: Cursor
-    var buffer: String
-    var modes: Modes
-    var title: String
+    package var name: String
+    package var size: [Int]
+    package var cursor: Cursor
+    package var buffer: String
+    package var modes: Modes
+    package var title: String
     /// The bytes the terminal sent back since the previous checkpoint, one character per byte.
-    var replies: String
-    var active: Screen
+    /// Absent in recordings, whose events carry their own replies.
+    package var replies: String?
+    package var active: Screen
     /// The normal screen while the alternate screen is active, as the user returns to it.
-    var normal: Screen?
+    package var normal: Screen?
     /// Each link's id and URI as `id;uri`, numbered from 1 in the order the screens above show them.
     /// Absent without links.
-    var links: [String]?
+    package var links: [String]?
     /// What the reference threw while processing the writes before this checkpoint. Thrush never sets it.
-    var error: String?
+    package var error: String?
     /// The first cell since the previous checkpoint that Thrush's renderer would draw as another cell,
     /// because its row kept a generation that named other cells. The reference never sets it.
-    var misdrawn: Misdrawn?
+    package var misdrawn: Misdrawn?
 
-    struct Misdrawn: Decodable, Equatable, Sendable {
-        var row: Int
-        var column: Int
-        var holds: Cell
-        var shows: Cell
+    package struct Misdrawn: Decodable, Equatable, Sendable {
+        package var row: Int
+        package var column: Int
+        package var holds: Cell
+        package var shows: Cell
+
+        package init(row: Int, column: Int, holds: Cell, shows: Cell) {
+            self.row = row
+            self.column = column
+            self.holds = holds
+            self.shows = shows
+        }
     }
 }
 
 extension Checkpoint {
-    init(_ terminal: Terminal, name: String, includesHistory: Bool, replies: [UInt8]) {
+    package init(_ terminal: Terminal, name: String, includesHistory: Bool, replies: [UInt8]? = nil) {
         let snapshot = terminal.snapshot()
+        var normal: Terminal.Snapshot?
+        if snapshot.isAlternate && includesHistory {
+            // Leaving the alternate screen on a copy reveals the normal screen as the user returns to it.
+            var copy = terminal
+            _ = copy.write(Array("\u{1b}[?1049l".utf8))
+            normal = copy.snapshot()
+        }
+        self.init(snapshot, name: name, includesHistory: includesHistory, title: terminal.title, normal: normal)
+        self.replies = replies.map { String(String.UnicodeScalarView($0.map(Unicode.Scalar.init))) }
+    }
+
+    /// What a snapshot shows. It holds neither the title nor the normal screen behind the alternate one,
+    /// so a terminal supplies those.
+    package init(_ snapshot: Terminal.Snapshot, name: String, includesHistory: Bool, title: String = "",
+                 normal: Terminal.Snapshot? = nil) {
         let modes = snapshot.modes
         self.name = name
         size = [snapshot.size.columns, snapshot.size.rows]
@@ -125,16 +154,10 @@ extension Checkpoint {
             wraparound: modes.wraparound, reverseWraparound: modes.reverseWraparound, cursorBlink: modes.cursorBlink,
             sendFocus: modes.sendFocus, synchronizedOutput: modes.synchronizedOutput,
             mouseTracking: "\(modes.mouseTracking)", mouseEncoding: modes.mouseSGR ? "sgr" : "default")
-        title = terminal.title
-        self.replies = String(String.UnicodeScalarView(replies.map(Unicode.Scalar.init)))
+        self.title = title
         var styles = Styles()
         active = Screen(snapshot, includesHistory: includesHistory, styles: &styles)
-        if snapshot.isAlternate && includesHistory {
-            // Leaving the alternate screen on a copy reveals the normal screen as the user returns to it.
-            var normal = terminal
-            _ = normal.write(Array("\u{1b}[?1049l".utf8))
-            self.normal = Screen(normal.snapshot(), includesHistory: true, styles: &styles)
-        }
+        self.normal = normal.map { Screen($0, includesHistory: true, styles: &styles) }
         links = styles.links.isEmpty ? nil : styles.links
     }
 
@@ -187,7 +210,7 @@ extension Checkpoint.Line {
 }
 
 extension Checkpoint.Cell {
-    init(_ cell: Terminal.Cell) {
+    package init(_ cell: Terminal.Cell) {
         self.init(text: cell.text, width: cell.width, style: Checkpoint.style(cell.style))
     }
 }
@@ -222,4 +245,36 @@ extension Checkpoint {
         let digits = Array("0123456789abcdef")
         return String([digits[Int(value >> 4)], digits[Int(value & 15)]])
     }
+}
+
+/// The lines a generated file's checkpoints share, which each checkpoint names by index.
+package final class LinePool: Sendable {
+    let lines: [Checkpoint.Line]
+
+    /// Reads the file's pools. A cell is `[text, width, style]`, and a line is its wrap flag, 0 or 1,
+    /// followed by its cells' indexes.
+    package init(decoding data: Data) throws {
+        struct Pools: Decodable {
+            var cells: [Checkpoint.Cell]
+            var lines: [[Int]]
+        }
+        let pools = try JSONDecoder().decode(Pools.self, from: data)
+        lines = try pools.lines.map { line in
+            guard let wrapped = line.first, line.dropFirst().allSatisfy(pools.cells.indices.contains) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Invalid pooled line \(line)"))
+            }
+            return Checkpoint.Line(wrapped: wrapped == 1, cells: line.dropFirst().map { pools.cells[$0] })
+        }
+    }
+
+    /// A decoder that reads each checkpoint line as an index into this pool.
+    package var decoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.userInfo[.linePool] = self
+        return decoder
+    }
+}
+
+extension CodingUserInfoKey {
+    static let linePool = CodingUserInfoKey(rawValue: "linePool")!
 }

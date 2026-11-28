@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { applyPalette, reference as pinned, source, terminal, write } from '../reference.mjs';
-import { Pool, checkpoint } from './checkpoint.mjs';
+import { Pool as StatePool, pack } from '../conformance/state.mjs';
+import { state } from '../conformance/xterm.mjs';
 import { pointerInput, encodePointer } from '../m4/pointer.mjs';
 import { hardwareKeys } from '../m4/hardware-keys.mjs';
 
@@ -180,12 +181,12 @@ async function verifyStyledPaints(recording, events, cells, lines) {
     }
     if (!event.name.startsWith('Styled Swift ')) continue;
     const expected = event.checkpoint;
-    const clean = terminal(expected.columns, expected.rows);
+    const clean = terminal(...expected.size);
     applyPalette(clean, palette);
     for (const chunk of chunks) await write(clean, chunk);
-    const painted = checkpoint(clean, cells, lines);
-    assert.deepEqual(painted.visible, expected.visible, event.name + ' independent paint');
-    assert.deepEqual([painted.cursorRow, painted.cursorColumn], [expected.cursorRow, expected.cursorColumn]);
+    const painted = pack(state(clean, event.name, 'visible', ''), {cells, lines});
+    assert.deepEqual(painted.active.visible, expected.active.visible, event.name + ' independent paint');
+    assert.deepEqual(painted.cursor, expected.cursor);
     clean.dispose();
     chunks = [];
   }
@@ -205,14 +206,16 @@ function verifyHighlighting(theme, events, cells, lines) {
     assert(replies.includes(`\x1b]${command};rgb:${rgb}\x1b\\`), `${theme} OSC ${command} reply`);
   }
 
+  // Each cell is [text, width, style], and a row omits its trailing blank cells.
+  const color = ([, , style]) => Number(/(?:^| )fg=(\d+)/.exec(style)?.[1] ?? -1);
+  const has = ([, , style], attribute) => style.split(' ').includes(attribute);
   const frames = {};
   for (const {name, checkpoint} of events.filter(e => e.name.startsWith('Styled Swift '))) {
-    assert(checkpoint.isAlternate && !frames[name], name);
-    frames[name] = checkpoint.visible.map(id => {
-      const {text, runs} = lines.values[id];
-      const row = [];
-      for (let i = 0; i < runs.length; i += 2) row.push(...Array(runs[i]).fill(cells.values[runs[i + 1]]));
-      return {text, row: [...row, ...Array(checkpoint.columns - row.length).fill(cells.values[0])]};
+    assert(checkpoint.buffer === 'alternate' && !frames[name], name);
+    frames[name] = checkpoint.active.visible.map(id => {
+      const [, ...stored] = lines.values[id].map(id => cells.values[id]);
+      const text = stored.map(([text, width]) => width ? text || ' ' : '').join('');
+      return {text, row: [...stored, ...Array(checkpoint.size[0] - stored.length).fill(['', 1, ''])]};
     });
   }
   assert.deepEqual(Object.entries(frames).map(([name, rows]) => [name, rows[0].row.length, rows.length]),
@@ -223,30 +226,30 @@ function verifyHighlighting(theme, events, cells, lines) {
     const match = /^ *([0-9]+) (.*)$/.exec(text);
     if (!match) continue;
     numbers.push(Number(match[1]));
-    assert.equal(row[text.indexOf(match[1])].foreground, gutter, `${theme} line number`);
+    assert.equal(color(row[text.indexOf(match[1])]), gutter, `${theme} line number`);
     numbered.set(match[2].trim(), {text, row});
   }
   assert.deepEqual(numbers, numbers.map((_, i) => i + 1), `${theme} sequential Swift line numbers`);
   assert(numbered.has(String.raw`return "\(cwd) \(mark) "`) && numbered.has('let mark = isRoot ? "#" : "$"'));
-  for (const [source, token, color] of [['// Format the current shell prompt.', '//', comment],
+  for (const [source, token, expected] of [['// Format the current shell prompt.', '//', comment],
     ['struct Prompt {', 'struct', keyword], ['let width = 24', 'width', identifier]]) {
     const {text, row} = numbered.get(source);
     const span = row.slice(text.indexOf(token), text.indexOf(token) + token.length);
-    assert.equal(span.map(cell => cell.text).join(''), token);
-    assert(span.every(cell => cell.foreground === color), `${theme} ${token} foreground`);
-    if (token === 'width') assert(span.every(cell => Boolean(cell.flags & 1) === bold), `${theme} Swift binding weight`);
+    assert.equal(span.map(([text]) => text).join(''), token);
+    assert(span.every(cell => color(cell) === expected), `${theme} ${token} foreground`);
+    if (token === 'width') assert(span.every(cell => has(cell, 'bold') === bold), `${theme} Swift binding weight`);
   }
 
   for (const rows of Object.values(frames)) {
     const status = rows.filter(({text}) => /^ *Prompt\.swift +\d+:\d+ *$/.test(text));
     assert.equal(status.length, 1, `${theme} Swift file status`);
     const start = status[0].text.indexOf('Prompt.swift');
-    assert(status[0].row.slice(start, start + 'Prompt.swift'.length).every(cell => cell.flags & 32), `${theme} status reverse`);
+    assert(status[0].row.slice(start, start + 'Prompt.swift'.length).every(cell => has(cell, 'inverse')), `${theme} status reverse`);
   }
-  const glyphs = Object.values(frames).flat().flatMap(({row}) => row).filter(cell => cell.text.trim());
-  assert(glyphs.some(cell => cell.foreground >= 0 && cell.foreground < 16), `${theme} ANSI syntax colors`);
-  assert(glyphs.some(cell => cell.foreground >= 16 && cell.foreground < 256), `${theme} extended indexed colors`);
-  assert(glyphs.some(cell => cell.flags & 1), `${theme} bold glyphs`);
+  const glyphs = Object.values(frames).flat().flatMap(({row}) => row).filter(([text]) => text.trim());
+  assert(glyphs.some(cell => color(cell) >= 0 && color(cell) < 16), `${theme} ANSI syntax colors`);
+  assert(glyphs.some(cell => color(cell) >= 16), `${theme} extended indexed colors`);
+  assert(glyphs.some(cell => has(cell, 'bold')), `${theme} bold glyphs`);
 
   styledText[theme] = Object.values(frames).map(rows => rows.map(({text}) => text));
   if (styledText.dark && styledText.light) assert.deepEqual(styledText.dark, styledText.light, 'Both appearances show the same text');
@@ -270,8 +273,7 @@ async function generate(name) {
   };
   let t = open(recording.columns, recording.rows);
   let palette;
-  const cells = new Pool(), lines = new Pool();
-  assert.equal(cells.get({text:'',width:1,flags:0,foreground:-1,background:-1}), 0);
+  const cells = new StatePool(), lines = new StatePool();
   const events = [];
   const fullHistory = new Set([
     'Full normal history', 'Full normal history before desktop resize', 'Full history before alternate screen'
@@ -319,11 +321,12 @@ async function generate(name) {
       event.input = encoded;
     }
     if (event.checkpoint) {
-      event.checkpoint = checkpoint(t,cells,lines);
-      if (name === 'codex-session') event.checkpoint.synchronizedOutput = t.modes.synchronizedOutputMode;
+      // Each event carries its own replies, so the checkpoint leaves them out.
+      const { replies: _, ...checkpoint } = pack(state(t, event.name, undefined, ''), {cells, lines});
+      event.checkpoint = checkpoint;
       if (name === 'shell-log' && fullHistory.delete(event.name)) {
-        assert.equal(event.checkpoint.isAlternate, false, event.name);
-        assert.equal(event.checkpoint.history.length, 1000, event.name);
+        assert.equal(event.checkpoint.buffer, 'normal', event.name);
+        assert.equal(event.checkpoint.active.history.length, 1000, event.name);
       }
     }
     else delete event.checkpoint;
