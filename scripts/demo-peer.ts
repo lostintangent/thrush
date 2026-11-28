@@ -1,7 +1,8 @@
-// Standalone development peer. Only the endpoint changes when the host points at a PTY.
+// The proofs' scene peer. Only the endpoint changes when the host points at a PTY.
 import type { ServerWebSocket } from "bun";
 import shellFixture from "../Fixtures/recordings/shell-log.json";
 import vimFixture from "../Fixtures/recordings/vim-edit.json";
+import { ReconnectRecording } from "./interaction-capture/reconnect-peer";
 
 const esc = "\x1b[";
 const reset = esc + "0m";
@@ -120,9 +121,18 @@ function buildLinks(cols: number) {
         "\r\n" + esc + "1C" + esc + "4A";
 }
 
-type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors" | "links";
+// A finished test run, which the lifecycle scenes below show before their session changes.
+const testRun = [prompt + "swift test", "Building for debugging…", "", "✓  TerminalTests passed",
+    "✓  ConnectionTests passed", "", "Test run passed.", "", prompt].join("\r\n");
+
+// The lifecycle scenes change the session itself as their captures advance them through the endpoints below.
+const lifecycle = ["spinner-opening", "spinner-reconnecting", "shell-ended", "reconnect-typing"] as const;
+type Scene = "shell" | "editor" | "log" | "vim" | "prompt" | "glyphs" | "styles" | "colors" | "links" | typeof lifecycle[number];
 type Appearance = "light" | "dark";
-type Session = { scene: Scene; cols: number; rows: number; input: string; appearance?: Appearance };
+type Session = {
+    scene: Scene; clientId: string; cols: number; rows: number; input: string; appearance?: Appearance;
+    index: number; acknowledged: boolean;
+};
 type Socket = ServerWebSocket<Session>;
 const encode = (text: string) => Buffer.from(text, "utf8");
 
@@ -154,6 +164,9 @@ async function draw(socket: Socket) {
         case "glyphs":
             socket.sendBinary(encode(prompt + "printf 'A翼🐦Z\\n'\r\nA翼🐦Z" + esc + "2;6H" + esc + "2 q"));
             return;
+        // A DSR reply proves that the client applied these bytes before the session changes.
+        case "spinner-opening": socket.sendBinary(encode(esc + "6n")); return;
+        case "spinner-reconnecting": case "shell-ended": socket.sendBinary(encode(testRun + esc + "6n")); return;
         case "editor": {
             // Vim selects its scheme from the client's actual background, including host
             // overrides. Freeze that decision for this attachment just as the recorded Vim did.
@@ -206,14 +219,46 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
         >= 32768 ? "light" : "dark";
 }
 
-const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors", "links"]);
+const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors", "links", ...lifecycle]);
 const sockets = new Set<Socket>();
+const attachments = new Map<string, number>();
+const motion = new ReconnectRecording();
+const toolbar = { opened: 0, acknowledged: 0, exited: 0 };
+const ready = (socket: Socket) => socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
+const attached = (scene: Scene, acknowledged: boolean) =>
+    [...sockets].filter(socket => socket.data.scene === scene && socket.data.acknowledged === acknowledged);
 const server = Bun.serve({
     hostname: process.env.THRUSH_HOST ?? "127.0.0.1",
     port: Number(process.env.THRUSH_PORT ?? 9138),
     fetch(request, server) {
         const url = new URL(request.url);
         const query = url.searchParams;
+        if (url.pathname.startsWith("/motion/")) return motion.control(request, url.pathname);
+        if (request.method === "POST" && url.pathname === "/release-opening") {
+            const opening = attached("spinner-opening", false);
+            if (opening.length !== 1) return new Response("Expected one waiting shell.", { status: 409 });
+            ready(opening[0]!);
+            void draw(opening[0]!);
+            return new Response(null, { status: 204 });
+        }
+        if (request.method === "POST" && url.pathname === "/interrupt-reconnecting") {
+            // The capture controller sends this only after it observes the requested native
+            // keyboard geometry on the original shell's GPU-completed frame.
+            const shells = attached("spinner-reconnecting", true);
+            if (shells.length !== 1) return new Response("Expected one acknowledged shell.", { status: 409 });
+            shells[0]!.close(1011, "terminal socket lost");
+            return new Response(null, { status: 204 });
+        }
+        if (request.method === "GET" && url.pathname === "/toolbar-state") return Response.json(toolbar);
+        if (request.method === "POST" && url.pathname === "/exit-shell") {
+            const shells = attached("shell-ended", true);
+            if (shells.length !== 1 || toolbar.exited) return new Response("Expected one live shell.", { status: 409 });
+            shells[0]!.sendBinary(encode("exit\r\nlogout"));
+            shells[0]!.sendText(JSON.stringify({ type: "exit" }));
+            shells[0]!.close(1000);
+            toolbar.exited++;
+            return new Response(null, { status: 204 });
+        }
         // POST /palette?name=paper|night switches each colors scene's palette mid-session, as a program would.
         const palette = query.get("name");
         if (url.pathname === "/palette" && request.method === "POST" && palette && Object.hasOwn(palettes, palette)) {
@@ -231,22 +276,30 @@ const server = Bun.serve({
                     (drawn === "2" ? esc + "4B\r" + esc + "?1004l" + esc + "?2004l" + esc + "?25h" + buildSearch() : "")));
             return new Response(null, { status: 204 });
         }
-        const cols = Number(query.get("cols")), rows = Number(query.get("rows"));
+        const cols = Number(query.get("cols")), rows = Number(query.get("rows")), clientId = query.get("clientId");
         // The proofs choose a scene with their endpoint's path, so its terminal attaches at /<scene>/socket.
         const path = /^(?:\/([a-z-]+))?\/socket$/.exec(url.pathname);
-        if (!path || query.get("service") !== "terminal" || !query.get("clientId") ||
+        if (!path || query.get("service") !== "terminal" || !clientId ||
             !Number.isSafeInteger(cols) || !Number.isSafeInteger(rows) || cols < 2 || rows < 1)
             return new Response("Expected a terminal attachment", { status: 400 });
         const candidate = path[1] as Scene;
-        const data: Session = { scene: scenes.has(candidate) ? candidate : "shell", cols, rows, input: "" };
+        const scene = scenes.has(candidate) ? candidate : "shell";
+        const data: Session = { scene, clientId, cols, rows, input: "", index: 0, acknowledged: false };
         if (!server.upgrade(request, { data })) return new Response("Expected a WebSocket upgrade", { status: 426 });
     },
     websocket: {
         data: {} as Session,
         open(socket) {
-            recordGrid("attach", socket.data);
+            const state = socket.data;
+            recordGrid("attach", state);
             sockets.add(socket);
-            socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
+            state.index = (attachments.get(state.clientId) ?? 0) + 1;
+            attachments.set(state.clientId, state.index);
+            if (state.scene === "reconnect-typing") { motion.attach(socket, state.index, testRun); return; }
+            // An opening shell waits for POST /release-opening, and a lost one never comes back.
+            if (state.scene === "spinner-opening" || (state.scene === "spinner-reconnecting" && state.index > 1)) return;
+            if (state.scene === "shell-ended") toolbar.opened++;
+            ready(socket);
             void draw(socket).catch(error => { console.error(error); socket.close(1011, "Scene failed"); });
         },
         async message(socket, message) {
@@ -263,6 +316,14 @@ const server = Bun.serve({
                     if (state.scene === "editor") await draw(socket);
                     // Claude lays its prompt out again at a new width. The scene starts over with it.
                     if (state.scene === "links" && widthChanged) socket.sendBinary(encode(esc + "H" + esc + "2J" + esc + "3J" + buildLinks(state.cols)));
+                }
+                return;
+            }
+            if (state.scene === "reconnect-typing") { motion.input(message); return; }
+            if ((lifecycle as readonly Scene[]).includes(state.scene)) {
+                if (!state.acknowledged && /^\x1b\[\d+;\d+R$/.test(message.toString())) {
+                    state.acknowledged = true;
+                    if (state.scene === "shell-ended") toolbar.acknowledged++;
                 }
                 return;
             }

@@ -397,7 +397,7 @@ def main():
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
         scroll = load_helper("interaction-capture/scroll")
         # Swipes scroll real programs, so they run on a shell rather than the scripted peer.
-        peer = scroll.shell(work, out) if options.swipes_only else simulator.peer(out, cursor=options.accessibility_only)
+        peer = scroll.shell(work, out) if options.swipes_only else simulator.peer(out)
         with peer as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}

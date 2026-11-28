@@ -135,10 +135,10 @@ def disposable_phone(out):
 
 
 @contextlib.contextmanager
-def peer(out, cursor=False):
+def peer(out):
     log = out / "peer.log"
     with log.open("w") as output:
-        server = subprocess.Popen(["bun", "scripts/cursor-peer.ts" if cursor else "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
+        server = subprocess.Popen(["bun", "scripts/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
                                   cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
         try:
             def endpoint():
@@ -261,7 +261,7 @@ class Phone:
     def advance_peer(self, action):
         with urlopen(Request(self.endpoint + "/" + action, method="POST"), timeout=10) as response:
             if response.status != 204:
-                raise RuntimeError(f"The cursor peer rejected {action}.")
+                raise RuntimeError(f"The demo peer rejected {action}.")
 
     def set_appearance(self, style):
         sim("ui", self.device, "appearance", style)
@@ -558,7 +558,7 @@ def main():
         PANE_CHECKER.parent.mkdir(parents=True, exist_ok=True)
         run("xcrun", "swiftc", "scripts/check-pane-capture.swift", "-o", PANE_CHECKER, timeout=300)
     spin = args.scene in SPINNER_SCENES or args.scene in {"cursor-spinners", "toolbar-proof"}
-    with peer(out, cursor=spin or args.scene == "reconnect-typing") as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
+    with peer(out) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
         try:
             phone = Phone(device, endpoint, app, out, Path(work))

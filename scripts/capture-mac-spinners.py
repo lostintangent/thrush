@@ -180,7 +180,7 @@ def main():
     results, errors = {}, {}
     peer = runpy.run_path(str(SCRIPTS / "capture-simulator.py"))["peer"]
     proof = runpy.run_path(str(SCRIPTS / "interaction-capture/spinner.py"))
-    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out, cursor=True) as endpoint:
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out) as endpoint:
         focus = runpy.run_path(str(SCRIPTS / "pty/check-window.py"))["build_cover"](Path(scratch))
         for appearance in ("dark", "light"):
             for scene in ("spinner-opening", "spinner-reconnecting"):
@@ -267,7 +267,7 @@ def check_new_shell(out, bundle, endpoint, focus, work):
 def advance(endpoint, action):
     with urlopen(Request(endpoint + "/" + action, method="POST"), timeout=10) as response:
         if response.status != 204:
-            raise RuntimeError(f"The cursor peer rejected {action}.")
+            raise RuntimeError(f"The demo peer rejected {action}.")
 
 
 if __name__ == "__main__":

@@ -5,11 +5,11 @@ struct ProofOptions {
     enum Scene: String, CaseIterable {
         case shell, editor, log, vim, prompt, glyphs, styles, colors, links
         case spinnerOpening = "spinner-opening", spinnerReconnecting = "spinner-reconnecting"
-        case displaced = "shell-displaced", ended = "shell-ended", reconnectTyping = "reconnect-typing"
+        case ended = "shell-ended", reconnectTyping = "reconnect-typing"
 
         var capturesSessionState: Bool {
             switch self {
-            case .spinnerOpening, .spinnerReconnecting, .displaced, .ended, .reconnectTyping: true
+            case .spinnerOpening, .spinnerReconnecting, .ended, .reconnectTyping: true
             default: false
             }
         }
