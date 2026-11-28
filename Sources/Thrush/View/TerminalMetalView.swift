@@ -250,7 +250,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     private var lastPointer: Terminal.Input.Pointer?
     private var capturedButtons: Set<Terminal.Input.Pointer.Button> = []
     #if os(macOS)
-    private lazy var macInput = MacTerminalInput(terminal: self)
+    lazy var macInput = MacTerminalInput(terminal: self)
     #else
     package var showsKeyRow: Bool {
         get { phoneInput.showsKeyRow }

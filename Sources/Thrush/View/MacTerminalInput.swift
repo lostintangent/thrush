@@ -2,15 +2,9 @@
 import AppKit
 import ThrushCore
 
-@MainActor
-package protocol MacTerminalClipboard {
-    func copySelection(to pasteboard: NSPasteboard)
-    func paste(from pasteboard: NSPasteboard)
-}
-
 /// AppKit owns key interpretation and candidate windows. Only committed text leaves this responder.
 @MainActor
-final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemValidation, MacTerminalClipboard,
+final class MacTerminalInput: NSView, @MainActor NSTextInputClient, NSMenuItemValidation,
     NSViewToolTipOwner, @MainActor NSAccessibilityCustomRotorItemSearchDelegate {
     unowned let terminal: TerminalMetalView
     private var marked = NSAttributedString()
@@ -878,6 +872,12 @@ private final class MacHistoryScrollView: NSScrollView {
               hit === scroller || hit.isDescendant(of: scroller) else { return nil }
         return hit
     }
+}
+
+extension TerminalMetalView {
+    /// The standard edit commands use the general pasteboard. A packaged benchmark can use its own.
+    package func copySelection(to pasteboard: NSPasteboard) { macInput.copySelection(to: pasteboard) }
+    package func paste(from pasteboard: NSPasteboard) { macInput.paste(from: pasteboard) }
 }
 
 private func bounded(_ range: NSRange, to length: Int) -> NSRange? {

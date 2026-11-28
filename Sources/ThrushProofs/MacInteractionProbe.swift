@@ -5,26 +5,26 @@ import Thrush
 /// Exercise Cocoa's real first responder, text input client, accessibility text ranges and pasteboard.
 @MainActor
 struct NativeInteractionProbe {
+    private let view: TerminalMetalView
     private let client: any NSTextInputClient
     private let surface: NSView
-    private let clipboard: any MacTerminalClipboard
     private let unspecified = NSRange(location: NSNotFound, length: 0)
 
     init(view: TerminalMetalView) throws {
         guard view.focusInput(), let surface = view.window?.firstResponder as? NSView,
-              let client = surface as? any NSTextInputClient, let clipboard = surface as? any MacTerminalClipboard else {
+              let client = surface as? any NSTextInputClient else {
             throw RenderBenchmark.Failure("The terminal's text input client could not receive focus.")
         }
+        self.view = view
         self.client = client
         self.surface = surface
-        self.clipboard = clipboard
     }
 
     var accessibleText: String { surface.accessibilityValue() as? String ?? "" }
     var selection: String? {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }
-        clipboard.copySelection(to: board)
+        view.copySelection(to: board)
         return board.string(forType: .string)
     }
 
@@ -43,7 +43,7 @@ struct NativeInteractionProbe {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }
         guard board.setString(text, forType: .string) else { throw RenderBenchmark.Failure("Could not populate the pasteboard.") }
-        clipboard.paste(from: board)
+        view.paste(from: board)
     }
 
     func select(_ range: NSRange, in fullText: String) throws {
