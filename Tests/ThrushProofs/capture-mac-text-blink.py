@@ -11,7 +11,7 @@ import tempfile
 import time
 
 import proof
-from proof import ROOT, Capture, screenshot, wait
+from proof import ROOT, Capture, capture, wait
 import text_blink
 
 
@@ -25,12 +25,12 @@ def benchmark(bundle, out):
     subprocess.run([ROOT / "Benchmarks/check-render-report.py", report], check=True, timeout=60)
 
 
-def burst(window_id, folder, appearance, count):
+def burst(pid, folder, appearance, count):
     folder.mkdir(parents=True)
     probe = folder / "probe.png"
 
     def drawn():
-        screenshot(window_id, probe)
+        capture(pid, probe)
         try:
             return text_blink.Grid(Capture(probe, appearance))
         except ValueError:
@@ -40,7 +40,7 @@ def burst(window_id, folder, appearance, count):
     frames = []
     for index in range(count):
         path = folder / f"{index:02}.png"
-        screenshot(window_id, path)
+        capture(pid, path)
         frames.append(path)
         time.sleep(random.uniform(0.03, 0.29))
     return frames
@@ -68,9 +68,9 @@ def main():
                 label = "steady" if reduced else "blinking"
                 args = ["--endpoint", endpoint, "--scene", "styles", "--appearance", appearance]
                 with proof.application(bundle, args, out / f"{appearance}-{label}-host.log") as process:
-                    window_id = proof.window(process)
+                    proof.window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
-                    bursts[appearance, label] = burst(window_id, Path(scratch) / f"{appearance}-{label}", appearance,
+                    bursts[appearance, label] = burst(process.pid, Path(scratch) / f"{appearance}-{label}", appearance,
                                                       text_blink.STEADY_FRAMES if reduced else text_blink.BLINKING_FRAMES)
                     if process.poll() is not None:
                         raise RuntimeError(f"The styles scene exited during the {appearance} burst.")

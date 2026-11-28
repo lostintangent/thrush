@@ -1,6 +1,6 @@
-"""Burst-capture the styles scene on the iPhone in both appearances, first blinking and then under
-Reduce Motion, and check the bursts. Blinking text alternates between fully shown and fully hidden,
-Reduce Motion holds it shown, and concealed text keeps its cells undrawn."""
+"""Check bursts of the styles scene in both appearances, first blinking and then under Reduce Motion.
+Blinking text alternates between fully shown and fully hidden, Reduce Motion holds it shown, and concealed
+text keeps its cells undrawn. The iPhone bursts are captured here, and the Mac's in capture-mac-text-blink.py."""
 import json
 from pathlib import Path
 import random

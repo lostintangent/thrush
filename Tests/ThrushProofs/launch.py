@@ -234,7 +234,7 @@ def collect_capture(marker, output, platform, target, *, require_keyboard=False)
             remaining = deadline - time.monotonic()
             try:
                 if platform == "mac":
-                    proof.capture_window(int(target), raw)
+                    proof.capture(int(target), raw)
                 else:
                     simulator.screenshot(target, raw, timeout=min(75, remaining))
                 with raw.open("rb") as stream:

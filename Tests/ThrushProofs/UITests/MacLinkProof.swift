@@ -22,7 +22,7 @@ import XCTest
         let env = ProcessInfo.processInfo.environment
         let opener = try XCTUnwrap(NSWorkspace.shared.urlForApplication(toOpen: URL(string: Self.destination)!))
         let browser = XCUIApplication(bundleIdentifier: try XCTUnwrap(Bundle(url: opener)?.bundleIdentifier))
-        app = XCUIApplication(url: URL(fileURLWithPath: try XCTUnwrap(env["THRUSH_LINKS_APP"])))
+        app = XCUIApplication(url: URL(fileURLWithPath: try XCTUnwrap(env["THRUSH_PROOFS_APP"])))
         endpoint = try XCTUnwrap(env["THRUSH_CAPTURE_ENDPOINT"])
         app.launchArguments = ["--scene", "links", "--appearance", appearance, "--endpoint", endpoint]
         app.launch()

@@ -16,7 +16,7 @@ import tempfile
 import time
 
 import proof
-from proof import ROOT, application, save, screenshot, wait, window
+from proof import ROOT, application, capture, save, wait, window
 
 # The proofs' --cycle-appearance steps through these appearances 4 s apart, beginning at its first output.
 STEPS = ("dark", "light", "custom")
@@ -75,12 +75,12 @@ def take(name, program, bundle, server_binary, out, scratch, after_step):
         host_log = out / f"{name}-host.log"
         args = ["--endpoint", endpoint, "--cycle-appearance"]
         with application(bundle, args, host_log) as process:
-            window_id = window(process)
+            window(process)
             subprocess.run(["open", "-a", bundle], check=True)
             for step in STEPS:
                 wait(f"{name} appearance={step}", lambda: f"appearance={step}\n" in host_log.read_text())
                 time.sleep(SETTLE)
-                screenshot(window_id, out / f"{name}-{step}.png")
+                capture(process.pid, out / f"{name}-{step}.png")
                 after_step(step)
             if process.poll() is not None:
                 raise RuntimeError(f"The {name} window exited during its take.")

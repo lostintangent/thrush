@@ -18,7 +18,7 @@ import XCTest
     func testTerminalTranscriptRow() async throws {
         let wanted = "Build complete."
         let env = ProcessInfo.processInfo.environment
-        let app = XCUIApplication(url: URL(fileURLWithPath: try XCTUnwrap(env["THRUSH_VOICEOVER_APP"])))
+        let app = XCUIApplication(url: URL(fileURLWithPath: try XCTUnwrap(env["THRUSH_PROOFS_APP"])))
         app.launchArguments = ["--scene", "shell", "--endpoint", try XCTUnwrap(env["THRUSH_CAPTURE_ENDPOINT"])]
         app.launch()
         defer { app.terminate() }

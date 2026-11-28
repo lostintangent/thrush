@@ -160,7 +160,7 @@ def window_id(pid):
 
 
 def window(process):
-    """Waits for the app's window and returns its window server ID."""
+    """Waits for the app's window to come on screen."""
     def found():
         if process.poll() is not None:
             raise RuntimeError(f"Application {process.pid} exited with status {process.returncode}")
@@ -168,11 +168,7 @@ def window(process):
     return wait("the terminal window", found)
 
 
-def screenshot(window, path):
-    subprocess.run(["/usr/sbin/screencapture", "-x", "-o", "-l", window, path], check=True, timeout=30)
-
-
-def capture_window(pid, path):
+def capture(pid, path):
     """Captures a process's window with its native chrome. A locked Mac lists no window on screen,
     and ScreenCaptureKit can still capture an obscured one there."""
     found = window_id(pid)

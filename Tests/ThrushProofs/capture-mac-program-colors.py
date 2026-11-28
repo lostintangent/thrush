@@ -16,7 +16,7 @@ import tempfile
 import urllib.request
 
 import proof
-from proof import HERE, Capture, application, luminance, screenshot, wait, window
+from proof import HERE, Capture, application, capture, luminance, wait, window
 
 # The palettes in Tests/ThrushProofs/peers/demo-peer.ts, the one the colors scene opens with by system appearance, and the
 # window's width, compact toolbar height and split view sidebar in points.
@@ -110,14 +110,14 @@ def check(image, appearance, palette, args, checker):
             raise ValueError("The sidebar's toolbar buttons left the window's appearance.")
 
 
-def settle(label, path, window_id, expect):
+def settle(label, path, pid, expect):
     """Waits for a frame that passes `expect` and that the next frame repeats, since the toolbar's controls
     animate to a new appearance. Returns the last error on timeout."""
     error, previous = None, None
 
     def drawn():
         nonlocal error, previous
-        screenshot(window_id, path)
+        capture(pid, path)
         try:
             expect(path)
         except ValueError as failure:
@@ -162,9 +162,9 @@ def main():
                 args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", appearance, *extra]
                 path = out / (label + ".png")
                 with application(bundle, args, out / (label + ".log")) as process:
-                    window_id = window(process)
+                    window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
-                    error = settle(label, path, window_id, lambda path: check(path, appearance, palette, extra, checker))
+                    error = settle(label, path, process.pid, lambda path: check(path, appearance, palette, extra, checker))
                 if error:
                     failures[label] = error
                     print(f"{label}: {error}", flush=True)
@@ -190,7 +190,7 @@ def main():
                 dark_mode(False)
                 args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", "system", *extra]
                 with application(bundle, args, out / f"live-{name}.log") as process:
-                    window_id = window(process)
+                    window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
                     for index, (change, palette, appearance) in enumerate(LIVE, 1):
                         label = f"live-{name}-{index}-{palette}-{appearance}"
@@ -202,7 +202,7 @@ def main():
                             # System Events can take the focus, and an inactive window dims its title.
                             subprocess.run(["open", "-a", bundle], check=True)
                         path = out / (label + ".png")
-                        error = settle(label, path, window_id,
+                        error = settle(label, path, process.pid,
                                        lambda path: check(path, appearance, palette, extra, checker))
                         if error:
                             failures[label] = error

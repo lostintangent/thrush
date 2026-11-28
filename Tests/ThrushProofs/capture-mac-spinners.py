@@ -87,7 +87,7 @@ def capture(out, label, path, process, appearance, focus_pid, waiting, helper=No
     for attempt in (1, 2):
         before = wait(label, settled)
         time.sleep(.35)
-        proof.capture_window(process.pid, image)
+        proof.capture(process.pid, image)
         after = read_state(path, process)
         if all(before.get(key) == after.get(key) for key in fields):
             save(out / (label + ".json"), dict(before, helperRect=helper))
