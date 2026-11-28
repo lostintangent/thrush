@@ -19,19 +19,23 @@ struct GridMetrics {
     private let insetX: CGFloat
     private let insetY: CGFloat
 
-    init(scale: CGFloat, pointSize: CGFloat? = nil) {
+    /// The point size a view draws at until its app sets one.
+    #if os(macOS)
+    static let defaultPointSize: CGFloat = 14
+    #else
+    static let defaultPointSize: CGFloat = 13
+    #endif
+
+    init(scale: CGFloat, pointSize size: CGFloat = defaultPointSize) {
         precondition(scale.isFinite && scale > 0)
+        precondition(size.isFinite && size > 0)
         #if os(macOS)
-        let defaultSize: CGFloat = 14
         let insets = CGPoint(x: 12, y: 10)
         #else
-        let defaultSize: CGFloat = 13
         let insets = CGPoint(x: 10, y: 8)
         #endif
-        let size = pointSize ?? defaultSize
-        precondition(size.isFinite && size > 0)
         self.scale = scale
-        self.pointSize = size
+        pointSize = size
         #if os(macOS)
         font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular) as CTFont
         #else
@@ -41,7 +45,7 @@ struct GridMetrics {
         var glyph: CGGlyph = 0
         precondition(CTFontGetGlyphsForCharacters(font, &digit, &glyph, 1))
         advancePixels = CTFontGetAdvancesForGlyphs(font, .horizontal, &glyph, nil, 1) * scale
-        rowHeightPixels = max(1, Int((18 * size / defaultSize * scale).rounded()))
+        rowHeightPixels = max(1, Int((18 * size / Self.defaultPointSize * scale).rounded()))
         baselinePixels = Int((ceil(CTFontGetAscent(font)) * scale).rounded())
         decorations = Decorations(font: font, scale: scale, baseline: CGFloat(baselinePixels), row: CGFloat(rowHeightPixels))
         insetX = (insets.x * scale).rounded()

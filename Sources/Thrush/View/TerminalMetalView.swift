@@ -445,13 +445,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
             guard !holdsGridGeometry else { return }
         }
         #endif
-        let nextSize: CGFloat = fontSize ?? {
-            #if os(macOS)
-            14
-            #else
-            13
-            #endif
-        }()
+        let nextSize = fontSize ?? GridMetrics.defaultPointSize
         var needsGeometry = false
         if metrics?.scale != scale || metrics?.pointSize != nextSize {
             metrics = GridMetrics(scale: scale, pointSize: nextSize)
@@ -789,7 +783,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         #if os(macOS)
         macInput.refresh()
         #else
-        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? 13, theme: resolvedTheme,
+        phoneInput.synchronize(cursorRect: cursorRect, pointSize: metrics?.pointSize ?? GridMetrics.defaultPointSize, theme: resolvedTheme,
                                ink: color(.foreground), paper: color(.background))
         historyScrollView.synchronize()
         #endif
