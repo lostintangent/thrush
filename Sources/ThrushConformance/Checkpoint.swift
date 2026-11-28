@@ -4,8 +4,8 @@ import ThrushCore
 ///
 /// The reference emulator and ThrushCore both report this shape, so a case passes when the two are equal.
 /// The tooling in `Fixtures/reference/conformance` reads the same fields from the reference.
-struct Checkpoint: Codable, Equatable, Sendable {
-    struct Cursor: Codable, Equatable, Sendable {
+struct Checkpoint: Decodable, Equatable, Sendable {
+    struct Cursor: Decodable, Equatable, Sendable {
         var row: Int
         var column: Int
         var visible: Bool
@@ -13,7 +13,7 @@ struct Checkpoint: Codable, Equatable, Sendable {
         var blink: Bool
     }
 
-    struct Modes: Codable, Equatable, Sendable {
+    struct Modes: Decodable, Equatable, Sendable {
         var applicationCursorKeys: Bool
         var applicationKeypad: Bool
         var bracketedPaste: Bool
@@ -30,7 +30,7 @@ struct Checkpoint: Codable, Equatable, Sendable {
 
     /// One grid cell. Styles are space-separated attributes such as `fg=1 bold`, or empty for the default.
     /// `link=n` names the checkpoint's `n`th link.
-    struct Cell: Codable, Hashable, Sendable {
+    struct Cell: Decodable, Hashable, Sendable {
         static let blank = Cell(text: "", width: 1, style: "")
 
         var text: String
@@ -48,19 +48,14 @@ struct Checkpoint: Codable, Equatable, Sendable {
             self.init(text: try container.decode(String.self), width: try container.decode(Int.self),
                       style: try container.decode(String.self))
         }
-
-        func encode(to encoder: any Encoder) throws {
-            var container = encoder.unkeyedContainer()
-            try container.encode(text)
-            try container.encode(width)
-            try container.encode(style)
-        }
     }
 
     /// A row without its trailing blank cells. `wrapped` means it continues the row above.
-    struct Line: Codable, Hashable, Sendable {
+    struct Line: Decodable, Hashable, Sendable {
         var wrapped: Bool
         var cells: [Cell]
+
+        private enum CodingKeys: CodingKey { case wrapped, cells }
 
         subscript(column: Int) -> Cell { column < cells.count ? cells[column] : .blank }
 
@@ -81,7 +76,7 @@ struct Checkpoint: Codable, Equatable, Sendable {
         }
     }
 
-    struct Screen: Codable, Equatable, Sendable {
+    struct Screen: Decodable, Equatable, Sendable {
         /// Scrolled-off rows, oldest first. Absent when the checkpoint only records the visible grid.
         var history: [Line]?
         var visible: [Line]
@@ -107,7 +102,7 @@ struct Checkpoint: Codable, Equatable, Sendable {
     /// because its row kept a generation that named other cells. The reference never sets it.
     var misdrawn: Misdrawn?
 
-    struct Misdrawn: Codable, Equatable, Sendable {
+    struct Misdrawn: Decodable, Equatable, Sendable {
         var row: Int
         var column: Int
         var holds: Cell

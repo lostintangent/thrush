@@ -38,7 +38,7 @@ export class Thrush {
     });
   }
 
-  /** Thrush's checkpoints, differences and readable report, or `{ crashed }` when ThrushCore traps. */
+  /** Where Thrush differs from the expected checkpoints, as `{ differences }`, or `{ crashed }` when ThrushCore traps. */
   run(testCase, expected) {
     return this.request(encodeCase(testCase, expected));
   }

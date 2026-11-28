@@ -6,8 +6,7 @@ import Foundation
 @main
 enum ConformanceServer {
     enum Request: Decodable {
-        /// A case to run, answered with Thrush's checkpoints, their differences from the case's reference
-        /// checkpoints and a readable report.
+        /// A case to run, answered with where Thrush's checkpoints differ from the case's reference checkpoints.
         case run(ConformanceCase)
         /// `{ replays: case, probe: [part] }`, answered with ThrushCore's replays of the case and where a
         /// terminal resumed from each first differs from the live one.
@@ -32,12 +31,6 @@ enum ConformanceServer {
         }
     }
 
-    struct Result: Encodable {
-        var checkpoints: [Checkpoint]
-        var differences: [Difference]
-        var report: String?
-    }
-
     static func main() throws {
         let decoder = JSONDecoder()
         let encoder = JSONEncoder()
@@ -47,9 +40,7 @@ enum ConformanceServer {
             let result: any Encodable
             switch try decoder.decode(Request.self, from: Data(line.utf8)) {
             case .run(let testCase):
-                let checkpoints = testCase.run()
-                result = Result(checkpoints: checkpoints, differences: testCase.differences(in: checkpoints),
-                                report: testCase.report(checkpoints))
+                result = ["differences": testCase.differences(in: testCase.run())]
             case .replays(let testCase, let probe):
                 result = ["replays": testCase.replays(probe: probe)]
             case .compare(let live, let resumed):

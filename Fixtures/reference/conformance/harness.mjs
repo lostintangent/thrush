@@ -1,8 +1,9 @@
 // The conformance harness. It replays every case through the pinned reference emulator and writes the
 // cases the Swift tests replay through ThrushCore. Given a built ThrushConformance, it also lists the
-// cases Thrush doesn't match, as known gaps and reference defects.
+// cases Thrush doesn't match, as known gaps and reference defects, which the Swift tests then hold it to.
 //
-//   bun Fixtures/reference/conformance/harness.mjs [--thrush .build/release/ThrushConformance] [--check]
+//   bun Fixtures/reference/conformance/harness.mjs --thrush .build/release/ThrushConformance
+//   bun Fixtures/reference/conformance/harness.mjs --check
 //
 // `--check` regenerates everything in memory and fails if a checked-in file would change.
 import assert from 'node:assert/strict';
