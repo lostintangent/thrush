@@ -22,11 +22,11 @@ The JSON records each interval’s five samples in nanoseconds, nearest-rank p50
 
 ### Recorded run
 
-The M1 Max completed five measured passes on `559d507`. The one-minute load average was 91.70 across ten active cores, with thermal state fair. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](websocket.json)
+The M1 Max completed five measured passes on `3a68252`. The one-minute load average was 8.50 across ten active cores, with thermal state nominal. The table gives four peer-observed intervals from the run. The JSON includes all 22 intervals and their individual samples. [Raw measurements](websocket.json)
 
 | Interval | p50 | p95 |
 | --- | ---: | ---: |
-| Foreground ready and replay to Up | 0.799 ms | 0.872 ms |
-| Recovery ready and replay to held Up | 0.454 ms | 0.905 ms |
-| In-band replay to deferred resize | 0.291 ms | 0.345 ms |
-| Final ready, output and exit to socket close | 0.680 ms | 0.941 ms |
+| Foreground ready and replay to Up | 0.784 ms | 0.818 ms |
+| Recovery ready and replay to held Up | 0.452 ms | 0.549 ms |
+| In-band replay to deferred resize | 0.290 ms | 0.317 ms |
+| Final ready, output and exit to socket close | 0.652 ms | 0.724 ms |
