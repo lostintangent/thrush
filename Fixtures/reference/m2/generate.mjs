@@ -109,6 +109,31 @@ async function shellEdges() {
   }
   return {name:'shell-edges', columns:1, rows:2, events, captureSHA256:sha256(capture)};
 }
+// A short shell transcript whose reads split a mode, a query, a UTF-8 scalar and a string terminator.
+// The offsets are its delivery schedule, in microseconds from attach.
+function firstBytes() {
+  const events = [];
+  const output = (offsetMicroseconds, name, bytes, pressUp = false) => {
+    events.push({name, offsetMicroseconds, bytes:base64(typeof bytes === 'string' ? utf8(bytes) : bytes), checkpoint:true});
+    if (pressUp) events.push({name:'Press Up', offsetMicroseconds, action:{kind:'key', value:'up'}});
+  };
+  output(0, 'Shell prompt', 'thrush$ ', true);
+  output(2000, 'Begin cursor mode', '\x1b[?1');
+  output(2200, 'Enable cursor mode', 'h', true);
+  output(4000, 'Begin cursor query', '\x1b[6');
+  output(5000, 'Answer cursor query', 'n');
+  output(6000, 'Disable cursor mode', '\x1b[?1l', true);
+  output(8000, 'Colored output', '\r\n\x1b[32mcaf');
+  output(8100, 'Begin UTF-8 scalar', [0xc3]);
+  output(8200, 'Finish UTF-8 scalar', [0xa9, ...utf8('\x1b[0m')]);
+  output(9000, 'Backspace and overwrite', 'x\b!');
+  output(10000, 'Unknown CSI and OSC', '\x1b[999z\x1b]777;hidden');
+  output(10200, 'Begin string terminator', '\x1b');
+  output(10400, 'Finish string and query', '\\>\x1b[6n');
+  output(12000, 'Carriage return', '\rC');
+  output(13000, 'Line feed and query', '\n$ \x1b[6n');
+  return {name:'first-bytes', columns:80, rows:24, events};
+}
 const keyCodes = {up:38,left:37,right:39,down:40,escape:27,tab:9,backspace:8,enter:13,
   home:36,end:35,pageUp:33,pageDown:34,delete:46,'[':219,'\\':220,']':221};
 // The reference doesn't know the kitty keyboard protocol, which Codex pushes flags for. Thrush keeps
@@ -258,12 +283,13 @@ function verifyHighlighting(theme, events, cells, lines) {
 async function generate(name) {
   const directory = phone ? '../m4/phone/' : workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
   const capture = name === 'zsh-clear' ? '../conformance/programs/zsh-clear.capture.json' : directory + name + '.capture.json';
-  const captureBytes = ['shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
+  const captureBytes = ['first-bytes','shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
     : await readFile(new URL(capture, import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
     ? {name, columns:80, rows:24, events:[{name:'BOM before shell prompt',offsetMicroseconds:0,
         bytes:base64(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),utf8('thrush$ \x1b[6n')])),checkpoint:true}]}
-    : name === 'pointer-input' ? pointerInput() : name === 'hardware-keys' ? hardwareKeys() : await shellEdges();
+    : name === 'first-bytes' ? firstBytes() : name === 'pointer-input' ? pointerInput()
+    : name === 'hardware-keys' ? hardwareKeys() : await shellEdges();
   let replies, keyboard, predatesFlags = false;
   const open = (columns, rows) => {
     const t = terminal(columns, rows);
@@ -356,7 +382,7 @@ async function generate(name) {
   console.log(name, events.length, sha256(data));
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
-const all = ['shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows];
+const all = ['first-bytes', 'shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows];
 const phone = process.argv[2] === '--phone';
 const available = phone ? ['vim-resume', 'codex-session'] : all;
 const requested = process.argv.slice(phone ? 3 : 2);

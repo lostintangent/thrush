@@ -4,7 +4,8 @@ import ThrushFixtures
 
 enum Delivery: String, CaseIterable, Sendable { case recorded, whole, singleByte }
 
-@Test(arguments: Recording.names, Delivery.allCases)
+// First bytes splits sequences across short reads to test the parser. It isn't a benchmark workload, so it isn't one of the names.
+@Test(arguments: Recording.names + ["first-bytes"], Delivery.allCases)
 func recordingPlaysBack(named name: String, delivery: Delivery) throws {
     let fixture = try Recording.load(named: name)
     try verifyRecording(fixture, delivery: delivery)

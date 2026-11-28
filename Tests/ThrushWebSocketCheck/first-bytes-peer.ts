@@ -1,7 +1,7 @@
 // scripts/check-loopback.sh runs this peer with the platform check client and verifies the complete wire exchange.
 import assert from "node:assert/strict";
 import type { ServerWebSocket } from "bun";
-import fixture from "../../Fixtures/first-bytes.json";
+import fixture from "../../Fixtures/recordings/first-bytes.json";
 
 type Session = {
     minimumGrid: boolean;
@@ -12,12 +12,9 @@ type Session = {
 if (process.argv.length !== 3) throw new Error("Usage: bun Tests/ThrushWebSocketCheck/first-bytes-peer.ts PATH_TO_CHECK_EXECUTABLE");
 const command = process.argv[2];
 const backgroundQuery = "\x1b]11;?\x07";
-const expectedInput = fixture.events.flatMap(event => {
-    const messages = [];
-    if (event.reply.length) messages.push(event.reply);
-    if (event.up) messages.push(event.up);
-    return messages;
-});
+const bytes = (base64: string) => [...Buffer.from(base64, "base64")];
+const output = fixture.events.filter(event => event.bytes);
+const expectedInput = fixture.events.flatMap(event => [event.reply, event.input].filter(Boolean).map(bytes));
 const finished = Promise.withResolvers<void>();
 let attachmentCount = 0;
 let fixturesAccepted = 0;
@@ -25,10 +22,10 @@ let closesAccepted = 0;
 
 async function replay(socket: ServerWebSocket<Session>) {
     const start = performance.now();
-    for (const event of fixture.events) {
+    for (const event of output) {
         const remaining = start + event.offsetMicroseconds / 1_000 - performance.now();
         if (remaining >= 1) await Bun.sleep(remaining);
-        assert(socket.sendBinary(Uint8Array.from(event.bytes)) > 0, "Fixture frame failed to send");
+        assert(socket.sendBinary(Buffer.from(event.bytes, "base64")) > 0, "Fixture frame failed to send");
     }
 }
 
@@ -122,7 +119,7 @@ try {
     await Promise.all([finished.promise, client.exited.then(code => assert.equal(code, 0, "Swift client failed"))]);
     assert.equal(fixturesAccepted, 1);
     assert.equal(closesAccepted, 1);
-    console.log("Loopback passed: " + fixture.events.length + " output chunks, " + expectedInput.length
+    console.log("Loopback passed: " + output.length + " output chunks, " + expectedInput.length
         + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, live palette replies, deduplicated resize and explicit close.");
 } finally {
     clearTimeout(timeout);

@@ -3,7 +3,7 @@ import Testing
 import ThrushFixtures
 
 @Test func snapshotSharesUnchangedRowsAndKeepsItsCursor() throws {
-    let fixture = try FirstBytesFixture.load()
+    let fixture = try Recording.load(named: "first-bytes")
     let prompt = try #require(fixture.events.first)
     var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
     #expect(terminal.write(prompt.bytes) == prompt.reply)
@@ -16,11 +16,8 @@ import ThrushFixtures
     }
     let latest = terminal.snapshot()
     #expect(latest.generation != previous.generation)
-    #expect(previous.rows[0].text == prompt.text)
-    #expect(previous.rows[1].text.isEmpty)
-    #expect(previous.cursorRow == 0)
-    #expect(previous.cursorColumn == prompt.text.utf8.count)
-    #expect(latest.cursorRow == fixture.events.last?.row)
+    try prompt.verify(previous)
+    try #require(fixture.events.last).verify(latest)
     #expect(latest.rows[0].generation == previous.rows[0].generation)
     #expect(latest.rows[1].generation != previous.rows[1].generation)
     let shared = previous.rows[0].cells.withUnsafeBufferPointer { old in

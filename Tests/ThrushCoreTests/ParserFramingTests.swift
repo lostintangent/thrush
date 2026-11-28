@@ -111,3 +111,45 @@ private func reads(bytes chunks: [[UInt8]]) -> [Read] {
         .function(.unsupported), .text("G"),
     ])
 }
+
+@Test func cursorAndTitleControlsCanCrossContiguousAndSinglePassInput() {
+    func singlePass(_ bytes: [UInt8]) -> some Sequence<UInt8> {
+        sequence(state: bytes.makeIterator()) { $0.next() }
+    }
+    var terminal = Terminal(size: .init(columns: 12, rows: 3))
+
+    // The next ASCII digit ends an invalid UTF-8 prefix and still belongs to this CSI.
+    _ = terminal.write("\u{1B}[2;".utf8)
+    _ = terminal.write(singlePass([0xe2, 0x82]))
+    _ = terminal.write("4HX".utf8)
+    _ = terminal.write(singlePass([0x9b])) // Raw C1 is an invalid standalone UTF-8 byte.
+    _ = terminal.write("ab".utf8)
+    _ = terminal.write(singlePass([0xc2]))
+    let cursorQueryTail: [UInt8] = [0x9b, 0x36, 0x6e]
+    #expect(terminal.write(cursorQueryTail) == Array("\u{1B}[2;7R".utf8))
+    #expect(terminal.text(inRow: 1) == "   Xab")
+
+    _ = terminal.write("\u{1B}]2;old\u{07}\u{1B}]2;new".utf8)
+    _ = terminal.write(singlePass([0xc2]))
+    #expect(terminal.title == "old")
+    let encodedSTSuffix: [UInt8] = [0x9c]
+    _ = terminal.write(encodedSTSuffix)
+    #expect(terminal.title == "new")
+}
+
+@Test func carriageReturnInterruptsUTF8AndIsIgnoredInsideATitle() {
+    // The interrupted bytes would spell 界 if CR left the UTF-8 decoder pending.
+    let interrupted: [UInt8] = [0xe7, 0x0d, 0x95, 0x8c]
+    let bytes = Array("AB".utf8) + interrupted + Array("X\u{1b}]2;left\r\nright\u{7}Y\u{1b}[6n".utf8)
+
+    for split in 0...bytes.count {
+        var terminal = Terminal(size: .init(columns: 9, rows: 3))
+        let prefix = sequence(state: bytes[..<split].makeIterator()) { $0.next() }
+        var reply = terminal.write(prefix)
+        reply += terminal.write(bytes[split...])
+
+        #expect(terminal.title == "leftright")
+        #expect(terminal.snapshot().rows.map(\.text) == ["XY", "", ""])
+        #expect(reply == Array("\u{1b}[1;3R".utf8))
+    }
+}

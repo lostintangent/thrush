@@ -8,17 +8,6 @@ Install the reference before regenerating anything. Swift builds and tests read 
 bun install --cwd Fixtures/reference --frozen-lockfile
 ```
 
-## First bytes
-
-`first-bytes.json` records a scripted 80 × 24 shell transcript. Each event supplies PTY output at its microsecond offset from attach. Apply those bytes, collect the immediate replies and read the named zero-based row. An optional `up` asks the client to press Up after handling that event. The trailing space in the prompt is a printed cell. Empty cells to the right are omitted from the row.
-
-The generator writes each chunk to a reference terminal. It samples the visible row from the active buffer and collects replies through `onData`. For Up it runs the browser package's keyboard evaluator against the live cursor-key mode. The benchmark records the SHA-256 of the exact JSON file.
-
-```sh
-bun Fixtures/reference/generate.mjs
-shasum -a 256 Fixtures/first-bytes.json
-```
-
 ## Unicode widths and PTY recordings
 
 Run `bun Fixtures/reference/generate-widths.mjs` to regenerate the core's Unicode 11 cell-width data. The generator queries the pinned provider for each code point and groups the observed zero- and double-width intervals. Thrush looks up these observations with its own Swift code.

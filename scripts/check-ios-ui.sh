@@ -28,8 +28,7 @@ let package = Package(
         .target(name: "ThrushCore"),
         .target(name: "Thrush", dependencies: ["ThrushCore"]),
         .target(name: "ThrushFixtures", dependencies: ["ThrushCore"], path: "Fixtures",
-                exclude: ["reference"], resources: [.copy("first-bytes.json"), .copy("recordings"),
-                    .copy("reference/m4/phone/vim-resume.json")]),
+                exclude: ["reference"], resources: [.copy("recordings"), .copy("reference/m4/phone/vim-resume.json")]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
     ],
     swiftLanguageModes: [.v6]

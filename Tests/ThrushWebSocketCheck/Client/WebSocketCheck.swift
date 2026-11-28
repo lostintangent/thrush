@@ -39,7 +39,7 @@ struct WebSocketCheck {
             throw CheckFailure("Usage: ThrushWebSocketCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, ThrushWebSocketCheck --pty SERVER_BASE_URL TOKEN SCENARIO DIRECTORY or ThrushWebSocketCheck --benchmark")
         }
 
-        let fixture = try FirstBytesFixture.load()
+        let fixture = try Recording.load(named: "first-bytes")
         let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
         // A plus and a space round-trip distinctly through the real server's URLSearchParams.
         let clientID = "thrush + check"
@@ -47,19 +47,22 @@ struct WebSocketCheck {
         guard try await session.nextEvent() == .ready(resumed: false) else {
             throw CheckFailure("Expected fresh ready before output")
         }
-        for (index, event) in fixture.events.enumerated() {
+        var last: Terminal.Snapshot?
+        for event in fixture.events {
+            if let input = event.semanticInput {
+                try await session.send(input)
+                continue
+            }
             guard try await session.nextEvent() == .output else {
-                throw CheckFailure("Expected binary output at chunk \(index)")
+                throw CheckFailure("Expected binary output for \(event.name)")
             }
-            let row = await session.text(inRow: event.row)
-            guard row == event.text else {
-                throw CheckFailure("Unexpected row at chunk \(index): \(row.debugDescription)")
-            }
-            if event.up != nil { try await session.send(.key(.up)) }
+            let snapshot = await session.snapshot()
+            try event.verify(snapshot)
+            last = snapshot
         }
         try await session.sendResize(to: .init(columns: size.columns + 1, rows: size.rows + 1))
-        guard try await session.nextEvent() == .ended,
-              let final = fixture.events.last, await session.text(inRow: final.row) == final.text
+        guard try await session.nextEvent() == .ended, let last,
+              await session.text(inRow: last.cursorRow) == last.rows[last.cursorRow].text
         else { throw CheckFailure("Expected the last output to remain readable at exit") }
 
         // A one-column request needs two columns in the attach URL and every resize.

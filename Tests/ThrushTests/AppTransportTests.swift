@@ -100,8 +100,8 @@ private actor RecordingTransport: TerminalTransport {
 }
 
 @MainActor @Test func appTransportPlaysTheFirstBytesToExit() async throws {
-    let fixture = try FirstBytesFixture.load()
-    let chunks = fixture.events.map { Data($0.bytes) }
+    let fixture = try Recording.load(named: "first-bytes")
+    let chunks = fixture.events.filter { !$0.bytes.isEmpty }.map { Data($0.bytes) }
     let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
     let transport = RecordingTransport(chunks)
     let opened = Mutex<[Terminal.Size]>([])
@@ -120,9 +120,7 @@ private actor RecordingTransport: TerminalTransport {
     #expect(opened.withLock { $0 } == [size])
     #expect(await session.actor.receivedBytes == chunks.reduce(0) { $0 + $1.count })
     #expect(await transport.replies == fixture.events.filter { !$0.reply.isEmpty }.map { Data($0.reply) })
-    for (row, text) in fixture.events.reduce(into: [Int: String](), { $0[$1.row] = $1.text }) {
-        #expect(await session.actor.text(inRow: row) == text)
-    }
+    try #require(fixture.events.last).verify(await session.actor.snapshot())
 }
 
 @MainActor @Test func closingDuringTransportOpenClosesTheLateTransport() async throws {
