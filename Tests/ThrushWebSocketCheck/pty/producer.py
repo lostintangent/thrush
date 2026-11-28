@@ -51,5 +51,21 @@ def produce(scenario):
     out.flush()
 
 
+def paint():
+    """Paints every row of the alternate screen at the PTY's grid on start and for each line the host sends.
+    Like many simple programs, it ignores SIGWINCH."""
+    out = sys.stdout.buffer
+    out.write(b"\x1b[?1049h")
+    frame = 0
+    while True:
+        columns, rows = os.get_terminal_size()
+        out.write(b"".join(b"\x1b[%d;1H%d of %dx%d, frame %d\x1b[K" % (row, row, columns, rows, frame)
+                           for row in range(1, rows + 1)))
+        out.flush()
+        if sys.stdin.readline().strip() == "done":
+            return
+        frame += 1
+
+
 if __name__ == "__main__":
-    produce(sys.argv[1])
+    paint() if sys.argv[1] == "paint" else produce(sys.argv[1])

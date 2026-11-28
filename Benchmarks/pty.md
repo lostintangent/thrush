@@ -1,6 +1,6 @@
 # Real PTY checks
 
-Run the headless check from the Thrush checkout on macOS with the full Xcode toolchain. It builds the Release Swift client, starts the package’s `ThrushServer` on loopback with a private home and work directory, runs three numbered logs and removes its server data on exit. The report is `.build/benchmarks/pty-smoke.json`.
+Run the headless check from the Thrush checkout on macOS with the full Xcode toolchain. It builds the Release Swift client, starts the package’s `ThrushServer` on loopback with a private home and work directory, runs three numbered logs and a resize check, and removes its server data on exit. The report is `.build/benchmarks/pty-smoke.json`.
 
 ```sh
 scripts/check-pty.sh
@@ -27,3 +27,6 @@ On a shared M1 Max running macOS 27.2.1 with a load average near 5, the two ackn
 
 The two bursts use the same 8 MiB payload. The suspended process resumes one second after the shell exits. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames.
 
+## Resizes
+
+A program in the shell paints every row of the alternate screen when the check asks and ignores SIGWINCH, as many simple programs do. Each resize goes out while the client still holds the latest frame unread, so the frame was written for the old grid. The grid shrinks from 80 × 24 to 40 × 12, grows to 60 × 30 and then 100 × 20 before the first answer, and shrinks to 80 × 10. The live terminal must keep its grid until the server's answer arrives, and after each step a fresh attachment's replay must equal the live screen. A raw socket that marks no resize must see the shell take the grid and get no answer, as a client from before resize answers expects.

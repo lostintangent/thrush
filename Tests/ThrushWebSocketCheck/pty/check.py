@@ -168,6 +168,13 @@ def exercise(binary, endpoint, token, work, scenario):
     return check_log(run, scenario)
 
 
+def rotate(binary, endpoint, token, work):
+    run = work / "resize"
+    run.mkdir()
+    subprocess.run([binary, "--pty", endpoint, token, "resize", run], check=True, timeout=60)
+    return read_json(run / "client.json")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
@@ -198,6 +205,8 @@ def main():
                     result = exercise(binary, endpoint, token, work, scenario)
                     print(json.dumps(result), flush=True)
                     runs.append(result)
+                resize = rotate(binary, endpoint, token, work)
+                print(json.dumps(resize), flush=True)
         except BaseException:
             if log.exists():
                 print(log.read_text()[-4000:], file=sys.stderr)
@@ -207,7 +216,7 @@ def main():
               "thrushWorktreeDirty": bool(subprocess.check_output(["git", "status", "--porcelain"])),
               "macOS": platform.mac_ver()[0], "hardware": subprocess.check_output(
                   ["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip(),
-              "grid": [80, 24], "runs": runs}
+              "grid": [80, 24], "runs": runs, "resize": resize}
     path.write_text(json.dumps(report, indent=2) + "\n")
     if not runs[0]["payloadMatches"]:
         raise RuntimeError(f"Paced live output differs from the reference. See {path}")
