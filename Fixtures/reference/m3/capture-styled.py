@@ -1,6 +1,5 @@
 """Capture the same Swift editor session twice with the dark and light palettes."""
 from hashlib import sha256
-import json
 from pathlib import Path
 import re
 import shutil
@@ -9,9 +8,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
-M2 = ROOT.parent / "m2"
-sys.path.insert(0, str(M2))
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(ROOT.parent))
 from capture import PROMPT, Session, VIM
 
 DESIGN = ROOT.parents[2] / "docs/design/README.md"
@@ -41,33 +39,31 @@ def capture_styled(appearance):
         (directory / "bin/vim").chmod(0o755)
         shutil.copyfile(ROOT / "styled.vim", directory / "vimrc")
         shutil.copyfile(ROOT / "Prompt.swift", directory / "Prompt.swift")
-        session = Session(directory)
+        session = Session.shell(directory)
         try:
             session.record("Apply host palette", palette=palette)
             assert not session.exchange({"palette": palette})
             assert session.read("Shell prompt", PROMPT).endswith(PROMPT)
             session.checkpoint("Shell prompt")
-            output = session.input("Open Swift file", b"vim Prompt.swift\r", until=b"Format the current shell prompt.")
+            output = session.type("Open Swift file", b"vim Prompt.swift\r", "text", until=b"Format the current shell prompt.")
             assert b"\x1b[?1049h" in output
-            session.input("Measure Vim background", b":Frame\r")
+            session.type("Measure Vim background", b":Frame\r", "text")
             proof = (directory / "vim-proof.txt").read_text().splitlines()
             assert proof == [appearance, "swift", "swift", "256"], (name, proof)
-            session.input("Paint Swift buffer", b"\x0c")
+            session.type("Paint Swift buffer", b"\x0c", "text")
             session.checkpoint("Styled Swift buffer")
             for (columns, rows), checkpoint in [((45,18), "Styled Swift portrait"), ((71,11), "Styled Swift landscape")]:
-                session.resize(columns, rows)
+                session.resize(columns, rows, checkpoint=True)
                 session.checkpoint(checkpoint)
-            assert session.input("Quit to shell", b":q\r", until=PROMPT).endswith(PROMPT)
+            assert session.type("Quit to shell", b":q\r", "text", until=PROMPT).endswith(PROMPT)
             session.checkpoint("Returned to shell")
             assert (directory / "Prompt.swift").read_bytes() == (ROOT / "Prompt.swift").read_bytes()
-            metadata = dict(name=name, term="xterm-256color", shell="/bin/bash --noprofile --norc -i",
-                            vimVersion=subprocess.check_output(["/usr/bin/vim", "--version"], text=True).splitlines()[:3],
-                            vimBackground=proof[0], vimFiletype=proof[1], vimSyntax=proof[2], vimColorCount=int(proof[3]),
-                            sourceSHA256=sha256((ROOT / "Prompt.swift").read_bytes()).hexdigest(),
-                            vimrcSHA256=sha256((ROOT / "styled.vim").read_bytes()).hexdigest(), columns=80, rows=24)
-            compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",",":"))
-            data = compact(metadata)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, session.events)) + '\n]}\n'
-            (ROOT / (name + ".capture.json")).write_text(data)
+            session.save(ROOT / (name + ".capture.json"), dict(
+                name=name, term="xterm-256color", shell="/bin/bash --noprofile --norc -i",
+                vimVersion=subprocess.check_output(["/usr/bin/vim", "--version"], text=True).splitlines()[:3],
+                vimBackground=proof[0], vimFiletype=proof[1], vimSyntax=proof[2], vimColorCount=int(proof[3]),
+                sourceSHA256=sha256((ROOT / "Prompt.swift").read_bytes()).hexdigest(),
+                vimrcSHA256=sha256((ROOT / "styled.vim").read_bytes()).hexdigest(), columns=80, rows=24))
         finally:
             session.close()
 

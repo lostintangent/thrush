@@ -124,7 +124,7 @@ const result = {...recording,name:'vim-resume',
     scriptedDetachMicroseconds:gap,serializedBytes:replay.length,serializedSHA256:sha(replay),
     cursor,
     savedFile:{name:'scratch.txt',text:savedText,sha256:sha(Buffer.from(savedText)),
-      verifiedBy:'Fixtures/reference/m2/capture.py checks the saved PTY scratch file before recording vim-edit.'}}};
+      verifiedBy:'Fixtures/reference/m2/capture-shell-and-vim.py checks the saved PTY scratch file before recording vim-edit.'}}};
 delete result.events;
 const data = JSON.stringify(result).slice(0,-1) + ',\n"events":[\n'
   + events.map(event => JSON.stringify(event)).join(',\n') + '\n]}\n';

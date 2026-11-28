@@ -105,7 +105,7 @@ async function shellEdges() {
   const offset = events.at(-1).offsetMicroseconds;
   for (const event of display.events) {
     events.push({...event, offsetMicroseconds:offset + event.offsetMicroseconds,
-      observedReply:event.observedReply ?? ''});
+      reply:event.reply ?? ''});
   }
   return {name:'shell-edges', columns:1, rows:2, events, captureSHA256:sha256(capture)};
 }
@@ -328,9 +328,9 @@ async function generate(name) {
     replies = [];
     if (event.bytes) await write(t, Buffer.from(event.bytes,'base64'));
     const reply = base64(Buffer.concat(replies));
-    if (captureBytes || event.observedReply !== undefined) {
+    if (captureBytes || event.reply !== undefined) {
       // Programs in recordings that predate keyboard flags or focus reports never received them.
-      const observed = event.observedReply ?? '';
+      const observed = event.reply ?? '';
       const keyboardless = replies.filter(value => !keyboardReply.test(value.toString()));
       const live = [replies, keyboardless, keyboardless.filter(value => !focusReports.has(value.toString()))]
         .map(sent => base64(Buffer.concat(sent))).find(sent => sent === observed) ?? reply;
@@ -338,8 +338,8 @@ async function generate(name) {
       // A capture that never answered the keyboard query predates flags, so its keys sent the reference's bytes.
       if (keyboardless.length < replies.length) predatesFlags = live !== reply;
     }
+    delete event.reply;
     if (reply) event.reply = reply;
-    delete event.observedReply;
     if (event.action) {
       const encoded = base64(encodedInput(t,event.action,keyboard()));
       const captured = predatesFlags ? base64(encodedInput(t,event.action)) : encoded;

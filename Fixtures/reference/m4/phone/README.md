@@ -15,7 +15,7 @@ bun Fixtures/reference/m2/generate.mjs --phone
 To record fresh PTY timings, pass the measured starting columns and rows to both recorders. Repeat `--resize COLSxROWS` for each Vim orientation stop in order. The last stop uses the original portrait dimensions. Preserve all three steps, including the initial portrait confirmation at the existing size. The separate output paths keep both original wide sources available. A fresh Vim recording needs its own server replay: the bytes your server's serializer produces for the restored grid at `Vim before detach`, passed as `--replay`.
 
 ```sh
-python3 -B Fixtures/reference/m2/capture.py --only vim-edit \
+python3 -B Fixtures/reference/m2/capture-shell-and-vim.py --only vim-edit \
   --columns "$portrait_cols" --rows "$portrait_rows" \
   --resize "${portrait_cols}x${portrait_rows}" --resize "${landscape_cols}x${landscape_rows}" \
   --resize "${portrait_cols}x${portrait_rows}" --destination Fixtures/reference/m4/phone

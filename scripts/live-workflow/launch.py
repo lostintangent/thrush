@@ -88,7 +88,7 @@ def configure_workspace(work, home, env, codex, responses):
     bin_dir = home / "bin"
     bin_dir.mkdir()
     (home / "inputrc").write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
-    vim = load(ROOT / "Fixtures/reference/m2/capture.py")
+    vim = load(ROOT / "Fixtures/reference/m2/capture-shell-and-vim.py")
     executable(bin_dir / "vim", vim.VIM)
     (home / "vimrc").write_text(vim.VIMRC)
     (work / "scratch.txt").write_text("first line\nsecond line\n")

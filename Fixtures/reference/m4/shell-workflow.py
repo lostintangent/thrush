@@ -2,61 +2,39 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
-import pty
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import time
 
 ROOT = Path(__file__).resolve().parent
-M2 = ROOT.parent / "m2"
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(M2))
-from capture import PROMPT, Session, window
-
-
-class ReadlineSession(Session):
-    """Use the shared recording protocol with a shell that negotiates bracketed paste."""
-
-    def __init__(self, directory, bash):
-        self.events = []
-        self.start = time.monotonic_ns()
-        self.pid, self.fd = pty.fork()
-        if self.pid == 0:
-            window(0, 80, 24)
-            os.chdir(directory)
-            env = dict(HOME=str(directory), PATH="/usr/bin:/bin", TERM="xterm-256color",
-                       LC_ALL="en_US.UTF-8", PS1=PROMPT.decode(), HISTFILE="/dev/null",
-                       INPUTRC=str(directory / "inputrc"))
-            os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
-        self.reference = subprocess.Popen(
-            ["bun", ROOT.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+sys.path.insert(0, str(ROOT.parent))
+from capture import PROMPT, Session
 
 
 def capture(bash):
-    build = M2 / "build-log.py"
+    build = ROOT.parent / "m2/build-log.py"
     with tempfile.TemporaryDirectory(prefix="thrush-shell-workflow-") as work:
         directory = Path(work)
         shutil.copyfile(build, directory / "build")
         (directory / "build").chmod(0o755)
         (directory / "inputrc").write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
-        session = ReadlineSession(directory, bash)
+        session = Session.shell(directory, bash=bash, inputrc=directory / "inputrc")
         try:
             prompt = session.read("Shell prompt", PROMPT)
             assert prompt.endswith(PROMPT) and b"\x1b[?2004h" in prompt, "The shell must negotiate bracketed paste."
             session.checkpoint("Fresh prompt")
-            session.resize(45, 18)
-            assert b"./builx" in session.input("Type unfinished command", b"./builx")
+            session.resize(45, 18, checkpoint=True)
+            assert b"./builx" in session.type("Type unfinished command", b"./builx", "text")
             session.checkpoint("Typed command")
-            session.input("Correct typo", b"\x7f", "key", "backspace")
+            session.type("Correct typo", b"\x7f", "key", "backspace")
             session.checkpoint("Edited command")
-            session.input("Paste build arguments", b"\x1b[200~d 126 130\x1b[201~", "paste", "d 126 130")
+            session.type("Paste build arguments", b"\x1b[200~d 126 130\x1b[201~", "paste", "d 126 130")
             session.checkpoint("Pasted build command")
-            output = session.input("Run numbered compiler log", b"\r", "key", "enter", until=PROMPT)
+            output = session.type("Run numbered compiler log", b"\r", "key", "enter", until=PROMPT)
             visits = re.findall(rb"\x1b\[32m(\d+)\x1b\[0m  compile ", output)
             assert [int(x) for x in visits] == list(range(126, 131)) and output.endswith(PROMPT)
             assert b"\x1b[?2004l" in output and b"\x1b[?2004h" in output
@@ -70,9 +48,7 @@ def capture(bash):
                 ["bun", ROOT / "shell-selection.mjs"], check=True, capture_output=True, text=True,
                 input=json.dumps({**recording, "events": session.events}))
             session.record("Copy soft-wrapped compiler path", copy=json.loads(oracle.stdout), checkpoint=True)
-            compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-            document = compact(recording)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, session.events)) + '\n]}\n'
-            (ROOT / "shell-workflow.capture.json").write_text(document, encoding="utf-8")
+            session.save(ROOT / "shell-workflow.capture.json", recording)
         finally:
             session.close()
 

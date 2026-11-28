@@ -13,26 +13,24 @@ and folder, so nothing about the recording machine beyond its load and memory en
 """
 import argparse
 import base64
-import errno
-import fcntl
 import http.server
 import json
 import os
 from pathlib import Path
-import pty
 import pwd
-import select
 import shutil
-import signal
-import struct
 import subprocess
+import sys
 import tempfile
-import termios
 import threading
 import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE.parent))
+from capture import Session, encoded
+
 PROMPT = "❯".encode()
 ZSHRC = r"""
 PROMPT='%F{blue}%1~%f %F{green}❯%f '
@@ -172,10 +170,6 @@ Wide text stays aligned: 界面 ✓ 🙂
 """
 
 
-def encoded(data):
-    return base64.b64encode(data).decode("ascii")
-
-
 def anonymous(events):
     """Swaps the account name, whole or cut short by a column, for a stand-in of the same width."""
     user = pwd.getpwuid(os.getuid()).pw_name.encode()
@@ -187,119 +181,6 @@ def anonymous(events):
     for event in output:
         size = len(base64.b64decode(event["bytes"]))
         event["bytes"], stream = encoded(stream[:size]), stream[size:]
-
-
-def window(fd, columns, rows):
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
-
-
-class Session:
-    """One program in a PTY, with every read, key and window change recorded in order."""
-
-    def __init__(self, home, argv, env, columns=80, rows=24):
-        self.events = []
-        self.start = time.monotonic_ns()
-        self.application_cursor_keys = False
-        self.replies = subprocess.Popen(
-            ["bun", HERE.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-        self.exchange({"resize": {"columns": columns, "rows": rows}})
-        self.pid, self.fd = pty.fork()
-        if self.pid == 0:
-            window(0, columns, rows)
-            os.chdir(home)
-            os.execvpe(argv[0], argv, env)
-
-    def exchange(self, event):
-        self.replies.stdin.write(json.dumps(event) + "\n")
-        self.replies.stdin.flush()
-        response = self.replies.stdout.readline()
-        if not response:
-            raise RuntimeError("The reference exited during the capture")
-        response = json.loads(response)
-        self.application_cursor_keys = response["applicationCursorKeys"]
-        return base64.b64decode(response["reply"], validate=True)
-
-    def record(self, name, **fields):
-        self.events.append(dict(name=name, offsetMicroseconds=(time.monotonic_ns() - self.start) // 1000, **fields))
-
-    def send(self, data):
-        remaining = memoryview(data)
-        while remaining:
-            remaining = remaining[os.write(self.fd, remaining):]
-
-    def read(self, name, until=None, seconds=None, quiet=0.4, timeout=30):
-        """Records output until `until` appears and output pauses, for `seconds`, or until output pauses."""
-        output = b""
-        begun = last = time.monotonic()
-        while True:
-            now = time.monotonic()
-            if seconds is not None:
-                if now - begun >= seconds: break
-            elif (until is None or until in output) and now - last >= quiet:
-                break
-            if now - begun > timeout:
-                if until is not None and until not in output:
-                    raise TimeoutError(f"{name}: never saw {until!r} in {output[-400:]!r}")
-                break
-            if not select.select([self.fd], [], [], 0.05)[0]: continue
-            try:
-                data = os.read(self.fd, 65536)
-            except OSError as error:
-                if error.errno == errno.EIO: break
-                raise
-            if not data: break
-            last = time.monotonic()
-            self.record(name, bytes=encoded(data))
-            reply = self.exchange({"bytes": encoded(data)})
-            if reply:
-                self.events[-1]["reply"] = encoded(reply)
-                self.send(reply)
-            output += data
-        return output
-
-    def type(self, name, data, **reading):
-        """Sends keys and records what the program draws in response."""
-        data = data.encode() if isinstance(data, str) else data
-        self.record(name, input=encoded(data))
-        self.send(data)
-        return self.read(name, **reading)
-
-    def key(self, name, key, count=1, **reading):
-        """Sends a named key, using the cursor key mode the program has selected."""
-        prefix = b"\x1bO" if self.application_cursor_keys else b"\x1b["
-        arrows = dict(up=b"A", down=b"B", right=b"C", left=b"D", home=b"H", end=b"F")
-        keys = dict(f1=b"\x1bOP", f2=b"\x1bOQ", f3=b"\x1bOR", f4=b"\x1bOS", f5=b"\x1b[15~", f6=b"\x1b[17~",
-                    f10=b"\x1b[21~", pageup=b"\x1b[5~", pagedown=b"\x1b[6~", escape=b"\x1b", tab=b"\t",
-                    enter=b"\r", backspace=b"\x7f", delete=b"\x1b[3~")
-        data = prefix + arrows[key] if key in arrows else keys[key]
-        return self.type(name, data * count, **reading)
-
-    def resize(self, columns, rows, **reading):
-        name = f"Resize to {columns}×{rows}"
-        self.record(name, resize=dict(columns=columns, rows=rows))
-        assert not self.exchange({"resize": {"columns": columns, "rows": rows}})
-        window(self.fd, columns, rows)
-        return self.read(name, **reading)
-
-    def checkpoint(self, name):
-        self.record(name, checkpoint=True)
-
-    def close(self):
-        os.close(self.fd)
-        for sig in (signal.SIGHUP, signal.SIGKILL):
-            # A group whose leader already exited refuses signals on macOS, which is as good as done.
-            try:
-                os.killpg(self.pid, sig)
-            except (ProcessLookupError, PermissionError):
-                pass
-            for _ in range(50):
-                if os.waitpid(self.pid, os.WNOHANG)[0]: break
-                time.sleep(0.1)
-            else:
-                continue
-            break
-        self.replies.stdin.close()
-        self.replies.wait()
 
 
 class Model:
@@ -1032,9 +913,7 @@ def capture(name, destination):
         versions = subprocess.run(version, shell=True, env=environ, capture_output=True, text=True).stdout
         header = dict(name=name, command=" ".join(argv), versions=[line for line in versions.splitlines() if line][:3],
                       term="xterm-256color", columns=80, rows=24)
-        compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        content = compact(header)[:-1] + ',\n"events":[\n' + ",\n".join(map(compact, session.events)) + "\n]}\n"
-        (destination / f"{name}.capture.json").write_text(content)
+        session.save(destination / f"{name}.capture.json", header)
         print(f"Recorded {name}: {len(session.events)} events", flush=True)
 
 

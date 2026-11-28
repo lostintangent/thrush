@@ -1,4 +1,4 @@
-{"version":1,"name":"vim-swift-dark","reference":{"packages":{"@xterm/addon-unicode11":"0.9.0","@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0"},"options":{"scrollback":1000,"allowProposedApi":true},"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"b38ac751ee3eec2c555491c507b6e7503520267362f1f95d77f7572b409956ff","vimBackground":"dark","columns":80,"rows":24,
+{"version":1,"name":"vim-swift-dark","reference":{"packages":{"@xterm/addon-unicode11":"0.9.0","@xterm/headless":"6.0.0","@xterm/xterm":"6.0.0"},"options":{"scrollback":1000,"allowProposedApi":true},"unicode":"11","colorReports":"@xterm/xterm CoreBrowserTerminal._handleColorEvent and ThemeService"},"captureSHA256":"f631f3d83214e83379504433e15a4477c3dbc9346995ed4714cf86055c9cddda","vimBackground":"dark","columns":80,"rows":24,
 "cells":[
 ["t",1,""],
 ["h",1,""],

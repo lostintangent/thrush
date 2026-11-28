@@ -1,22 +1,19 @@
 """Record the real Codex TUI with a live provider or the published offline response."""
 import argparse
 import base64
-import errno
 import json
 import os
 from pathlib import Path
-import pty
 import re
-import select
 import subprocess
 import sys
 import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT.parent / "m2"))
 sys.dont_write_bytecode = True
-from capture import PROMPT, Session, encoded, window
+sys.path.insert(0, str(ROOT.parent))
+from capture import PROMPT, Session, encoded
 
 from songbird_stream import MODEL, QUESTION, local_responses
 
@@ -53,7 +50,7 @@ def mark_split_paint(events, columns, rows):
     pending = False
     marked = False
     for event, state in zip(reads, states):
-        if state["reply"] != event.get("observedReply", ""):
+        if state["reply"] != event.get("reply", ""):
             raise ValueError("The live terminal reply disagrees with the replay")
         if marked or state["synchronizedOutput"] == pending:
             continue
@@ -66,61 +63,20 @@ def mark_split_paint(events, columns, rows):
         raise ValueError("The live capture did not include a repaint split across reads")
 
 class CodexSession(Session):
-    """Capture the real interactive shell while feeding its PTY reads to the pinned reference."""
-    def __init__(self, home, workspace, columns, rows):
-        self.start = time.monotonic_ns()
-        self.events = []
-        self.pid, self.fd = pty.fork()
-        if self.pid == 0:
-            window(0, columns, rows)
-            os.chdir(workspace)
-            env = dict(HOME=str(home), PATH=f"{home}/bin:/usr/bin:/bin", TERM="xterm-256color",
-                       LC_ALL="en_US.UTF-8", PS1=PROMPT.decode(), HISTFILE="/dev/null",
-                       INPUTRC="/dev/null", BASH_SILENCE_DEPRECATION_WARNING="1")
-            os.execve("/bin/bash", ["bash", "--noprofile", "--norc", "-i"], env)
-        self.reference = subprocess.Popen(
-            ["bun", ROOT.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
-            env={"PATH":os.environ["PATH"], "HOME":str(home)})
-        self.exchange({"resize":{"columns":columns, "rows":rows}})
+    """The Bash session that runs Codex, with the reference's screen at hand to tell when a paint is done."""
 
     def state(self):
-        self.reference.stdin.write('{"inspect":true}\n')
-        self.reference.stdin.flush()
-        return json.loads(self.reference.stdout.readline())
+        self.exchange({"inspect": True})
+        return self.response
 
     def inspect(self):
         return self.state()["visible"]
 
     def read_one(self, name, timeout):
-        if not select.select([self.fd], [], [], timeout)[0]:
-            return False
-        try:
-            data = os.read(self.fd, 8192)
-        except OSError as error:
-            if error.errno == errno.EIO:
-                raise RuntimeError("The PTY closed before the last checkpoint") from error
-            raise
-        if not data:
-            raise RuntimeError("Early end of Codex PTY")
-        self.record(name, bytes=encoded(data))
-        reply = self.exchange({"bytes":encoded(data)})
-        if reply:
-            self.write(reply)
-            self.events[-1]["observedReply"] = encoded(reply)
-            self.events[-1]["replyOffsetMicroseconds"] = (time.monotonic_ns() - self.start) // 1000
-        return True
-
-    def key(self, name, value, data, modifiers=()):
-        action = {"kind":"key", "value":value}
-        if modifiers:
-            action["modifiers"] = list(modifiers)
-        self.record(name, input=encoded(data), action=action)
-        self.write(data)
-
-    def text(self, name, value):
-        data = value.encode()
-        self.record(name, input=encoded(data), action={"kind":"text", "value":value})
-        self.write(data)
+        data = self.receive(name, timeout)
+        if data == b"":
+            raise RuntimeError("The PTY closed before the last checkpoint")
+        return data is not None
 
     def observe(self, checkpoint, condition, timeout=30):
         deadline = time.monotonic() + timeout
@@ -163,7 +119,7 @@ class CodexSession(Session):
                 return
         raise RuntimeError("No complete answer; keep the checked-in capture")
 
-def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
+def capture(binary, login, output, columns=COLUMNS, rows=ROWS, local_url=None):
     version = subprocess.check_output([binary, "--version"], text=True).strip()
     if version != VERSION:
         raise ValueError(f"Expected {VERSION}, found {version}")
@@ -201,31 +157,31 @@ def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
         # Only the official CLI opens the existing login. No credentials are serialized by the recorder.
         if local_url is None:
             (state / "auth.json").symlink_to(login)
-        session = CodexSession(home, workspace, columns, rows)
+        session = CodexSession.shell(workspace, columns, rows, home=home)
         try:
             session.observe("Shell prompt", lambda rows: PROMPT.decode() in rows)
-            session.text("Launch Codex", "codex\r")
+            session.input("Launch Codex", "codex\r", "text")
             session.observe("Codex ready", lambda rows: any("GPT-6.1-Sol" in r for r in rows)
                             and any("Ask Codex" in r for r in rows) and any("OpenAI Codex" in r for r in rows))
-            session.text("Enter prompt", QUESTION)
+            session.input("Enter prompt", QUESTION, "text")
             session.observe("Entered Codex prompt", lambda rows: QUESTION in " ".join(" ".join(rows).split()))
-            session.key("Submit", "enter", b"\r")
+            session.input("Submit", b"\r", "key", "enter")
             session.answer(published=local_url is not None)
-            session.key("Codex transcript shortcut", "t", b"\x14", ["control"])
-            session.key("Earlier transcript page", "pageUp", b"\x1b[5~")
+            session.input("Codex transcript shortcut", b"\x14", "key", "t", ["control"])
+            session.input("Earlier transcript page", b"\x1b[5~", "key", "pageUp")
             session.observe("Earlier transcript page", lambda rows: any("1. Song thrush" in r for r in rows)
                             and any("Back to bottom" in r for r in rows))
-            session.key("Later transcript page", "pageDown", b"\x1b[6~")
+            session.input("Later transcript page", b"\x1b[6~", "key", "pageDown")
             session.observe("Later transcript page", lambda rows: any("12. European robin" in r for r in rows)
                             and not any("Back to bottom" in r for r in rows))
-            session.text("Enter quit command", "/quit")
+            session.input("Enter quit command", "/quit", "text")
             # Let the slash-command menu handle its normal keystrokes before Enter.
             deadline = time.monotonic() + 5
             while not any("/quit" in r for r in session.inspect()):
                 if time.monotonic() > deadline:
                     raise RuntimeError("Codex did not display the quit command")
                 session.read_one("Codex paints", 0.1)
-            session.key("Submit", "enter", b"\r")
+            session.input("Submit", b"\r", "key", "enter")
             session.observe("Returned to shell", lambda rows: PROMPT.decode() in rows)
         finally:
             session.close()
@@ -245,9 +201,7 @@ def capture(binary, login, columns=COLUMNS, rows=ROWS, local_url=None):
         if local_url:
             metadata["provider"] = dict(kind="local-recorded-response", source="Fixtures/recordings/codex-session.json",
                                         model=MODEL, transport="loopback Responses SSE", authentication="none")
-        compact = lambda obj: json.dumps(obj, ensure_ascii=False, separators=(",",":"))
-        text = compact(metadata)[:-1] + ',\n"events":[\n' + ',\n'.join(map(compact, session.events)) + '\n]}\n'
-        return text
+        session.save(output, metadata)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -262,7 +216,6 @@ if __name__ == "__main__":
         parser.error("Give a separate --output for a local response or a different PTY size")
     if args.local_response:
         with local_responses(QUESTION, MODEL) as url:
-            text = capture(args.codex_bin.resolve(), None, args.columns, args.rows, url)
+            capture(args.codex_bin.resolve(), None, args.output, args.columns, args.rows, url)
     else:
-        text = capture(args.codex_bin.resolve(), args.login_file.resolve(), args.columns, args.rows)
-    args.output.write_text(text)
+        capture(args.codex_bin.resolve(), args.login_file.resolve(), args.output, args.columns, args.rows)
