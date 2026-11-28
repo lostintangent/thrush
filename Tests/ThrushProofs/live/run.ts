@@ -15,6 +15,7 @@ export type Recording = Grid & { name: string; events: WorkflowEvent[]; [key: st
 export type Phase = "attaching" | "layout" | "playing" | "input" | "resize" | "detach" | "resume" | "checkpoint"
     | "close" | "completed" | "failed" | "reclaim" | "newShell" | "focus";
 type Downstream = ServerWebSocket<{url: string; grid: Grid}>;
+// A link's grid is the one its upstream terminal holds.
 type Link = { app: Downstream; server: WebSocket; number: number; serverFrame: number; clientFrame: number; open: boolean; grid: Grid };
 type Frame = { link: Link; number: number; data: string | Uint8Array };
 type TraceEvent = "receivedFromUpstream" | "sentToNative" | "receivedFromNative";
@@ -177,7 +178,11 @@ export class LiveRun {
             const control = JSON.parse(raw);
             if (control.type === "resize") {
                 this.grid = { columns: control.cols, rows: control.rows };
-                this.reference.resize(control.cols, control.rows);
+                // An answered resize reaches the reference where the server's answer falls in its output.
+                if (!control.answer) {
+                    link.grid = this.grid;
+                    this.reference.resize(control.cols, control.rows);
+                }
             } else if (control.type === "close") this.explicitCloses++;
             else throw Error("Unknown terminal control " + control.type);
             this.wire.clientControls++;
@@ -216,9 +221,12 @@ export class LiveRun {
                         this.previousScreen = undefined;
                     }
                 }
-                this.reference = openReference(this.grid);
+                this.reference = openReference(link.grid);
                 observeBackgrounds(this.reference, this.sgrBackgrounds);
                 this.replayNext = control.resumed;
+            } else if (control.type === "resize") {
+                link.grid = { columns: control.cols, rows: control.rows };
+                this.reference.resize(control.cols, control.rows);
             } else if (control.type === "exit") this.exits++;
             else throw Error("Unknown upstream control " + control.type);
             const sent = link.app.sendText(data);
