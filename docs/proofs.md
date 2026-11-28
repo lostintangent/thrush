@@ -92,7 +92,7 @@ The app's `WorkflowDriver.swift` and the runner's `controller.ts` talk over loop
 
 ## Tour a release
 
-Before a release, dispatch the **Release tour** workflow to see every visible surface on both platforms in both appearances. It runs the iPhone rendering, interaction and link proofs and the spinner, navigation bar, text blink, program color and under-bar scenes, the Mac spinner, text blink, program color, appearance report and link proofs, and the four live workflow runs. Each proof uploads its captures and checks as its own artifact.
+Before a release, dispatch the **Release tour** workflow to see every visible surface on both platforms in both appearances. It runs the iPhone rendering, interaction and link proofs and the spinner, navigation bar, text blink, program color and under-bar scenes, the Mac spinner, text blink, program color, appearance report and link proofs, and the four live workflow runs. Each proof uploads its captures and checks as its own artifact. A job that failed because a `simctl` call hung past its limit or lost its booted device gets one rerun, and a job that failed a check gets a fix instead.
 
 ```sh
 gh workflow run release-tour.yml
