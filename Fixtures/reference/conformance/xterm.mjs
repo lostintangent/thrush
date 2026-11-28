@@ -1,10 +1,7 @@
 // The conformance view of the pinned reference: cases replay through it, and every checkpoint reads
 // its state the same way. See ../reference.mjs for the reference itself.
 import { setFocus, terminal } from '../reference.mjs';
-import { functionName } from './names.mjs';
 import { emptyLine } from './state.mjs';
-
-export { reference as description } from '../reference.mjs';
 
 const mouseTracking = { none: 'off', x10: 'x10', vt200: 'press', drag: 'drag', any: 'all' };
 const mouseEncoding = { DEFAULT: 'default', SGR: 'sgr', SGR_PIXELS: 'sgrPixels' };
@@ -35,8 +32,7 @@ export function registered() {
 /**
  * Runs a case: { size, palette?, steps: [{ write: Uint8Array } | { resize: [columns, rows] } |
  * { focus: boolean } | { checkpoint: name, scope?: 'visible' }] }. A final checkpoint named "end" is implied.
- * With `observe`, each write also returns the names of the functions xterm dispatched, and the run
- * returns every handler identity it reached, for coverage.
+ * With `observe`, the run also returns every handler identity it reached, for coverage.
  *
  * Writes go through xterm's synchronous write path, which runs the same parser action as `write`
  * without a timer per chunk. A write that throws inside xterm is a reference defect: the run records
@@ -46,8 +42,8 @@ export function run(testCase, { observe = false } = {}) {
   const t = create(testCase.size, testCase.palette);
   const replies = collect(t);
   let error;
-  const observer = observe ? instrument(t) : undefined;
-  const checkpoints = [], functions = [];
+  const identities = observe ? instrument(t) : undefined;
+  const checkpoints = [];
   const steps = testCase.steps.at(-1)?.checkpoint === 'end' ? testCase.steps : [...testCase.steps, { checkpoint: 'end' }];
   for (const step of steps) {
     if (step.checkpoint) {
@@ -56,10 +52,9 @@ export function run(testCase, { observe = false } = {}) {
       continue;
     }
     error ??= perform(t, step);
-    if (step.write && observer) functions.push(observer.names.splice(0));
   }
   t.dispose();
-  return observe ? { checkpoints, functions, identities: observer.identities } : checkpoints;
+  return observe ? { checkpoints, identities } : checkpoints;
 }
 
 /** Applies a write, resize or focus step, and returns what xterm threw, if anything. */
@@ -90,50 +85,23 @@ export function collect(t) {
   return () => { const taken = replies; replies = ''; return taken; };
 }
 
-// Count dispatches from xterm's own parser: each observer runs first and declines, so the real handler still runs.
+// Record which registered handlers run. Each observer runs first and declines, so the real handler still runs.
 function instrument(t) {
-  const names = [], identities = new Set();
+  const identities = new Set();
   const parser = t._core._inputHandler._parser;
-  const record = (kind, identity, parameters) => {
-    identities.add(`${kind} ${identity}`);
-    names.push(...functionName(kind, identity, parameters));
-    return false;
-  };
+  const reach = identity => { identities.add(identity); return false; };
   for (const [code, handler] of Object.entries(parser._executeHandlers)) {
-    parser._executeHandlers[code] = () => { record('execute', Number(code)); return handler(); };
+    parser._executeHandlers[code] = () => { reach(`execute ${code}`); return handler(); };
   }
-  const executeFallback = parser._executeHandlerFb;
-  parser._executeHandlerFb = code => { record('execute', code); return executeFallback(code); };
-  for (const [key, handlers] of Object.entries(parser._escHandlers)) {
-    const identity = parser.identToString(Number(key));
-    handlers.push(() => record('esc', identity));
+  for (const [kind, handlers] of [['esc', parser._escHandlers], ['csi', parser._csiHandlers]]) {
+    for (const [key, list] of Object.entries(handlers)) {
+      const identity = `${kind} ${parser.identToString(Number(key))}`;
+      list.push(() => reach(identity));
+    }
   }
-  const escFallback = parser._escHandlerFb;
-  parser._escHandlerFb = key => { record('esc', parser.identToString(key)); return escFallback(key); };
-  for (const [key, handlers] of Object.entries(parser._csiHandlers)) {
-    const identity = parser.identToString(Number(key));
-    handlers.push(parameters => record('csi', identity, parameters.toArray()));
-  }
-  const csiFallback = parser._csiHandlerFb;
-  parser._csiHandlerFb = (key, parameters) => { record('csi', parser.identToString(key), parameters.toArray()); return csiFallback(key, parameters); };
-  for (const id of Object.keys(parser._oscParser._handlers)) {
-    t.parser.registerOscHandler(Number(id), data => record('osc', Number(id), data));
-  }
-  const osc = parser._oscParser, oscFallback = osc._handlerFb;
-  let payload = '';
-  osc._handlerFb = (id, action, data) => {
-    if (action === 'START') payload = '';
-    else if (action === 'PUT') payload += data;
-    else record('osc', id, payload);
-    return oscFallback(id, action, data);
-  };
-  t.parser.registerDcsHandler({ intermediates: '$', final: 'q' }, () => record('dcs', '$q'));
-  const dcs = parser._dcsParser, dcsFallback = dcs._handlerFb;
-  dcs._handlerFb = (key, action, data) => {
-    if (action === 'HOOK') record('dcs', parser.identToString(key));
-    return dcsFallback(key, action, data);
-  };
-  return { names, identities };
+  for (const id of Object.keys(parser._oscParser._handlers)) t.parser.registerOscHandler(Number(id), () => reach(`osc ${id}`));
+  t.parser.registerDcsHandler({ intermediates: '$', final: 'q' }, () => reach('dcs $q'));
+  return identities;
 }
 
 function color(mode, value, kind) {

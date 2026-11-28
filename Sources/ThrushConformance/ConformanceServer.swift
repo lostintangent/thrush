@@ -2,7 +2,7 @@ import Foundation
 
 /// Serves the differential harness: reads one JSON request per line and writes one JSON result per line.
 ///
-/// The harness keeps one process open while it fuzzes and shrinks, so each case costs only its replay.
+/// The harness keeps one process open, so each case costs only its replay.
 @main
 enum ConformanceServer {
     enum Request: Decodable {

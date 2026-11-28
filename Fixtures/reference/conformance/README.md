@@ -3,9 +3,8 @@
 The harness feeds the same bytes to the [pinned reference emulator](../README.md) and to ThrushCore. It compares everything a program can observe: cells and their attributes, wrap flags, history, the cursor, modes, the title and every reply. It also checks what a person would see. After every write and resize, ThrushCore's screen is drawn the way the renderer draws it, which reuses a row's drawing until the row's generation changes. A cell that would show a stale drawing differs as `drawn[row][column]`. The Swift tests replay the generated cases on every `swift test`, so CI fails when Thrush stops matching. CI also runs the harness against the reference and fails if any generated file would change.
 
 ```sh
-scripts/check-conformance.sh                     # fail if any generated file would change
-scripts/check-conformance.sh --write             # regenerate the cases and lists
-scripts/check-conformance.sh --report gaps.md    # also write the ranked gap report
+scripts/check-conformance.sh            # fail if any generated file would change
+scripts/check-conformance.sh --write    # regenerate the cases and lists
 ```
 
 The script installs the reference from its lockfile, builds ThrushConformance in release and runs the harness, then the [replay check](#replays) and the Swift conformance tests.
@@ -21,9 +20,8 @@ The script installs the reference from its lockfile, builds ThrushConformance in
 ## What the harness writes
 
 - `Tests/ThrushConformanceTests/Cases/{functions,programs,streams}.json` holds every case with the reference's checkpoints. Cells and lines are interned, so long histories stay small.
-- `Tests/ThrushConformanceTests/KnownGaps.json` lists the cases Thrush doesn't match yet, by the function they exercise. The tests expect each listed case to fail. A case that starts matching fails as an unrecorded known issue, so the list only shrinks. After a fix, regenerate with `--write` and commit the shorter list. A gap Thrush keeps by choice has a reason written by hand, which the harness keeps when it regenerates. The report lists these gaps apart from the ranking.
+- `Tests/ThrushConformanceTests/KnownGaps.json` lists the cases Thrush doesn't match yet, by the function they exercise. The tests expect each listed case to fail. A case that starts matching fails as an unrecorded known issue, so the list only shrinks. After a fix, regenerate with `--write` and commit the shorter list. A gap Thrush keeps by choice has a reason written by hand, which the harness keeps when it regenerates.
 - `Tests/ThrushConformanceTests/ReferenceDefects.json` lists the cases where the reference is wrong, such as a crash or corrupted history. Each entry has a reason written by hand and the exact differences, which the harness regenerates. Thrush must differ in exactly those ways, so a change on either side shows up in review. Any case where the reference throws must be listed.
-- `reference.json` records the reference configuration and how often each recorded program emits each function.
 
 The `zsh-clear` program seeds 38 numbered lines on an 80 × 24 terminal before each invocation. macOS `/usr/bin/clear` sends ED 3, CUP, ED 2. Homebrew ncurses `clear` sends CUP, ED 2, ED 3. In the recording both programs finish their erase in a separate PTY read before zsh draws `thrush$ `. To capture a new session on a Mac with both commands, run `python3 Fixtures/reference/conformance/capture-programs.py --only zsh-clear`. To reproduce the benchmark recording from the checked-in capture, run `bun Fixtures/reference/m2/generate.mjs zsh-clear`. Both generators use the reference installed from `Fixtures/reference/bun.lock`.
 
@@ -45,15 +43,3 @@ bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushCon
 ```
 
 `--reference <directory>` resumes the reference's terminals in the `@xterm/headless` and `@xterm/addon-unicode11` that resolve from another directory, such as an app's, and `--options <file>` starts them with the options in a JSON file instead of the pin's. Either holds that reference to the listed gaps, so the output shows where it resumes differently.
-
-## The gap report
-
-The report ranks what to fix next by real use.
-
-1. Each failing function case is shrunk to the fewest bytes that still disagree in the same kind of state. The functions left in the minimal input are its cause, so a failing setup is charged to the function that's actually wrong.
-2. Causes rank by how many recorded programs emit every function in them, then by how often.
-3. Each program is replayed with a checkpoint after every read. For each kind of state that differs, the reads up to the first disagreement are shrunk to a minimal input.
-4. Failing random streams are shrunk and grouped by cause.
-5. A table lists every function the programs emit, with how Thrush does on the cases that exercise it.
-
-[shrink.mjs](shrink.mjs) does the shrinking with delta debugging over whole escape sequences, then individual parameters and scalars. [names.mjs](names.mjs) names every function the same way in the corpus, the program counts and the report.
