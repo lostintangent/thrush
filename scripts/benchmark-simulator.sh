@@ -20,7 +20,7 @@ failure="$documents/render-error.txt"
 ready="$report.background-ready"
 entered="$report.background-entered"
 rm -f "$ready" "$entered" "$failure" "$report"
-xcrun simctl launch --terminate-running-process "$device" "$identifier" --benchmark --lifecycle-check
+xcrun simctl launch --terminate-running-process "$device" "$identifier" --benchmark
 wait_for() {
     local path=$1
     local deadline=$((SECONDS + 100))

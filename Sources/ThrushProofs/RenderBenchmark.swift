@@ -88,7 +88,7 @@ enum RenderBenchmark {
         let foregroundIdle: IdleObservation
         let textBlink: BlinkObservation
         let inactiveRenderer: IdleObservation
-        let background: IdleObservation?
+        let background: IdleObservation
         let synchronizedOutput: SynchronizedRenderCheck.Result
     }
 
@@ -183,18 +183,12 @@ enum RenderBenchmark {
 
         let workloadSHA256 = collector.hash.finalize().hexString
         view.setRenderingActive(true)
-        let background: IdleObservation?
-        if CommandLine.arguments.contains("--lifecycle-check") {
-            // A return from the inactive probe may submit its pending generation. Wait for
-            // it before observing the operating system's own transition.
-            try await collector.apply("\u{1b}[1;6H", as: "restore")
-            let observer = RenderLifecycleObserver(view: view)
-            background = try await observer.measure(reportURL: reportURL) {
-                _ = collector.terminal.write("\u{1b}[1;3H".utf8)
-                view.display(collector.terminal)
-            }
-        } else {
-            background = nil
+        // A return from the inactive probe may submit its pending generation. Wait for
+        // it before observing the operating system's own transition.
+        try await collector.apply("\u{1b}[1;6H", as: "restore")
+        let background = try await RenderLifecycleObserver(view: view).measure(reportURL: reportURL) {
+            _ = collector.terminal.write("\u{1b}[1;3H".utf8)
+            view.display(collector.terminal)
         }
 
         let synchronizedOutput = try await SynchronizedRenderCheck.run(on: view, continuing: collector.terminal, frames: frames)
@@ -223,12 +217,11 @@ enum RenderBenchmark {
         if let compile = samples.first?.shaderCompileSeconds, let first = samples.first?.firstFrameSeconds {
             print(String(format: "Runtime shader compile %.3f ms   first content submission %.3f ms", compile * 1_000, first * 1_000))
         }
-        print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)")
+        print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)   background \(background.additionalSubmissions)")
         print(String(format: "Blinking text   %d submissions in %.3f s, allowed %d to %d   %d rows   %d uploads   Reduce Motion %d   steady %d",
                      textBlink.submissions, textBlink.seconds, textBlink.minimumSubmissions, textBlink.maximumSubmissions,
                      textBlink.rowsPrepared, textBlink.glyphUploads, textBlink.reducedMotion.additionalSubmissions,
                      textBlink.steady.additionalSubmissions))
-        if let background { print("Additional submissions   background \(background.additionalSubmissions)") }
         print(String(format: "Synchronized output   %d partial   %d close   watchdog submission %.3f ms   %d idle",
                      synchronizedOutput.submissionsDuringHold, synchronizedOutput.close.submissions,
                      synchronizedOutput.watchdogToSubmissionSeconds * 1000, synchronizedOutput.idle.additionalSubmissions))
@@ -237,7 +230,7 @@ enum RenderBenchmark {
               (textBlink.minimumSubmissions...textBlink.maximumSubmissions).contains(textBlink.submissions),
               textBlink.rowsPrepared == 0, textBlink.glyphUploads == 0,
               textBlink.reducedMotion.additionalSubmissions == 0, textBlink.steady.additionalSubmissions == 0,
-              (background?.additionalSubmissions ?? 0) == 0,
+              background.additionalSubmissions == 0,
               switches.allSatisfy({ $0.rowsPrepared == 0 && $0.glyphUploads == 0 }),
               samples[0].glyphUploads > 0, samples[0].rowsPrepared == size.rows,
               samples.dropFirst().allSatisfy({ $0.glyphUploads == 0 }),

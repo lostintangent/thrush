@@ -32,8 +32,8 @@ if let window = windows.first(where: {
 
 def benchmark(bundle, out):
     report = out / "render.json"
-    result = subprocess.run(["swift", "run", "-c", "release", "ThrushBench", "--render", str(bundle), "--output", str(report)],
-                            cwd=ROOT, text=True, capture_output=True, timeout=600)
+    result = subprocess.run([bundle / "Contents/MacOS/ThrushProofs", "--benchmark", report],
+                            cwd=ROOT, text=True, capture_output=True, timeout=150)
     (out / "render.log").write_text(result.stdout + result.stderr)
     if result.returncode:
         raise RuntimeError("Mac render benchmark failed: " + (result.stdout + result.stderr)[-1800:])

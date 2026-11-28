@@ -5,7 +5,7 @@ Build the Mac [proofs app](../docs/proofs.md) and run its Release benchmark from
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 scripts/build-app.sh proofs mac
-swift run -c release ThrushBench --render .build/proofs/mac/Thrush.app
+.build/proofs/mac/Thrush.app/Contents/MacOS/ThrushProofs --benchmark .build/benchmarks/render.json
 python3 scripts/check-render-report.py .build/benchmarks/render.json
 ```
 
@@ -94,7 +94,7 @@ Build the Release app, then run the same input sequence through its native text 
 
 ```sh
 scripts/build-app.sh proofs mac
-swift run -c release ThrushBench --interactions .build/proofs/mac/Thrush.app
+bun scripts/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json
 
 scripts/build-app.sh proofs simulator
 bun scripts/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
@@ -102,7 +102,7 @@ bun scripts/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thru
 
 The peer expects 22 binary input frames. It checks one committed Japanese glyph after two marked-text updates, one bracketed paste and 20 printable keys. Each echo has a distinct terminal generation. The app also selects and copies a wide glyph across a soft wrap, reads a history row, and activates Latest.
 
-The Mac report is written to `.build/benchmarks/interactions.json`. Each key includes monotonic timestamps for the responder action, the WebSocket write and receipt of the corresponding echo. A matching Metal frame adds submission time. A drawable presentation callback adds visible-echo time on supported displays. The report publishes presentation percentiles only for runs in which all 20 keys have presentation timestamps. Compare visible echo against two display intervals using the interval measured on the same run. Environment fields record contention, thermal state, source revision and working-tree status.
+Each key includes monotonic timestamps for the responder action, the WebSocket write and receipt of the corresponding echo. A matching Metal frame adds submission time. A drawable presentation callback adds visible-echo time on supported displays. The report publishes presentation percentiles only for runs in which all 20 keys have presentation timestamps. Compare visible echo against two display intervals using the interval measured on the same run. Environment fields record contention, thermal state, source revision and working-tree status.
 
 The same report includes `anchoredReplay` for a scrolled 80 × 24 viewport with 1,000 history rows. Twenty replacements alternate between two pre-parsed snapshots whose numbered build steps shift by twelve rows. Each replacement must keep **Build step 512** at the top and **Build step 513** selected. The `milliseconds` samples and `p95Milliseconds` cover restoring the viewport and its native interaction state. Parsing, network latency and display timing have their own measurements above.
 
