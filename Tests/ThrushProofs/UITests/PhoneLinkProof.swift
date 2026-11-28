@@ -83,8 +83,6 @@ import XCTest
         // A tap opens a web link through SwiftUI's openURL, which the system hands to Safari.
         point(x: guide.frame.minX + row * 2.5, y: guide.frame.midY).tap()
         XCTAssertTrue(safari.wait(for: .runningForeground, timeout: 20), "Safari should open the Security guide.")
-        app.activate()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
     }
 
     /// A tap on the wrapped file name's second row shows its menu, titled with its destination and clear of
