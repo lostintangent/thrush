@@ -35,11 +35,17 @@ def export_clip(name, video_start, out, work):
     if not 0 < end - start <= 60 or start < video_start - 1:
         raise ValueError(f"Invalid capture interval for {name}: {start}, {end}")
     clip = work / (name + ".mp4")
-    run_logged(["/usr/bin/avconvert", "--source", out / "appearance-switch.mov", "--output", clip,
-                "--preset", "PresetHighestQuality", "--start", str(max(0, start - video_start - 0.25)),
-                "--duration", str(end - start + 0.5)], out / (name + "-export.log"), 90)
-    if not clip.stat().st_size:
-        raise ValueError(f"Empty clip {clip.name}.")
+    # A clip only cuts the recording, which stays in the output whenever a clip is missing.
+    # So a host media tool that fails to cut one is logged rather than failing the proof.
+    try:
+        run_logged(["/usr/bin/avconvert", "--source", out / "appearance-switch.mov", "--output", clip,
+                    "--preset", "PresetHighestQuality", "--start", str(max(0, start - video_start - 0.25)),
+                    "--duration", str(end - start + 0.5)], out / (name + "-export.log"), 90)
+        if not clip.stat().st_size:
+            raise RuntimeError(f"avconvert wrote an empty {clip.name}.")
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+        print(f"Kept appearance-switch.mov for {clip.name}: {error}", file=sys.stderr, flush=True)
+        return
     shutil.move(clip, out / clip.name)
 
 
