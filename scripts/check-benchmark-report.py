@@ -5,7 +5,6 @@ import hashlib
 import json
 import math
 import re
-import subprocess
 import sys
 from bisect import bisect_right
 from itertools import accumulate
@@ -97,36 +96,10 @@ def check_swift_pair(fixtures):
 root = Path(__file__).resolve().parents[1]
 path = Path(sys.argv[1]) if len(sys.argv) == 2 else root / ".build/benchmarks/headless.json"
 report = json.loads(path.read_bytes())
-archived = path.resolve() == root / "Benchmarks/headless.json"
 recordings = report["recordings"]
-available = {p.stem: p.read_bytes() for p in (root / "Fixtures/recordings").glob("*.json")}
-if archived:
-    # Preserve the checked-in workload set in source archives and shallow checkouts.
-    # A changed or removed fixture needs its original bytes from the measured commit.
-    revision = report["environment"]["commit"]
-    assert re.fullmatch(r"[0-9a-f]{40}", revision) and not report["environment"]["worktreeDirty"]
-    fixtures = {}
-    for recording in recordings:
-        name = recording["name"]
-        assert re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name) and name not in fixtures
-        data = available.get(name)
-        if data is None or hashlib.sha256(data).hexdigest() != recording["fixtureSHA256"]:
-            # Revisions before the rename kept the recordings in Fixtures/replays.
-            for directory in ("recordings", "replays"):
-                try:
-                    data = subprocess.check_output(["git", "-C", str(root), "show",
-                                                    f"{revision}:Fixtures/{directory}/{name}.json"], stderr=subprocess.PIPE)
-                    break
-                except (OSError, subprocess.CalledProcessError) as error:
-                    failure = error
-            else:
-                sys.exit(f"Archived fixture {name} needs its original bytes from {revision}: {failure}")
-        fixtures[name] = data
-else:
-    fixtures = available
+fixtures = {p.stem: p.read_bytes() for p in (root / "Fixtures/recordings").glob("*.json")}
 assert len(recordings) == len(fixtures) and {r["name"] for r in recordings} == fixtures.keys()
-# Check the styled Vim pair as checked in. An archived report's older bytes passed at their own commit.
-check_swift_pair(available)
+check_swift_pair(fixtures)
 
 for recording in recordings:
     data = fixtures[recording["name"]]
@@ -193,13 +166,12 @@ for sample in report["bulk"]:
     assert sample["bytesPerPass"] == len(bulk) and sample["chunkBytes"] == 4096
     assert sample["receivedBytes"] == sample["appliedBytes"] == sample["measuredPasses"] * len(bulk)
 
-if not archived:
-    transitions = report["shellTransitions"]
-    assert transitions["grid"] == {"columns": 80, "rows": 24} and transitions["measuredPasses"] == 25
-    assert transitions["promptFixtureSHA256"] == hashlib.sha256(fixtures["shell-workflow"]).hexdigest()
-    for name, before, after in [("startNewShell", 992, 1_000), ("prepareForReplay", 1_000, 992)]:
-        sample = transitions[name]
-        assert (sample["historyRowsBefore"], sample["historyRowsAfter"]) == (before, after), name
-        assert 0 < sample["timing"]["p50Nanoseconds"] <= sample["timing"]["p95Nanoseconds"], name
+transitions = report["shellTransitions"]
+assert transitions["grid"] == {"columns": 80, "rows": 24} and transitions["measuredPasses"] == 25
+assert transitions["promptFixtureSHA256"] == hashlib.sha256(fixtures["shell-workflow"]).hexdigest()
+for name, before, after in [("startNewShell", 992, 1_000), ("prepareForReplay", 1_000, 992)]:
+    sample = transitions[name]
+    assert (sample["historyRowsBefore"], sample["historyRowsAfter"]) == (before, after), name
+    assert 0 < sample["timing"]["p50Nanoseconds"] <= sample["timing"]["p95Nanoseconds"], name
 
 print(f"Verified {len(recordings)} recording hashes and byte counts, both queue bounds, and all bulk grids.")
