@@ -8,7 +8,6 @@ on:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - Sources/ThrushProofs/**
       - examples/swiftui/**
       - scripts/build-app.sh
       - scripts/check-swiftui-example.sh
@@ -18,7 +17,6 @@ on:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - Sources/ThrushProofs/**
       - examples/swiftui/**
       - scripts/build-app.sh
       - scripts/check-swiftui-example.sh
@@ -47,5 +45,3 @@ jobs:
         run: scripts/check-swiftui-example.sh mac
       - name: Wrap the sample as a Mac app
         run: scripts/build-app.sh sample mac
-      - name: Build the proofs, which compile the sample's window by path
-        run: swift build --product ThrushProofs
