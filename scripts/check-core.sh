@@ -9,12 +9,23 @@ if grep -riIn 'xterm' Sources Tests | grep -v 'Sources/ThrushServer/ThrushServer
     exit 1
 fi
 
-# Inspect every ThrushCore import, including inactive #if branches, with the Xcode parser.
-swift=$(xcrun --find swift)
-host="$(dirname "$swift")/../lib/swift/host"
-if [ ! -d "$host/SwiftSyntax.swiftmodule" ]; then
-    export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-    swift=$(xcrun --find swift)
-    host="$(dirname "$swift")/../lib/swift/host"
+# ThrushCore uses only the standard library, so the word never appears in it. This catches every form,
+# such as `public import` and `import struct`, including inside inactive #if branches.
+if grep -rnw 'import' Sources/ThrushCore; then
+    echo "ThrushCore imports nothing. Keep it to the Swift standard library." >&2
+    exit 1
 fi
-exec "$swift" -I "$host" -L "$host" -Xlinker -rpath -Xlinker "$host" scripts/check-core.swift "$swift"
+if find Sources/ThrushCore -type f ! -name '*.swift' | grep .; then
+    echo "ThrushCore holds only Swift sources." >&2
+    exit 1
+fi
+
+# The core target declares nothing beyond its name, so it has no dependencies, resources, settings or
+# plugins. The one product is the Thrush library, so the core stays internal.
+products=$(sed -n '/^ *products: \[/,/^ *\],/p' Package.swift | sed '1d;$d' | tr -d ' ')
+if ! grep -Eq '^[[:space:]]*\.target\(name: "ThrushCore"\),$' Package.swift \
+    || [ "$products" != '.library(name:"Thrush",targets:["Thrush"]),' ]; then
+    echo "ThrushCore is a plain internal target: no dependencies, resources, settings, plugins or product." >&2
+    exit 1
+fi
+echo "ThrushCore imports nothing and declares no dependencies."
