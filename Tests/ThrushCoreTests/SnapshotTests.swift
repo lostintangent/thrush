@@ -279,3 +279,30 @@ import ThrushFixtures
     #expect(reading.rows.map(\.text) == ["one", "two", "three", "four", "$ "])
     #expect(reading.cursorRow == 4 && reading.cursorVisible)
 }
+
+@Test func heldSnapshotKeepsRowsAndCursorAcrossEditsAndScroll() {
+    var terminal = Terminal(size: .init(columns: 6, rows: 3))
+    _ = terminal.write("first\r\nnext".utf8)
+    let first = terminal.snapshot()
+    let originalText = first.rows.map(\.text)
+    let originalGenerations = first.rows.map(\.generation)
+    let originalCursor = (first.cursorRow, first.cursorColumn)
+
+    _ = terminal.write("\rNEW".utf8)
+    let edited = terminal.snapshot()
+    #expect(edited.generation > first.generation)
+    #expect(edited.rows[0].generation == originalGenerations[0])
+    #expect(edited.rows[1].generation != originalGenerations[1])
+    #expect(edited.rows[2].generation == originalGenerations[2])
+
+    // One contiguous write scrolls two rows into history and writes three distinct new rows.
+    _ = terminal.write("\r\nABCDEFGHIJKLMNO".utf8)
+    let scrolled = terminal.snapshot()
+    #expect(scrolled.generation > edited.generation)
+    #expect(scrolled.history.map(\.generation) == Array(edited.rows.prefix(2)).map(\.generation))
+    #expect(Set(scrolled.rows.map(\.generation)).count == 3)
+    #expect(first.rows.map(\.text) == originalText)
+    #expect(first.rows.map(\.generation) == originalGenerations)
+    #expect((first.cursorRow, first.cursorColumn) == originalCursor)
+    #expect(first.history.isEmpty)
+}
