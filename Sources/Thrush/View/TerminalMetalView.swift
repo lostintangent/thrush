@@ -522,10 +522,10 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
 
     private func accept(_ next: Terminal.Snapshot, receivedAt: CFTimeInterval?) {
         if let last = snapshot, last.generation == next.generation { return }
-        let oldTracking = snapshot?.mouseTracking
+        let oldTracking = snapshot?.modes.mouseTracking
         viewport.display(next)
         snapshot = next.viewport(rowsFromBottom: viewport.offset)
-        if oldTracking != next.mouseTracking {
+        if oldTracking != next.modes.mouseTracking {
             lastPointer = nil
             capturedButtons.removeAll()
         }

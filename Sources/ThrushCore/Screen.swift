@@ -95,7 +95,6 @@ extension Terminal {
         package func row(atAbsoluteIndex index: Int) -> Row {
             index < history.count ? history[index] : rows[index - history.count]
         }
-        package var mouseTracking: MouseTracking { modes.mouseTracking }
 
         /// The link a cell's text belongs to.
         package func link(for style: Style) -> Link? {

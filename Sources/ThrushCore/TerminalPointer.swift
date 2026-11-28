@@ -60,7 +60,7 @@ extension Terminal.Input {
 extension Terminal.Snapshot {
     /// Scrolling goes to the program when it reports the mouse, or when it draws the
     /// alternate screen, which keeps no history to scroll.
-    package var programTakesScrolling: Bool { mouseTracking != .off || isAlternate }
+    package var programTakesScrolling: Bool { modes.mouseTracking != .off || isAlternate }
 }
 
 extension Terminal {
