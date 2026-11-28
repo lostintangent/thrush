@@ -50,31 +50,25 @@ def sample_server(pids, host, root, out):
 
 def main():
     sys.dont_write_bytecode = True
-    from check import local_endpoint, server
+    from check import server
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--app", type=Path, default=ROOT / ".build/proofs/mac/Thrush.app")
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--endpoint", type=local_endpoint, help="Optional disposable loopback terminal. The check runs a shell loop and closes it.")
     parser.add_argument("--sample-server", action="store_true", help="Save a system stack sample while the local ThrushServer carries the shell’s live ticks.")
     args = parser.parse_args()
-    if args.sample_server and args.endpoint:
-        parser.error("--sample-server needs the server started by this check.")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("The output directory must be empty.")
-    app = args.app.resolve()
+    app = ROOT / ".build/proofs/mac/Thrush.app"
     if not app.is_dir():
         subprocess.run(["scripts/build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
     with (app / "Contents/Info.plist").open("rb") as f:
         info = plistlib.load(f)
     (out / "source.json").write_text(json.dumps({"commit": info["ThrushGitCommit"], "dirty": info["ThrushWorktreeDirty"]}) + "\n")
-    server_binary = None
-    if not args.endpoint:
-        build = ["swift", "build", "--package-path", ROOT, "-c", "release"]
-        subprocess.run([*build, "--product", "ThrushServer"], check=True)
-        server_binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushServer"
+    build = ["swift", "build", "--package-path", ROOT, "-c", "release"]
+    subprocess.run([*build, "--product", "ThrushServer"], check=True)
+    server_binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushServer"
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
         cover = build_cover(root)
@@ -83,7 +77,7 @@ def main():
         shell.write_text(f'#!/bin/sh\nprintf "%s\\n" "$$" >> {shlex.quote(str(pids))}\nexec /bin/sh -i\n')
         shell.chmod(0o700)
         report = out / "window-lifecycle.json"
-        with server(root, shell, out / "server.log", server_binary, args.endpoint) as endpoint:
+        with server(root, shell, out / "server.log", server_binary) as endpoint:
             shutil.copyfile(root / "data" / "source.json", out / "server.json")
             launch = ["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
                       "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
@@ -108,9 +102,8 @@ def main():
                 any(r["durationSeconds"] < 31 or r["hiddenSubmissions"] for r in rows) or
                 len({r["shellPID"] for r in rows}) != 1 or result["socketAttempts"] != 1 or result["readyEvents"] != 1):
             raise RuntimeError("Window lifecycle measurements failed.")
-        if not args.endpoint:
-            if pids.read_text().splitlines() != [str(rows[0]["shellPID"])]:
-                raise RuntimeError("The terminal PID did not match the independent PTY process.")
+        if pids.read_text().splitlines() != [str(rows[0]["shellPID"])]:
+            raise RuntimeError("The terminal PID did not match the independent PTY process.")
         print(json.dumps(result, indent=2))
 
 
