@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a packaged Thrush host against real processes on a disposable terminal server."""
 import argparse
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 import hashlib
 import importlib.util
 import json
@@ -66,7 +66,9 @@ def service(argv, log, env):
             yield process
         finally:
             if process.poll() is None:
-                os.killpg(process.pid, signal.SIGTERM)
+                # macOS refuses to signal a group whose processes have all just exited.
+                with suppress(PermissionError, ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=8)
                 except subprocess.TimeoutExpired:
