@@ -63,7 +63,7 @@ The table and generated JSON give p50 and p95 over 25 passes after one warmup. T
 
 ## Run the benchmark
 
-From the package root, run `swift run -c release ThrushBench`, then `python3 scripts/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json`, or the path given with `--output`.
+From the package root, run `swift run -c release ThrushBench`, then `python3 Benchmarks/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json`, or the path given with `--output`.
 
 To record a result, build the Release executable once and collect five consecutive runs.
 
@@ -75,4 +75,4 @@ for run in 1 2 3 4 5; do
 done
 ```
 
-Each report records the load average and sets `environment.contended` when the one-minute load exceeds the active core count. Rerun the series if any run is contended. Sort the five 80 × 24 ASCII receive rates and use the middle run. Verify it with `python3 scripts/check-benchmark-report.py .build/benchmarks/run-N/headless.json`, substituting the selected run number for `N`.
+Each report records the load average and sets `environment.contended` when the one-minute load exceeds the active core count. Rerun the series if any run is contended. Sort the five 80 × 24 ASCII receive rates and use the middle run. Verify it with `python3 Benchmarks/check-benchmark-report.py .build/benchmarks/run-N/headless.json`, substituting the selected run number for `N`.

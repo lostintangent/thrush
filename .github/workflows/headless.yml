@@ -89,7 +89,7 @@ jobs:
       - name: Verify the Release benchmarks
         run: |
           swift run -c release ThrushBench
-          python3 scripts/check-benchmark-report.py
+          python3 Benchmarks/check-benchmark-report.py
 
   iphone-tests:
     name: iPhone UIKit tests
