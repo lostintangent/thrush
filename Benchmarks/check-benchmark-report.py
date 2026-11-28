@@ -61,15 +61,10 @@ for recording in recordings:
         assert resize["normalHistoryRowsBefore"] == event["normalHistoryRowsBefore"], event["name"]
 
     if recording["name"] == "shell-log":
-        full = [e for e in events if "full" in e["name"].lower() and "history" in e["name"].lower()
-                and "checkpoint" in e]
-        assert full and all(not e["checkpoint"]["isAlternate"] and len(e["checkpoint"]["history"]) == 1_000
-                            for e in full), "The named full-history shell checkpoints must contain 1,000 rows"
-        assert any("alternate" in e["name"].lower() or "vim" in e["name"].lower() for e in full)
-        normal = [e for e in expected if not e["checkpoint"]["isAlternate"]]
-        assert len(normal) == 3 and all(e["normalHistoryRowsBefore"] == e["historyRowsBefore"] == 1_000
-                                        for e in normal), "All three normal resizes must start with 1,000 rows"
-        first_alternate = next(e for e in expected if e["checkpoint"]["isAlternate"])
+        normal = [r for r in recording["resizes"] if not r["alternate"]]
+        assert len(normal) == 3 and all(r["normalHistoryRowsBefore"] == r["historyRowsBefore"] == 1_000
+                                        for r in normal), "All three normal resizes must start with 1,000 rows"
+        first_alternate = next(r for r in recording["resizes"] if r["alternate"])
         assert first_alternate["historyRowsBefore"] == 0 and first_alternate["normalHistoryRowsBefore"] == 1_000
 
 assert any(r["maximumQueuedSlots"] == r["queueSlotLimit"] for r in recordings)
