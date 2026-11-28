@@ -12,7 +12,7 @@ def produce(scenario):
     assert os.get_terminal_size() == (80, 24)
     run = Path(scenario)
     count = 8192 if scenario == "paced" else 131072
-    (run / "armed").touch()
+    (run / "armed").write_text(str(os.getpid()))
     while not (run / "go").exists():
         time.sleep(0.005)
 
@@ -37,13 +37,16 @@ def produce(scenario):
         "markers": count, "payloadBytes": count * 64, "seconds": seconds,
     }))
 
-    # The server can skip the end fence during backpressure too. Retry until the host sees it.
-    while True:
-        out.write(b"\x1b[1;1HTHRUSH-END\x1b[K")
+    end = b"\x1b[1;1HTHRUSH-END\x1b[K"
+    out.write(end)
+    out.flush()
+    if scenario == "suspended":
+        # The shell exits with this process while its reader is stopped. The server owes that reader the final screen.
+        return
+    # The server can skip the end fence during backpressure too. Repeat it until the host acknowledges.
+    while not (select.select([sys.stdin], [], [], 0.25)[0] and sys.stdin.readline().strip() == "ack"):
+        out.write(end)
         out.flush()
-        if select.select([sys.stdin], [], [], 0.25)[0]:
-            if sys.stdin.readline().strip() == "ack":
-                break
     out.write(b"\x1b[2;1HTHRUSH-FINAL\x1b[K")
     out.flush()
 

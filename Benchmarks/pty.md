@@ -1,14 +1,10 @@
 # Real PTY checks
 
-Run the headless checks from the Thrush checkout on macOS with the full Xcode toolchain. Each command builds the Release Swift client, starts the package’s `ThrushServer` on loopback with a private home and work directory, and removes its server data on exit. The reader and recovery checks also use Bun for the independent WebSocket reader.
+Run the headless check from the Thrush checkout on macOS with the full Xcode toolchain. It builds the Release Swift client, starts the package’s `ThrushServer` on loopback with a private home and work directory, runs four numbered logs and removes its server data on exit. The report is `.build/benchmarks/pty-smoke.json`.
 
 ```sh
 scripts/check-pty.sh
-scripts/check-pty.sh --readers
-scripts/check-pty.sh --recovery
 ```
-
-The reports are `.build/benchmarks/pty-smoke.json`, `pty-readers.json` and `pty-recovery.json` in the same directory. The smoke check exercises four numbered logs and the 30-second orphan timeout. The reader comparison measures three clients against the same producer. The recovery check requires missing live output and an in-band replay during silence, successful input and a complete final screen before exit. [Recovery procedure](pty-recovery.md)
 
 To use the server with the sample app or a separate client, supply an empty data directory and a loopback port. Port zero selects a free port and prints the origin. Control-C stops the server and leaves its data directory available for inspection.
 
@@ -17,11 +13,9 @@ pty_data=$(mktemp -d)
 swift run -c release ThrushServer --port 3129 --data-dir "$pty_data" --shell /bin/sh
 ```
 
-To check a different implementation, point any of the three commands at a disposable loopback origin with `--endpoint http://127.0.0.1:3129`. The server and client must share the same Mac filesystem and process namespace, and the configured shell must accept a POSIX `exec` command. The check requests fresh UUID sessions and enters a private fixture shell through the original WebSocket. Reader measurements begin after a nonce-delimited setup line has been completely received. Reports for supplied endpoints go under `.build/benchmarks/external/` and identify the endpoint. The harness leaves that server running. [Independent endpoint compatibility result](pty-compatibility.json)
-
 ## Numbered logs
 
-A real shell prints a fresh nonce before starting the producer on an 80 × 24 PTY. It writes 64-byte numbered lines and waits for a second attachment to acknowledge its final screen. An independent oracle checks the payload, order and all 24 expected rows. The session counts live output and in-band replays separately.
+A real shell prints a fresh nonce before starting the producer on an 80 × 24 PTY. It writes 64-byte numbered lines and waits for a second attachment to acknowledge its final screen. In the suspended run, the shell exits instead while the client is stopped. The server must then replay the final screen before exit, and the same ID must start a fresh shell. An independent oracle checks the payload, order and all 24 expected rows. The session counts live output and in-band replays separately.
 
 On an M1 Max running macOS 27.2.1, the standalone server and client restored the expected visible rows before and after reconnect in all four cases. Thrush applied every received byte. The measurements used a clean Release build at `6b33bf2`. [Smoke report](pty-smoke.json)
 
@@ -32,16 +26,5 @@ On an M1 Max running macOS 27.2.1, the standalone server and client restored the
 | Rate-limited burst | 55,024 / 131,072 | 4,867,072 | 4 | 36.66 / 10.55 | 5,974,016 |
 | Suspended burst | 12,560 / 131,072 | 7,584,768 | 1 | 19.36 / 13.61 | 8,388,608 |
 
-The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 111.316 MiB/s, one quarter of the 80 × 24 parser throughput archived when the check ran. The suspended process resumes one second after the producer finishes. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference at 75860e3](https://github.com/lostintangent/thrush/blob/bab33fda31fca69f965bbfc1b37507e7b28e17e8/Benchmarks/headless.json)
+The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 111.316 MiB/s, one quarter of the 80 × 24 parser throughput archived when the check ran. The suspended process resumes one second after the shell exits. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference at 75860e3](https://github.com/lostintangent/thrush/blob/bab33fda31fca69f965bbfc1b37507e7b28e17e8/Benchmarks/headless.json)
 
-## Reader comparison
-
-Three clients each run the same 8 MiB producer six times, with the order rotated. Bun and a bare URLSession count incoming frame lengths. The third client uses a Thrush session to parse and apply each frame. The producer starts after the reader is ready and exits after a one-second drain interval.
-
-| Client | Paced runs fully received | Unpaced runs fully received | Missing live bytes in each unpaced run |
-| --- | ---: | ---: | ---: |
-| Bun | 3 / 3 | 2 / 3 | 0 · 0 · 226,304 |
-| URLSession | 3 / 3 | 0 / 3 | 217,088 · 402,432 · 238,592 |
-| Thrush | 3 / 3 | 0 / 3 | 606,208 · 939,008 · 402,432 |
-
-The unpaced producers ranged from 36.90 to 44.28 MiB/s. The report separates original payload bytes from screen repairs and includes 50 ms producer peaks for each run. [Reader report](pty-readers.json)

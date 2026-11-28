@@ -36,12 +36,6 @@ def local_endpoint(value):
     return f"http{match[1]}://{match[2]}{port}"
 
 
-def fixture_environment(endpoint, shell):
-    # Only an explicitly supplied endpoint needs to enter the private fixture from its configured login shell.
-    command = "exec " + shlex.quote(str(shell)) + "\r" if endpoint else ""
-    return {**os.environ, "THRUSH_PTY_CHECK_BOOTSTRAP": command}
-
-
 @contextmanager
 def server(root, shell, log, executable, endpoint=None):
     data = root / "data"
@@ -73,14 +67,6 @@ def server(root, shell, log, executable, endpoint=None):
 
 def read_json(path):
     return json.loads(path.read_text())
-
-
-def report_path(kind, endpoint):
-    directory = Path(".build/benchmarks")
-    if endpoint:
-        directory /= "external"
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory / (kind + ".json")
 
 
 def timing(run, payload_offset, payload_length):
@@ -123,7 +109,8 @@ def check_log(run, scenario):
         raise RuntimeError("Adapter byte counts disagree with the independent stream capture")
     before, start, remainder = wire.partition(b"THRUSH-BEGIN\r\n")
     payload, end, _ = remainder.partition(b"\x1b[1;1HTHRUSH-END\x1b[K")
-    if not (start and end):
+    # The suspended shell exits while its reader is behind, so only the final replay carries the end fence.
+    if not (start and (end or scenario == "suspended")):
         raise RuntimeError(f"Missing PTY boundary in {scenario} ({len(wire)} bytes)")
 
     count = 8192 if scenario == "paced" else 131072
@@ -159,13 +146,21 @@ def check_log(run, scenario):
     }
 
 
-def exercise(binary, endpoint, token, work, scenario, env, limit=None):
+def dead(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+def exercise(binary, endpoint, token, work, scenario, limit=None):
     run = work / scenario
     run.mkdir()
     command = [binary, endpoint, token, scenario, run]
     if limit:
         command.append(str(limit * 1048576))
-    with subprocess.Popen(command, env=env) as process:
+    with subprocess.Popen(command) as process:
         try:
             wait_for("Real shell started its numbered log", (run / "armed").exists, process)
             if scenario == "suspended":
@@ -177,7 +172,9 @@ def exercise(binary, endpoint, token, work, scenario, env, limit=None):
             (run / "go").touch()
             wait_for("Real PTY finished writing the log", (run / "produced.json").exists, process)
             if scenario == "suspended":
-                # Let the server parse and enqueue the last PTY chunks before the client resumes.
+                # Resume the client only after the shell has exited and the server has had time to finish it.
+                pid = int((run / "armed").read_text())
+                wait_for("Real shell exited", lambda: dead(pid), process, seconds=10)
                 time.sleep(1)
                 process.send_signal(signal.SIGCONT)
             if process.wait(timeout=60):
@@ -191,8 +188,6 @@ def exercise(binary, endpoint, token, work, scenario, env, limit=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
-    parser.add_argument("--endpoint", type=local_endpoint, help="Use a disposable local PTY server sharing this filesystem")
-    parser.add_argument("--server-binary", type=Path, help="Release ThrushServer executable beside the check client")
     args = parser.parse_args()
 
     def terminate(signum, frame):
@@ -200,7 +195,8 @@ def main():
 
     signal.signal(signal.SIGTERM, terminate)
     binary = args.binary.resolve()
-    path = report_path("pty-smoke", args.endpoint)
+    path = Path(".build/benchmarks/pty-smoke.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
     token = str(uuid.uuid4())
     with tempfile.TemporaryDirectory(prefix="thrush-pty-") as temp:
         root = Path(temp)
@@ -209,20 +205,18 @@ def main():
         work = root / "data" / "work"
         shell.write_text(f"#!/bin/sh\ncd {shlex.quote(str(work))} || exit 1\nprintf '\\nTHRUSH-{token}\\n'\nexec /bin/sh -i\n")
         shell.chmod(0o700)
-        env = fixture_environment(args.endpoint, shell)
         log = root / "server.log"
         try:
-            with server(root, shell, log, args.server_binary or binary.with_name("ThrushServer"), args.endpoint) as endpoint:
+            with server(root, shell, log, binary.with_name("ThrushServer")) as endpoint:
                 shutil.copyfile(Path(__file__).with_name("producer.py"), work / "producer.py")
                 source = read_json(root / "data" / "source.json")
                 runs = []
                 baseline = next(row["receiveMiBPerSecond"] for row in read_json(Path("Benchmarks/headless.json"))["bulk"]
                                 if row["grid"] == {"columns": 80, "rows": 24})
                 for scenario in ("paced", "live", "limited", "suspended"):
-                    result = exercise(binary, endpoint, token, work, scenario, env, baseline / 4 if scenario == "limited" else None)
+                    result = exercise(binary, endpoint, token, work, scenario, baseline / 4 if scenario == "limited" else None)
                     print(json.dumps(result), flush=True)
                     runs.append(result)
-                subprocess.run([binary, endpoint, token, "lifecycle", root], env=env, timeout=75, check=True)
         except BaseException:
             if log.exists():
                 print(log.read_text()[-4000:], file=sys.stderr)

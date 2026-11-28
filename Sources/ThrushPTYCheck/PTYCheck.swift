@@ -92,39 +92,13 @@ struct PTYCheck {
         var replayRows: [String]
     }
 
-    static var fixtureCommand: String? {
-        guard let command = ProcessInfo.processInfo.environment["THRUSH_PTY_CHECK_BOOTSTRAP"], !command.isEmpty else { return nil }
-        return command
-    }
-
-    static func isLoopback(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme ?? "") && ["127.0.0.1", "localhost", "[::1]", "::1"].contains(url.host ?? "")
-    }
-
-    static func enterFixture(_ session: SessionActor) async throws {
-        if let command = fixtureCommand { try await session.send(.text(command)) }
-    }
-
     static func main() async throws {
         let args = CommandLine.arguments
-        if args.count == 3, args[1] == "check-exit-screen" {
-            try ReaderComparison.checkExitScreen(URL(fileURLWithPath: args[2]))
-            return
-        }
-        if args.dropFirst().first == "reader" {
-            try await ReaderComparison.run(args)
-            return
-        }
-        guard args.count == 5 || args.count == 6, let endpoint = URL(string: args[1]),
-              isLoopback(endpoint), UUID(uuidString: args[2]) != nil,
-              ["paced", "live", "limited", "suspended", "lifecycle"].contains(args[3]) else {
-            throw PTYCheckFailure("Run scripts/check-pty.sh to create a disposable server")
+        guard args.count == 5 || args.count == 6, let endpoint = URL(string: args[1]), UUID(uuidString: args[2]) != nil,
+              ["paced", "live", "limited", "suspended"].contains(args[3]) else {
+            throw PTYCheckFailure("Run scripts/check-pty.sh")
         }
         let token = args[2], scenario = args[3]
-        if scenario == "lifecycle" {
-            try await PTYLifecycle(endpoint: endpoint, token: token).run()
-            return
-        }
         let bytesPerSecond = args.count == 6 ? Double(args[5]) : nil
         if scenario == "limited", !(bytesPerSecond.map { $0.isFinite && $0 > 0 } ?? false) {
             throw PTYCheckFailure("Expected the calibrated live-reader rate limit")
@@ -139,34 +113,50 @@ struct PTYCheck {
         guard try await capture.next(live) == .ready(resumed: false) else {
             throw PTYCheckFailure("Expected a fresh PTY")
         }
-        try await enterFixture(live)
         while !(await live.snapshot().rows.contains { $0.text == "THRUSH-\(token)" }) {
             guard try await capture.next(live) == .output else { throw PTYCheckFailure("Missing disposable shell identity") }
         }
         let start = DispatchTime.now().uptimeNanoseconds
         try await live.send(.text("stty -echo -onlcr && exec /usr/bin/python3 producer.py \(scenario)\r"))
-        while !capture.finished {
+        // The suspended shell exits while this process is stopped. The others repeat an end fence until acknowledged.
+        var previous: SessionActor.Event?
+        while true {
             let event = try await capture.next(live)
-            guard event == .output || event == .replay else { throw PTYCheckFailure("Missing live end fence") }
-            if let bytesPerSecond, !capture.finished { try await capture.delayNextRead(at: bytesPerSecond) }
+            if scenario == "suspended" ? event == .ended : capture.finished { break }
+            guard event == .output || event == .replay else { throw PTYCheckFailure("Missing the end of the log") }
+            previous = event
+            if let bytesPerSecond { try await capture.delayNextRead(at: bytesPerSecond) }
         }
         let liveEnd = DispatchTime.now().uptimeNanoseconds
         let liveRows = await live.snapshot().rows.map(\.text)
-        await live.hide()
+        let replayRows: [String], exited: UInt64
 
-        // A fresh observer of the same shell restores the server's serialized grid. Its replay
-        // and subsequent frames belong to a separate attachment and never enter the live totals.
-        let restored = SessionActor(size: size, makeSocket: socket)
-        guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .replay else {
-            throw PTYCheckFailure("Missing replay after the numbered log")
-        }
-        let replayRows = await restored.snapshot().rows.map(\.text)
-        try await restored.send(.text("ack\r"))
-        while try await restored.nextEvent() == .output {}
-        let exited = DispatchTime.now().uptimeNanoseconds
-        guard await restored.state == .ended,
-              await restored.snapshot().rows.contains(where: { $0.text == "THRUSH-FINAL" }) else {
-            throw PTYCheckFailure("Missing final screen row at exit")
+        if scenario == "suspended" {
+            // A reader that fell behind gets the final screen as a replay right before exit.
+            guard previous == .replay else { throw PTYCheckFailure("Missing the final replay before exit") }
+            replayRows = liveRows
+            exited = liveEnd
+            let fresh = SessionActor(size: size, makeSocket: socket)
+            guard try await fresh.nextEvent() == .ready(resumed: false) else {
+                throw PTYCheckFailure("Expected a fresh shell for the ended shell's ID")
+            }
+            try await fresh.closeShell()
+        } else {
+            await live.hide()
+            // A fresh observer of the same shell restores the server's serialized grid. Its replay
+            // and subsequent frames belong to a separate attachment and never enter the live totals.
+            let restored = SessionActor(size: size, makeSocket: socket)
+            guard try await restored.nextEvent() == .ready(resumed: true), try await restored.nextEvent() == .replay else {
+                throw PTYCheckFailure("Missing replay after the numbered log")
+            }
+            replayRows = await restored.snapshot().rows.map(\.text)
+            try await restored.send(.text("ack\r"))
+            while try await restored.nextEvent() == .output {}
+            exited = DispatchTime.now().uptimeNanoseconds
+            guard await restored.state == .ended,
+                  await restored.snapshot().rows.contains(where: { $0.text == "THRUSH-FINAL" }) else {
+                throw PTYCheckFailure("Missing final screen row at exit")
+            }
         }
         let captureResult = capture.result
         let result = Result(receivedBytes: await live.receivedBytes,

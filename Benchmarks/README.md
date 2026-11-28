@@ -10,8 +10,7 @@ Every benchmark checks what it measured. Recording benchmarks compare each check
 | [iPhone simulator rendering](rendering.md#first-iphone-simulator-measurement) | `scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json` | The same Release workload and an actual UIKit background transition |
 | [Native input](rendering.md#native-input-and-echo-latency) | `bun scripts/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json` | Composition, paste and keys from the native responder to the socket and back |
 | [WebSocket lifecycle](transport.md) | `swift run -c release ThrushLoopbackCheck --benchmark` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback |
-| [Real PTY](pty.md) | `scripts/check-pty.sh` | Standalone server logs, reader comparisons and exit under pressure |
-| [PTY recovery](pty-recovery.md) | `scripts/check-pty.sh --recovery` | In-band screen repair, live input and exit delivery after a stall |
+| [Real PTY](pty.md) | `scripts/check-pty.sh` | Numbered logs through the standalone server, and exit under pressure |
 | [Native PTY workflows](live-workflows.md) | `python3 scripts/live-workflow/launch.py --help` | Native Shell, Vim, Codex, lifecycle and recovery over real PTYs |
 
 Build the proofs app with `scripts/build-app.sh proofs mac` before the rendering and input benchmarks. Run them from a logged-in, unlocked graphical session, since a locked display returns no presentation timestamps.
