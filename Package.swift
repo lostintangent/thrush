@@ -11,17 +11,16 @@ let package = Package(
         .target(name: "ThrushCore"),
         .target(name: "Thrush", dependencies: ["ThrushCore"]),
         // The proofs mount the sample app's window, which they compile from examples/swiftui through Sample.
-        .executableTarget(name: "ThrushProofs", dependencies: ["Thrush", "ThrushRecordings"],
+        .executableTarget(name: "ThrushProofs", dependencies: ["Thrush", "ThrushFixtures"],
                           exclude: ["Sample/SwiftUIExample.swift"]),
         .testTarget(name: "ThrushProofsTests", dependencies: ["ThrushProofs", "Thrush", "ThrushCore"]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
         .target(name: "ThrushPTY"),
         .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore", "ThrushPTY"]),
         .executableTarget(name: "ThrushPTYCheck", dependencies: ["Thrush"]),
-        .target(name: "ThrushRecordings", dependencies: ["ThrushCore"]),
         .target(
             name: "ThrushFixtures",
-            dependencies: ["ThrushCore", "ThrushRecordings"],
+            dependencies: ["ThrushCore"],
             path: "Fixtures",
             exclude: ["reference"],
             resources: [.copy("first-bytes.json"), .copy("recordings"), .copy("reference/m4/phone/vim-resume.json")]

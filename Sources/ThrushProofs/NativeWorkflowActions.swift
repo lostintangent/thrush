@@ -1,5 +1,5 @@
 import Thrush
-import ThrushRecordings
+import ThrushFixtures
 
 #if os(macOS)
 import AppKit

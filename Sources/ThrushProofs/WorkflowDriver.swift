@@ -1,7 +1,7 @@
 import Foundation
 import QuartzCore
 import Thrush
-import ThrushRecordings
+import ThrushFixtures
 
 /// This development-only driver observes the tab's session and drives its native
 /// responder. The terminal protocol stays on the existing socket. A separate loopback HTTP

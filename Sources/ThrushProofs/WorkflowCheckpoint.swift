@@ -1,5 +1,5 @@
 import Thrush
-import ThrushRecordings
+import ThrushFixtures
 
 /// Checks a paused workflow against the recorded checkpoint and the running view.
 package enum WorkflowCheckpoint {
