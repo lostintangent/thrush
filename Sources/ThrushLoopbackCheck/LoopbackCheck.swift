@@ -30,8 +30,13 @@ struct LoopbackCheck {
             try await InBandReplayCheck(endpoint: endpoint).run()
             return
         }
+        if arguments.count == 6, arguments[1] == "--pty", let endpoint = URL(string: arguments[2]) {
+            let directory = URL(filePath: arguments[5], directoryHint: .isDirectory)
+            try await checkPTY(at: endpoint, token: arguments[3], scenario: arguments[4], directory: directory)
+            return
+        }
         guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {
-            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL or ThrushLoopbackCheck --benchmark")
+            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, ThrushLoopbackCheck --pty SERVER_BASE_URL TOKEN SCENARIO DIRECTORY or ThrushLoopbackCheck --benchmark")
         }
 
         let fixture = try FirstBytesFixture.load()

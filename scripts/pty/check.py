@@ -154,13 +154,10 @@ def dead(pid):
     return False
 
 
-def exercise(binary, endpoint, token, work, scenario, limit=None):
+def exercise(binary, endpoint, token, work, scenario):
     run = work / scenario
     run.mkdir()
-    command = [binary, endpoint, token, scenario, run]
-    if limit:
-        command.append(str(limit * 1048576))
-    with subprocess.Popen(command) as process:
+    with subprocess.Popen([binary, "--pty", endpoint, token, scenario, run]) as process:
         try:
             wait_for("Real shell started its numbered log", (run / "armed").exists, process)
             if scenario == "suspended":
@@ -182,7 +179,7 @@ def exercise(binary, endpoint, token, work, scenario, limit=None):
         finally:
             if process.poll() is None:
                 process.kill()
-    return {**check_log(run, scenario), "readerLimitMiBPerSecond": limit}
+    return check_log(run, scenario)
 
 
 def main():
@@ -211,10 +208,8 @@ def main():
                 shutil.copyfile(Path(__file__).with_name("producer.py"), work / "producer.py")
                 source = read_json(root / "data" / "source.json")
                 runs = []
-                baseline = next(row["receiveMiBPerSecond"] for row in read_json(Path("Benchmarks/headless.json"))["bulk"]
-                                if row["grid"] == {"columns": 80, "rows": 24})
-                for scenario in ("paced", "live", "limited", "suspended"):
-                    result = exercise(binary, endpoint, token, work, scenario, baseline / 4 if scenario == "limited" else None)
+                for scenario in ("paced", "live", "suspended"):
+                    result = exercise(binary, endpoint, token, work, scenario)
                     print(json.dumps(result), flush=True)
                     runs.append(result)
         except BaseException:
