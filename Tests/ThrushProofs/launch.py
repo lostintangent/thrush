@@ -29,6 +29,8 @@ RECORDINGS = {"shell": "shell-workflow", "vim": "vim-resume", "codex": "codex-se
 ORIGIN = re.compile(r"http://127\.0\.0\.1:[0-9]+")
 CODEX_VERSION = "codex-cli 0.166.0"
 BUNDLE_ID = "app.thrush.proofs"
+# The host writes a crashed proofs app's report here, for the Mac app and the iPhone Simulator's alike.
+CRASH_REPORTS = Path.home() / "Library/Logs/DiagnosticReports"
 # Longer than the native driver's 150 seconds without a new controller phase.
 DRIVER_PATIENCE = 180
 # The iPhone Duo's grids with the keyboard up, as the phone recordings measured them.
@@ -298,6 +300,27 @@ def await_report(name, host, controller, driver, output, platform, target):
         time.sleep(0.1)
 
 
+def retain_crash_reports(output, since):
+    """Keep the proofs app's crash reports from this launch, since the app's console prints nothing for a trap."""
+    deadline = time.monotonic() + 15
+    while not (reports := [path for path in CRASH_REPORTS.glob("ThrushProofs*.ips") if path.stat().st_mtime >= since]):
+        if time.monotonic() >= deadline:
+            print("The proofs app left no crash report.", file=sys.stderr)
+            return
+        time.sleep(0.5)
+    for report in reports:
+        shutil.copy2(report, output / report.name)
+        try:
+            crash = json.loads(report.read_text().split("\n", 1)[1])
+            images = crash["usedImages"]
+            frames = next(thread["frames"] for thread in crash["threads"] if thread.get("triggered"))
+            summary = ", ".join(f"{frame.get('symbol', '?')} in {images[frame['imageIndex']].get('name', '?')}"
+                                for frame in frames[:8])
+            print(f"The proofs app crashed with {crash['exception']['type']}: {summary}", file=sys.stderr)
+        except (IndexError, KeyError, StopIteration, ValueError):
+            print(f"The proofs app crashed. See {report.name}", file=sys.stderr)
+
+
 def recorded_events(name):
     return json.loads((ROOT / "Fixtures/recordings" / f"{RECORDINGS[name]}.json").read_bytes())["events"]
 
@@ -373,6 +396,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                 try:
                     if device and trace:
                         processes.enter_context(simulator.record_screen(device, output / "lifecycle.mov"))
+                    launched = time.time()
                     host = processes.enter_context(service([*command, *options], output / "app.log",
                                                            os.environ if device else env))
                     if not device:
@@ -397,6 +421,8 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         (output / "controller-at-failure.json").write_text(json.dumps(observations, indent=2) + "\n")
                     except (OSError, ValueError) as error:
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
+                    if host is not None and host.poll() is not None:
+                        retain_crash_reports(output, launched)
                     if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
                         try:
                             simulator.screenshot(device, output / "view-at-failure.png", timeout=20)
