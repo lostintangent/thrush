@@ -48,7 +48,7 @@ package actor SessionActor {
     }
 
     let transport: any Transport
-    var terminal: Terminal
+    package internal(set) var terminal: Terminal
     var requestedSize: Terminal.Size
     /// Opening, parking or closing a transport starts a new lifetime. Work begun in an earlier one is cancelled.
     var lifetime: UInt64 = 0
@@ -57,8 +57,8 @@ package actor SessionActor {
     var lastWrite: Task<Void, Error>?
 
     package internal(set) var state: State
-    package internal(set) var hasSeenReady = false
-    package internal(set) var lastReceiptTime: CFTimeInterval?
+    var hasSeenReady = false
+    var lastReceiptTime: CFTimeInterval?
     /// The terminal applies every byte in the same turn that receives it.
     package private(set) var receivedBytes = 0
 
@@ -130,7 +130,6 @@ package actor SessionActor {
 
     package func text(inRow row: Int) -> String { terminal.text(inRow: row) }
     package func snapshot() -> Terminal.Snapshot { terminal.snapshot() }
-    package var currentTerminal: Terminal { terminal }
 
     /// Applies the app's theme. Its background decides whether the theme is dark or light, whatever
     /// colors the program set, and a program that set mode 2031 hears each change.

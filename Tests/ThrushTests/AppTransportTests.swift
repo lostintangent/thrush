@@ -192,7 +192,7 @@ private actor RecordingTransport: TerminalTransport {
     try #require(await successor.actor.show())
     try #require(try await successor.actor.nextEvent() == .ready(resumed: false))
     #expect(session.hasEnded && !successor.hasEnded)
-    #expect(await actor.currentTerminal.cursorColor == cursor)
+    #expect(await actor.terminal.cursorColor == cursor)
     #expect(await successor.actor.text(inRow: 0) == "")
     #expect(await second.writes.isEmpty)
     try await successor.close()

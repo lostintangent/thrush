@@ -108,7 +108,7 @@ struct ReconnectCheck {
         let delivered = ["ambiguous", "\u{1B}OA", "\u{1B}[200~a\rb\u{1B}[201~", "\u{1B}OD"]
         let editor = await session.snapshot()
         guard editor.isAlternate, editor.rows[0].text == "ok", editor.modes.applicationCursorKeys,
-              editor.modes.bracketedPaste, await session.currentTerminal.title == "Original shell",
+              editor.modes.bracketedPaste, await session.terminal.title == "Original shell",
               writes.all == delivered else {
             throw Failure("Buffered input did not drain exactly once in order")
         }
@@ -122,7 +122,7 @@ struct ReconnectCheck {
         try await expect(.replaced, from: session)
         let fresh = await session.snapshot()
         guard await session.state == .live, !fresh.isAlternate, !fresh.modes.applicationCursorKeys,
-              !fresh.modes.bracketedPaste, await session.currentTerminal.title.isEmpty,
+              !fresh.modes.bracketedPaste, await session.terminal.title.isEmpty,
               fresh.history.map(\.text).filter({ !$0.isEmpty }) == ["saved-main"], fresh.rows.allSatisfy({ $0.text.isEmpty }),
               await clock.delays == schedule + [.milliseconds(250)], writes.all == delivered + ["again"] else {
             throw Failure("Replacement must archive the main screen, reset shell state and discard its held input")

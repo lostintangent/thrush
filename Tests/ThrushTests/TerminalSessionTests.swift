@@ -54,7 +54,7 @@ import Testing
     func output(_ text: String, expecting expected: SessionActor.Event = .output) async throws {
         try peer.send(text, opcode: .binary)
         #expect(try await session.actor.nextEvent() == expected)
-        #expect(await session.actor.currentTerminal.cursorColor == theme.cursor)
+        #expect(await session.actor.terminal.cursorColor == theme.cursor)
     }
 
     #expect(session.title.isEmpty && !session.hasEnded)
@@ -88,7 +88,7 @@ import Testing
     try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
     try peer.send("\u{1b}]2;\u{7}restored output", opcode: .binary)
     #expect(try await session.actor.nextEvent() == .replay)
-    #expect(await session.actor.currentTerminal.cursorColor == theme.cursor)
+    #expect(await session.actor.terminal.cursorColor == theme.cursor)
     #expect(session.title.isEmpty && titleChanges.count == 3 && endChanges.count == 0)
 
     try await output("\u{1b}]2;Finished\u{7}")
