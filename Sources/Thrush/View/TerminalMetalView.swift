@@ -439,9 +439,6 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         programColors.resolve(slot, palette: resolvedTheme.palette, cursor: resolvedTheme.cursor)
     }
 
-    /// Whether the background the view draws is dark, for the bars an app lays over it.
-    package var drawsDarkBackground: Bool { color(.background).isDark }
-
     private func backgroundChanged() {
         applyClearColor()
         onBackgroundChange?()
@@ -500,11 +497,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     }
 
     /// Displays the latest state of the terminal, preserving the viewport's selection and scroll position when possible.
-    package func display(_ terminal: Terminal) {
-        display(terminal, receivedAt: nil)
-    }
-
-    package func display(_ terminal: Terminal, receivedAt: CFTimeInterval?) {
+    package func display(_ terminal: Terminal, receivedAt: CFTimeInterval? = nil) {
         display(terminal.snapshot(), receivedAt: receivedAt)
     }
 
