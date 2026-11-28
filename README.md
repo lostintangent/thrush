@@ -129,19 +129,29 @@ The package carries ThrushCore as a 333 KB WebAssembly module and starts it sync
 
 ## Try the sample app
 
+The sample in `examples/swiftui` is one SwiftUI app for Mac and iPhone whose only dependency is the `Thrush` library product. `SwiftUIExample.swift` opens the window, `ShellWindow.swift` shows a `TerminalView` and offers **New Shell** once the shell ends, and `ShellTab.swift` opens each session's WebSocket.
+
 From the repository root, start the local server. It prints its loopback URL and opens a real shell when the app connects.
 
 ```sh
 swift run ThrushServer
 ```
 
-In a second terminal, build and open the Mac app. The same server works with the iPhone Simulator.
+In a second terminal, build and open the Mac app.
 
 ```sh
 scripts/build-app.sh sample mac && open .build/sample/mac/Thrush.app
 ```
 
-`scripts/build-app.sh sample simulator` builds the iPhone app. Launch either app with `-endpoint ws://host:port` to use another server. [Running the sample app](docs/sample.md)
+The same server works with the iPhone Simulator.
+
+```sh
+scripts/build-app.sh sample simulator
+xcrun simctl install booted .build/sample/simulator/Thrush.app
+xcrun simctl launch booted app.thrush.sample
+```
+
+Launch either app with `-endpoint ws://host:port` to use another server.
 
 ## Benchmarks
 

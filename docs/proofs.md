@@ -1,6 +1,6 @@
 # Prove Thrush in the sample's window
 
-ThrushProofs is the internal app that proves Thrush in the [sample app](sample.md)'s own window. It compiles the sample's `ShellWindow.swift` and `ShellTab.swift` by path, hands its `TerminalView` a package-scoped probe and adds the recorded scenes, checks, captures and benchmarks around it. Nothing it adds is public API.
+ThrushProofs is the internal app that proves Thrush in the [sample app](../README.md#try-the-sample-app)'s own window. It compiles the sample's `ShellWindow.swift` and `ShellTab.swift` by path, hands its `TerminalView` a package-scoped probe and adds the recorded scenes, checks, captures and benchmarks around it. Nothing it adds is public API.
 
 ```sh
 scripts/build-app.sh proofs mac
