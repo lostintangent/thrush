@@ -124,7 +124,7 @@ private actor LocalShellPTY: TerminalTransport {
     await actor.hide()
     try Data().write(to: gate)
     try await waitForPTY("output produced while hidden") { await actor.text(inRow: 2) == "HIDDEN \(shell.pid)" }
-    let showing = await session.show(userInitiated: false, theme: .dark)
+    let showing = await session.actor.show(userInitiated: false, palette: TerminalTheme.dark.palette, cursor: TerminalTheme.dark.cursor)
     #expect(showing.state == .live)
     #expect(showing.screen?.rows[0].text == first)
     #expect(showing.screen?.rows[2].text == "HIDDEN \(shell.pid)")

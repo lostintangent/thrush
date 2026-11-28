@@ -148,7 +148,7 @@ import ThrushCore
             #endif
             canvas.terminal.onGridSizeChange = { [weak self] in self?.resize($0) }
             canvas.terminal.onThemeChange = { [weak self] theme in
-                self?.perform { session, _ in await session.setTheme(theme) }
+                self?.perform { session, _ in await session.actor.setPalette(theme.palette, cursor: theme.cursor) }
             }
             canvas.terminal.beforeOutputDraw = { [weak self] in self?.presentOutput() }
             canvas.terminal.onInput = { [weak self] in self?.input($0) }
@@ -208,7 +208,7 @@ import ThrushCore
             guard focused != reportedFocus, let session = view?.session else { return }
             reportedFocus = focused
             // A detached or reconnecting shell hears the current focus from its replay instead.
-            enqueue { try? await session.setFocused(focused) }
+            enqueue { try? await session.actor.setFocused(focused) }
         }
 
         fileprivate func dismantle(_ surface: AnyObject) {
@@ -240,7 +240,7 @@ import ThrushCore
             metalView?.finishFinalFrame()
             metalView?.setDrawingVisible(false)
             if previouslyActive, let session = view?.session {
-                enqueue { await session.hide() }
+                enqueue { await session.actor.hide() }
             }
         }
 
@@ -271,7 +271,7 @@ import ThrushCore
                 // One layout can pass through several grids, as when a window toolbar's safe area settles after
                 // the window resizes. The shell hears only the grid it settles on.
                 guard let self, size == measured else { return }
-                let screen = try await session.resize(to: measured, needsScreen: reader != nil && phase == .live)
+                let screen = try await session.actor.resize(to: measured, needsScreen: reader != nil && phase == .live)
                 guard lifetime == stamp else { return }
                 if reader == nil {
                     await start(session, userInitiated: false, stamp: stamp)
@@ -298,7 +298,7 @@ import ThrushCore
             if case .pointer = input, phase != .live { return }
             // A queued keystroke belongs to the shell that was on screen when it was typed.
             let revision = shellRevision
-            perform { session, _ in try await session.send(input, forShell: revision) }
+            perform { session, _ in try await session.actor.send(input, forShell: revision) }
         }
 
         private func reclaim() {
@@ -314,7 +314,8 @@ import ThrushCore
 
         private func start(_ session: TerminalSession, userInitiated: Bool, stamp: UInt64) async {
             guard lifetime == stamp, active, reader == nil, let metalView else { return }
-            let showing = await session.show(userInitiated: userInitiated, theme: metalView.resolvedTheme)
+            let theme = metalView.resolvedTheme
+            let showing = await session.actor.show(userInitiated: userInitiated, palette: theme.palette, cursor: theme.cursor)
             guard lifetime == stamp else { return }
             shellRevision = showing.shellRevision
             switch showing.state {
@@ -411,7 +412,7 @@ import ThrushCore
         }
 
         private func handleError(stamp: UInt64) async {
-            guard lifetime == stamp, active, let status = await view?.session.statusAfterError() else { return }
+            guard lifetime == stamp, active, let status = await view?.session.actor.statusAfterError() else { return }
             guard lifetime == stamp, active else { return }
             await apply(status, stamp: stamp)
         }

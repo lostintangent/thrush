@@ -39,7 +39,7 @@ import Testing
     }
     var theme = TerminalTheme.dark
     theme.cursor = .init(red: 29, green: 103, blue: 197)
-    await session.setTheme(theme)
+    await session.actor.setPalette(theme.palette, cursor: theme.cursor)
     let titleChanges = ChangeCount()
     let endChanges = ChangeCount()
     titleChanges.observe { _ = session.title }
@@ -276,24 +276,26 @@ private struct AppliedFrames: WebSocketFrameTrace {
     var warmDark = TerminalTheme.dark
     warmDark.palette = .init(foreground: warmDark.palette.foreground, background: .init(red: 0x1c, green: 0x1a, blue: 0x18), ansi: warmDark.palette.ansi)
 
+    func use(_ theme: TerminalTheme) async { await session.actor.setPalette(theme.palette, cursor: theme.cursor) }
+
     // Only a flip between dark and light is reported, not another theme of the same appearance or a
     // background the program set.
-    await session.setTheme(.dark)
+    await use(.dark)
     try #require(await session.actor.show())
     #expect(try await session.actor.nextEvent() == .ready(resumed: false))
     try peer.send(reports + "\u{1b}]11;#ffffff\u{7}", opcode: .binary)
     #expect(try await session.actor.nextEvent() == .output)
-    await session.setTheme(warmDark)
-    await session.setTheme(.light)
-    await session.setTheme(.light)
-    await session.setTheme(.dark)
+    await use(warmDark)
+    await use(.light)
+    await use(.light)
+    await use(.dark)
     try await expectWrites([light, dark], through: "1")
 
     // Another attachment may have told the shell otherwise, so a resumed program hears the current
     // appearance once, whether or not it changed while the shell was detached.
     // A drop discards whatever the peer hasn't read yet, so the first resume's report must arrive before it.
     await session.actor.hide()
-    await session.setTheme(.light)
+    await use(.light)
     try await resume(replaying: reports)
     try await expectWrites([light, dark, "1", light], through: "2")
     try await resume(replaying: reports, afterDrop: true)

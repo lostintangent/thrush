@@ -103,26 +103,6 @@ extension TerminalSession {
         /// The shell that input typed over this screen belongs to.
         let shellRevision: UInt64
     }
-
-    func show(userInitiated: Bool, theme: TerminalTheme) async -> Showing {
-        await actor.show(userInitiated: userInitiated, palette: theme.palette, cursor: theme.cursor)
-    }
-
-    func hide() async { await actor.hide() }
-
-    func setTheme(_ theme: TerminalTheme) async { await actor.setPalette(theme.palette, cursor: theme.cursor) }
-
-    func setFocused(_ focused: Bool) async throws { try await actor.setFocused(focused) }
-
-    func send(_ input: Terminal.Input, forShell revision: UInt64) async throws {
-        try await actor.send(input, forShell: revision)
-    }
-
-    func resize(to size: Terminal.Size, needsScreen: Bool) async throws -> Terminal.Snapshot? {
-        try await actor.resize(to: size, needsScreen: needsScreen)
-    }
-
-    func statusAfterError() async -> Update? { await actor.statusAfterError() }
 }
 
 extension SessionActor {
@@ -143,9 +123,7 @@ extension SessionActor {
             guard await deliver(update) else { return }
         }
     }
-}
 
-private extension SessionActor {
     func show(userInitiated: Bool, palette: Terminal.Palette, cursor: Terminal.RGB) async -> TerminalSession.Showing {
         // An app transport kept its shell while the view was hidden, so that shell hears a new appearance now.
         await setPalette(palette, cursor: cursor)
@@ -159,7 +137,7 @@ private extension SessionActor {
         return needsScreen && state == .live ? snapshot() : nil
     }
 
-    func update(_ event: Event) -> TerminalSession.Update {
+    private func update(_ event: Event) -> TerminalSession.Update {
         .init(event: event, screen: snapshot(), receivedAt: lastReceiptTime, shellRevision: shellRevision)
     }
 
