@@ -15,8 +15,7 @@ let package = Package(
                           exclude: ["Sample/SwiftUIExample.swift"]),
         .testTarget(name: "ThrushProofsTests", dependencies: ["ThrushProofs", "Thrush", "ThrushCore"]),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
-        .target(name: "ThrushPTY"),
-        .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore", "ThrushPTY"]),
+        .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore"]),
         .target(
             name: "ThrushFixtures",
             dependencies: ["ThrushCore"],

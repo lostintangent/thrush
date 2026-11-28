@@ -10,7 +10,6 @@ on:
       - Sources/ThrushCore/**
       - Sources/ThrushProofs/**
       - Sources/ThrushServer/**
-      - Sources/ThrushPTY/**
       - examples/swiftui/**
       - scripts/build-app.sh
       - scripts/pty/**

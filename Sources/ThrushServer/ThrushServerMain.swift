@@ -1,5 +1,4 @@
 import Foundation
-import ThrushPTY
 
 @main
 enum ThrushServerMain {
@@ -13,7 +12,7 @@ enum ThrushServerMain {
 
     private static func run() throws {
         let command = CommandLine.arguments
-        if command.count == 3, command[1] == "--pty-child" { exit(thrush_run_child(command[2])) }
+        if command.count == 3, command[1] == "--pty-child" { exit(PseudoTerminal.supervise(shell: command[2])) }
         var port: UInt16 = 9138
         var shell = "/bin/zsh"
         var dataDirectory: URL?

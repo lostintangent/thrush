@@ -86,7 +86,7 @@ private final class Server: @unchecked Sendable {
     let done = DispatchSemaphore(value: 0)
     let cleanup = DispatchGroup()
     let listener: NWListener
-    let executable: String
+    let shellPath: String
     let directory: URL
     let environment: [String: String]
     var failure: NWError?
@@ -94,8 +94,8 @@ private final class Server: @unchecked Sendable {
     private var shells: [String: Shell] = [:]
     private var signals: [DispatchSourceSignal] = []
 
-    init(port: UInt16, executable: String, directory: URL, environment: [String: String]) throws {
-        self.executable = executable
+    init(port: UInt16, shellPath: String, directory: URL, environment: [String: String]) throws {
+        self.shellPath = shellPath
         self.directory = directory
         self.environment = environment
         let params = NWParameters.tcp
@@ -174,7 +174,7 @@ private final class Server: @unchecked Sendable {
         } else {
             guard shells.count < 16 else { attachment.close(.protocolCode(.policyViolation)); return }
             do {
-                let pty = try PseudoTerminal(shell: executable, directory: directory, environment: environment, request: request, queue: queue, cleanup: cleanup)
+                let pty = try PseudoTerminal(shell: shellPath, directory: directory, environment: environment, request: request, queue: queue, cleanup: cleanup)
                 shell = Shell(request, pty)
             } catch {
                 attachment.close(.protocolCode(.internalServerError))
@@ -245,7 +245,7 @@ private final class Server: @unchecked Sendable {
 }
 
 func startServer(port: UInt16, shell: String, directory: URL, environment: [String: String]) throws {
-    let server = try Server(port: port, executable: shell, directory: directory, environment: environment)
+    let server = try Server(port: port, shellPath: shell, directory: directory, environment: environment)
     server.run()
     if let error = server.failure { throw error }
 }
