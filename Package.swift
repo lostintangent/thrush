@@ -25,7 +25,8 @@ let package = Package(
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"],
                           path: "Benchmarks/ThrushBench"),
-        .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore", "ThrushFixtures"],
+                          path: "Tests/ThrushConformance"),
         .testTarget(
             name: "ThrushConformanceTests",
             dependencies: ["ThrushConformance", "ThrushFixtures"],
