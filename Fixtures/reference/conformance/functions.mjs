@@ -292,6 +292,9 @@ const reports = {
 for (const [subject, sequence] of Object.entries(reports)) probe(subject, '', positions.middle, sequence);
 probe('DSR 6', 'at a pending wrap', positions['pending wrap'], `${CSI}6n`);
 probe('DECDSR 6', 'at a pending wrap', positions['pending wrap'], `${CSI}?6n`);
+probe('XTWINOPS 22;2', 'after a title', `${positions.middle}${OSC}2;original${BEL}`, `${CSI}22;2t`);
+probe('XTWINOPS 23;2', 'after a push and a new title',
+  `${positions.middle}${OSC}2;original${BEL}${CSI}22;2t${OSC}0;replacement${BEL}`, `${CSI}23;2t`);
 probe('kitty keyboard query', 'after pushes, a pop and each kind of set', positions.middle,
   `${CSI}>1u${CSI}>5u${CSI}?u${CSI}<u${CSI}?u${CSI}=4;2u${CSI}?u${CSI}=4;3u${CSI}?u${CSI}=4u${CSI}?u`);
 probe('kitty keyboard query', 'on each screen', positions.middle,
@@ -429,6 +432,8 @@ probe('TBC 3', 'then CHT', `${CSI}2;1H`, `${CSI}3g${CSI}I`);
 probe('BS', 'twice over a wide character', `${CSI}3;9H`, '\b\b');
 probe('CAN', 'inside a CSI', positions.middle, `${CSI}1\x18m`);
 probe('SUB', 'inside a CSI', positions.middle, `${CSI}1\x1am`);
+probe('CAN', 'inside an OSC title', `${positions.middle}${OSC}2;kept${BEL}`, `${OSC}0;cancelled\x18`, 'after');
+probe('SUB', 'inside an OSC title', `${positions.middle}${OSC}2;kept${BEL}`, `${OSC}2;cancelled\x1a`, 'after');
 probe('ESC', 'inside a CSI', positions.middle, `${CSI}1${ESC}[4m`);
 probe('C0', 'inside a CSI', positions.middle, `${CSI}1\r;4m`);
 probe('C0', 'inside an OSC', positions.middle, `${OSC}2;ti\rtle${BEL}`);
@@ -541,6 +546,8 @@ for (const [subject, sequence] of Object.entries(strings)) {
   const family = name === 'OSC' && /^\d+$/.test(rest[0]) ? `OSC ${rest.shift()}` : name;
   probe(family, rest.join(' ') || '', positions.middle, sequence, 'after');
 }
+probe('OSC 0', 'by C1 controls', positions.middle, '\u009d0;window\u009c', 'after');
+add('OSC 2', 'first, after a byte order mark', `\uFEFF${OSC}2;build 界e\u0301${BEL}`, { checkpoint: 'subject' }, '*');
 
 // Links. Each one opens on a target, and the marker shows whether the pen still carries it.
 const link = (target = 'https://a.example', parameters = '') => `${OSC}8;${parameters};${target}${BEL}`;
