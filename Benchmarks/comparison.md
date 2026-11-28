@@ -104,19 +104,19 @@ xterm and Thrush finish with `a` on row 9 and ` b` on row 10. libghostty-vt fini
 
 ## Where Thrush spends its time
 
-Shares of all samples in the [recorded profile](comparison-profile.json), taken at `b3d9f29` with 1,758 to 2,113 samples per workload. Each of the 20 functions with the most self time in a workload belongs to at most one category. Unclassified functions and the rest of the samples account for the remainder.
+Shares of all samples in the [recorded profile](comparison-profile.json), taken at `a33dbed` with 1,420 to 2,313 samples per workload. Each of the 20 functions with the most self time in a workload belongs to at most one category. Unclassified functions and the rest of the samples account for the remainder.
 
 | Workload | Scrolling | Allocation and ownership | Cell writes | Parsing and dispatch | Write loop, decode and scan | Top functions |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| shell | 4% | 11% | 33% | 6% | 22% | `Screen.print` 17%, `write` 11%, `TextScanner.decodeText<let A>` 9% |
-| vim | 1% | 9% | 22% | 20% | 20% | `write` 15%, `Row.writeASCII` 8%, `Style.applySGR` 7% |
-| codex | 0% | 2% | 12% | 49% | 20% | `write` 17%, `Style.applySGR` 10%, `Parser.readSequence` 9% |
-| ascii | 14% | 10% | 39% | 0% | 28% | `Row.writeASCII` 29%, `TextScanner.endOfASCII` 19%, `Buffer.scroll` 13% |
-| sgr | 0% | 7% | 23% | 45% | 18% | `Style.applySGR` 29%, `Parser.endOfParameters` 16%, `write` 15% |
-| wide | 3% | 2% | 26% | 0% | 64% | `TextScanner.decodeText<let A>` 57%, `Screen.print` 22%, `write` 6% |
-| cursor | 0% | 3% | 50% | 26% | 18% | `Row.set` 14%, `Row.writeASCII` 14%, `write` 14% |
-| scroll | 16% | 10% | 42% | 0% | 28% | `Row.writeASCII` 29%, `write` 22%, `Buffer.scroll` 16% |
-| region | 46% | 5% | 27% | 2% | 17% | `_platform_memmove` 25%, `Row.writeASCII` 19%, `write` 13% |
+| shell | 3% | 13% | 34% | 7% | 20% | `Screen.print` 18%, `write` 10%, `TextScanner.decodeText<let A>` 8% |
+| vim | 0% | 8% | 20% | 23% | 19% | `write` 15%, `Style.applySGR` 9%, `Row.writeASCII` 8% |
+| codex | 0% | 3% | 9% | 52% | 21% | `write` 18%, `Style.applySGR` 12%, `Parser.readSequence` 10% |
+| ascii | 13% | 10% | 42% | 0% | 27% | `Row.writeASCII` 30%, `TextScanner.endOfASCII` 18%, `Buffer.scroll` 13% |
+| sgr | 0% | 7% | 19% | 46% | 20% | `Style.applySGR` 31%, `write` 16%, `Parser.endOfParameters` 15% |
+| wide | 3% | 3% | 27% | 0% | 63% | `TextScanner.decodeText<let A>` 55%, `Screen.print` 22%, `write` 7% |
+| cursor | 0% | 4% | 51% | 25% | 18% | `Row.writeASCII` 15%, `Row.set` 15%, `write` 13% |
+| scroll | 18% | 8% | 42% | 0% | 29% | `Row.writeASCII` 29%, `write` 23%, `Buffer.scroll` 18% |
+| region | 49% | 3% | 27% | 2% | 16% | `_platform_memmove` 26%, `Row.writeASCII` 20%, `write` 11% |
 
 - **Scrolling** advances lines, appends history, clears recycled rows and rotates scroll regions. On the scroll region most of it is the memory move that rotating row values compiles to.
 - **Allocation and ownership** is malloc, free, retain, release, uniqueness checks and hashing.
@@ -151,5 +151,5 @@ At 80 × 24 Thrush trails libghostty-vt on the scroll region and is even with it
 | wide | 1.00× | Decoding wide text |
 | region | 0.73× | Rotating row values |
 
-- **Decoding wide text.** Thrush decodes a run before printing it, as libghostty-vt does, and retires about 13% more instructions per pass on wide text. `TextScanner.decodeText` takes 57% of samples and the screen's print of a run 22%. The two cores are even here, within the spread between rounds, and Thrush leads on wide text at 240 × 60.
-- **Rotating row values.** Scrolling a region rotates the 64-byte `Row` values between its margins, and the memory move, `Array.rotate` and `Buffer.rotate` take 39% of samples on the scroll region. Thrush retires about 46% more instructions per pass there. libghostty-vt moves 8-byte row offsets instead.
+- **Decoding wide text.** Thrush decodes a run before printing it, as libghostty-vt does, and retires about 13% more instructions per pass on wide text. `TextScanner.decodeText` takes 55% of samples and the screen's print of a run 22%. The two cores are even here, within the spread between rounds, and Thrush leads on wide text at 240 × 60.
+- **Rotating row values.** Scrolling a region rotates the 64-byte `Row` values between its margins, and the memory move, `Array.rotate` and `Buffer.rotate` take 40% of samples on the scroll region. Thrush retires about 46% more instructions per pass there. libghostty-vt moves 8-byte row offsets instead.
