@@ -24,7 +24,7 @@ xcrun simctl launch --terminate-running-process "$udid" app.thrush.proofs --scen
 
 Run the full hosted simulator check from this checkout with `gh workflow run headless.yml --ref main`. The “iPhone simulator proof” job builds the app, starts its loopback peer and boots a disposable iPhone Duo. The job’s artifact contains the original screen captures, native grid and keyboard measurements, a recording of the live system appearance switch, and the render benchmark.
 
-To capture a single registered scene, pass its name, system appearance, orientation and expected keyboard state. The same command supports scenes supplied by the app that embeds the view. Use the optional `oracle` input for a repository checker under `scripts/` that accepts the captured PNG, scene and appearance.
+To capture a single registered scene, pass its name, system appearance, orientation and expected keyboard state. The same command supports scenes supplied by the app that embeds the view.
 
 ```sh
 gh workflow run headless.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible

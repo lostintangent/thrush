@@ -307,7 +307,7 @@ class Phone:
             return upright
         return raw
 
-    def frame(self, scene, appearance, orientation, keyboard, pid, oracle, previous=None, layout_only=False, spinner=None, suffix=""):
+    def frame(self, scene, appearance, orientation, keyboard, pid, checked, previous=None, layout_only=False, spinner=None, suffix=""):
         name = f"{scene}-{appearance}-{orientation}{suffix}"
         path = self.out / (name + ".png")
         last_error = "The scene has not reported a GPU-completed draw."
@@ -375,9 +375,9 @@ class Phone:
                 if keys.returncode:
                     last_error = (keys.stdout + keys.stderr).strip()
                     return False
-            if oracle:
-                command = [sys.executable, str(oracle), str(upright), scene, appearance]
-                if scene == "editor" and oracle == ORACLE:
+            if checked:
+                command = [sys.executable, str(ORACLE), str(upright), scene, appearance]
+                if scene == "editor":
                     metadata = self.scratch / "submitted-frame.json"
                     save_json(metadata, state)
                     command += ["--metadata", str(metadata)]
@@ -433,10 +433,11 @@ class Phone:
         if failures:
             raise RuntimeError("iPhone checks failed: " + ", ".join(failures))
 
-    def capture_named(self, scene, options, oracle):
+    def capture_named(self, scene, options):
         keyboard = options.keyboard
         pid = self.launch(scene, options.appearance, options.orientation, keyboard)
-        self.frame(scene, options.appearance, options.orientation, keyboard, pid, oracle, layout_only=options.layout_only)
+        self.frame(scene, options.appearance, options.orientation, keyboard, pid, scene in PIXEL_CHECKED_SCENES,
+                   layout_only=options.layout_only)
 
     def capture_spinners(self, options, toolbar=False):
         proof = runpy.run_path(str(ROOT / "scripts/interaction-capture/spinner.py"))
@@ -453,7 +454,7 @@ class Phone:
             first_waits = scene == "spinner-opening"
             def capture(waiting):
                 suffix = "-waiting" if waiting else "-live"
-                native = self.frame(scene, options.appearance, options.orientation, keyboard, pid, None,
+                native = self.frame(scene, options.appearance, options.orientation, keyboard, pid, False,
                                     spinner=waiting, suffix=suffix)
                 image = self.out / f"{scene}-{options.appearance}-{options.orientation}{suffix}.png"
                 return image, native
@@ -473,14 +474,14 @@ class Phone:
 
     def capture_scene(self, scene, appearance, orientation):
         pid = self.launch(scene, appearance, orientation, "visible")
-        self.frame(scene, appearance, orientation, "visible", pid, ORACLE)
+        self.frame(scene, appearance, orientation, "visible", pid, True)
 
     def capture_switch(self):
         pid = self.launch("glyphs", "dark", "portrait", "visible")
-        dark = self.frame("glyphs", "dark", "portrait", "visible", pid, ORACLE)
+        dark = self.frame("glyphs", "dark", "portrait", "visible", pid, True)
         with self.record_switch():
             self.set_appearance("light")
-            light = self.frame("glyphs", "light", "portrait", "visible", pid, ORACLE,
+            light = self.frame("glyphs", "light", "portrait", "visible", pid, True,
                                self.out / "glyphs-dark-portrait.png")
         for key in ("pid", "generation", "columns", "rows", "selection"):
             if dark[key] != light[key]:
@@ -516,39 +517,28 @@ def prepare_workflow_phone(device, app, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
-    parser.add_argument("--app", type=Path, help="A packaged simulator app. By default the script builds the current checkout.")
     parser.add_argument("--scene", default="", help="A demo scene, 'cursor-spinners' for opening and reconnecting, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the pane beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
     parser.add_argument("--keyboard", choices=("visible", "hidden", "any"), default="any")
-    parser.add_argument("--oracle", default="", help="Optional Python checker under scripts/. Receives PNG, scene and appearance.")
     args = parser.parse_args()
     if args.scene and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,64}", args.scene):
         parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
-    if args.layout_only and (not args.scene or args.oracle):
+    if args.layout_only and not args.scene:
         parser.error("--layout-only requires a named scene and provides native metadata only.")
-    if args.scene in {"render-benchmark", "cursor-spinners", *SPINNER_SCENES, "reconnect-typing", "toolbar-proof", "text-blink", "program-colors", "under-bars"} and (args.layout_only or args.oracle):
+    if args.scene in {"render-benchmark", "cursor-spinners", *SPINNER_SCENES, "reconnect-typing", "toolbar-proof", "text-blink", "program-colors", "under-bars"} and args.layout_only:
         parser.error("The named workload produces its own evidence.")
-    oracle = None
-    if args.oracle:
-        oracle = (ROOT / args.oracle).resolve()
-        if (not args.scene or not oracle.is_relative_to(ROOT / "scripts") or
-                oracle.suffix != ".py" or not oracle.is_file()):
-            parser.error("A named scene's oracle must be a Python file in scripts/.")
-    elif args.scene in PIXEL_CHECKED_SCENES:
-        oracle = ORACLE
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("The output directory must be empty.")
-    app = args.app.resolve() if args.app else ROOT / ".build/proofs/simulator/Thrush.app"
-    if not args.app:
-        build = run("scripts/build-app.sh", "proofs", "simulator", timeout=400, check=False)
-        (out / "build.log").write_text(build.stdout + build.stderr)
-        if build.returncode:
-            raise RuntimeError("Simulator packaging failed: " + (build.stdout + build.stderr)[-1600:])
+    app = ROOT / ".build/proofs/simulator/Thrush.app"
+    build = run("scripts/build-app.sh", "proofs", "simulator", timeout=400, check=False)
+    (out / "build.log").write_text(build.stdout + build.stderr)
+    if build.returncode:
+        raise RuntimeError("Simulator packaging failed: " + (build.stdout + build.stderr)[-1600:])
     with (app / "Info.plist").open("rb") as f:
         info = plistlib.load(f)
     save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
@@ -579,7 +569,7 @@ def main():
             elif args.scene == "reconnect-typing":
                 runpy.run_path(str(ROOT / "scripts/interaction-capture/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
             elif args.scene:
-                phone.capture_named(args.scene, args, oracle)
+                phone.capture_named(args.scene, args)
             else:
                 phone.suite()
         except Exception:

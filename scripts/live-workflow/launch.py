@@ -463,7 +463,6 @@ def main():
     parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"),
                         help="Select workflows. Defaults to shell, vim, codex and lifecycle; recovery exercises a stalled reader.")
     parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames, plus an iPhone Simulator movie, for the lifecycle workflow")
-    parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
     parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")
     args = parser.parse_args()
@@ -475,7 +474,7 @@ def main():
     if args.bash is None:
         parser.error("Pass --bash pointing to GNU Bash with Readline bracketed paste")
     out = args.output.resolve()
-    app = args.app.resolve() if args.app else ROOT / ".build/proofs" / args.platform / "Thrush.app"
+    app = ROOT / ".build/proofs" / args.platform / "Thrush.app"
     bash = Path(args.bash).absolute()
     codex = Path(args.codex_bin).absolute() if args.codex_bin else None
     os.chdir(ROOT)
@@ -483,11 +482,10 @@ def main():
     if any(out.iterdir()):
         parser.error("The output directory must be empty")
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
-    if not args.app:
-        # Xcode can mount a read-only Metal toolchain under the build user's home.
-        with (out / "build.log").open("xb") as log:
-            subprocess.run([ROOT / "scripts/build-app.sh", "proofs", args.platform], stdout=log,
-                           stderr=subprocess.STDOUT, timeout=900, check=True)
+    # Xcode can mount a read-only Metal toolchain under the build user's home.
+    with (out / "build.log").open("xb") as log:
+        subprocess.run([ROOT / "scripts/build-app.sh", "proofs", args.platform], stdout=log,
+                       stderr=subprocess.STDOUT, timeout=900, check=True)
     with (out / "reference-install.log").open("xb") as log:
         subprocess.run(["bun", "install", "--cwd", "Fixtures/reference", "--frozen-lockfile"], stdout=log,
                        stderr=subprocess.STDOUT, timeout=120, check=True)
