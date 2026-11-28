@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 bun install --cwd Fixtures/reference --frozen-lockfile --silent
-bun test scripts/workflow-peer.test.ts
-swift build --product ThrushLoopbackCheck
+bun test Tests/ThrushWebSocketCheck/workflow-peer.test.ts
+swift build --product ThrushWebSocketCheck
 bin=$(swift build --show-bin-path)
-exec bun scripts/check-workflows.ts "$bin/ThrushLoopbackCheck"
+exec bun Tests/ThrushWebSocketCheck/check-workflows.ts "$bin/ThrushWebSocketCheck"

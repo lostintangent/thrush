@@ -5,7 +5,7 @@ import Thrush
 /// Two apps share a shell ID. The peer controls orphan time and acknowledges each
 /// expected write on the socket that owns the shell.
 struct LifecycleCheck {
-    typealias Failure = LoopbackCheck.CheckFailure
+    typealias Failure = WebSocketCheck.CheckFailure
 
     let endpoint: URL
     private let size = Terminal.Size(columns: 16, rows: 3)

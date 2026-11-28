@@ -31,7 +31,8 @@ let package = Package(
             dependencies: ["ThrushConformance", "ThrushFixtures"],
             resources: [.copy("Cases"), .copy("KnownGaps.json"), .copy("ReferenceDefects.json")]
         ),
-        .executableTarget(name: "ThrushLoopbackCheck", dependencies: ["Thrush", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushWebSocketCheck", dependencies: ["Thrush", "ThrushFixtures"],
+                          path: "Tests/ThrushWebSocketCheck/Client"),
         .testTarget(name: "ThrushCoreTests", dependencies: ["ThrushCore", "ThrushFixtures"]),
     ],
     swiftLanguageModes: [.v6]

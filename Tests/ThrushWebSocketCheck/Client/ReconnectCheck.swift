@@ -45,7 +45,7 @@ private final class InputWrites: WebSocketFrameTrace {
 }
 
 struct ReconnectCheck {
-    typealias Failure = LoopbackCheck.CheckFailure
+    typealias Failure = WebSocketCheck.CheckFailure
     let endpoint: URL
 
     func run() async throws {

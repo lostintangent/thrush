@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { serveWorkflow } from "./workflow-peer.ts";
 
 const client = process.argv[2];
-if (!client) throw Error("Usage: bun scripts/check-workflows.ts PATH_TO_THRUSH_LOOPBACK_CHECK");
+if (!client) throw Error("Usage: bun Tests/ThrushWebSocketCheck/check-workflows.ts PATH_TO_CHECK_EXECUTABLE");
 const workflows = {shell:"shell-workflow", vim:"vim-resume", codex:"codex-session"} as const;
 for (const name of ["shell","vim","codex"] as const) {
     const {server, completed} = await serveWorkflow(name);

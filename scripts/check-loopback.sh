@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-swift build --product ThrushLoopbackCheck
+swift build --product ThrushWebSocketCheck
 bin=$(swift build --show-bin-path)
-bun scripts/loopback.ts "$bin/ThrushLoopbackCheck"
-exec bun scripts/lifecycle-peer.ts "$bin/ThrushLoopbackCheck"
+bun Tests/ThrushWebSocketCheck/first-bytes-peer.ts "$bin/ThrushWebSocketCheck"
+exec bun Tests/ThrushWebSocketCheck/lifecycle-peer.ts "$bin/ThrushWebSocketCheck"

@@ -1,7 +1,7 @@
 // scripts/check-loopback.sh runs this peer with the platform check client and verifies the complete wire exchange.
 import assert from "node:assert/strict";
 import type { ServerWebSocket } from "bun";
-import fixture from "../Fixtures/first-bytes.json";
+import fixture from "../../Fixtures/first-bytes.json";
 
 type Session = {
     minimumGrid: boolean;
@@ -9,7 +9,7 @@ type Session = {
     complete: boolean;
 };
 
-if (process.argv.length !== 3) throw new Error("Usage: bun scripts/loopback.ts PATH_TO_CHECK_EXECUTABLE");
+if (process.argv.length !== 3) throw new Error("Usage: bun Tests/ThrushWebSocketCheck/first-bytes-peer.ts PATH_TO_CHECK_EXECUTABLE");
 const command = process.argv[2];
 const backgroundQuery = "\x1b]11;?\x07";
 const expectedInput = fixture.events.flatMap(event => {

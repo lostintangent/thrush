@@ -4,7 +4,7 @@ import type { ServerWebSocket } from "bun";
 
 const observe = process.argv[3] === "--observe";
 if (process.argv.length !== (observe ? 4 : 3)) {
-    throw new Error("Usage: bun scripts/lifecycle-peer.ts PATH_TO_CHECK_EXECUTABLE [--observe]");
+    throw new Error("Usage: bun Tests/ThrushWebSocketCheck/lifecycle-peer.ts PATH_TO_CHECK_EXECUTABLE [--observe]");
 }
 
 type Control = { type: "resize"; cols: number; rows: number } | { type: "close" };

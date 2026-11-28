@@ -46,13 +46,14 @@ private struct Report: Encodable {
     let intervals: [Interval]
 }
 
-extension LoopbackCheck {
-    /// Times the exchange `scripts/lifecycle-peer.ts` checks, against this Release build of the client.
+extension WebSocketCheck {
+    /// Times the exchange `lifecycle-peer.ts` checks, against this Release build of the client.
     /// The peer brackets each named interval with `Bun.nanoseconds()`. One warmup and five measured
     /// passes each start a fresh peer and client.
     static func benchmarkLifecycle() throws {
-        let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let peer = root.appending(path: "scripts/lifecycle-peer.ts")
+        let folder = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let peer = folder.appending(path: "lifecycle-peer.ts")
+        let root = folder.deletingLastPathComponent().deletingLastPathComponent()
         guard let client = Bundle.main.executablePath else { throw CheckFailure("Could not find this executable") }
         let passes = try (0...5).map { _ in
             try JSONDecoder().decode(PeerRun.self, from: run("bun", peer.path, client, "--observe"))

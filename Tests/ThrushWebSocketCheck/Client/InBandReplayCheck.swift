@@ -5,7 +5,7 @@ import Thrush
 /// A lagging but connected host gets one new snapshot on its existing socket. Input continues
 /// using the visible grid's modes while the peer is holding the serialized binary frame.
 struct InBandReplayCheck {
-    typealias Failure = LoopbackCheck.CheckFailure
+    typealias Failure = WebSocketCheck.CheckFailure
     let endpoint: URL
 
     func run() async throws {

@@ -25,7 +25,7 @@ function client(base: URL, columns: number, rows: number) {
 }
 
 test("shell keeps output frames intact when stdin spans multiple recorded key events", async () => {
-    const fixture = await Bun.file(new URL("../Fixtures/recordings/shell-workflow.json", import.meta.url)).json();
+    const fixture = await Bun.file(new URL("../../Fixtures/recordings/shell-workflow.json", import.meta.url)).json();
     const { server, completed } = await serveWorkflow("shell");
     const { socket, next } = client(server.url, fixture.columns, fixture.rows);
     try {
@@ -68,7 +68,7 @@ test("out-of-order stdin fails at the resize gate", async () => {
 });
 
 test("immediate same-ID reconnect at the detach boundary ignores the displaced socket's close", async () => {
-    const fixture = await Bun.file(new URL("../Fixtures/recordings/vim-resume.json", import.meta.url)).json();
+    const fixture = await Bun.file(new URL("../../Fixtures/recordings/vim-resume.json", import.meta.url)).json();
     const { server, completed } = await serveWorkflow("vim");
     let connection = client(server.url, fixture.columns, fixture.rows);
     const original = connection.socket;

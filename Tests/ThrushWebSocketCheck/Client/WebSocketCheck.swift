@@ -4,7 +4,7 @@ import ThrushFixtures
 
 /// Drives the same attachment, input and row access that an app uses.
 @main
-struct LoopbackCheck {
+struct WebSocketCheck {
     struct CheckFailure: Error, CustomStringConvertible {
         let description: String
         init(_ description: String) { self.description = description }
@@ -14,7 +14,7 @@ struct LoopbackCheck {
         let arguments = CommandLine.arguments
         if arguments.dropFirst().elementsEqual(["--benchmark"]) {
             #if DEBUG
-            throw CheckFailure("Time the lifecycle from a Release build: swift run -c release ThrushLoopbackCheck --benchmark")
+            throw CheckFailure("Time the lifecycle from a Release build: swift run -c release ThrushWebSocketCheck --benchmark")
             #else
             try benchmarkLifecycle()
             return
@@ -36,7 +36,7 @@ struct LoopbackCheck {
             return
         }
         guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {
-            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, ThrushLoopbackCheck --pty SERVER_BASE_URL TOKEN SCENARIO DIRECTORY or ThrushLoopbackCheck --benchmark")
+            throw CheckFailure("Usage: ThrushWebSocketCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, ThrushWebSocketCheck --pty SERVER_BASE_URL TOKEN SCENARIO DIRECTORY or ThrushWebSocketCheck --benchmark")
         }
 
         let fixture = try FirstBytesFixture.load()

@@ -2,7 +2,7 @@ import Foundation
 import Thrush
 import ThrushFixtures
 
-extension LoopbackCheck {
+extension WebSocketCheck {
     /// Exercise the same socket and parser as the native hosts against an input-gated recorded PTY.
     static func runWorkflow(named name: String, at endpoint: URL) async throws {
         let fixture = try Recording.load(named: name)

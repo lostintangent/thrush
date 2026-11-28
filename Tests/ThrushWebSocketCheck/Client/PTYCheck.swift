@@ -63,7 +63,7 @@ private struct PTYResult: Encodable {
     var replayRows: [String]
 }
 
-extension LoopbackCheck {
+extension WebSocketCheck {
     /// Runs one numbered log through a real shell and writes the wire capture beside the producer's report.
     static func checkPTY(at endpoint: URL, token: String, scenario: String, directory: URL) async throws {
         guard UUID(uuidString: token) != nil, ["paced", "live", "suspended"].contains(scenario) else {

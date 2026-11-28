@@ -203,7 +203,7 @@ class Run {
 export async function serveWorkflow(workflow: string) {
     if (!Object.hasOwn(recordings, workflow)) throw Error("Expected shell, vim, or codex workflow");
     const name = recordings[workflow as keyof typeof recordings];
-    const fixture: Recording = await Bun.file(new URL("../Fixtures/recordings/" + name + ".json", import.meta.url)).json();
+    const fixture: Recording = await Bun.file(new URL("../../Fixtures/recordings/" + name + ".json", import.meta.url)).json();
     const completed = Promise.withResolvers<Completion>();
     void completed.promise.catch(() => {}); // Each run also logs its failure to stderr.
     const runs = new Map<string, Run>();

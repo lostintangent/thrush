@@ -23,7 +23,7 @@ spinners = runpy.run_path(str(SCRIPTS / "capture-mac-spinners.py"))
 application, save, wait = (spinners[name] for name in ("application", "save", "wait"))
 blink = runpy.run_path(str(SCRIPTS / "capture-mac-text-blink.py"))
 WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
-server = runpy.run_path(str(SCRIPTS / "pty/check.py"))["server"]
+server = runpy.run_path(str(ROOT / "Tests/ThrushWebSocketCheck/pty/check.py"))["server"]
 # The proofs' --cycle-appearance steps through these appearances 4 s apart, beginning at its first output.
 STEPS = ("dark", "light", "custom")
 SETTLE = 2.5
