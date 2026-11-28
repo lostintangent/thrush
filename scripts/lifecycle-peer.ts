@@ -358,7 +358,7 @@ try {
     assert.equal(takeovers, 2);
     assert.equal(checkpoints.size, 9);
     if (observe) {
-        console.log(JSON.stringify({ bunVersion: Bun.version, attachmentCount, freshShells, takeovers, observations }));
+        console.log(JSON.stringify({ bunVersion: Bun.version, observations }));
     } else {
         console.log("Lifecycle peer verified fourteen attachments, two takeovers, ordered writes and resizes, automatic recovery, buffered input, in-band replay, malformed controls, in-place shell replacement after expiry or loss, explicit close and natural exit.");
     }
