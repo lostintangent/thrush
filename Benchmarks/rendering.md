@@ -56,17 +56,7 @@ The packaged Release app at `c1c1ecf` submitted zero frames during 1.015 s at a 
 
 ## Finding plain-text links
 
-The view looks for plain `http` and `https` addresses in every frame that shows new output, before it prepares rows. On the M1 Max running macOS 27.2.1, a Release build of `933e55b` fed each recording to a `Terminal` one write at a time, as one output frame per write. It timed `LinkFinder.find` over the visible rows and then `MetalRenderer.encode` for the same snapshot, over five passes after a warm-up. The system's one-minute load was 44 on ten cores.
-
-| Workload | Frames | Find median, µs | Find p95, µs | Encode median, µs | Share of CPU preparation | Find with no changed line, µs |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `shell-log` | 129 | 52.9 | 69.2 | 202.6 | 22% | 7.5 |
-| `vim-edit` | 21 | 20.7 | 49.9 | 47.8 | 29% | 7.6 |
-| `codex-session` | 222 | 11.0 | 18.7 | 28.0 | 27% | 4.9 |
-| `vim-swift-dark` | 19 | 17.3 | 34.6 | 40.5 | 27% | 6.4 |
-| Links scene, 80 × 24 | 4 | 24.2 | 29.5 | 71.9 | 28% | 7.2 |
-
-The finder rescans only the lines whose rows changed and keeps the rest from the frame before, so a frame whose visible lines haven't changed costs 5 to 8 µs. It takes about a quarter of CPU preparation on an output frame, and under 1% of a 60 Hz refresh.
+The view looks for plain `http` and `https` addresses only on lines whose rows changed. Timed over the recordings on the M1 Max at `933e55b`, that costs 5 to 8 µs on a frame whose visible lines haven't changed and about a quarter of CPU preparation on an output frame, under 1% of a 60 Hz refresh.
 
 ## First iPhone simulator measurement
 

@@ -6,16 +6,9 @@ import AppKit
 import UIKit
 #endif
 
-/// When program output draws. A program often writes one change in several pieces a fraction of
-/// a millisecond apart, and a frame drawn between them would show part of the change for a whole
-/// refresh. So output draws once its writes pause for a millisecond, and at most once per
-/// refresh: output that keeps arriving draws by the display's next refresh less the time a frame
-/// has recently needed. The pause is the only wait, so echo costs a millisecond on any display.
-///
-/// The pacer runs the view's one display link only while something needs its ticks. Output needs
-/// them until the first refresh after it arrives, which keeps the schedule current, and blinking
-/// text needs them during its fades. A view that's idle, hidden or outside a window has no
-/// running link and draws nothing.
+/// When program output draws: once its writes pause for a millisecond, and at most once per refresh.
+/// It runs the view's one display link only while output or blinking text needs ticks.
+/// "When a frame draws" in docs/rendering.md explains the schedule.
 @MainActor
 final class FramePacer {
     private(set) var schedule = Schedule()

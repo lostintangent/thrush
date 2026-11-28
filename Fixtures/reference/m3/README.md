@@ -10,7 +10,7 @@ The recorder sends actual PTY reads into the pinned xterm emulator and returns i
 | Styled Swift portrait | 45 × 18 | (4, 20) | 16 |
 | Styled Swift landscape | 71 × 11 | (1, 20) | 9 |
 
-Both iPhone checkpoints match the editor's grid with the keyboard up on the iPhone Duo simulator running iOS 27.2 at 3× scale. The safe area gives up the trailing 84 pt to the status bar in portrait and to the camera in landscape. Portrait floats a 60 pt key row and landscape a 44 pt one. The iPhone proof measured both.
+Both iPhone checkpoints match the editor's grid with the keyboard up on the iPhone Duo simulator running iOS 27.2 at 3× scale, laid out as [the design](../../../docs/design/README.md#rendering) describes. The iPhone proof measured both.
 
 | Orientation | Window (pt) | Grid origin and size (pt) | Keyboard layout guide height (pt) |
 | --- | --- | --- | --- |
