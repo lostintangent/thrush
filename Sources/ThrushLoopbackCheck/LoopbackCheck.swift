@@ -12,10 +12,6 @@ struct LoopbackCheck {
 
     static func main() async throws {
         let arguments = CommandLine.arguments
-        if arguments.dropFirst().elementsEqual(["--transport"]) {
-            try await measureAppTransport()
-            return
-        }
         if arguments.dropFirst().elementsEqual(["--benchmark"]) {
             #if DEBUG
             throw CheckFailure("Time the lifecycle from a Release build: swift run -c release ThrushLoopbackCheck --benchmark")
@@ -35,7 +31,7 @@ struct LoopbackCheck {
             return
         }
         guard arguments.count == 2, let endpoint = URL(string: arguments[1]) else {
-            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL, ThrushLoopbackCheck --transport, or ThrushLoopbackCheck --benchmark")
+            throw CheckFailure("Usage: ThrushLoopbackCheck [--lifecycle | --workflow NAME] SERVER_BASE_URL or ThrushLoopbackCheck --benchmark")
         }
 
         let fixture = try FirstBytesFixture.load()

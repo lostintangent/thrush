@@ -2,6 +2,7 @@ import Foundation
 import Synchronization
 import Testing
 import Thrush
+import ThrushFixtures
 
 // A one-use acknowledgement. The deadline only reports a missing callback.
 private struct Acknowledgement: Sendable {
@@ -82,6 +83,45 @@ private actor DelayedOpen {
     func finish(with transport: ControlledTransport) {
         result?.resume(returning: transport)
         result = nil
+    }
+}
+
+// Plays a recording at its original chunk boundaries, then reports EOF.
+private actor RecordingTransport: TerminalTransport {
+    private var chunks: [Data]
+    private(set) var replies: [Data] = []
+
+    init(_ chunks: [Data]) { self.chunks = chunks.reversed() }
+
+    func read() -> Data? { chunks.popLast() }
+    func write(_ bytes: Data) { replies.append(bytes) }
+    func resize(to size: Terminal.Size) {}
+    func close() {}
+}
+
+@MainActor @Test func appTransportPlaysTheFirstBytesToExit() async throws {
+    let fixture = try FirstBytesFixture.load()
+    let chunks = fixture.events.map { Data($0.bytes) }
+    let size = Terminal.Size(columns: fixture.columns, rows: fixture.rows)
+    let transport = RecordingTransport(chunks)
+    let opened = Mutex<[Terminal.Size]>([])
+    let session = TerminalSession(openTransport: { size in
+        opened.withLock { $0.append(size) }
+        return transport
+    })
+    try await session.actor.sendResize(to: size)
+    #expect(await session.actor.show())
+    #expect(try await session.actor.nextEvent() == .ready(resumed: false))
+    // Presentation may coalesce output while the session reads from the transport.
+    var event: SessionActor.Event
+    repeat { event = try await session.actor.nextEvent() } while event == .output
+
+    #expect(event == .ended && session.hasEnded)
+    #expect(opened.withLock { $0 } == [size])
+    #expect(await session.actor.receivedBytes == chunks.reduce(0) { $0 + $1.count })
+    #expect(await transport.replies == fixture.events.filter { !$0.reply.isEmpty }.map { Data($0.reply) })
+    for (row, text) in fixture.events.reduce(into: [Int: String](), { $0[$1.row] = $1.text }) {
+        #expect(await session.actor.text(inRow: row) == text)
     }
 }
 
