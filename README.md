@@ -152,7 +152,7 @@ scripts/build-app.sh sample mac && open .build/sample/mac/Thrush.app
 | Sustained output | 1,542 MiB/s at 80 × 24, against a 100 MiB/s target | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
 | Recorded workflows | Shell 187, resumable Vim 558 and Codex 271 MiB/s, with every checkpoint matching the reference | [Headless](Benchmarks/headless.md#recorded-interaction-measurements) |
 | Resize with full history | Worst p95 0.888 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
-| Warm full-grid redraw | p95 0.274 ms CPU and 0.102 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
+| Warm full-grid redraw | p95 0.340 ms CPU and 0.947 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
 | Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [WebSocket lifecycle](Benchmarks/transport.md) |
 | Real shells | Bash, Vim, Codex and shell lifecycle on Mac and iPhone, with 34 checkpoints per platform and end-to-end byte counts | [Live workflows](Benchmarks/live-workflows.md) |

@@ -1,562 +1,781 @@
 {
   "background" : {
     "additionalSubmissions" : 0,
-    "seconds" : 1.2273633750155568
+    "seconds" : 1.238283250015229
   },
   "columns" : 80,
   "displayIntervalSeconds" : 0.016666666720993817,
   "environment" : {
-    "commit" : "aac046b5f7b68ccd013ef53d18a8281b52e0d4cb",
-    "contended" : true,
+    "commit" : "e627614212e3adb223933ae95edffa5e4d42c0f0",
+    "contended" : false,
     "coreCount" : 10,
     "destination" : "macOS",
     "hardwareModel" : "MacBookPro18,4",
     "loadAverage" : [
-      396.322265625,
-      585.82958984375,
-      577.99609375
+      5.0029296875,
+      10.2587890625,
+      15.11279296875
     ],
     "lowPowerMode" : false,
     "operatingSystem" : "Version 27.2.1 (Build 26B131)",
     "powerSource" : "AC Power",
-    "thermalState" : "fair",
+    "thermalState" : "nominal",
     "toolchain" : "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
     "worktreeDirty" : false
   },
   "foregroundIdle" : {
     "additionalSubmissions" : 0,
-    "seconds" : 1.009143624920398
+    "seconds" : 1.018601541640237
   },
   "inactiveRenderer" : {
     "additionalSubmissions" : 0,
-    "seconds" : 1.0565001666545868
+    "seconds" : 1.042100083315745
   },
-  "recordedAt" : "2026-11-25T06:10:14Z",
+  "recordedAt" : "2026-11-28T09:06:58Z",
   "rows" : 24,
   "samples" : [
     {
-      "cpuPreparationSeconds" : 0.010783333331346512,
-      "firstFrameSeconds" : 0.8120199583936483,
-      "generation" : 146,
-      "glyphUploads" : 14,
-      "gpuSeconds" : 0.0013802084140479565,
-      "operation" : "cold",
-      "receivedAt" : 708465.1040832502,
-      "rowsPrepared" : 24,
-      "shaderCompileSeconds" : 0.2793359166244045,
-      "submittedAt" : 708465.2787351252
+      "frame" : {
+        "cpuPreparationSeconds" : 0.007368833292275667,
+        "firstFrameSeconds" : 0.12503237498458475,
+        "generation" : 146,
+        "glyphUploads" : 14,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0011868750443682075,
+        "presentedTime" : 978262.8256191668,
+        "receivedAt" : 978262.7911721669,
+        "rowsPrepared" : 24,
+        "shaderCompileSeconds" : 0.007048916653729975,
+        "submittedAt" : 978262.8002679169
+      },
+      "operation" : "cold"
     },
     {
-      "cpuPreparationSeconds" : 0.00012574996799230576,
-      "generation" : 147,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010250008199363947,
-      "operation" : "cursor",
-      "receivedAt" : 708465.4874476668,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.4993241668
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011545827146619558,
+        "generation" : 147,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010745844338089228,
+        "presentedTime" : 978263.0589532502,
+        "receivedAt" : 978263.0324000419,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.0367712919
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00013375002890825272,
-      "generation" : 149,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010087504051625729,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.5055629585,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.5129391669
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011462508700788021,
+        "generation" : 149,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 8.899997919797897e-05,
+        "presentedTime" : 978263.0922868336,
+        "receivedAt" : 978263.0604080836,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.0617437919
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.0001276250695809722,
-      "generation" : 157,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010450009722262621,
-      "operation" : "scroll",
-      "receivedAt" : 708465.5177802085,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.5295741669
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00017374998424202204,
+        "generation" : 157,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010058330371975899,
+        "presentedTime" : 978263.1256202919,
+        "receivedAt" : 978263.0982107918,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.0993339169
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.00026591657660901546,
-      "generation" : 302,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010095827747136354,
-      "operation" : "full",
-      "receivedAt" : 708465.5343285002,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.5464004584
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003325416473671794,
+        "generation" : 302,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00037587492261081934,
+        "presentedTime" : 978263.1589537086,
+        "receivedAt" : 978263.1301122085,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.1317187502
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00010900001507252455,
-      "generation" : 303,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010462501086294651,
-      "operation" : "cursor",
-      "receivedAt" : 708465.5522277919,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.5628880418
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011391669977456331,
+        "generation" : 303,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0001674999948590994,
+        "presentedTime" : 978263.1922871252,
+        "receivedAt" : 978263.1643485002,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.1656506252
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00012720830272883177,
-      "generation" : 305,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.0001004999503493309,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.5643764585,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.5795817918
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00016149994917213917,
+        "generation" : 305,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0011180000146850944,
+        "presentedTime" : 978263.2256205418,
+        "receivedAt" : 978263.1952250003,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.1966341252
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.0001279583666473627,
-      "generation" : 313,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010287505574524403,
-      "operation" : "scroll",
-      "receivedAt" : 708465.5824242085,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.5962506252
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00015208334662020206,
+        "generation" : 313,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.000104291713796556,
+        "presentedTime" : 978263.2589540835,
+        "receivedAt" : 978263.2323724586,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.2340742919
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.0002611667150631547,
-      "generation" : 458,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.750004392117262e-05,
-      "operation" : "full",
-      "receivedAt" : 708465.6007438335,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.6132990419
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003363749710842967,
+        "generation" : 458,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010225002188235521,
+        "presentedTime" : 978263.2922873752,
+        "receivedAt" : 978263.2645190419,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.2663356252
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00011658330913633108,
-      "generation" : 459,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.933323599398136e-05,
-      "operation" : "cursor",
-      "receivedAt" : 708465.6184353335,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.6296029168
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001197917154058814,
+        "generation" : 459,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010716670658439398,
+        "presentedTime" : 978263.3256210003,
+        "receivedAt" : 978263.2961144586,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.2974430836
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.0001327083446085453,
-      "generation" : 461,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.812507778406143e-05,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.6306042501,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.6462962502
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00013162498362362385,
+        "generation" : 461,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010437506716698408,
+        "presentedTime" : 978263.3589544585,
+        "receivedAt" : 978263.3325069585,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.3338527502
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00013283337466418743,
-      "generation" : 469,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010129169095307589,
-      "operation" : "scroll",
-      "receivedAt" : 708465.6488677502,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.6629604169
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001081250375136733,
+        "generation" : 469,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010516657494008541,
+        "presentedTime" : 978263.3922878752,
+        "receivedAt" : 978263.3614879586,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.3630106252
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.00026629166677594185,
-      "generation" : 614,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.824999142438173e-05,
-      "operation" : "full",
-      "receivedAt" : 708465.6671780834,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.6797696669
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003082082839682698,
+        "generation" : 614,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0002412500325590372,
+        "presentedTime" : 978263.4256213752,
+        "receivedAt" : 978263.3981314169,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.3996689585
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00012183329090476036,
-      "generation" : 615,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010325002949684858,
-      "operation" : "cursor",
-      "receivedAt" : 708465.6855405418,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.6962892085
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00010370835661888123,
+        "generation" : 615,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010629161261022091,
+        "presentedTime" : 978263.4589548336,
+        "receivedAt" : 978263.4297911669,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.4311033336
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.0001305416226387024,
-      "generation" : 617,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.824999142438173e-05,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.6977191252,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.7129415001
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00013295828830450773,
+        "generation" : 617,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010574993211776018,
+        "presentedTime" : 978263.4922882502,
+        "receivedAt" : 978263.4615067085,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.4628488752
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.0001354999840259552,
-      "generation" : 625,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.0001024582888931036,
-      "operation" : "scroll",
-      "receivedAt" : 708465.7159869168,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.7296195418
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001295834081247449,
+        "generation" : 625,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010587496217340231,
+        "presentedTime" : 978263.5256217086,
+        "receivedAt" : 978263.4989927919,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.5005932086
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.0002587916096672416,
-      "generation" : 770,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.63748898357153e-05,
-      "operation" : "full",
-      "receivedAt" : 708465.7343313751,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.7463939585
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00029933336190879345,
+        "generation" : 770,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.000309833325445652,
+        "presentedTime" : 978263.5589550836,
+        "receivedAt" : 978263.5298915419,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.5314144585
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00011304160580039024,
-      "generation" : 771,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010287505574524403,
-      "operation" : "cursor",
-      "receivedAt" : 708465.7524265002,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.7629127085
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011324998922646046,
+        "generation" : 771,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0001058334019035101,
+        "presentedTime" : 978263.5922885835,
+        "receivedAt" : 978263.5614588752,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.5627909586
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00012954173143953085,
-      "generation" : 773,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.970832616090775e-05,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.7645978335,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.7796030835
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001378749730065465,
+        "generation" : 773,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0001051250146701932,
+        "presentedTime" : 978263.6256220419,
+        "receivedAt" : 978263.5990128752,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.6003655836
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.0001190833281725645,
-      "generation" : 781,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.0001016249880194664,
-      "operation" : "scroll",
-      "receivedAt" : 708465.7823432084,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.7962621668
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00012599991168826818,
+        "generation" : 781,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0001062500523403287,
+        "presentedTime" : 978263.6589555002,
+        "receivedAt" : 978263.6307702085,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.6323440418
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.0002658333396539092,
-      "generation" : 926,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.0001016249880194664,
-      "operation" : "full",
-      "receivedAt" : 708465.8006273751,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.8130893335
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003219166537746787,
+        "generation" : 926,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0009473749669268727,
+        "presentedTime" : 978263.6922889169,
+        "receivedAt" : 978263.6627899585,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.6643540002
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.0001077083870768547,
-      "generation" : 927,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010250008199363947,
-      "operation" : "cursor",
-      "receivedAt" : 708465.8152333335,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.8295830418
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011775002349168062,
+        "generation" : 927,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010662490967661142,
+        "presentedTime" : 978263.7256224168,
+        "receivedAt" : 978263.6946191669,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.6959542918
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00012866663746535778,
-      "generation" : 929,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010170834138989449,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.8334230002,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.8462742085
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001330834347754717,
+        "generation" : 929,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010437495075166225,
+        "presentedTime" : 978263.7589559169,
+        "receivedAt" : 978263.7315159169,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.7328524586
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00012333330232650042,
-      "generation" : 937,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.975000284612179e-05,
-      "operation" : "scroll",
-      "receivedAt" : 708465.8517612919,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.8629461668
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011645839549601078,
+        "generation" : 937,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.000106374965980649,
+        "presentedTime" : 978263.7922892919,
+        "receivedAt" : 978263.7631300419,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.7646679586
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.0002616667188704014,
-      "generation" : 1082,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010149995796382427,
-      "operation" : "full",
-      "receivedAt" : 708465.8640834169,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.8797561668
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003198332851752639,
+        "generation" : 1082,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.000293916673399508,
+        "presentedTime" : 978263.8256227085,
+        "receivedAt" : 978263.7947147503,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.7962547085
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00011279166210442781,
-      "generation" : 1083,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010129169095307589,
-      "operation" : "cursor",
-      "receivedAt" : 708465.8822635001,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.8962721252
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00010308343917131424,
+        "generation" : 1083,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010612502228468657,
+        "presentedTime" : 978263.8589561669,
+        "receivedAt" : 978263.8322015835,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.8335008336
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00012508337385952473,
-      "generation" : 1085,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.950005915015936e-05,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.9005735834,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.9129420002
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00012058333959430456,
+        "generation" : 1085,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.0001051250146701932,
+        "presentedTime" : 978263.8922896669,
+        "receivedAt" : 978263.8632565002,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.8645648336
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00013225001748651266,
-      "generation" : 1093,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010083336383104324,
-      "operation" : "scroll",
-      "receivedAt" : 708465.9190545419,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.9296232085
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00013291672803461552,
+        "generation" : 1093,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010633328929543495,
+        "presentedTime" : 978263.9256231252,
+        "receivedAt" : 978263.8946655835,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.8962364586
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.00026175007224082947,
-      "generation" : 1238,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.80000477284193e-05,
-      "operation" : "full",
-      "receivedAt" : 708465.9312555419,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708465.9464056669
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0002948333276435733,
+        "generation" : 1238,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 9.51249385252595e-05,
+        "presentedTime" : 978263.9589565835,
+        "receivedAt" : 978263.9261874586,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978263.9277001668
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00011150003410875797,
-      "generation" : 1239,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010374991688877344,
-      "operation" : "cursor",
-      "receivedAt" : 708465.9495124168,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708465.9629241668
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001109166769310832,
+        "generation" : 1239,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010508333798497915,
+        "presentedTime" : 978263.9922899585,
+        "receivedAt" : 978263.9632512919,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978263.9645680835
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.0001279583666473627,
-      "generation" : 1241,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010141672100871801,
-      "operation" : "oneRow",
-      "receivedAt" : 708465.9677517085,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.9796276669
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001109166769310832,
+        "generation" : 1241,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010499998461455107,
+        "presentedTime" : 978264.0256234586,
+        "receivedAt" : 978263.9945915419,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978263.9958835002
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00012804160360246897,
-      "generation" : 1249,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010283337906002998,
-      "operation" : "scroll",
-      "receivedAt" : 708465.9860257502,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708465.9962922084
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001287916675209999,
+        "generation" : 1249,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010708323679864407,
+        "presentedTime" : 978264.0589569169,
+        "receivedAt" : 978264.0304919586,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978264.0320686669
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.00027125002816319466,
-      "generation" : 1394,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.712507016956806e-05,
-      "operation" : "full",
-      "receivedAt" : 708465.9982598751,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708466.0131002502
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00027062499430030584,
+        "generation" : 1394,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00016504165250808,
+        "presentedTime" : 978264.0922903753,
+        "receivedAt" : 978264.0612895419,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978264.0627395419
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.0001117499778047204,
-      "generation" : 1395,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.654171299189329e-05,
-      "operation" : "cursor",
-      "receivedAt" : 708466.0165787918,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708466.0295893335
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011308328248560429,
+        "generation" : 1395,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010624993592500687,
+        "presentedTime" : 978264.1256237918,
+        "receivedAt" : 978264.0986806252,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978264.1000174169
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00012924999464303255,
-      "generation" : 1397,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.566661901772022e-05,
-      "operation" : "oneRow",
-      "receivedAt" : 708466.0338713335,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708466.0462951252
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001248749904334545,
+        "generation" : 1397,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010329170618206263,
+        "presentedTime" : 978264.1589573335,
+        "receivedAt" : 978264.1299694586,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978264.1312945836
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00013049994595348835,
-      "generation" : 1405,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.566673543304205e-05,
-      "operation" : "scroll",
-      "receivedAt" : 708466.0521928752,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708466.0629324168
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00010920839849859476,
+        "generation" : 1405,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010699999984353781,
+        "presentedTime" : 978264.1922906252,
+        "receivedAt" : 978264.1603417086,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978264.1618662919
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.0002737500471994281,
-      "generation" : 1550,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.774998761713505e-05,
-      "operation" : "full",
-      "receivedAt" : 708466.0643752501,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708466.0797415419
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0003396667307242751,
+        "generation" : 1550,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 9.866675827652216e-05,
+        "presentedTime" : 978264.2256241669,
+        "receivedAt" : 978264.1982276252,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978264.1998645836
+      },
+      "operation" : "full"
     },
     {
-      "cpuPreparationSeconds" : 0.00010341661982238293,
-      "generation" : 1551,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010258331894874573,
-      "operation" : "cursor",
-      "receivedAt" : 708466.0823987918,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708466.0962290418
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001272499794140458,
+        "generation" : 1551,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010750000365078449,
+        "presentedTime" : 978264.2589575419,
+        "receivedAt" : 978264.2279588752,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978264.2293203336
+      },
+      "operation" : "cursor"
     },
     {
-      "cpuPreparationSeconds" : 0.00011854164768010378,
-      "generation" : 1553,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.00010141672100871801,
-      "operation" : "oneRow",
-      "receivedAt" : 708466.1000583752,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708466.1129054584
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0001534583279863,
+        "generation" : 1553,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010825006756931543,
+        "presentedTime" : 978264.2922911668,
+        "receivedAt" : 978264.2653476669,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978264.2667433752
+      },
+      "operation" : "oneRow"
     },
     {
-      "cpuPreparationSeconds" : 0.00012279173824936152,
-      "generation" : 1561,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 0.0001028749393299222,
-      "operation" : "scroll",
-      "receivedAt" : 708466.1184103335,
-      "rowsPrepared" : 1,
-      "submittedAt" : 708466.1296018335
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00014991662465035915,
+        "generation" : 1561,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010791665408760309,
+        "presentedTime" : 978264.3256244585,
+        "receivedAt" : 978264.2962534169,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978264.2979578335
+      },
+      "operation" : "scroll"
     },
     {
-      "cpuPreparationSeconds" : 0.000248291646130383,
-      "generation" : 1706,
-      "glyphUploads" : 0,
-      "gpuSeconds" : 9.679165668785572e-05,
-      "operation" : "full",
-      "receivedAt" : 708466.1305936668,
-      "rowsPrepared" : 24,
-      "submittedAt" : 708466.1463897085
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00031699996907263994,
+        "generation" : 1706,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.000769625068642199,
+        "presentedTime" : 978264.3589578752,
+        "receivedAt" : 978264.3271600419,
+        "rowsPrepared" : 24,
+        "submittedAt" : 978264.3286810835
+      },
+      "operation" : "full"
     }
   ],
-  "schemaVersion" : 3,
+  "schemaVersion" : 6,
   "synchronizedOutput" : {
     "close" : {
-      "expectedGeneration" : 1727,
-      "generation" : 1727,
-      "receivedAt" : 708469.6944739168,
-      "submissions" : 1,
-      "submittedAt" : 708469.6967384168
+      "expectedGeneration" : 1733,
+      "frame" : {
+        "cpuPreparationSeconds" : 0.003350250073708594,
+        "generation" : 1733,
+        "glyphUploads" : 6,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00029450003057718277,
+        "presentedTime" : 978273.0423224586,
+        "receivedAt" : 978273.0039498336,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978273.0091807919
+      },
+      "submissions" : 1
     },
     "heldGenerations" : [
-      1716,
-      1719,
-      1723
+      1722,
+      1725,
+      1729
     ],
-    "holdOpenedAt" : 708469.5874778335,
+    "holdOpenedAt" : 978272.9004292502,
     "idle" : {
       "additionalSubmissions" : 0,
-      "seconds" : 1.0266638749744743
+      "seconds" : 1.0663678750861436
     },
     "submissionsDuringHold" : 0,
-    "truncatedOpenedAt" : 708469.7005934585,
+    "truncatedOpenedAt" : 978273.0108576668,
     "watchdog" : {
-      "expectedGeneration" : 1734,
-      "generation" : 1734,
-      "receivedAt" : 708469.7540361668,
-      "submissions" : 1,
-      "submittedAt" : 708470.7012586251
+      "expectedGeneration" : 1740,
+      "frame" : {
+        "cpuPreparationSeconds" : 0.0014726666267961264,
+        "generation" : 1740,
+        "glyphUploads" : 3,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00018329161684960127,
+        "presentedTime" : 978274.0423257919,
+        "receivedAt" : 978273.0610284169,
+        "rowsPrepared" : 1,
+        "submittedAt" : 978274.0171697085
+      },
+      "submissions" : 1
     },
-    "watchdogToSubmissionSeconds" : 1.0006651666481048,
+    "watchdogToSubmissionSeconds" : 1.0063120416598395,
     "workloadSHA256" : "80e645c41420410ce46081545eab18886dbe883f0942c9051b0832fe4fb817a4"
+  },
+  "textBlink" : {
+    "glyphUploads" : 0,
+    "maximumSubmissions" : 56,
+    "minimumSubmissions" : 8,
+    "reducedMotion" : {
+      "additionalSubmissions" : 0,
+      "seconds" : 1.2736088333185762
+    },
+    "rowsPrepared" : 0,
+    "seconds" : 2.4330740416189656,
+    "steady" : {
+      "additionalSubmissions" : 0,
+      "seconds" : 1.208324083359912
+    },
+    "submissions" : 48
   },
   "themeSwitches" : [
     {
-      "generation" : 1706,
-      "glyphUploads" : 0,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708466.1806869168,
-      "theme" : "Slate Light"
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00013687508180737495,
+        "generation" : 1706,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00010437495075166225,
+        "presentedTime" : 978264.4589583753,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978264.4265002919
+      },
+      "theme" : "Light"
     },
     {
-      "generation" : 1706,
-      "glyphUploads" : 0,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708466.1970962085,
-      "theme" : "Slate Dark"
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011462497059255838,
+        "generation" : 1706,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00036100007127970457,
+        "presentedTime" : 978264.4922917086,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978264.4659195419
+      },
+      "theme" : "Dark"
     },
     {
-      "generation" : 1706,
-      "glyphUploads" : 0,
-      "rowsPrepared" : 0,
-      "submittedAt" : 708466.2136744584,
+      "frame" : {
+        "cpuPreparationSeconds" : 0.00011154171079397202,
+        "generation" : 1706,
+        "glyphUploads" : 0,
+        "gpuCompleted" : true,
+        "gpuSeconds" : 0.00011399993672966957,
+        "presentedTime" : 978264.5256251253,
+        "rowsPrepared" : 0,
+        "submittedAt" : 978264.4975995419
+      },
       "theme" : "Custom"
     }
   ],
   "workloadSHA256" : "a628f46b551abb3aa97a9c1b7e0ad03b25688c34906b864469c748f9c4551df6",
   "workloads" : [
     {
-      "cpuP50Milliseconds" : 10.783333331346512,
-      "cpuP95Milliseconds" : 10.783333331346512,
+      "cpuP50Milliseconds" : 7.368833292275667,
+      "cpuP95Milliseconds" : 7.368833292275667,
       "frames" : 1,
       "glyphUploads" : 14,
-      "gpuP95Milliseconds" : 1.3802084140479565,
+      "gpuP95Milliseconds" : 1.1868750443682075,
       "maximumRowsPrepared" : 24,
       "operation" : "cold",
-      "overTwoDisplayIntervals" : 0,
-      "unpresented" : 1
+      "overTwoDisplayIntervals" : 1,
+      "receiptToPresentationP95Milliseconds" : 34.44699989631772,
+      "unpresented" : 0
     },
     {
-      "cpuP50Milliseconds" : 0.1117499778047204,
-      "cpuP95Milliseconds" : 0.12574996799230576,
+      "cpuP50Milliseconds" : 0.11324998922646046,
+      "cpuP95Milliseconds" : 0.1272499794140458,
       "frames" : 10,
       "glyphUploads" : 0,
-      "gpuP95Milliseconds" : 0.10462501086294651,
+      "gpuP95Milliseconds" : 0.1674999948590994,
       "maximumRowsPrepared" : 0,
       "operation" : "cursor",
       "overTwoDisplayIntervals" : 0,
-      "unpresented" : 10
+      "receiptToPresentationP95Milliseconds" : 31.00324992556125,
+      "unpresented" : 0
     },
     {
-      "cpuP50Milliseconds" : 0.12866663746535778,
-      "cpuP95Milliseconds" : 0.13375002890825272,
+      "cpuP50Milliseconds" : 0.13162498362362385,
+      "cpuP95Milliseconds" : 0.16149994917213917,
       "frames" : 10,
       "glyphUploads" : 0,
-      "gpuP95Milliseconds" : 0.10170834138989449,
+      "gpuP95Milliseconds" : 1.1180000146850944,
       "maximumRowsPrepared" : 1,
       "operation" : "oneRow",
       "overTwoDisplayIntervals" : 0,
-      "unpresented" : 10
+      "receiptToPresentationP95Milliseconds" : 31.87874995637685,
+      "unpresented" : 0
     },
     {
-      "cpuP50Milliseconds" : 0.1279583666473627,
-      "cpuP95Milliseconds" : 0.1354999840259552,
+      "cpuP50Milliseconds" : 0.1287916675209999,
+      "cpuP95Milliseconds" : 0.17374998424202204,
       "frames" : 10,
       "glyphUploads" : 0,
-      "gpuP95Milliseconds" : 0.10450009722262621,
+      "gpuP95Milliseconds" : 0.10791665408760309,
       "maximumRowsPrepared" : 1,
       "operation" : "scroll",
       "overTwoDisplayIntervals" : 0,
-      "unpresented" : 10
+      "receiptToPresentationP95Milliseconds" : 31.948916614055634,
+      "unpresented" : 0
     },
     {
-      "cpuP50Milliseconds" : 0.26175007224082947,
-      "cpuP95Milliseconds" : 0.2737500471994281,
+      "cpuP50Milliseconds" : 0.31699996907263994,
+      "cpuP95Milliseconds" : 0.3396667307242751,
       "frames" : 10,
       "glyphUploads" : 0,
-      "gpuP95Milliseconds" : 0.1016249880194664,
+      "gpuP95Milliseconds" : 0.9473749669268727,
       "maximumRowsPrepared" : 24,
       "operation" : "full",
       "overTwoDisplayIntervals" : 0,
-      "unpresented" : 10
+      "receiptToPresentationP95Milliseconds" : 32.76912495493889,
+      "unpresented" : 0
     }
   ]
 }

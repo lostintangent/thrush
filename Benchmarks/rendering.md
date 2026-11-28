@@ -30,53 +30,51 @@ The JSON includes the commit and worktree state from app packaging, the device m
 
 For a capture of the running app, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
 
-## First Mac measurement
+## Mac measurement
 
-The resource-free Release bundle at `aac046b` drew an 80 × 24 grid on an M1 Max running macOS 27.2.1. The display link measured 16.667 ms. The system's one-minute load was 396.32 on ten cores and its thermal state was fair. This single contended run records cache behavior and provisional timings. [Saved render samples](render-mac.json)
+The clean Release bundle at `e627614` drew an 80 × 24 grid on an M1 Max running macOS 27.2.1 (26B131), on AC power with a nominal thermal state. The display link measured 16.667 ms. The one-minute load was 5.0 on ten cores. [Saved report](render-mac.json)
 
-The new process compiled its embedded Metal shader in 279.336 ms. Its first content submission occurred 812.020 ms after view creation.
+The new process compiled its embedded Metal shader in 7.049 ms. Its first content submission came 125.032 ms after view creation.
+
+| Operation | Frames | CPU p95, ms | GPU p95, ms | Receipt to presentation p95, ms | Glyph uploads | Maximum rows prepared |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Cold | 1 | 7.369 | 1.187 | 34.447 | 14 | 24 |
+| Cursor | 10 | 0.127 | 0.167 | 31.003 | 0 | 0 |
+| One row | 10 | 0.161 | 1.118 | 31.879 | 0 | 1 |
+| Scroll | 10 | 0.174 | 0.108 | 31.949 | 0 | 1 |
+| Full grid | 10 | 0.340 | 0.947 | 32.769 | 0 | 24 |
+
+Every workload frame, theme switch and synchronized release has a presentation time. Each warm frame reached the display within two refresh intervals of its bytes arriving, and the cold frame took 34.447 ms.
+
+All three theme switches reused every visible row and glyph. The foreground-idle observation lasted 1.019 s, the suspended-renderer observation 1.042 s and the hidden-window observation 1.238 s. Each recorded zero additional submissions. Blinking text submitted 48 frames in 2.433 s, within the allowed 8 to 56, then none under Reduce Motion and none once it stopped blinking.
+
+Three partial generations inside synchronized output produced 0 submissions. Closing the block submitted one coherent screen. When the end marker was omitted, the watchdog submitted the latest generation 1006.312 ms after the block opened, followed by 1.066 s with zero further submissions.
+
+Cursor frames hold near 0.106 ms of GPU time, while full-grid frames range from 0.095 to 0.947 ms on a presenting display. Five consecutive runs of this build put full-grid CPU p95 between 0.330 and 1.504 ms and GPU p95 between 0.503 and 1.126 ms, so one run shows headroom rather than a timing baseline.
+
+## iPhone simulator measurement
+
+The clean Release build at `e627614` drew a 45 × 34 portrait grid with the keyboard hidden on an iPhone Duo simulator running iOS 27.2 (24B91016s). The hosted arm64 Mac exposed three cores and its one-minute load was 597.25. The simulator reported a nominal thermal state and a 16.667 ms display interval. These timings describe one heavily contended run on the host's graphics stack. [Hosted job](https://github.com/lostintangent/thrush/actions/runs/46128808056/job/140929242322) · [Saved report](render-simulator.json)
+
+The new process compiled the embedded Metal shader in 6527.394 ms and submitted its first content 8125.687 ms after view creation.
 
 | Operation | Frames | CPU p95, ms | GPU p95, ms | Glyph uploads | Maximum rows prepared |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Cold | 1 | 10.783 | 1.380 | 14 | 24 |
-| Cursor | 10 | 0.126 | 0.105 | 0 | 0 |
-| One row | 10 | 0.134 | 0.102 | 0 | 1 |
-| Scroll | 10 | 0.135 | 0.105 | 0 | 1 |
-| Full grid | 10 | 0.274 | 0.102 | 0 | 24 |
+| Cold | 1 | 164.387 | 3.987 | 14 | 34 |
+| Cursor | 10 | 0.743 | 2.883 | 0 | 0 |
+| One row | 10 | 0.811 | 1.793 | 0 | 1 |
+| Scroll | 10 | 0.972 | 0.107 | 0 | 1 |
+| Full grid | 10 | 6.076 | 0.143 | 0 | 34 |
 
-All three theme switches reused every visible row and glyph. The foreground-idle observation lasted 1.009 s, the suspended-renderer observation 1.057 s and the hidden-window observation 1.227 s. Each recorded zero additional submissions.
+All three theme switches preserved the generation and reused every visible row and glyph. There were zero submissions during 1.062 s of foreground idle, 1.016 s with an update pending on the suspended renderer, and 4.250 s between UIKit background and foreground notifications while Settings was open. Blinking text submitted 46 frames in 2.441 s, within the allowed 8 to 56, then none under Reduce Motion and none once it stopped blinking.
 
-Three partial generations inside synchronized output produced 0 submissions. Closing the block submitted one coherent screen. When the end marker was omitted, the watchdog submitted the latest generation 1000.665 ms after the block opened, followed by 1.027 s with zero further submissions.
+Three partial synchronized generations produced zero submissions. The end marker released one frame. A truncated block released its latest generation once through the watchdog after 1004.568 ms, followed by 1.062 s with zero further submissions.
 
-The Mac session was locked. Its drawable callbacks returned zero presentation timestamps on all 41 drawing workload frames and both synchronized-output releases. CPU preparation, GPU duration and submission timestamps are available. A foreground run on an unlocked display is still required for receipt-to-presentation latency.
-
-## Hosted Mac visibility check
-
-The packaged Release app at `c1c1ecf` submitted zero frames during 1.015 s at a settled prompt, 1.005 s suspended with an update pending, and 1.185 s while AppKit hid the application. All 41 workload frames recorded CPU and GPU samples. The virtual display supplied no presentation timestamps. [Hosted run](https://github.com/lostintangent/thrush/actions/runs/45608393865/attempts/2) · [Saved report](render-mac-hosted.json)
+The simulator SDK exposes command-buffer timing but no drawable presentation timestamp. Each of the 41 workload frames has a CPU and GPU measurement. Receipt-to-presentation latency on iPhone needs a physical device.
 
 ## Finding plain-text links
 
 The view looks for plain `http` and `https` addresses only on lines whose rows changed. Timed over the recordings on the M1 Max at `933e55b`, that costs 5 to 8 µs on a frame whose visible lines haven't changed and about a quarter of CPU preparation on an output frame, under 1% of a 60 Hz refresh.
-
-## First iPhone simulator measurement
-
-The clean Release build at `be859d5` drew a 47 × 42 portrait grid with the keyboard hidden on an iPhone 17 simulator running iOS 27.2 (24B8117). The hosted arm64 Mac ran macOS 27.0.1 and exposed three cores. Its one-minute load was 615.79. The simulator reported nominal thermal state and a 16.667 ms display interval. These timings describe one heavily contended run on the host graphics stack. [Hosted job](https://github.com/lostintangent/thrush/actions/runs/45566748815/job/139043292929) · [Saved simulator samples](render-simulator.json)
-
-The new process compiled the embedded Metal shader in 2991.834 ms and submitted its first content 3377.887 ms after view creation.
-
-| Operation | Frames | CPU p95, ms | GPU p95, ms | Glyph uploads | Maximum rows prepared |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Cold | 1 | 137.024 | 2.795 | 14 | 42 |
-| Cursor | 10 | 0.615 | 2.562 | 0 | 0 |
-| One row | 10 | 1.531 | 6.029 | 0 | 1 |
-| Scroll | 10 | 0.845 | 0.126 | 0 | 1 |
-| Full grid | 10 | 8.788 | 0.227 | 0 | 42 |
-
-All three theme switches preserved the generation and reused every visible row and glyph. There were zero submissions during 1.009 s of foreground idle, 1.029 s with an update pending on the suspended renderer, and 4.079 s between UIKit background and foreground notifications while Settings was open.
-
-Three partial synchronized generations produced zero submissions. The end marker released one frame. A truncated block released its latest generation once through the watchdog after 1001.981 ms, followed by 1.048 s with zero further submissions.
-
-The simulator SDK exposes command-buffer timing but no drawable presentation timestamp. Each of the 41 workload frames has a CPU and GPU measurement. Receipt-to-presentation latency for those frames and both synchronized releases requires a physical iPhone.
 
 ## Native input and echo latency
 
