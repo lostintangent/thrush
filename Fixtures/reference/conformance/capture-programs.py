@@ -201,8 +201,8 @@ class Session:
         self.start = time.monotonic_ns()
         self.application_cursor_keys = False
         self.replies = subprocess.Popen(
-            ["bun", HERE / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-        self.exchange({"start": [columns, rows]})
+            ["bun", HERE.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.exchange({"resize": {"columns": columns, "rows": rows}})
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             window(0, columns, rows)
@@ -277,7 +277,7 @@ class Session:
     def resize(self, columns, rows, **reading):
         name = f"Resize to {columns}×{rows}"
         self.record(name, resize=dict(columns=columns, rows=rows))
-        assert not self.exchange({"resize": [columns, rows]})
+        assert not self.exchange({"resize": {"columns": columns, "rows": rows}})
         window(self.fd, columns, rows)
         return self.read(name, **reading)
 

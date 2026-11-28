@@ -15,7 +15,7 @@ The script installs the reference from its lockfile, builds ThrushConformance in
 - **Programs** ([programs.mjs](programs.mjs)) are real PTY recordings: the shell, Vim, Codex and Clang fixtures under `m2`–`m4`, and the scenarios in [programs/](programs/) covering zsh, Bash, a pager, git, editors, process monitors, tmux and screen, Python, lazygit, ripgrep's links with Vim's spelling underlines, Neovim and Helix with sourcekit-lsp, fzf, btop, Claude Code and Copilot CLI. Each replays read by read with every resize.
 - **Streams** ([streams.mjs](streams.mjs)) are 400 seeded random mixes of text and control functions, written in chunks split inside UTF-8 scalars and escape sequences.
 
-[capture-programs.py](capture-programs.py) records the scenarios in disposable PTYs with an `xterm-256color` environment. [replies.mjs](replies.mjs) answers the programs' queries as the reference would, so each recording follows the replies a terminal sends. Re-record with `python3 Fixtures/reference/conformance/capture-programs.py [--only NAME]`, then regenerate.
+[capture-programs.py](capture-programs.py) records the scenarios in disposable PTYs with an `xterm-256color` environment. [replies.mjs](../replies.mjs) answers the programs' queries as the reference would, so each recording follows the replies a terminal sends. Re-record with `python3 Fixtures/reference/conformance/capture-programs.py [--only NAME]`, then regenerate.
 
 ## What the harness writes
 

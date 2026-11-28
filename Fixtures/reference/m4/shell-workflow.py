@@ -34,7 +34,7 @@ class ReadlineSession(Session):
                        INPUTRC=str(directory / "inputrc"))
             os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
         self.reference = subprocess.Popen(
-            ["bun", M2 / "live-replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            ["bun", ROOT.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
 
 def capture(bash):

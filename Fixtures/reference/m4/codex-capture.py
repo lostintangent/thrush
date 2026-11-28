@@ -45,7 +45,7 @@ def mark_split_paint(events, columns, rows):
     reads = [e for e in events if "bytes" in e]
     requests = [{"resize":{"columns":columns, "rows":rows}}] + [{"bytes":e["bytes"]} for e in reads]
     result = subprocess.run(
-        ["bun", ROOT / "codex-reference.mjs"], text=True, capture_output=True, check=True,
+        ["bun", ROOT.parent / "replies.mjs"], text=True, capture_output=True, check=True,
         input="".join(json.dumps(r) + "\n" for r in requests), env={"PATH":os.environ["PATH"]})
     states = [json.loads(line) for line in result.stdout.splitlines()][1:]
     if len(states) != len(reads):
@@ -79,7 +79,7 @@ class CodexSession(Session):
                        INPUTRC="/dev/null", BASH_SILENCE_DEPRECATION_WARNING="1")
             os.execve("/bin/bash", ["bash", "--noprofile", "--norc", "-i"], env)
         self.reference = subprocess.Popen(
-            ["bun", ROOT / "codex-reference.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            ["bun", ROOT.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
             env={"PATH":os.environ["PATH"], "HOME":str(home)})
         self.exchange({"resize":{"columns":columns, "rows":rows}})
 

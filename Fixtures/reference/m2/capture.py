@@ -49,7 +49,7 @@ class Session:
             os.execve(bash, ["bash", "--noprofile", "--norc", "-i"], env)
 
         self.reference = subprocess.Popen(
-            ["bun", ROOT / "live-replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            ["bun", ROOT.parent / "replies.mjs"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
         self.exchange({"resize": {"columns": columns, "rows": rows}})
 
