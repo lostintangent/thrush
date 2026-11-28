@@ -25,7 +25,8 @@ final class PhoneAccessibleText {
         if let snapshot = terminal.snapshot {
             var start = 0
             while start < snapshot.rows.count, let line = terminal.viewport.line(row: start) {
-                let end = min(line.headRow, snapshot.rows.count - 1)
+                // Always advance, so a viewport whose source disagrees with the snapshot can't stall the walk.
+                let end = max(start, min(line.headRow, snapshot.rows.count - 1))
                 let text = terminal.text(in: line, spoken: true)
                 if !text.isEmpty {
                     let generation = snapshot.rows[start].generation
