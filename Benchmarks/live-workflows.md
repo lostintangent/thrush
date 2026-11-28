@@ -1,6 +1,6 @@
 # Real PTY workflows in the sample app
 
-The Release Mac or iPhone Simulator app connects to the package’s standalone `ThrushServer` on loopback. The native responder types, pastes, navigates and copies through the same terminal view an app embeds. A loopback relay forwards the original WebSocket messages and gives each output frame to the pinned independent reference emulator. At each checkpoint the native driver compares the model and the rendered generation against the reference at the view’s actual grid. It also verifies the session’s received and applied byte counts. [Native checkpoint driver](../scripts/check-pane-workflows.py)
+The Release Mac or iPhone Simulator app connects to the package’s standalone `ThrushServer` on loopback. The native responder types, pastes, navigates and copies through the same terminal view an app embeds. A loopback relay forwards the original WebSocket messages and gives each output frame to the pinned independent reference emulator. At each checkpoint the native driver compares the model and the rendered generation against the reference at the view’s actual grid. It also verifies the session’s received and applied byte counts. [Native checkpoint driver](../Sources/ThrushProofs/WorkflowDriver.swift)
 
 From the repository root, set `DEVELOPER_DIR` to the full Xcode toolchain. Supply the path to GNU Bash 5 or later and the native Codex CLI 0.166.0. Each output directory must be new or empty.
 

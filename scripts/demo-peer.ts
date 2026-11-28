@@ -1,6 +1,5 @@
 // Standalone development peer. Only the endpoint changes when the host points at a PTY.
 import type { ServerWebSocket } from "bun";
-import { serveWorkflow } from "./workflow-peer";
 import shellFixture from "../Fixtures/recordings/shell-log.json";
 import vimFixture from "../Fixtures/recordings/vim-edit.json";
 
@@ -209,12 +208,7 @@ function reportedAppearance(bytes: Buffer): Appearance | undefined {
 
 const scenes = new Set<Scene>(["shell", "editor", "log", "vim", "prompt", "glyphs", "styles", "colors", "links"]);
 const sockets = new Set<Socket>();
-const args = process.argv.slice(2);
-if (args.length && (args[0] !== "--workflow" || !args[1] || args.length > 4
-        || (args[2] && args[2] !== "--view") || (args[3] && args[3] !== "--driver")))
-    throw Error("Usage: bun scripts/demo-peer.ts [--workflow shell|vim|codex [--view [--driver]]]");
-const server = args.length ? (await serveWorkflow(args[1], { view: args[2] === "--view",
-    driverPort: args[3] === "--driver" ? Number(process.env.THRUSH_DRIVER_PORT ?? 9139) : undefined })).server : Bun.serve({
+const server = Bun.serve({
     hostname: process.env.THRUSH_HOST ?? "127.0.0.1",
     port: Number(process.env.THRUSH_PORT ?? 9138),
     fetch(request, server) {

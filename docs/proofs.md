@@ -48,11 +48,23 @@ Pass `-f scene=reconnect-typing` to record held input with the iPhone software k
 
 When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and key row measurements for the PTY recorder.
 
-## Run a recorded interaction
+## Drive a workflow
 
-Start a fresh peer with `bun scripts/demo-peer.ts --workflow shell`, `--workflow vim` or `--workflow codex`. The peer waits for the recorded user input before sending the following PTY bytes. Vim also waits for the recorded resizes, detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it.
+`scripts/check-workflows.sh` plays the shell, Vim and Codex recordings to Apple’s WebSocket client at their recorded grids. Its peer waits for each recorded input, reply and resize before sending the following PTY bytes, and Vim also waits for its detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
 
-Use `scripts/check-workflows.sh` for an automated pass over all three with Apple’s WebSocket client at the recorded grids. For a native app at a different grid or palette, append `--view` to the peer command. That mode accepts the app’s actual cursor position and color query replies, and ignores its focus reports. PTY output still has the source application’s recorded layout. [Inputs, grid sizes and checkpoints](../Fixtures/reference/m4/README.md)
+The proofs app takes the same workflows through real programs in its own window, driven by the [live workflow runner](../Benchmarks/live-workflows.md). Launch it with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both keep the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed on the GPU. Only the controller must be an HTTP listener on loopback. The app connects with the sample's own client ID, a new one for each shell, and the controller follows the latest terminal socket.
+
+| Request | Meaning |
+| --- | --- |
+| `GET /fixture` | Return the complete v1 workflow with its semantic actions, lifecycle events and expected checkpoint names. |
+| `GET /state` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
+| `POST /layout` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
+| `GET /checkpoint?eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the reference's cells and lines for the actual pane geometry. |
+| `POST /ack` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
+
+The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` checks the reference snapshot and the GPU-completed generation. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
+
+At a captured checkpoint the app writes `capture-NNN.json` once its frame is verified and settled. The runner writes the PNG and touches `capture-NNN.done`, then the app releases the controller. On the iPhone, each shell, Vim and Codex image must show all eight key row controls and three rows of native letter keys, and each of their checkpoints must hold the Duo's 45 × 18 portrait grid, or 71 × 11 after Vim turns to landscape. On a resumed Vim attachment, the parser starts empty while the last editor frame stays on screen until the serialized replay. The runner compares every RGB pixel inside the grid before detach and after replay, and checks that the block cursor shows in the expected cell in both frames.
 
 On macOS 27 with Xcode 27, this check opens the packaged Mac terminal. VoiceOver navigates the build log line by line and reads `Build complete.` while the displayed text stays unchanged. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
 

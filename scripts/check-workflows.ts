@@ -6,7 +6,7 @@ const client = process.argv[2];
 if (!client) throw Error("Usage: bun scripts/check-workflows.ts PATH_TO_THRUSH_LOOPBACK_CHECK");
 const workflows = {shell:"shell-workflow", vim:"vim-resume", codex:"codex-session"} as const;
 for (const name of ["shell","vim","codex"] as const) {
-    const {server, completed} = await serveWorkflow(name, {port:0});
+    const {server, completed} = await serveWorkflow(name);
     const child = Bun.spawn([client, "--workflow", workflows[name], server.url.origin], {
         stdout:"inherit", stderr:"inherit",
     });

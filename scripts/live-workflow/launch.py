@@ -12,6 +12,7 @@ import re
 import shlex
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -22,8 +23,14 @@ from urllib.request import urlopen
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ("shell", "vim", "codex", "lifecycle")
+RECORDINGS = {"shell": "shell-workflow", "vim": "vim-resume", "codex": "codex-session"}
 ORIGIN = re.compile(r"http://127\.0\.0\.1:[0-9]+")
 CODEX_VERSION = "codex-cli 0.166.0"
+BUNDLE_ID = "app.thrush.proofs"
+# Longer than the native driver's 150 seconds without a new controller phase.
+DRIVER_PATIENCE = 180
+# The iPhone Duo's grids with the keyboard up, as the phone recordings measured them.
+PORTRAIT, LANDSCAPE = (45, 18), (71, 11)
 
 
 def load(path):
@@ -219,6 +226,115 @@ def verify_controller(name, output, driver):
         raise RuntimeError(f"Live {name} controller acknowledgements differ from native checkpoints in {output}")
 
 
+def image_path(output, marker, checkpoint_name):
+    name = re.sub(r"[^a-z0-9]+", "-", checkpoint_name.lower()).strip("-")[:80]
+    return output / f"{marker.stem}-{name}.png"
+
+
+def collect_capture(marker, output, platform, target, *, require_keyboard=False):
+    request = json.loads(marker.read_bytes())
+    index = request["eventIndex"]
+    if (type(index) is not int or index < 0 or marker.stem not in (f"capture-{index:03d}", f"capture-{index:03d}-history")
+            or not isinstance(request["name"], str) or not request["name"].strip()):
+        raise ValueError(f"invalid screenshot request in {marker}")
+    image = image_path(output, marker, request["name"])
+    raw = output / (marker.stem + "-framebuffer.png")
+    deadline = time.monotonic() + 160
+    error = "No native image received"
+    with (output / "capture.log").open("ab") as log:
+        while time.monotonic() < deadline:
+            remaining = deadline - time.monotonic()
+            try:
+                subprocess.run([ROOT / "scripts/capture-demo.sh", platform, target, raw], check=True,
+                               stdout=log, stderr=subprocess.STDOUT, timeout=min(75, remaining))
+                with raw.open("rb") as stream:
+                    header = stream.read(24)
+                if header[:8] != b"\x89PNG\r\n\x1a\n":
+                    raise ValueError("Native capture did not produce a PNG")
+                width, height = struct.unpack(">II", header[16:24])
+                if platform == "simulator" and request["windowSize"][0] > request["windowSize"][1] and width < height:
+                    subprocess.run(["/usr/bin/sips", "-r", "90", raw, "--out", image], check=True,
+                                   stdout=log, stderr=subprocess.STDOUT, timeout=10)
+                else:
+                    raw.replace(image)
+                verify = [sys.executable, ROOT / "scripts/check-workflow-capture.py", image, marker]
+                if require_keyboard:
+                    verify.append("--require-keyboard")
+                subprocess.run(verify, check=True, stdout=log, stderr=subprocess.STDOUT, timeout=15)
+                break
+            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+                error = str(exc)
+                log.write((error + "\n").encode())
+                log.flush()
+                time.sleep(0.25)
+        else:
+            raise RuntimeError(f"no matching native framebuffer for {request['name']}: {error}")
+    marker.with_suffix(".done").touch()
+    print(f"  {image.name}", flush=True)
+
+
+def await_report(name, host, controller, driver, output, platform, target):
+    """Capture each checkpoint the native driver requests until it writes its final report."""
+    captured = set()
+    deadline = time.monotonic() + DRIVER_PATIENCE
+    trace_size = -1
+    while True:
+        trace = driver / "workflow-events.log"
+        if trace.exists() and (size := trace.stat().st_size) != trace_size:
+            trace_size = size
+            deadline = time.monotonic() + DRIVER_PATIENCE
+        failure = driver / "workflow-error.txt"
+        if failure.exists():
+            raise RuntimeError(failure.read_text(errors="replace").strip() or str(failure))
+        for marker in sorted(set(driver.glob("capture-*.json")) - captured):
+            collect_capture(marker, output, platform, target,
+                            require_keyboard=platform == "simulator" and name in RECORDINGS)
+            captured.add(marker)
+            deadline = time.monotonic() + DRIVER_PATIENCE
+        report = driver / "workflow-report.json"
+        if report.exists():
+            result = json.loads(report.read_bytes())
+            if (result.get("completed") is not True or result.get("workflow") != RECORDINGS.get(name, "live-" + name)
+                    or not result.get("checkpoints") or not captured):
+                raise RuntimeError(f"Incomplete {name} checkpoint or capture evidence in {report}")
+            return result
+        for process, log in ((host, output / "app.log"), (controller, output / "controller.log")):
+            if process.poll() is not None:
+                raise RuntimeError(f"{process.args[0]} exited with status {process.returncode}. See {log}")
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"No {name} phase, capture or final report within {DRIVER_PATIENCE} seconds. See {output}")
+        time.sleep(0.1)
+
+
+def recorded_events(name):
+    return json.loads((ROOT / "Fixtures/recordings" / f"{RECORDINGS[name]}.json").read_bytes())["events"]
+
+
+def verify_duo_grids(name, checkpoints):
+    # The driver turns the Duo to landscape for Vim's second recorded resize and back for its third.
+    resizes, expected = 0, {}
+    for index, event in enumerate(recorded_events(name)):
+        resizes += "resize" in event
+        if event.get("checkpoint"):
+            expected[index] = LANDSCAPE if name == "vim" and resizes == 2 else PORTRAIT
+    measured = {step["eventIndex"]: (step["columns"], step["rows"]) for step in checkpoints}
+    if not measured.items() <= expected.items():
+        raise ValueError(f"{name} iPhone keyboard geometry differs: got {measured}, expected {expected}")
+
+
+def verify_vim_replay(driver, output):
+    # The resumed pane must draw every grid pixel it drew before detach, including Vim's steady block cursor.
+    events = recorded_events("vim")
+    index = {event["name"]: i for i, event in enumerate(events)}
+    pair = []
+    for name in ("Vim before detach", "Vim serialized replay"):
+        marker = driver / f"capture-{index[name]:03d}.json"
+        pair += [image_path(output, marker, name), marker]
+    cursor = events[index["Vim before detach"]]["checkpoint"]
+    subprocess.run([sys.executable, ROOT / "scripts/check-workflow-capture.py", *pair[:2], "--compare-grid", *pair[2:],
+                    "--block-cursor", str(cursor["cursorRow"]), str(cursor["cursorColumn"])], check=True, timeout=60)
+
+
 def stall_upstream(proxy, host, log, work, output, device):
     wait_for(proxy, log, (work / "recovery-stop-now").exists, 60)
     # Stop the process that owns the real server socket. The native window keeps running.
@@ -241,7 +357,7 @@ def stall_upstream(proxy, host, log, work, output, device):
         readerResumedAfterSeconds=resumed - stopped), indent=2) + "\n")
 
 
-def run_workflow(name, upstream, work, env, app_executable, output, appearance, device, documents, pane, trace_lifecycle_frames=False, bootstrap_shell=None):
+def run_workflow(name, upstream, work, env, app_executable, output, appearance, device, documents, trace_lifecycle_frames=False, bootstrap_shell=None):
     output.mkdir()
     log = output / "controller.log"
     controller = ["bun", ROOT / "scripts/live-workflow/controller.ts", "--workflow", name,
@@ -257,7 +373,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                        "--appearance", appearance, *trace,
                        "--keyboard" if device else "--hide-keyboard"]
             if device:
-                command = ["xcrun", "simctl", "launch", "--console", "--terminate-running-process", device, pane.BUNDLE_ID]
+                command = ["xcrun", "simctl", "launch", "--console", "--terminate-running-process", device, BUNDLE_ID]
             else:
                 command = [app_executable, "-NSAppSleepDisabled", "YES"]
             with ExitStack() as processes:
@@ -266,8 +382,8 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                     if device and trace:
                         simulator = load(ROOT / "scripts/capture-simulator.py")
                         processes.enter_context(simulator.record_screen(device, output / "lifecycle.mov"))
-                    host = processes.enter_context(pane.running([*command, *options], output / "app.log",
-                                                                **({} if device else {"env": env})))
+                    host = processes.enter_context(service([*command, *options], output / "app.log",
+                                                           os.environ if device else env))
                     if not device:
                         # macOS keeps a script-launched app behind the active one. Once its driver starts,
                         # Launch Services brings the window to the front as opening it from the Finder would.
@@ -275,10 +391,13 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         subprocess.run(["open", "-a", app_executable.parents[2]], check=True, timeout=20)
                     if name == "recovery":
                         stall_upstream(proxy, host, log, work, output, device)
-                    pane.await_report("live-" + name if name in ("lifecycle", "recovery") else name, host, proxy,
-                                      driver, output, "simulator" if device else "mac", device or str(host.pid),
-                                      verify_fixture=False)
+                    report = await_report(name, host, proxy, driver, output, "simulator" if device else "mac",
+                                          device or str(host.pid))
                     verify_controller(name, output, driver)
+                    if device and name in RECORDINGS:
+                        verify_duo_grids(name, report["checkpoints"])
+                    if name == "vim":
+                        verify_vim_replay(driver, output)
                 except Exception as failure:
                     # The controller can still be waiting for the native acknowledgement that failed.
                     try:
@@ -299,7 +418,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         # simctl --console is the console reader. Release our app before the next
                         # workflow, which also replaces it if a loaded runner's simctl hangs here.
                         try:
-                            subprocess.run(["xcrun", "simctl", "terminate", device, pane.BUNDLE_ID],
+                            subprocess.run(["xcrun", "simctl", "terminate", device, BUNDLE_ID],
                                            timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         except subprocess.TimeoutExpired as error:
                             print(f"Simulator termination: {error}", file=sys.stderr)
@@ -309,7 +428,7 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                 shutil.rmtree(driver)
 
 
-def stopped_before_attach(output, device, pane):
+def stopped_before_attach(output, device):
     try:
         observed = json.loads((output / "controller-at-failure.json").read_bytes())
         state = observed["state"]
@@ -327,7 +446,7 @@ def stopped_before_attach(output, device, pane):
         message = startup_log.read_text(errors="replace")
         if "com.apple.CoreSimulator.SimError, code=405" not in message or "current state: Shutdown" not in message:
             return False
-        inventory = json.loads(pane.simctl("list", "devices", "--json", timeout=15))["devices"]
+        inventory = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "--json"], timeout=15))["devices"]
         return any(row["udid"] == device and row["isAvailable"] and row["state"] == "Shutdown"
                    for group in inventory.values() for row in group)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
@@ -344,7 +463,6 @@ def main():
     parser.add_argument("--workflow", action="append", choices=(*WORKFLOWS, "recovery"),
                         help="Select workflows. Defaults to shell, vim, codex and lifecycle; recovery exercises a stalled reader.")
     parser.add_argument("--trace-lifecycle-frames", action="store_true", help="Record bounded relay and native WebSocket frames, plus an iPhone Simulator movie, for the lifecycle workflow")
-    parser.add_argument("--device", help="Reserved booted iPhone Duo UDID. By default create and remove a disposable simulator.")
     parser.add_argument("--app", type=Path, help="Prebuilt Thrush.app; by default build the current checkout")
     parser.add_argument("--bash", default=shutil.which("bash"), help="GNU Bash with Readline bracketed paste")
     parser.add_argument("--codex-bin", default=shutil.which("codex"), help="Installed native Codex 0.166.0 executable")
@@ -352,8 +470,8 @@ def main():
     workflows = args.workflow or list(WORKFLOWS)
     if args.trace_lifecycle_frames and "lifecycle" not in workflows:
         parser.error("--trace-lifecycle-frames requires the lifecycle workflow")
-    if len(set(workflows)) != len(workflows) or (args.device and args.platform != "simulator"):
-        parser.error("Choose each workflow once and use --device only with --platform simulator")
+    if len(set(workflows)) != len(workflows):
+        parser.error("Choose each workflow once")
     if args.bash is None:
         parser.error("Pass --bash pointing to GNU Bash with Readline bracketed paste")
     out = args.output.resolve()
@@ -370,8 +488,9 @@ def main():
         with (out / "build.log").open("xb") as log:
             subprocess.run([ROOT / "scripts/build-app.sh", "proofs", args.platform], stdout=log,
                            stderr=subprocess.STDOUT, timeout=900, check=True)
-    pane = load(ROOT / "scripts/check-pane-workflows.py")
-    pane.install_reference(out)
+    with (out / "reference-install.log").open("xb") as log:
+        subprocess.run(["bun", "install", "--cwd", "Fixtures/reference", "--frozen-lockfile"], stdout=log,
+                       stderr=subprocess.STDOUT, timeout=120, check=True)
     with tempfile.TemporaryDirectory(prefix="thrush-live-") as scratch, ExitStack() as stack:
         endpoint, work, env = stack.enter_context(live_pty(Path(scratch), out, bash, codex, workflows, args.endpoint))
         with (app / ("Contents/Info.plist" if args.platform == "mac" else "Info.plist")).open("rb") as file:
@@ -383,23 +502,19 @@ def main():
         device = documents = None
         if args.platform == "simulator":
             simulator = load(ROOT / "scripts/capture-simulator.py")
-            if args.device:
-                device = stack.enter_context(pane.reserve_phone(args.device))
-                pane.ensure_demo_idle(device)
-            else:
-                device = stack.enter_context(simulator.disposable_phone(out))
+            device = stack.enter_context(simulator.disposable_phone(out))
             documents = simulator.prepare_workflow_phone(device, app, out)
-        may_reboot = device is not None and args.device is None
+        may_reboot = device is not None
         for name in workflows:
             print(f"Running live {name} in the packaged {args.platform} host", flush=True)
             output = out / name
             workflow_args = (name, endpoint, work, env, app_executable, output,
-                             args.appearance, device, documents, pane, args.trace_lifecycle_frames,
+                             args.appearance, device, documents, args.trace_lifecycle_frames,
                              Path(scratch) / "shell" if args.endpoint else None)
             try:
                 run_workflow(*workflow_args)
             except Exception as error:
-                if not may_reboot or not stopped_before_attach(output, device, pane):
+                if not may_reboot or not stopped_before_attach(output, device):
                     raise
                 may_reboot = False
                 first = output.rename(out / f"{name}-attempt-1")

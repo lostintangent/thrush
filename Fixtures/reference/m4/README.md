@@ -59,33 +59,6 @@ The Codex transcript pager enables X11 button, drag and all-motion tracking and 
 bun Fixtures/reference/m2/generate.mjs pointer-input
 ```
 
-## Running the native pane
+## iPhone recordings
 
-The packaged [proofs app](../../../docs/proofs.md) can attach to a terminal server and take workflow actions from a separate loopback controller. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both retain the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed successfully on the GPU. The report records whether the drawable supplied a presentation timestamp by the checkpoint.
-
-```sh
-scripts/check-pane-workflows.sh mac /tmp/thrush-mac-workflows
-scripts/check-pane-workflows.sh simulator new /tmp/thrush-phone-workflows
-```
-
-The second command creates a disposable iPhone Duo Simulator. Supply its UDID in place of `new` to use an existing booted iPhone Duo. Add one or more of `shell`, `vim` and `codex` to run a subset. A separate prompt opens the first system keyboard before recording. The image check verifies all eight key row controls and three rows of native letter keys in each recorded iPhone screenshot. Keep the output directory empty before the run. Each workflow leaves its report, peer log and selected native window or framebuffer images there. The runner first installs the [pinned reference](../README.md) for its checkpoint oracle.
-
-The phone fixture uses real Vim, its server's serializer and the installed Codex CLI at handset dimensions. The narrow Codex recording uses a localhost Responses endpoint that streams the existing published twelve-line answer into the CLI. The wide capture retains the original external provider response. Both recorded Codex sessions received white foreground and black background in their OSC 10 and 11 replies. The runner opens those sessions in the dark theme so their fixed white pager shortcuts remain legible. Live Codex chooses its colors from the active pane. [Handset recording procedure](phone/README.md)
-
-### Control protocol
-
-Launch the packaged app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. Only the controller must be an HTTP listener on loopback. The app connects with the sample's own client ID, a new one for each shell, and the controller follows the latest terminal socket. The terminal receives normal binary input and JSON resize, attach and close messages.
-
-| Request | Meaning |
-| --- | --- |
-| `GET /fixture` | Return the complete v1 workflow with its semantic actions, lifecycle events and expected checkpoint names. |
-| `GET /state` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
-| `POST /layout` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
-| `GET /checkpoint?eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the xterm cells and lines for the actual pane geometry. |
-| `POST /ack` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
-
-The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` checks the xterm snapshot and the GPU-completed generation. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
-
-For a new live PTY recording, keep the actual input and output on the terminal server connection. Derive the xterm expectation from the bytes, resizes and replay that server delivered. The recorded fixture peer provides the same control interface with `bun scripts/demo-peer.ts --workflow shell --view --driver`. Its terminal and control listeners can select separate free ports with `THRUSH_PORT=0 THRUSH_DRIVER_PORT=0`.
-
-The capture handshake uses `capture-NNN.json` for the app's verified, settled checkpoint. The runner writes its PNG and touches `capture-NNN.done`, then the app releases the peer. An intermediate synchronized Codex repaint checks that the previous coherent native frame stayed visible and immediately releases the batch. On a resumed Vim attachment, the parser starts empty while the last editor frame remains displayed until the serialized replay. The recorded workflow compares every RGB pixel inside the grid before detach and after replay, and checks that the block cursor is visible in the expected cell in both frames.
+The phone recordings use real Vim, its server's serializer and the installed Codex CLI at the iPhone Duo's grids. The narrow Codex recording uses a localhost Responses endpoint that streams the existing published twelve-line answer into the CLI. The wide capture retains the original external provider response. Both recorded Codex sessions received white foreground and black background in their OSC 10 and 11 replies. [Handset recording procedure](phone/README.md)

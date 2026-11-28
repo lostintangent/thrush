@@ -177,7 +177,7 @@ final class WorkflowDriver {
             http.invalidateAndCancel()
         }
 
-        var fixture = try Recording.decode(await get("fixture"))
+        let fixture = try Recording.decode(await get("fixture"))
         var resizeCount = 0
         var checkKeyboardAfterShellAction = false
         var previous: (Phase, Int)?
@@ -208,8 +208,6 @@ final class WorkflowDriver {
                 try await confirmLayout(eventIndex: -1)
                 originalSuperview = view.superview
                 originalWindow = view.window
-                // The peer can select a source recorded at the settled handset geometry.
-                fixture = try Recording.decode(await get("fixture"))
             case .reclaim:
                 let until = ContinuousClock.now.advanced(by: .seconds(10))
                 while !view.tapDisplacedGrid() {
@@ -229,12 +227,12 @@ final class WorkflowDriver {
                 session = try await newSession(previousAttachments, previousReceived, action)
                 checkKeyboardAfterShellAction = true
             case .failed:
-                throw Failure(state.error ?? "The peer rejected the workflow.")
+                throw Failure(state.error ?? "The controller rejected the workflow.")
             case .close:
                 try await session.close()
             case .completed:
                 let names = fixture.events.filter { $0.checkpoint != nil }.map(\.name)
-                guard entries.map(\.name) == names else { throw Failure("The peer completed with missing checkpoints.") }
+                guard entries.map(\.name) == names else { throw Failure("The controller completed with missing checkpoints.") }
                 let report = Report(workflow: fixture.name, sourceSHA256: fixture.sha256, completed: true, checkpoints: entries)
                 await finishTrace("success")
                 try save(report, as: "workflow-report.json")
@@ -242,7 +240,7 @@ final class WorkflowDriver {
             case .focus, .input, .resize, .detach, .resume, .checkpoint:
                 guard fixture.events.indices.contains(state.eventIndex) else { throw Failure("Invalid fixture event index.") }
                 let event = fixture.events[state.eventIndex]
-                guard event.name == state.name else { throw Failure("The view and socket peer use different recordings.") }
+                guard event.name == state.name else { throw Failure("The view and controller use different recordings.") }
                 switch state.phase {
                 case .focus:
                     try await NativeWorkflowActions.focusForTyping(view)
@@ -370,7 +368,7 @@ final class WorkflowDriver {
                     detail = "\(error) (session cursor row \(snapshot.cursorRow), displayed \(accepted?.cursorRow ?? -1), history offset \(view.historyOffset))"
                 }
             } else {
-                detail = "peer sent \(state.outputBytes), session received \(received)"
+                detail = "controller sent \(state.outputBytes), session received \(received)"
             }
             try await Task.sleep(for: .milliseconds(8))
         }

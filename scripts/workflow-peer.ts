@@ -1,9 +1,5 @@
-// bun scripts/demo-peer.ts --workflow shell|vim|codex [--view [--driver]]
-// Strict mode starts at the recorded grid and checks every input, reply and resize.
-// View mode accepts a native grid, one changed size per recorded resize, and host-specific
-// CPR, OSC color and focus replies. Screen and copy coordinates are comparable on the recorded grids.
-// Driver mode adds a separate loopback HTTP listener for checkpoint acknowledgements.
-// It compares the native pane against independent references at its actual grids.
+// Plays a recording to a WebSocket client at its recorded grid and checks every input, reply and resize
+// the client sends. check-workflows.ts drives it with Apple's WebSocket client.
 import type { ServerWebSocket } from "bun";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -11,7 +7,6 @@ const recordings = { shell: "shell-workflow", vim: "vim-resume", codex: "codex-s
 type Grid = { columns: number; rows: number };
 type Event = {
     name: string; offsetMicroseconds: number; bytes?: string; input?: string; reply?: string;
-    action?: { kind: string; value: string; modifiers?: string[] };
     replyOffsetMicroseconds?: number; resize?: Grid; checkpoint?: unknown;
     lifecycle?: { type: "ready" | "detach"; resumed?: boolean; clientId: string };
 };
@@ -19,125 +14,10 @@ type Recording = Grid & { events: Event[] };
 type Socket = ServerWebSocket<{ id: string; grid: Grid; run?: Run }>;
 type Message = { kind: "stdin"; bytes: Buffer } | { kind: "resize"; grid: Grid } | { kind: "detach" | "resume" };
 type Completion = { clientId: string; attachments: number };
-type DriverPhase = "attaching" | "layout" | "playing" | "input" | "resize" | "detach" | "resume" | "checkpoint"
-    | "close" | "completed" | "failed";
-type DriverState = {
-    phase: DriverPhase; eventIndex: number; name: string; outputBytes: number; attachments: number; grid: Grid;
-    action?: Event["action"]; resize?: Grid; error?: string;
-};
-type NativeResize = Grid & { eventIndex: number; position: "before" | "after" };
 const sameGrid = (a: Grid, b: Grid) => a.columns === b.columns && a.rows === b.rows;
 const gridLabel = (g: Grid) => g.columns + "×" + g.rows;
 const validGrid = (g: Grid) => Number.isSafeInteger(g.columns) && Number.isSafeInteger(g.rows)
     && g.columns >= 2 && g.rows >= 1;
-
-// The HTTP driver acknowledges screenshots and settled layouts. Its resize claim
-// must match the pane's real wire geometry. Input, replies and lifecycle stay on the socket.
-class Driver {
-    private gate?: ReturnType<typeof Promise.withResolvers<void>>;
-    private checkpointJSON?: Promise<string>;
-    readonly grids: Map<number, Grid>;
-    private transitions: NativeResize[] = [];
-    constructor(public state: DriverState) { this.grids = new Map([[-1, state.grid]]); }
-    hold(phase: "layout" | "resize" | "checkpoint") {
-        this.checkpointJSON = undefined;
-        this.gate = Promise.withResolvers<void>();
-        this.state.phase = phase;
-        return this.gate.promise;
-    }
-    observeGrid(grid: Grid, position: NativeResize["position"]) {
-        if (sameGrid(this.state.grid, grid)) return;
-        this.state.grid = grid;
-        if (this.state.eventIndex >= 0) this.transitions.push({ ...grid, eventIndex: this.state.eventIndex, position });
-        this.checkpointJSON = undefined;
-    }
-    async checkpoint(index: number, fixture: Recording) {
-        if (this.state.phase !== "checkpoint" || this.state.eventIndex !== index) return undefined;
-        const gate = this.gate;
-        if (!this.checkpointJSON) {
-            const grids = new Map(this.grids), transitions = this.transitions.slice();
-            this.checkpointJSON = import("./workflow-reference.mjs")
-                .then(({ nativeCheckpoint }) => nativeCheckpoint(fixture, grids, index, transitions)).then(result => JSON.stringify(result));
-        }
-        const pending = this.checkpointJSON;
-        const json = await pending;
-        return this.gate === gate && this.checkpointJSON === pending ? json : undefined;
-    }
-    acknowledge(index: number) {
-        if (this.state.phase !== "checkpoint" || this.state.eventIndex !== index) return false;
-        this.release();
-        return true;
-    }
-    settle(index: number, grid: Grid) {
-        if ((this.state.phase !== "layout" && this.state.phase !== "resize") || this.state.eventIndex !== index
-            || !sameGrid(this.state.grid, grid)) return false;
-        this.grids.set(index, grid);
-        delete this.state.resize;
-        this.release();
-        return true;
-    }
-    private release() {
-        this.state.phase = "playing";
-        this.gate!.resolve();
-        this.gate = undefined;
-        this.checkpointJSON = undefined;
-    }
-    fail(error: Error) {
-        this.state = { ...this.state, phase: "failed", error: error.message };
-        this.gate?.reject(error);
-        this.gate = undefined;
-        this.checkpointJSON = undefined;
-    }
-}
-
-function initialState(grid: Grid): DriverState {
-    return { phase: "attaching", eventIndex: -1, name: "", outputBytes: 0, attachments: 0,
-        grid: { columns: grid.columns, rows: grid.rows } };
-}
-
-function serveDriver(port: number, drivers: Map<string, Driver>, fixtureFile: Bun.BunFile, fixture: Recording) {
-    return Bun.serve({
-        hostname: "127.0.0.1", port, maxRequestBodySize: 1024,
-        async fetch(request) {
-            const url = new URL(request.url);
-            const origin = request.headers.get("Origin");
-            if (!["localhost", "127.0.0.1"].includes(url.hostname) || (origin && origin !== url.origin))
-                return new Response("Loopback control only", { status: 403 });
-            const headers = { "Cache-Control": "no-store", "Content-Type": "application/json" };
-            if (!["/state", "/ack", "/layout", "/checkpoint", "/fixture"].includes(url.pathname)) return new Response(null, { status: 404 });
-            const method = url.pathname === "/ack" || url.pathname === "/layout" ? "POST" : "GET";
-            if (request.method !== method) return new Response(null, { status: 405, headers: { Allow: method } });
-            if (url.pathname === "/fixture") return new Response(fixtureFile, { headers });
-            // The app's driver follows the shell it shows, which attached most recently.
-            const driver = [...drivers.values()].at(-1);
-            if (url.pathname === "/state") return Response.json(driver?.state ?? initialState(fixture), { headers });
-            if (url.pathname === "/checkpoint") {
-                const index = url.searchParams.get("eventIndex");
-                if (!index || !/^\d+$/.test(index) || !Number.isSafeInteger(Number(index)))
-                    return new Response("Expected a nonnegative eventIndex", { status: 400 });
-                try {
-                    const json = await driver?.checkpoint(Number(index), fixture);
-                    return json === undefined ? new Response("No matching checkpoint is pending", { status: 409 })
-                        : new Response(json, { headers });
-                } catch (error) {
-                    return new Response("Native checkpoint unavailable: " + String(error), { status: 500 });
-                }
-            }
-            let data;
-            try { data = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
-            if (url.pathname === "/layout") {
-                if (!Number.isSafeInteger(data?.eventIndex) || data.eventIndex < -1 || !validGrid(data))
-                    return new Response("Expected eventIndex, columns and rows", { status: 400 });
-                return driver?.settle(data.eventIndex, { columns: data.columns, rows: data.rows })
-                    ? new Response(null, { status: 204 }) : new Response("Layout does not match the wire", { status: 409 });
-            }
-            if (!Number.isSafeInteger(data?.eventIndex) || data.eventIndex < 0)
-                return new Response("Expected a nonnegative eventIndex", { status: 400 });
-            return driver?.acknowledge(data.eventIndex) ? new Response(null, { status: 204 })
-                : new Response("No matching checkpoint is pending", { status: 409 });
-        },
-    });
-}
 
 // Socket frames are ordered. A host may split one semantic input over many binary
 // frames, or deliver multiple keyboard/reply writes together. Controls cannot cut a byte sequence.
@@ -185,49 +65,11 @@ class Inbox {
     }
 }
 
-// A live pane reports its own focus once a program asks, and again whenever focus moves.
-// View mode drops each report, which the pane sends as its own frame.
-const focusReport = /\x1b\[[IO]/g;
-const withoutFocusReports = (bytes: Buffer) => Buffer.from(bytes.toString("latin1").replace(focusReport, ""), "latin1");
-
-// Strict checks use fixture bytes. In view mode only three terminal-generated
-// answers can vary: a positive CPR bounded by the live grid, the RGB digits
-// of OSC 10/11, and focus reports, which the inbox drops. DA, mode replies,
-// terminators and all user input stay exact.
-async function match(bytes: Buffer, inbox: Inbox, grid: Grid, viewReply: boolean) {
-    const expected = bytes.toString("latin1");
-    const variable = /\x1b\[[IO]|\x1b\[[1-9]\d*;[1-9]\d*R|\x1b\](?:10|11);rgb:[0-9a-f]{4}\/[0-9a-f]{4}\/[0-9a-f]{4}\x1b\\/igy;
-    for (let i = 0; i < bytes.length;) {
-        variable.lastIndex = i;
-        const token = viewReply ? variable.exec(expected)?.[0] : undefined;
-        if (token?.length === 3) {
-            i += token.length;
-        } else if (token?.startsWith("\x1b[")) {
-            let response = "";
-            while (!response.endsWith("R")) {
-                response += String.fromCharCode(await inbox.byte());
-                if (response.length > 40 || (!"\x1b[".startsWith(response)
-                    && !/^\x1b\[(?:[1-9]\d*(?:;(?:[1-9]\d*)?)?)?R?$/.test(response)))
-                    throw Error("Malformed cursor-position reply");
-            }
-            const coordinates = /^\x1b\[([1-9]\d*);([1-9]\d*)R$/.exec(response);
-            if (!coordinates || Number(coordinates[1]) > grid.rows || Number(coordinates[2]) > grid.columns)
-                throw Error("Cursor-position reply outside " + gridLabel(grid));
-            i += token.length;
-        } else if (token) {
-            const rgb = token.indexOf("rgb:") + 4;
-            for (let j = 0; j < token.length; j++) {
-                const ch = String.fromCharCode(await inbox.byte());
-                const hex = j >= rgb && j < rgb + 14 && token[j] !== "/";
-                if (hex ? !/^[\da-f]$/i.test(ch) : ch !== token[j]) throw Error("Malformed OSC color reply");
-            }
-            i += token.length;
-        } else {
-            const actual = await inbox.byte();
-            if (actual !== bytes[i]) throw Error("Byte " + i + ": expected 0x" + bytes[i].toString(16)
-                + ", received 0x" + actual.toString(16));
-            i++;
-        }
+async function match(bytes: Buffer, inbox: Inbox) {
+    for (let i = 0; i < bytes.length; i++) {
+        const actual = await inbox.byte();
+        if (actual !== bytes[i]) throw Error("Byte " + i + ": expected 0x" + bytes[i].toString(16)
+            + ", received 0x" + actual.toString(16));
     }
 }
 
@@ -240,10 +82,8 @@ class Run {
     private attachments = 1;
     private at = "initial attachment";
     private grid: Grid;
-    private position: NativeResize["position"] = "before";
 
-    constructor(private fixture: Recording, private view: boolean, private driver: Driver | undefined, socket: Socket,
-                private finish: (result: Completion | Error) => void) {
+    constructor(private fixture: Recording, socket: Socket, private finish: (result: Completion | Error) => void) {
         this.grid = socket.data.grid;
         this.socket = socket;
         socket.data.run = this;
@@ -253,7 +93,7 @@ class Run {
         void this.play().catch(error => this.fail(error));
     }
     resume(socket: Socket) {
-        if ((this.phase !== "orphan" && this.phase !== "expectDetach") || (!this.driver && !sameGrid(this.grid, socket.data.grid)))
+        if ((this.phase !== "orphan" && this.phase !== "expectDetach") || !sameGrid(this.grid, socket.data.grid))
             throw Error("Expected an explicitly detached workflow at " + gridLabel(this.grid));
         if (this.phase === "expectDetach") {
             // URLSession cancellation can reach the peer after its replacement socket's
@@ -266,7 +106,6 @@ class Run {
         clearTimeout(this.expiry);
         this.socket = socket;
         socket.data.run = this;
-        if (this.driver) this.observeGrid(socket.data.grid);
         this.attachments++;
         this.phase = "attached";
         this.inbox.push({ kind: "resume" });
@@ -280,23 +119,16 @@ class Run {
                 this.phase = "closed";
                 this.inbox.stop();
                 socket.close(1000);
-                if (this.driver) this.driver.state.phase = "completed";
                 this.finish({ clientId: socket.data.id, attachments: this.attachments });
                 return;
             }
             const grid = { columns: control?.cols, rows: control?.rows };
             if (control?.type !== "resize" || !validGrid(grid)) throw Error("Expected valid resize or close control");
-            if (this.driver) { this.observeGrid(grid); return; }
             this.inbox.push({ kind: "resize", grid });
         } else {
-            const bytes = Buffer.from(data);
-            this.inbox.push({ kind: "stdin", bytes: this.view ? withoutFocusReports(bytes) : bytes });
+            this.inbox.push({ kind: "stdin", bytes: Buffer.from(data) });
         }
         if (this.phase === "done") throw Error("Unexpected input after final checkpoint");
-    }
-    private observeGrid(grid: Grid) {
-        this.driver!.observeGrid(grid, this.position);
-        this.grid = grid;
     }
     disconnect(socket: Socket) {
         if (this.socket !== socket || this.phase === "closed") return;
@@ -313,7 +145,6 @@ class Run {
         this.abort.abort();
         clearTimeout(this.expiry);
         this.inbox.stop();
-        this.driver?.fail(error);
         this.socket?.close(1002, "Workflow mismatch (see peer log)");
         this.finish(error);
     }
@@ -323,97 +154,61 @@ class Run {
     }
     private async play() {
         const events = this.fixture.events;
-        const driver = this.driver;
-        if (driver) {
-            driver.state.attachments = 1;
-            await driver.hold("layout");
-        }
         let origin = performance.now() - events[0].offsetMicroseconds / 1000;
-        for (const [index, event] of events.entries()) {
+        for (const event of events) {
             this.at = event.name;
-            this.position = "before";
-            if (driver) driver.state = { phase: "playing", eventIndex: index, name: event.name,
-                outputBytes: driver.state.outputBytes, attachments: this.attachments, grid: this.grid };
             const sync = (offset = event.offsetMicroseconds) => { origin = performance.now() - offset / 1000; };
             if (event.lifecycle?.type === "detach") {
                 this.phase = "expectDetach";
-                if (driver) driver.state.phase = "detach";
                 console.log("Workflow waiting for detach and reattach with the same client ID");
                 await this.inbox.control("detach");
                 sync();
             } else if (event.lifecycle?.type === "ready") {
-                if (driver) driver.state.phase = "resume";
                 await this.inbox.control("resume");
                 this.sendReady(true);
-                this.position = "after";
-                if (driver) driver.state.attachments = this.attachments;
                 sync();
             }
             if (event.resize) {
-                if (this.view) console.log(event.name + ": resize the view (recorded " + gridLabel(event.resize) + ")");
-                if (driver) {
-                    driver.state.resize = event.resize;
-                    await driver.hold("resize");
-                } else {
-                    const message = await this.inbox.control("resize");
-                    if (message.kind !== "resize" || (!this.view && !sameGrid(message.grid, event.resize))
-                        || (this.view && sameGrid(message.grid, this.grid)))
-                        throw Error("Expected resize to " + gridLabel(event.resize));
-                    this.grid = message.grid;
-                }
+                const message = await this.inbox.control("resize");
+                if (message.kind !== "resize" || !sameGrid(message.grid, event.resize))
+                    throw Error("Expected resize to " + gridLabel(event.resize));
+                this.grid = message.grid;
                 sync();
             }
             if (event.bytes) {
                 const wait = origin + event.offsetMicroseconds / 1000 - performance.now();
                 if (wait >= 1) await delay(wait, undefined, { signal: this.abort.signal });
-                const payload = Buffer.from(event.bytes, "base64");
-                if (!this.socket || this.socket.sendBinary(payload) === 0)
+                if (!this.socket || this.socket.sendBinary(Buffer.from(event.bytes, "base64")) === 0)
                     throw Error("Could not send output");
-                this.position = "after";
-                if (driver) driver.state.outputBytes += payload.length;
             }
             if (event.reply) {
-                await match(Buffer.from(event.reply, "base64"), this.inbox, this.grid, this.view);
+                await match(Buffer.from(event.reply, "base64"), this.inbox);
                 sync(event.replyOffsetMicroseconds);
             }
             if (event.input) {
-                if (driver) Object.assign(driver.state, { phase: "input", action: event.action });
-                if (this.view && event.action)
-                    console.log(event.name + ": " + event.action.kind + " " + JSON.stringify(event.action.value));
-                await match(Buffer.from(event.input, "base64"), this.inbox, this.grid, false);
-                if (driver) { delete driver.state.action; driver.state.phase = "playing"; }
+                await match(Buffer.from(event.input, "base64"), this.inbox);
                 sync();
             }
             // Checkpoints without wire data observe already-painted output. Their offsets can
             // include time spent inspecting the screen. Keep inter-output timing and skip this idle.
-            if (event.checkpoint && driver) {
-                this.position = "after";
-                await driver.hold("checkpoint");
-                sync(event.replyOffsetMicroseconds);
-            } else if (event.checkpoint && !event.bytes && !event.input) sync();
+            if (event.checkpoint && !event.bytes && !event.input) sync();
         }
         if (this.inbox.pending) throw Error("Extra input after final checkpoint");
         this.phase = "done";
-        if (driver) driver.state.phase = "close";
         console.log("Workflow complete for " + this.socket?.data.id + ". Waiting for explicit close.");
     }
 }
 
-/** Start one fixture per attaching client ID. A strict completion requires explicit close after the last output. */
-export async function serveWorkflow(workflow: string, options: { port?: number; view?: boolean; driverPort?: number } = {}) {
+/** Start one fixture per attaching client ID, on a free loopback port. Completion requires explicit close after the last output. */
+export async function serveWorkflow(workflow: string) {
     if (!Object.hasOwn(recordings, workflow)) throw Error("Expected shell, vim, or codex workflow");
-    if (options.driverPort !== undefined && !options.view) throw Error("Driver mode requires --view");
     const name = recordings[workflow as keyof typeof recordings];
-    const directory = options.driverPort !== undefined && process.env.THRUSH_WORKFLOW_GEOMETRY === "iphone"
-        && (workflow === "codex" || workflow === "vim") ? "../Fixtures/reference/m4/phone/" : "../Fixtures/recordings/";
-    const fixtureFile = Bun.file(new URL(directory + name + ".json", import.meta.url));
-    const fixture: Recording = await fixtureFile.json();
+    const fixture: Recording = await Bun.file(new URL("../Fixtures/recordings/" + name + ".json", import.meta.url)).json();
     const completed = Promise.withResolvers<Completion>();
-    void completed.promise.catch(() => {}); // Standalone mode reports failures to stderr.
+    void completed.promise.catch(() => {}); // Each run also logs its failure to stderr.
     const runs = new Map<string, Run>();
-    const drivers = new Map<string, Driver>();
     const server = Bun.serve({
-        hostname: "127.0.0.1", port: options.port ?? Number(process.env.THRUSH_PORT ?? 9138),
+        hostname: "127.0.0.1", port: 0,
         fetch(request, server) {
             const url = new URL(request.url);
             const query = url.searchParams;
@@ -421,8 +216,7 @@ export async function serveWorkflow(workflow: string, options: { port?: number; 
             const grid = { columns: Number(query.get("cols")), rows: Number(query.get("rows")) };
             if (url.pathname !== "/socket" || query.get("service") !== "terminal" || !id || !validGrid(grid))
                 return new Response("Expected terminal attachment with clientId, cols and rows", { status: 400 });
-            if (drivers.has(id) && !runs.has(id)) return new Response("Use a fresh driver clientId", { status: 409 });
-            if (!options.view && !runs.has(id) && !sameGrid(grid, fixture))
+            if (!runs.has(id) && !sameGrid(grid, fixture))
                 return new Response("Start this workflow at " + gridLabel(fixture), { status: 400 });
             if (!server.upgrade(request, { data: { id, grid } })) return new Response("WebSocket required", { status: 426 });
         },
@@ -438,9 +232,7 @@ export async function serveWorkflow(workflow: string, options: { port?: number; 
                     catch (error) { console.error(error); socket.close(1008, "Unexpected reattachment"); }
                     return;
                 }
-                const driver = options.driverPort === undefined ? undefined : new Driver(initialState(socket.data.grid));
-                if (driver) drivers.set(id, driver);
-                const run = new Run(fixture, !!options.view, driver, socket, result => {
+                const run = new Run(fixture, socket, result => {
                     runs.delete(id);
                     if (result instanceof Error) { console.error(name + " / " + id + ": " + result.message); completed.reject(result); }
                     else completed.resolve(result);
@@ -455,15 +247,5 @@ export async function serveWorkflow(workflow: string, options: { port?: number; 
             close(socket) { socket.data.run?.disconnect(socket); },
         },
     });
-    let driverServer;
-    try {
-        if (options.driverPort !== undefined) {
-            driverServer = serveDriver(options.driverPort, drivers, fixtureFile, fixture);
-            console.log("Thrush workflow driver listening at " + driverServer.url.origin);
-        }
-    } catch (error) {
-        await server.stop(true);
-        throw error;
-    }
-    return { server, driverServer, completed: completed.promise };
+    return { server, completed: completed.promise };
 }
