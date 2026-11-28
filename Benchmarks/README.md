@@ -2,18 +2,16 @@
 
 Every benchmark checks what it measured. Recording benchmarks compare each checkpoint with the pinned reference emulator and stop at the first mismatch. Each JSON report records the source revision and the machine it ran on.
 
-| Report | Command | What it measures | Recorded result |
-| --- | --- | --- | --- |
-| [Comparison](comparison.md) | `python3 scripts/comparison/run.py` | Nine 1 MiB recorded and synthetic workloads through ThrushCore, libghostty-vt 1.0.2 and @xterm/headless 6.0.0 at two grids, with screen checks and allocations, plus a profile from a hosted Mac | Thrush led libghostty-vt in 15 of 18 conditions, trailing only on the scroll region and, within the spread between rounds, on wide text at 80 × 24. It beat both xterm runtimes in all 18. Every Thrush screen matched the reference |
-| [Headless recordings](headless.md) | `swift run -c release ThrushBench` | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize | 1,542 MiB/s at 80 × 24, against a 100 MiB/s target. Worst full-history resize p95 0.888 ms, against 8.333 ms |
-| [Mac rendering](rendering.md#first-mac-measurement) | `.build/proofs/mac/Thrush.app/Contents/MacOS/ThrushProofs --benchmark .build/benchmarks/render.json` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app | Warm full grid p95 0.274 ms CPU and 0.102 ms GPU. Zero frames while idle or hidden |
-| [iPhone simulator rendering](rendering.md#first-iphone-simulator-measurement) | `scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json` | The same Release workload and an actual UIKit background transition | Warm full grid p95 8.788 ms CPU and 0.227 ms GPU on a contended Mac. Zero submissions in 4.079 s backgrounded |
-| [Native input](rendering.md#native-input-and-echo-latency) | `bun scripts/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json` | Composition, paste and keys from the native responder to the socket and back | [Mac report](interactions-mac.json), p95 0.066 ms key to socket write and 0.440 ms key to receipt. All 20 echoes reached Metal |
-| [WebSocket lifecycle](transport.md) | `swift run -c release ThrushLoopbackCheck --benchmark` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback | Foreground ready and replay to Up p95 0.872 ms |
-| [Real PTY](pty.md) | `scripts/check-pty.sh` | Standalone server logs, reader comparisons and exit under pressure | All 8,192 paced markers arrived intact. In all four profiles, the 24 expected rows matched before and after reattach. [Smoke report](pty-smoke.json) |
-| [PTY recovery](pty-recovery.md) | `scripts/check-pty.sh --recovery` | In-band screen repair, live input and exit delivery after a stall | A silent repair restored all 24 rows on the same socket. Saturated natural exit delivered the final screen, exit and close 1000. [Recovery report](pty-recovery.json) |
-| [Native PTY workflows](live-workflows.md) | `python3 scripts/live-workflow/launch.py --help` | Native Shell, Vim, Codex, lifecycle and recovery over real PTYs | [Mac](live-workflows-mac.json) and [iPhone Simulator](live-workflows-iphone.json) each passed 37 checkpoints and 15 framebuffer checks, including same-socket recovery after 8 MiB |
+| Report | Command | What it measures |
+| --- | --- | --- |
+| [Comparison](comparison.md) | `python3 scripts/comparison/run.py` | Nine 1 MiB recorded and synthetic workloads through ThrushCore, libghostty-vt 1.0.2 and @xterm/headless 6.0.0 at two grids, with screen checks and allocations, plus a profile from a hosted Mac |
+| [Headless recordings](headless.md) | `swift run -c release ThrushBench` | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize |
+| [Mac rendering](rendering.md#first-mac-measurement) | `.build/proofs/mac/Thrush.app/Contents/MacOS/ThrushProofs --benchmark .build/benchmarks/render.json` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app |
+| [iPhone simulator rendering](rendering.md#first-iphone-simulator-measurement) | `scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json` | The same Release workload and an actual UIKit background transition |
+| [Native input](rendering.md#native-input-and-echo-latency) | `bun scripts/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json` | Composition, paste and keys from the native responder to the socket and back |
+| [WebSocket lifecycle](transport.md) | `swift run -c release ThrushLoopbackCheck --benchmark` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback |
+| [Real PTY](pty.md) | `scripts/check-pty.sh` | Standalone server logs, reader comparisons and exit under pressure |
+| [PTY recovery](pty-recovery.md) | `scripts/check-pty.sh --recovery` | In-band screen repair, live input and exit delivery after a stall |
+| [Native PTY workflows](live-workflows.md) | `python3 scripts/live-workflow/launch.py --help` | Native Shell, Vim, Codex, lifecycle and recovery over real PTYs |
 
 Build the proofs app with `scripts/build-app.sh proofs mac` before the rendering and input benchmarks. Run them from a logged-in, unlocked graphical session, since a locked display returns no presentation timestamps.
-
-The native PTY workflows ran on hosted Mac and iPhone Simulator jobs. The iPhone simulator rendering run used a contended hosted arm64 Mac on macOS 27.0.1. The headless recording figures come from one M1 Max Release run, selected by median 80 × 24 ASCII throughput across five consecutive contended runs on macOS 27.2.1. The other local Mac figures were also measured on an M1 Max. Compare runs on the same machine and power state, and use five quiet passes before setting a timing gate. Physical iPhone timings need a device run.
