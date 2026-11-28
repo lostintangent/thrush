@@ -22,29 +22,6 @@ The difference is most useful on **Latest**. Color from the history can pass thr
 
 **Reduce Transparency.** Fill the key row’s capsule and the Latest button with the opaque backing, `#1D2934` in Dark and `#E8EEF1` in Light. Pair those with `#E3EAF0` and `#233442` labels respectively, for 12.19:1 and 10.92:1 contrast. The opaque Latest outline uses `#8697A4` in Dark or `#586D7B` in Light. When the material changes in place, preserve the hit area, label, armed fill and scroll position. The native title bar should respect the system setting. For a custom history underlay, replace its material with the same opaque backing.
 
-## Terminal background
-
-![Four Mac windows with identical terminal content and backdrop, comparing opaque Dark and Light with 85 percent background opacity](glass-canvases.png)
-
-The same fictional editor sits behind each window. Its white source editor and dark build log remain recognizable as broad regions after an 18 pt Gaussian blur. Only the inherited terminal background changes opacity. Text, explicit cell backgrounds, selection and cursor keep their assigned colors. [Full-resolution backing window](glass-backdrop.png)
-
-| Lowest contrast over that window | Opaque | 92% fill | 85% fill |
-| --- | ---: | ---: | ---: |
-| Dark default text | 14.03 | 11.19 | 8.83 |
-| Dark secondary text, SGR 90 | 5.66 | 4.51 | **3.56** |
-| Dark selection edge | 3.00 | **2.39** | **1.89** |
-| Light default text | 12.54 | 10.70 | 9.20 |
-| Light secondary text, SGR 90 | 5.29 | 4.52 | **3.88** |
-| Light bright yellow, SGR 93 | 5.55 | 4.74 | **4.07** |
-| Light bright white, SGR 97 | 4.52 | **3.85** | **3.31** |
-| Light selection edge | 3.25 | **2.77** | **2.39** |
-
-These ratios express contrast to one. The check covers the default foreground, all 16 ANSI inks, cursor and selection at every pixel of the 1440 × 972 backdrop. The table uses source-over blending of 8-bit sRGB components after the blur. Unrounded results are compared to 4.5 for regular text and 3 for an identifying boundary. Opaque Dark’s selection edge is 3.003. Its ANSI black is intentionally near the canvas at 1.12. Shell output often uses SGR 90 for secondary text. [W3C text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) · [W3C non-text contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)
-
-Ordinary text stays readable in both simulated windows at 92% fill. The selection boundary gives way sooner. The glyphs within selected cells still reach 5.46:1 in Dark and 5.21:1 in Light. Repeating the calculation with linear-light blending gives a Dark secondary ink of 2.48:1 and a Light bright white of 4.18:1 at 92%. A blur or a single opacity setting offers little protection against a large bright or dark window moving behind the terminal.
-
-Keep the inherited background opaque in both built-in themes. A translucent custom theme needs a palette tuned for its backdrop range and a window test covering Vim’s reverse-video status, selected spaces, program colors and moving windows underneath. Reduce Transparency returns the grid to a fully opaque fill.
-
 ## Checking a running app
 
 Check the controls over dense history and colored program output in both appearances. With Reduce Transparency on, arm Ctrl, choose Shift, confirm VoiceOver announces its selected state, then use the next chord. Switching away from the app clears the latch. Verify that Latest still has a readable arrow and label, returns to the same live prompt and leaves the cursor unobstructed. Check keyboard presentation in portrait and landscape for extra insets or clipped hit areas. Repeat with the terminal settled and cursor blink disabled. Count Metal submissions separately from the compositor and energy cost of active glass effects. The physical iPhone and active Mac checks belong with the interaction recordings.

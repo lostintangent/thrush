@@ -143,24 +143,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     /// A nil override follows the native appearance.
     package var theme: TerminalTheme? { didSet { resolveTheme() } }
     #if os(macOS)
-    /// Opacity of the terminal background over a native Mac backdrop, clamped to 0 through 1.
-    /// The default is 1. Reduce Transparency and nonfinite values draw an opaque background.
-    package var backgroundOpacity: Double = 1 {
-        didSet { updateBackgroundCompositing() }
-    }
-    private var effectiveOpacity: Double {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
-              backgroundOpacity.isFinite else { return 1 }
-        return min(1, max(0, backgroundOpacity))
-    }
-    /// Whether the terminal background is opaque after applying accessibility preferences.
-    package override var isOpaque: Bool { effectiveOpacity == 1 }
-
-    @objc private func updateBackgroundCompositing() {
-        layer?.isOpaque = isOpaque
-        applyClearColor()
-        invalidateFrame()
-    }
+    package override var isOpaque: Bool { true }
     #else
     var beforeViewportResize: ((CGSize) -> Void)?
     /// Called just before this terminal's input asks UIKit to show or hide the keyboard.
@@ -325,12 +308,10 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         colorPixelFormat = .bgra8Unorm
         #if os(macOS)
         wantsLayer = true
-        for action in [#selector(updateBackgroundCompositing), #selector(followReduceMotion)] {
-            NSWorkspace.shared.notificationCenter.addObserver(
-                self, selector: action, name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil
-            )
-        }
-        layer?.isOpaque = isOpaque
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(followReduceMotion), name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil
+        )
+        layer?.isOpaque = true
         #else
         isOpaque = true
         // Keep the last drawable at its native scale while UIKit animates the new bounds.
@@ -468,17 +449,8 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
 
     private func applyClearColor() {
         let c = color(.background).vector
-        let background = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
-        #if os(macOS)
-        let alpha = effectiveOpacity
-        (layer as? CAMetalLayer)?.backgroundColor = alpha == 1 ? background : nil
-        #else
-        let alpha = 1.0
-        (layer as? CAMetalLayer)?.backgroundColor = background
-        #endif
-        // Core Animation composites the drawable as premultiplied RGBA.
-        clearColor = MTLClearColor(red: Double(c.x) * alpha, green: Double(c.y) * alpha,
-                                   blue: Double(c.z) * alpha, alpha: alpha)
+        (layer as? CAMetalLayer)?.backgroundColor = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
+        clearColor = MTLClearColor(red: Double(c.x), green: Double(c.y), blue: Double(c.z), alpha: 1)
     }
 
     private func updateGeometry() {

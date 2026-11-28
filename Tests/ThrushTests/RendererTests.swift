@@ -664,11 +664,6 @@ func nativeAppearanceYieldsToAHostOverride() async throws {
     let dark = try #require(NSAppearance(named: .darkAqua))
     #expect(host.view.theme == nil)
     #expect(host.view.isOpaque)
-    host.view.backgroundOpacity = 0.75
-    let expectedOpacity = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? 1.0 : 0.75
-    #expect(host.view.clearColor.alpha == expectedOpacity)
-    #expect(host.view.layer?.isOpaque == (expectedOpacity == 1))
-    host.view.backgroundOpacity = 1
     host.view.appearance = light
     #expect(host.view.resolvedTheme == .light)
     host.view.appearance = dark
