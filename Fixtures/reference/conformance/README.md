@@ -41,5 +41,3 @@ A checkpoint can't show everything a replay carries, such as the saved cursor, t
 bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance            # regenerate the gaps
 bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance --check    # fail if they would change
 ```
-
-`--reference <directory>` resumes the reference's terminals in the `@xterm/headless` and `@xterm/addon-unicode11` that resolve from another directory, such as an app's, and `--options <file>` starts them with the options in a JSON file instead of the pin's. Either holds that reference to the listed gaps, so the output shows where it resumes differently.

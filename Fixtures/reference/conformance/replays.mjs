@@ -5,34 +5,26 @@
 // terminal of its own kind: right after the replay, after every later step, and at the end.
 //
 //   bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance [--check]
-//     [--reference <directory>] [--options <file.json>]
 //
-// A program whose resumed terminals differ needs an entry in replay-gaps.json
-// with a reason, and `--check` fails if the file would change. `--reference` checks the reference that
-// resolves from another directory's node_modules, and `--options` starts it with the options in a JSON
-// file in place of the pin's. Either implies `--check`, so another reference is held to the listed gaps.
+// A program whose resumed terminals differ needs an entry in replay-gaps.json with a reason, and
+// `--check` fails if the file would change.
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { headless, installed, options as pinned } from '../headless.mjs';
 import { collect, create, perform, state } from './xterm.mjs';
 import { functionCases } from './functions.mjs';
 import { programCases } from './programs.mjs';
 import { Thrush, encodeCase } from './thrush.mjs';
 
 const { values: options } = parseArgs({
-  options: { thrush: { type: 'string' }, check: { type: 'boolean' }, reference: { type: 'string' }, options: { type: 'string' } },
+  options: { thrush: { type: 'string' }, check: { type: 'boolean' } },
 });
 assert(options.thrush, 'Pass --thrush with a release build of ThrushConformance');
 
 const here = import.meta.dir;
 const root = resolve(here, '../../..');
 const gapsFile = join(here, 'replay-gaps.json');
-const elsewhere = Boolean(options.reference || options.options);
-const make = elsewhere
-  ? installed(options.reference ?? resolve(here, '..'), options.options ? JSON.parse(readFileSync(options.options, 'utf8')) : pinned)
-  : headless;
 
 const ESC = '\x1b', CSI = `${ESC}[`, DCS = `${ESC}P`, OSC = `${ESC}]`, ST = `${ESC}\\`;
 // What one screen keeps that a checkpoint can't show, in parts so nothing a part prints hides another's.
@@ -96,7 +88,7 @@ const gaps = Object.fromEntries(Object.entries(found).sort(([a], [b]) => a.local
 const contents = `${JSON.stringify(gaps, null, 2)}\n`;
 const current = existsSync(gapsFile) ? readFileSync(gapsFile, 'utf8') : undefined;
 if (contents !== current) {
-  if (options.check || elsewhere) {
+  if (options.check) {
     console.error(`Resumed terminals differ from the listed gaps in ${gapsFile.slice(root.length + 1)}:`);
     for (const [program, { reason, ...sides }] of Object.entries(gaps)) {
       if (JSON.stringify(sides) === JSON.stringify({ ...listed[program], reason: undefined })) continue;
@@ -126,7 +118,7 @@ async function referenceDivergences({ steps, size, palette }, replays) {
   const acting = steps.flatMap((step, index) => step.checkpoint ? [] : [index]);
   const taken = new Set(replays.map(replay => replay.step));
   // The live terminal: what each step showed, and its size, focus and full state where a replay was taken.
-  const live = create(size, palette, make), liveReplies = collect(live);
+  const live = create(size, palette), liveReplies = collect(live);
   const shown = new Map(), points = new Map();
   let focused = false;
   for (const index of acting) {
@@ -144,7 +136,7 @@ async function referenceDivergences({ steps, size, palette }, replays) {
   const divergences = {};
   for (const replay of replays) {
     const point = points.get(replay.step);
-    const resumed = create(point.size, palette, make);
+    const resumed = create(point.size, palette);
     try {
       const divergence = await resume(resumed, collect(resumed), replay, point);
       if (divergence) divergences[replay.step] = divergence;
@@ -177,7 +169,7 @@ async function referenceDivergences({ steps, size, palette }, replays) {
 
   // The live terminal's full state right after a step, replayed again since the reference can't be copied.
   function liveFull(step) {
-    const t = create(size, palette, make);
+    const t = create(size, palette);
     for (const index of acting.filter(index => index <= step)) perform(t, steps[index]);
     const result = full(t, 'replay');
     t.dispose();

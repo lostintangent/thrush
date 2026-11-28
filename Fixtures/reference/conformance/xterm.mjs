@@ -6,9 +6,9 @@ import { withEnd } from './state.mjs';
 const mouseTracking = { none: 'off', x10: 'x10', vt200: 'press', drag: 'drag', any: 'all' };
 const mouseEncoding = { DEFAULT: 'default', SGR: 'sgr', SGR_PIXELS: 'sgrPixels' };
 
-/** A reference terminal for a case. `make` supplies the headless terminal, such as one from another install. */
-export function create([columns, rows], palette, make) {
-  const t = terminal(columns, rows, palette, make);
+/** A reference terminal for a case. */
+export function create([columns, rows], palette) {
+  const t = terminal(columns, rows, palette);
   t.options.logLevel = 'off'; // Malformed input is part of the corpus, and logging changes nothing else.
   return t;
 }

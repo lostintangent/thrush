@@ -28,10 +28,9 @@ const focusReceivers = new WeakMap();
 /**
  * A reference terminal that answers color queries and reports focus the way the browser does, from
  * `palette` when given. It starts without focus, like a browser terminal before anyone clicks it.
- * `make` supplies the headless terminal, such as one from another install.
  */
-export function terminal(columns, rows, palette, make = headless) {
-  const t = make(columns, rows);
+export function terminal(columns, rows, palette) {
+  const t = headless(columns, rows);
   // The headless package parses color queries and mode 1004, but only the browser package answers them.
   const core = t._core;
   const colors = core._register(new ThemeService(core.optionsService));
