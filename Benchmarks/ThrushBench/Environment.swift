@@ -38,7 +38,6 @@ struct Environment: Encodable {
     let thermalState: String
     let powerSource: String
     let lowPowerMode: Bool
-    let displayInterval = "headless"
 
     static func read() throws -> Environment {
         let info = ProcessInfo.processInfo
@@ -71,13 +70,13 @@ struct Environment: Encodable {
         )
     }
 
-    static func command(_ executable: String, _ arguments: [String], captureDiagnostics: Bool = true) throws -> String {
+    static func command(_ executable: String, _ arguments: [String]) throws -> String {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(filePath: executable)
         process.arguments = arguments
         process.standardOutput = pipe
-        if captureDiagnostics { process.standardError = pipe }
+        process.standardError = pipe
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
