@@ -236,7 +236,9 @@ import ThrushCore
             updateSpinner()
             metalView?.onDisplacedTap = nil
             metalView?.setInputAvailability(.blocked, dismissKeyboard: false)
-            metalView?.setRenderingActive(false)
+            metalView?.cancelPendingInput()
+            metalView?.finishFinalFrame()
+            metalView?.setDrawingVisible(false)
             if previouslyActive, let session = view?.session {
                 enqueue { await session.hide() }
             }

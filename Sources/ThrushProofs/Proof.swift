@@ -149,7 +149,7 @@ final class Proof: ObservableObject {
     func setRendering(_ rendering: Bool) {
         guard options.benchmarkURL != nil, isRendering != rendering else { return }
         isRendering = rendering
-        view.setRenderingActive(rendering)
+        view.setDrawingVisible(rendering)
         if rendering { scheduleRenderBenchmark() }
     }
 

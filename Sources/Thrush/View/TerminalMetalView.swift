@@ -539,7 +539,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         }
     }
 
-    private func finishFinalFrame() {
+    func finishFinalFrame() {
         finalFrameRevision &+= 1
         finalFrameWaiter?.resume()
         finalFrameWaiter = nil
@@ -578,18 +578,9 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
         invalidateFrame()
     }
 
-    /// Suspends or resumes drawing. Suspending clears the view's uncommitted input.
-    package func setRenderingActive(_ newValue: Bool) {
-        if !newValue {
-            finishFinalFrame()
-            cancelPendingInput()
-        }
-        setDrawingVisible(newValue)
-    }
-
     /// A covered Mac window keeps its shell and composition. Only the latest generation
     /// reaches Metal when the surface becomes visible again.
-    func setDrawingVisible(_ visible: Bool) {
+    package func setDrawingVisible(_ visible: Bool) {
         guard active != visible else { return }
         active = visible
         updateCursorSpinner()

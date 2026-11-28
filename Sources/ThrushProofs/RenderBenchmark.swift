@@ -169,9 +169,9 @@ enum RenderBenchmark {
         }
         let foregroundIdle = try await observeIdle(view)
         let textBlink = try await observeBlink(collector, interval: interval)
-        view.setRenderingActive(false)
-        // Exercise the same suspension switch the view flips on backgrounding. Keep an
-        // update pending, so a renderer that merely suppresses its timer fails this check.
+        view.setDrawingVisible(false)
+        // Hide the drawing as a covered or background view does. Keep an update pending,
+        // so a renderer that merely suppresses its timer fails this check.
         let inactive: IdleObservation
         let before = view.submissionCount
         let start = CACurrentMediaTime()
@@ -182,7 +182,7 @@ enum RenderBenchmark {
                                    additionalSubmissions: view.submissionCount - before)
 
         let workloadSHA256 = collector.hash.finalize().hexString
-        view.setRenderingActive(true)
+        view.setDrawingVisible(true)
         // A return from the inactive probe may submit its pending generation. Wait for
         // it before observing the operating system's own transition.
         try await collector.apply("\u{1b}[1;6H", as: "restore")
