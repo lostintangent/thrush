@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-bun install --cwd Fixtures/reference --frozen-lockfile --silent
 bun test Tests/ThrushWebSocketCheck/workflow-peer.test.ts
 swift build --product ThrushWebSocketCheck
 bin=$(swift build --show-bin-path)
