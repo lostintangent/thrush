@@ -27,7 +27,7 @@ The recorded scenes come from the scene peer, `bun Tests/ThrushProofs/peers/scen
 | `colors` | A program that asks for the terminal's background, then sets the opposite canvas |
 | `links` | The links an `rg` search and Claude Code's trust prompt send, and the web address `gh browse` prints as plain text |
 
-Pass `--scene` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. On iPhone, `--hide-keyboard` starts with the keyboard dismissed.
+Pass `--scene` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` shows the open window in Dark from its first output and switches it to Light and then a custom palette at each SIGUSR1, so the capture runner sets the pace. On iPhone, `--hide-keyboard` starts with the keyboard dismissed.
 
 ```sh
 open -n .build/proofs/mac/Thrush.app --args --scene editor --appearance light

@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -18,7 +19,7 @@ import time
 import proof
 from proof import ROOT, application, capture, save, wait, window
 
-# The proofs' --cycle-appearance steps through these appearances 4 s apart, beginning at its first output.
+# The proofs' --cycle-appearance reports the first at its first output and moves to each next one at SIGUSR1.
 STEPS = ("dark", "light", "custom")
 SETTLE = 2.5
 # Asks whether mode 2031 is set, sets it, asks again and asks for the current appearance. Then it logs
@@ -77,8 +78,10 @@ def take(name, program, bundle, server_binary, out, scratch, after_step):
         with application(bundle, args, host_log) as process:
             window(process)
             subprocess.run(["open", "-a", bundle], check=True)
-            for step in STEPS:
-                wait(f"{name} appearance={step}", lambda: f"appearance={step}\n" in host_log.read_text())
+            for index, step in enumerate(STEPS):
+                if index:
+                    process.send_signal(signal.SIGUSR1)
+                wait(f"{name} appearance={step}", lambda: f"appearance={step}\n" in host_log.read_text(), process=process)
                 time.sleep(SETTLE)
                 capture(process.pid, out / f"{name}-{step}.png")
                 after_step(step)

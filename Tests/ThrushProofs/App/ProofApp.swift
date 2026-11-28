@@ -84,6 +84,8 @@ private struct RendererSurface: UIViewRepresentable {
 #if os(macOS)
 @MainActor final class ProofDelegate: NSObject, NSApplicationDelegate {
     private let proof = Proof.shared
+    private var appearanceSignal: DispatchSourceSignal?
+    private var laterAppearances = ["light", "custom"][...]
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // SwiftUI restores the frame a previous run left, so each proof starts from the sample's default window.
@@ -105,17 +107,28 @@ private struct RendererSurface: UIViewRepresentable {
     func applicationDidUnhide(_ notification: Notification) { proof.setRendering(true) }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// Steps through dark, light and a custom theme 4 s apart while the terminal stays attached.
-    /// The capture runners listen for each step on stdout.
+    /// Reports dark, then steps to light and a custom theme at each SIGUSR1 while the terminal stays attached.
+    /// The capture runner sends each signal once it has checked the step before, and listens for each step on stdout.
     private func cycleAppearance() {
-        Task {
-            for step in ["dark", "light", "custom"] {
-                if step != "dark" { try? await Task.sleep(for: .seconds(4)) }
-                setAppearance(step == "light" ? .light : .dark)
-                proof.theme = step == "custom" ? Proof.customTheme : nil
-                FileHandle.standardOutput.write(Data("appearance=\(step)\n".utf8))
-            }
+        signal(SIGUSR1, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.nextAppearance() }
         }
+        source.activate()
+        appearanceSignal = source
+        report(appearance: "dark")
+    }
+
+    private func nextAppearance() {
+        guard let step = laterAppearances.popFirst() else { return }
+        setAppearance(step == "light" ? .light : .dark)
+        proof.theme = step == "custom" ? Proof.customTheme : nil
+        report(appearance: step)
+    }
+
+    private func report(appearance step: String) {
+        FileHandle.standardOutput.write(Data("appearance=\(step)\n".utf8))
     }
 
     private func setAppearance(_ appearance: ProofOptions.Appearance) {
