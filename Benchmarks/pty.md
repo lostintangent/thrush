@@ -17,14 +17,14 @@ swift run -c release ThrushServer --port 3129 --data-dir "$pty_data" --shell /bi
 
 A real shell prints a fresh nonce before starting the producer on an 80 × 24 PTY. It writes 64-byte numbered lines and waits for a second attachment to acknowledge its final screen. In the suspended run, the shell exits instead while the client is stopped. The server must then replay the final screen before exit, and the same ID must start a fresh shell. An independent oracle checks the payload, order and all 24 expected rows. The session counts live output and in-band replays separately.
 
-On an M1 Max running macOS 27.2.1, the standalone server and client restored the expected visible rows before and after reconnect in all four cases. Thrush applied every received byte. The measurements used a clean Release build at `6b33bf2`. [Smoke report](pty-smoke.json)
+On a shared M1 Max running macOS 27.2.1 with a load average near 20, the three acknowledged runs showed the expected rows live and after reattach, and the suspended run restored them with its replay before exit. Thrush applied every received byte. The measurements used a clean Release build at `65ca27f`. [Smoke report](pty-smoke.json)
 
 | Reader | Intact / expected markers | Missing live bytes | Screen repairs | Producer / live apply (MiB/s) | Peak written minus applied (bytes) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Paced at 1 MiB/s | 8,192 / 8,192 | 0 | 0 | 0.99 / 1.01 | 8,192 |
-| Continuous burst | 93,376 / 131,072 | 2,412,544 | 6 | 11.99 / 8.25 | 2,664,448 |
-| Rate-limited burst | 55,024 / 131,072 | 4,867,072 | 4 | 36.66 / 10.55 | 5,974,016 |
-| Suspended burst | 12,560 / 131,072 | 7,584,768 | 1 | 19.36 / 13.61 | 8,388,608 |
+| Continuous burst | 77,008 / 131,072 | 3,460,096 | 6 | 43.08 / 20.79 | 4,674,560 |
+| Rate-limited burst | 86,416 / 131,072 | 2,857,984 | 3 | 44.63 / 21.47 | 4,842,496 |
+| Suspended burst | 12,544 / 131,072 | 7,585,792 | 1 | 73.23 / 22.85 | 8,388,608 |
 
-The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 111.316 MiB/s, one quarter of the 80 × 24 parser throughput archived when the check ran. The suspended process resumes one second after the shell exits. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference at 75860e3](https://github.com/lostintangent/thrush/blob/bab33fda31fca69f965bbfc1b37507e7b28e17e8/Benchmarks/headless.json)
+The three bursts use the same 8 MiB payload. The rate-limited reader caps its pull rate at 385.474 MiB/s, one quarter of the 80 × 24 parser throughput archived when the check ran. The suspended process resumes one second after the shell exits. The peak byte gap compares completed PTY writes with original payload bytes applied using the Mac’s uptime clock. It includes kernel buffering, server and client work, and permanently skipped output. The live apply rate covers the received payload between its first and last applied frames. [Parser reference](headless.json)
 
