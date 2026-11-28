@@ -4,7 +4,7 @@ These workloads time a session's transport, which moves bytes between the sessio
 
 ## WebSocket transport
 
-Run `swift run -c release ThrushBench --websocket` from the repository root with the full Xcode toolchain and Bun on the path. The command builds the matching Release loopback client, prints p50 and p95 in milliseconds, and writes `.build/benchmarks/websocket.json`. Use `--output PATH` to retain another run.
+Run `swift run -c release ThrushLoopbackCheck --benchmark` from the repository root with the full Xcode toolchain and Bun on the path. The check client times itself, so it refuses a Debug build. It prints p50 and p95 in milliseconds and writes `.build/benchmarks/websocket.json`.
 
 The workload starts a Bun WebSocket peer on the Mac’s loopback interface. The first six attachments cover a fresh shell, a brief detach and foreground return, takeover by a second WebSocket client, user-initiated reclaim, orphan expiry and a fresh shell after explicit close. This shell sends its last two output frames before exit. The initial 16 × 3 grid makes a single row of history observable on resume. The first client sends one 18 × 3 resize and the foreground attachment returns to 16 × 3. During reclaim the session coalesces two requests into a single 17 × 3 resize after replay. Both sides check the exchange in every pass.
 
@@ -18,7 +18,7 @@ The first complete exchange is a warmup. Five measured passes each launch a fres
 
 The peer advances an independent virtual clock to test the 30-second orphan deadline immediately before and at expiry. The post-expiry measurement begins when the fresh ready frame is sent. The reclaimed replay interval begins when the peer releases the held replay frame. The automatic recovery interval starts at the resumed ready response, after the injected backoff. These intervals exclude the time spent waiting at those gates.
 
-The JSON records each interval’s five samples in nanoseconds, nearest-rank p50 and p95, the peer script’s SHA-256 and the machine environment. Five samples make p95 the slowest measured sample. The report describes scripted, headless macOS loopback. Presentation and physical iPhone measurements have separate workloads. CI checks wire and screen correctness independently of elapsed time.
+The JSON records each interval’s five samples in nanoseconds, nearest-rank p50 and p95, the peer script’s SHA-256, Bun’s version and the machine environment. Five samples make p95 the slowest measured sample. The report describes scripted, headless macOS loopback. Presentation and physical iPhone measurements have separate workloads. CI checks wire and screen correctness independently of elapsed time.
 
 ### Recorded run
 
