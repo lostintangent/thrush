@@ -1,7 +1,7 @@
 // The conformance view of the pinned reference: cases replay through it, and every checkpoint reads
 // its state the same way. See ../reference.mjs for the reference itself.
 import { setFocus, terminal } from '../reference.mjs';
-import { emptyLine } from './state.mjs';
+import { withEnd } from './state.mjs';
 
 const mouseTracking = { none: 'off', x10: 'x10', vt200: 'press', drag: 'drag', any: 'all' };
 const mouseEncoding = { DEFAULT: 'default', SGR: 'sgr', SGR_PIXELS: 'sgrPixels' };
@@ -44,8 +44,7 @@ export function run(testCase, { observe = false } = {}) {
   let error;
   const identities = observe ? instrument(t) : undefined;
   const checkpoints = [];
-  const steps = testCase.steps.at(-1)?.checkpoint === 'end' ? testCase.steps : [...testCase.steps, { checkpoint: 'end' }];
-  for (const step of steps) {
+  for (const step of withEnd(testCase.steps)) {
     if (step.checkpoint) {
       checkpoints.push({ ...state(t, step.checkpoint, step.scope, replies()), ...(error && { error }) });
       error = undefined;
@@ -171,7 +170,8 @@ function line(bufferLine, columns, scratch, links) {
     const cell = bufferLine.getCell(column, scratch);
     cells.push([cell.getChars(), cell.getWidth(), style(cell, links)]);
   }
-  while (cells.length && emptyLine.isBlank(cells.at(-1))) cells.pop();
+  const blank = ([text, width, style]) => text === '' && width === 1 && style === '';
+  while (cells.length && blank(cells.at(-1))) cells.pop();
   return { wrapped: bufferLine.isWrapped, cells };
 }
 

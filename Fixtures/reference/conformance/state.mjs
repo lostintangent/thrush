@@ -6,13 +6,13 @@
 // A style's `link=n` names the nth entry of links, each an `id;uri` numbered by first appearance.
 // Sources/ThrushConformance/Checkpoint.swift decodes the same shape and owns comparison.
 
-export const emptyLine = { isBlank: cell => cell[0] === '' && cell[1] === 1 && cell[2] === '' };
+/** A case's steps, ending with the checkpoint named `end` that every case reaches. */
+export const withEnd = steps => steps.at(-1)?.checkpoint === 'end' ? steps : [...steps, { checkpoint: 'end' }];
 
 /** Interns cells and lines so long histories and repeated rows stay small in Git. */
 export class Pool {
   values = [];
   #ids = new Map();
-  constructor(values = []) { values.forEach(value => this.id(value)); }
   id(value) {
     const key = JSON.stringify(value);
     let id = this.#ids.get(key);

@@ -1,6 +1,7 @@
 // ThrushCore's side of the harness: one long-lived ThrushConformance process that replays cases.
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { withEnd } from './state.mjs';
 
 /** Serializes a case for Swift: writes as base64 and xterm's checkpoints as expectations. */
 export function encodeCase(testCase, expected) {
@@ -12,7 +13,6 @@ export function encodeCase(testCase, expected) {
   };
 }
 
-export const withEnd = steps => steps.at(-1)?.checkpoint === 'end' ? steps : [...steps, { checkpoint: 'end' }];
 
 export class Thrush {
   #process;
