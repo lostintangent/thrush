@@ -297,14 +297,13 @@ extension Terminal {
         private var alternateCapacity: Int
         private var revision: UInt64 = 0
 
-        // Inlined because an out-of-line call copies the whole Screen first.
-        @inline(__always) var row: Int { active.row }
-        @inline(__always) var column: Int { active.column }
+        var row: Int { active.row }
+        var column: Int { active.column }
         var size: Size { active.size }
         var isAlternate: Bool { active.alternate }
 
         /// The rows LF, IND and RI scroll at its margins, and that IL, DL, SU, SD and the column edits act on.
-        @inline(__always) var scrollRegion: ClosedRange<Int> {
+        var scrollRegion: ClosedRange<Int> {
             get { active.scrollRegion }
             set { active.scrollRegion = newValue }
         }
