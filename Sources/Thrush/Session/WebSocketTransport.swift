@@ -6,9 +6,12 @@ final class WebSocketTransport: SessionActor.Transport {
     private typealias TransportError = SessionActor.TransportError
 
     private struct ServerControl: Decodable {
-        enum Kind: String, Decodable { case ready, exit }
+        enum Kind: String, Decodable { case ready, resize, exit }
         let type: Kind
         let resumed: Bool?
+        let answersResize: Bool?
+        let cols: Int?
+        let rows: Int?
     }
 
     private struct ClientControl: Encodable, Sendable {
@@ -16,12 +19,13 @@ final class WebSocketTransport: SessionActor.Transport {
         private let type: Kind
         private let cols: Int?
         private let rows: Int?
+        private let answer: Bool?
 
-        static func resize(_ size: Terminal.Size) -> Self {
-            Self(type: .resize, cols: size.columns, rows: size.rows)
+        static func resize(_ size: Terminal.Size, answered: Bool) -> Self {
+            Self(type: .resize, cols: size.columns, rows: size.rows, answer: answered ? true : nil)
         }
 
-        static let close = Self(type: .close, cols: nil, rows: nil)
+        static let close = Self(type: .close, cols: nil, rows: nil, answer: nil)
     }
 
     private struct HeldInput {
@@ -33,7 +37,10 @@ final class WebSocketTransport: SessionActor.Transport {
     fileprivate var frameTrace: (any WebSocketFrameTrace)?
     private let sleepForRetry: @Sendable (Duration) async throws -> Void
     private var socket: URLSessionWebSocketTask?
-    private var attachmentSize = Terminal.Size(columns: 80, rows: 24)
+    /// The grid this attachment last gave the server, starting with the one in its URL.
+    private var sentSize = Terminal.Size(columns: 80, rows: 24)
+    /// The server answers each resize at the point in its output where its terminal took the grid.
+    private var answersResize = false
     private var retryWait: Task<Void, Error>?
     private var retryMilliseconds = 250
     private var pendingEvent: SessionActor.Event?
@@ -67,7 +74,7 @@ final class WebSocketTransport: SessionActor.Transport {
             // A replay of a thousand rows of styled history can exceed URLSession's 1 MiB default.
             next.maximumMessageSize = max(next.maximumMessageSize, 64 * 1024 * 1024)
             socket = next
-            attachmentSize = size
+            sentSize = size
             frameTrace?.record("open", attachment: socketAttempts)
             next.resume()
             return .connecting
@@ -152,7 +159,7 @@ final class WebSocketTransport: SessionActor.Transport {
                 nextReplay = nil
                 if let replay {
                     // The last screen stays visible until the complete replay can replace it.
-                    let size = replay == .resumed ? attachmentSize : session.terminal.size
+                    let size = replay == .resumed ? sentSize : session.terminal.size
                     session.terminal.prepareForReplay(at: size)
                 }
                 let reply = session.apply(bytes)
@@ -181,6 +188,7 @@ final class WebSocketTransport: SessionActor.Transport {
                     frameTrace?.record("ready", attachment: attachment, message: message)
                     let replaced = session.hasSeenReady && !resumed
                     session.hasSeenReady = true
+                    answersResize = control.answersResize == true
                     retryMilliseconds = 250
                     if resumed {
                         nextReplay = .resumed
@@ -188,9 +196,9 @@ final class WebSocketTransport: SessionActor.Transport {
                     } else {
                         if replaced {
                             session.shellRevision &+= 1
-                            session.terminal.startNewShell(at: attachmentSize)
+                            session.terminal.startNewShell(at: sentSize)
                         } else {
-                            session.resetTerminal(size: attachmentSize)
+                            session.resetTerminal(size: sentSize)
                         }
                         session.lastReceiptTime = nil
                         discardHeldInput()
@@ -205,6 +213,13 @@ final class WebSocketTransport: SessionActor.Transport {
                     frameTrace?.record("ready", attachment: attachment, message: message)
                     nextReplay = .live
                     return nil
+                case (.resize, .live), (.resize, .closing):
+                    guard answersResize, let columns = control.cols, let rows = control.rows, columns > 0, rows > 0 else {
+                        throw TransportError.unexpectedMessage
+                    }
+                    frameTrace?.record("resize", attachment: attachment, message: message)
+                    session.terminal.resize(to: .init(columns: columns, rows: rows))
+                    return .output
                 case (.exit, .live), (.exit, .closing):
                     frameTrace?.record("exit", attachment: attachment, message: message)
                     if session.state != .closing {
@@ -269,7 +284,7 @@ final class WebSocketTransport: SessionActor.Transport {
         while socket === current && session.state != .closing {
             let focus = session.terminal.isFocused
             let appearance = session.terminal.appearance
-            if session.terminal.size != session.requestedSize {
+            if sentSize != session.requestedSize {
                 try await resizeIfNeeded(current, in: session)
             } else if session.terminal.modes.sendFocus, let heard = heardFocus, heard != focus {
                 heardFocus = focus
@@ -295,10 +310,14 @@ final class WebSocketTransport: SessionActor.Transport {
         try await resizeIfNeeded(current, in: session)
     }
 
+    /// A server that answers resizes the terminal at its answer, so every byte meets the grid the server
+    /// parsed it at. Otherwise the terminal takes the grid at once.
     private func resizeIfNeeded(_ current: URLSessionWebSocketTask, in session: isolated SessionActor) async throws {
-        guard session.terminal.size != session.requestedSize else { return }
-        session.terminal.resize(to: session.requestedSize)
-        try await writeControl(.resize(session.requestedSize), to: current, in: session)
+        let size = session.requestedSize
+        guard size != sentSize else { return }
+        sentSize = size
+        if !answersResize { session.terminal.resize(to: size) }
+        try await writeControl(.resize(size, answered: answersResize), to: current, in: session)
     }
 
     func close(in session: isolated SessionActor) async throws {

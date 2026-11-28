@@ -4,7 +4,7 @@ import ThrushCore
 @preconcurrency import Network
 
 private typealias WS = NWProtocolWebSocket
-private struct Control: Decodable { let type: String; let cols, rows: Int? }
+private struct Control: Decodable { let type: String; let cols, rows: Int?; let answer: Bool? }
 
 private final class Shell: @unchecked Sendable {
     let id: String
@@ -32,7 +32,7 @@ private final class Shell: @unchecked Sendable {
             return
         }
         behind = false
-        attachment.send(.text, Data(#"{"type":"ready","resumed":true}"#.utf8))
+        attachment.send(.text, Data(#"{"type":"ready","resumed":true,"answersResize":true}"#.utf8))
         attachment.send(.binary, snapshot)
     }
 
@@ -186,7 +186,7 @@ private final class Server: @unchecked Sendable {
             shell.pty.onExit = { [weak self, weak shell] in
                 if let shell { self?.finish(shell, natural: true) }
             }
-            attachment.send(.text, Data(#"{"type":"ready","resumed":false}"#.utf8))
+            attachment.send(.text, Data(#"{"type":"ready","resumed":false,"answersResize":true}"#.utf8))
         }
         attachment.shell = shell
         read(attachment)
@@ -209,6 +209,8 @@ private final class Server: @unchecked Sendable {
                 guard command.type == "resize", let cols = command.cols, let rows = command.rows,
                       TerminalRequest.valid(columns: cols, rows: rows) else { attachment.close(.protocolCode(.protocolError)); return }
                 shell.resize(cols, rows)
+                // The answer falls among the output frames where the retained terminal took the grid.
+                if command.answer == true { attachment.send(.text, Data(#"{"type":"resize","cols":\#(cols),"rows":\#(rows)}"#.utf8)) }
             case .close: attachment.close(.protocolCode(.normalClosure)); return
             case .ping, .pong: break
             default: attachment.close(.protocolCode(.protocolError)); return

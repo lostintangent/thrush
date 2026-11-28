@@ -3,6 +3,7 @@ import Observation
 import Synchronization
 import Testing
 @testable import Thrush
+import ThrushCore
 
 @MainActor private final class ChangeCount {
     private(set) var count = 0
@@ -305,4 +306,94 @@ private struct AppliedFrames: WebSocketFrameTrace {
     await session.actor.hide()
     try await resume(replaying: "")
     try await expectWrites([light, dark, "1", light, "2", light, "3"], through: "4")
+}
+
+private func control(_ json: String) -> NSDictionary? {
+    try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary
+}
+
+@MainActor @Test func aResizeLandsWhereTheServerAnswersItSoTheScreenMatchesTheReplay() async throws {
+    let peer = try ShellTestPeer()
+    defer { peer.stop() }
+    peer.automaticallySendsReady = false
+    let deadline = ContinuousClock.now + .seconds(5)
+    func waitFor(_ expected: Comment, until condition: () -> Bool) async throws {
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(condition(), expected)
+    }
+    try await waitFor("The loopback peer must be listening.") { peer.port != nil }
+    let port = try #require(peer.port)
+    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
+    let tall = Terminal.Size(columns: 6, rows: 4), short = Terminal.Size(columns: 6, rows: 2)
+    // The terminal the server keeps for the shell, which its replay serializes.
+    var server = Terminal(size: tall)
+    func output(_ text: String) async throws {
+        _ = server.write(text.utf8)
+        try peer.send(text, opcode: .binary)
+        #expect(try await session.actor.nextEvent() == .output)
+    }
+    func rows() async -> [String] { await session.actor.snapshot().rows.map(\.text) }
+
+    // The keyboard rises while the shell opens. The resize goes out once, marked, after the promise.
+    try await session.actor.sendResize(to: tall)
+    try #require(await session.actor.show())
+    try await waitFor("The session must open its socket.") { peer.opens == 1 }
+    try await session.actor.sendResize(to: short)
+    try peer.send(#"{"type":"ready","resumed":false,"answersResize":true}"#, opcode: .text)
+    #expect(try await session.actor.nextEvent() == .ready(resumed: false))
+    try await session.actor.sendResize(to: short)
+    try await waitFor("The shell must hear the resize.") { !peer.receivedText.isEmpty }
+
+    // Vim drew its tall layout before it heard the resize, so the screen stays tall until the answer.
+    try await output("\u{1b}[?1049h\u{1b}[Hone\u{1b}[2;1Htwo\u{1b}[3;1Hthree\u{1b}[4;1Hfour\u{1b}[H")
+    #expect(await rows() == ["one", "two", "three", "four"])
+    server.resize(to: short)
+    try peer.send(#"{"type":"resize","cols":6,"rows":2}"#, opcode: .text)
+    #expect(try await session.actor.nextEvent() == .output)
+    #expect(await session.actor.terminal.size == short)
+    try await output("\u{1b}[2;4H!")
+    #expect(await rows() == ["one", "two!"])
+
+    // A slow reader's replay restores the server's terminal, which is what the screen already shows.
+    try peer.send(#"{"type":"ready","resumed":true}"#, opcode: .text)
+    try peer.send(String(decoding: server.replayBytes(), as: UTF8.self), opcode: .binary)
+    #expect(try await session.actor.nextEvent() == .replay)
+    #expect(await rows() == ["one", "two!"])
+    #expect(peer.receivedText.compactMap(control) == [["type": "resize", "cols": 6, "rows": 2, "answer": true] as NSDictionary])
+}
+
+@MainActor @Test func aServerThatPromisesNoAnswerSeesEachResizeAtOnce() async throws {
+    let peer = try ShellTestPeer()
+    defer { peer.stop() }
+    let deadline = ContinuousClock.now + .seconds(5)
+    func waitFor(_ expected: Comment, until condition: () -> Bool) async throws {
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(condition(), expected)
+    }
+    try await waitFor("The loopback peer must be listening.") { peer.port != nil }
+    let port = try #require(peer.port)
+    let endpoint = try #require(URL(string: "ws://127.0.0.1:\(port)/socket"))
+    let sockets = URLSession(configuration: .ephemeral)
+    defer { sockets.invalidateAndCancel() }
+    let session = TerminalSession { _ in sockets.webSocketTask(with: endpoint) }
+    let short = Terminal.Size(columns: 6, rows: 2)
+
+    try #require(await session.actor.show())
+    #expect(try await session.actor.nextEvent() == .ready(resumed: false))
+    try await session.actor.sendResize(to: short)
+    #expect(await session.actor.terminal.size == short)
+    try await waitFor("The shell must hear the resize.") { !peer.receivedText.isEmpty }
+    #expect(peer.receivedText.compactMap(control) == [["type": "resize", "cols": 6, "rows": 2] as NSDictionary])
+
+    // An answer the server never promised breaks the protocol.
+    try peer.send(#"{"type":"resize","cols":6,"rows":2}"#, opcode: .text)
+    await #expect(throws: (any Error).self) { try await session.actor.nextEvent() }
+    #expect(await session.actor.state == .idle)
 }

@@ -8,11 +8,12 @@ Open a WebSocket at `/socket?service=terminal&clientId=ID&cols=C&rows=R`. Percen
 
 | Sender | Message | Receiver action |
 | --- | --- | --- |
-| Server | `{"type":"ready","resumed":false}` | The server started a fresh shell. On a first attachment, start with a blank terminal at the requested size. On reattach, retain the previous main screen in history, discard held input and adopt the new shell. |
-| Server | `{"type":"ready","resumed":true}` | The **next binary message** is the replay. Apply it to a fresh terminal at the negotiated size, then apply subsequent output. An empty screen still gets a replay message. |
+| Server | `{"type":"ready","resumed":false,"answersResize":true}` | The server started a fresh shell. On a first attachment, start with a blank terminal at the requested size. On reattach, retain the previous main screen in history, discard held input and adopt the new shell. |
+| Server | `{"type":"ready","resumed":true,"answersResize":true}` | The **next binary message** is the replay. Apply it to a fresh terminal at the negotiated size, then apply subsequent output. An empty screen still gets a replay message. |
 | Server | Binary | Feed bytes to the terminal. A UTF-8 character or VT sequence can span messages. |
 | Client | Binary | Write to the PTY in order. This includes typed input, paste and replies to terminal queries. |
-| Client | `{"type":"resize","cols":80,"rows":24}` | Resize the PTY and its retained terminal to the same grid so the program can redraw. |
+| Client | `{"type":"resize","cols":80,"rows":24,"answer":true}` | Resize the PTY and its retained terminal to the same grid so the program can redraw. A marked resize gets an answer. |
+| Server | `{"type":"resize","cols":80,"rows":24}` | Resize the terminal to the grid, between the output before it and the output after it. |
 | Client | `{"type":"close"}` | End the shell and its PTY. A later attachment with this ID gets a fresh shell. |
 | Server | `{"type":"exit"}` | Keep the final screen, mark the shell ended, then accept the normal WebSocket close (1000). Send all final binary bytes before exit. |
 
@@ -21,6 +22,12 @@ If the WebSocket closes without a terminal `close` message, its attachment to th
 On a resumed attachment, wait for the binary replay before sending a resize held during the handshake. Send held keystrokes once, using the input modes restored by the replay. This includes the first keystroke used to reclaim a displaced shell. A tap to reclaim sends no terminal input. If the replay leaves mode 2031 set, send the current dark or light appearance report once, since another client may have reported a different one while this one was away.
 
 A fresh ready on reattach starts a different shell on the same session. Keep the previous shell’s main screen in history, discard its alternate screen and any held input, and reset the modes and title. The new shell starts at row one and accepts input immediately. `hasEnded` stays false. A later replay describes the current shell and retains surviving history from earlier shells.
+
+## Resize
+
+Output already in flight when a client resizes was written for the old grid. To keep the live screen matching a replay, both sides resize their terminals at the same point in the stream. A server that sets `answersResize` in its ready promises to answer every resize on that socket marked with `answer`. The answer carries the grid the server's terminal took, which differs from the request when a server clamps it. The server places the answer among its binary messages where its retained terminal took that grid. The client keeps applying output at the old grid until the answer arrives, then resizes its terminal to the answer's grid. Answers keep their place while a slow reader misses live output, so a replay is at the grid of the last answer before it. A replay after each resize would also converge, but it costs up to 64 MiB a step, loses the resize effects below and visibly corrects the screen.
+
+A client marks resizes only after a ready that promises answers, and the promise covers that socket alone. Without one, the client resizes its terminal when it sends the resize. A server sends no answer to an unmarked resize. A client ignores ready keys it doesn't know, and a server ignores resize keys it doesn't know, so every pairing of older and newer clients and servers keeps working. Only a newer client with a newer server gains the ordering. The bundled server answers every marked resize and closes the socket on a grid outside its bounds.
 
 ## Replay
 
