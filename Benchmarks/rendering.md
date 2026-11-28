@@ -20,7 +20,7 @@ The first update draws every row with indexed cyan, default text, single-column 
 
 Each submission records CPU preparation time, command-buffer GPU duration when available, the monotonic host timestamp immediately before supplying the output bytes and the drawable's actual presentation timestamp. The benchmark advances after a successful GPU completion. On a display delivering presentation events, it waits up to 250 ms for the matching drawable before feeding the next update. If the window server stops delivering those events, the benchmark continues at GPU completion and resumes presentation pacing when a positive timestamp arrives. It keeps collecting late timestamps by submission through the final one-second idle observation. The JSON preserves each confirmed timestamp and counts missing presentations separately. A missing GPU completion or failed command fails the run.
 
-The receipt-to-presentation measure includes local parsing, scheduling and rendering. Socket and key-to-echo latency belong to the native input benchmark. After the first screen submits, a display link samples twelve refresh intervals in the same window. The cold frame also records asynchronous Metal shader compilation and the elapsed time from native view creation to the first content submission. Each cold run starts in a new process with an empty Thrush pipeline cache. Metal may reuse its system compiler cache across launches. The report compares presented latency with the median interval.
+The receipt-to-presentation measure includes local parsing, scheduling and rendering. Socket and key-to-echo latency belong to the [native input benchmark](interactions.md). After the first screen submits, a display link samples twelve refresh intervals in the same window. The cold frame also records asynchronous Metal shader compilation and the elapsed time from native view creation to the first content submission. Each cold run starts in a new process with an empty Thrush pipeline cache. Metal may reuse its system compiler cache across launches. The report compares presented latency with the median interval.
 
 After the redraws, a selection spans the two wide glyphs while the view switches between the light theme, the dark theme and a custom palette. The checker requires each switch to keep the generation and grid, with zero glyph uploads and zero row preparations. A separate final measurement counts all Metal submissions during one second at a settled prompt, one second with updates pending on the suspended renderer, and an actual native hide or background interval. The terminal cursor stays steady.
 
@@ -75,23 +75,3 @@ The simulator SDK exposes command-buffer timing but no drawable presentation tim
 ## Finding plain-text links
 
 The view looks for plain `http` and `https` addresses only on lines whose rows changed. Timed over the recordings on the M1 Max at `933e55b`, that costs 5 to 8 µs on a frame whose visible lines haven't changed and about a quarter of CPU preparation on an output frame, under 1% of a 60 Hz refresh.
-
-## Native input and echo latency
-
-Build the Release app, then run the same input sequence through its native text responder and a fresh loopback socket.
-
-```sh
-scripts/build-app.sh proofs mac
-bun Tests/ThrushProofs/peers/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json
-
-scripts/build-app.sh proofs simulator
-bun Tests/ThrushProofs/peers/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
-```
-
-The peer expects 22 binary input frames. It checks one committed Japanese glyph after two marked-text updates, one bracketed paste and 20 printable keys. Each echo has a distinct terminal generation. The app also selects and copies a wide glyph across a soft wrap, reads a history row, and activates Latest.
-
-Each key includes monotonic timestamps for the responder action, the WebSocket write and receipt of the corresponding echo. A matching Metal frame adds submission time. A drawable presentation callback adds visible-echo time on supported displays. The report publishes presentation percentiles only for runs in which all 20 keys have presentation timestamps. Compare visible echo against two display intervals using the interval measured on the same run. Environment fields record contention, thermal state, source revision and working-tree status.
-
-The same report includes `anchoredReplay` for a scrolled 80 × 24 viewport with 1,000 history rows. Twenty replacements alternate between two pre-parsed snapshots whose numbered build steps shift by twelve rows. Each replacement must keep **Build step 512** at the top and **Build step 513** selected. The `milliseconds` samples and `p95Milliseconds` cover restoring the viewport and its native interaction state. Parsing, network latency and display timing have their own measurements above.
-
-The [packaged Mac interaction report](interactions-mac.json) records a clean build of `2a3327e` on the contended M1 Max. Across 20 keys, p95 was 0.066 ms to the WebSocket write and 0.440 ms to receipt of the matching echo. All 20 echoes reached Metal submission. The locked display supplied no presentation times. Restoring the history reader and selection across 1,000 retained rows took 6.282 ms p95 over 20 replacements.

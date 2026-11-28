@@ -32,4 +32,4 @@ Keep a `TerminalSession` for each tab and pass it to `TerminalView(session)` fro
 
 Pass `theme:` or `fontSize:` to customize the running view. With the default theme it follows system appearance. On iPhone, pass `showsKeyRow: false` to hide the key row above the keyboard.
 
-To change individual colors, edit a copy of `TerminalTheme.dark` or `.light` and pass it to the view. The view uses the same palette on screen and in its answers to shell color queries. [Render and interaction benchmarks](../Benchmarks/rendering.md) · [Theme palettes and cell metrics](design/README.md)
+To change individual colors, edit a copy of `TerminalTheme.dark` or `.light` and pass it to the view. The view uses the same palette on screen and in its answers to shell color queries. [Benchmarks](../Benchmarks/README.md) · [Theme palettes and cell metrics](design/README.md)

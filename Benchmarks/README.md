@@ -8,7 +8,7 @@ Every benchmark checks what it measured. Recording benchmarks compare each check
 | [Headless recordings](headless.md) | `swift run -c release ThrushBench` | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize |
 | [Mac rendering](rendering.md#mac-measurement) | `.build/proofs/mac/Thrush.app/Contents/MacOS/ThrushProofs --benchmark .build/benchmarks/render.json` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app |
 | [iPhone simulator rendering](rendering.md#iphone-simulator-measurement) | `Tests/ThrushProofs/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json` | The same Release workload and an actual UIKit background transition |
-| [Native input](rendering.md#native-input-and-echo-latency) | `bun Tests/ThrushProofs/peers/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json` | Composition, paste and keys from the native responder to the socket and back |
+| [Native input](interactions.md) | `bun Tests/ThrushProofs/peers/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json` | Composition, paste and keys from the native responder to the socket and back |
 | [WebSocket lifecycle](transport.md) | `swift run -c release ThrushWebSocketCheck --benchmark` | Attach, resume, takeover, reclaim, expiry, recovery and in-band replay over loopback |
 | [Real PTY](pty.md) | `scripts/check-pty.sh` | Numbered logs through the standalone server, and exit under pressure |
 | [Native PTY workflows](live-workflows.md) | `python3 Tests/ThrushProofs/launch.py --help` | Native Shell, Vim, Codex, lifecycle and recovery over real PTYs |
