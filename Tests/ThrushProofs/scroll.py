@@ -5,10 +5,11 @@ import json
 import math
 from pathlib import Path
 import re
-import runpy
 import shlex
 import statistics
 import sys
+
+import launch
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -30,9 +31,8 @@ SGR = re.compile(rb"\x1b\[<(\d+);\d+;\d+([Mm])|\x1b[\[O]([AB])|.", re.S)
 @contextlib.contextmanager
 def shell(scratch, out):
     """Serves Bash from a local Thrush server, with a long file to read and logs of what programs read, and yields its endpoint."""
-    launch = runpy.run_path(str(ROOT / "Tests/ThrushProofs/launch.py"))
     (scratch / "pty").mkdir()
-    with launch["live_pty"](scratch / "pty", out, "/bin/bash", None, ()) as (endpoint, work, _):
+    with launch.live_pty(scratch / "pty", out, "/bin/bash", None, ()) as (endpoint, work, _):
         prepare(work.parent, out)
         yield endpoint
 

@@ -2,138 +2,27 @@
 """Record real iPhone terminal interactions from the packaged app on a disposable simulator."""
 import argparse
 import contextlib
-import importlib.util
 import json
 import os
 from pathlib import Path
 import plistlib
-import re
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
 import time
 
-ROOT = Path(__file__).resolve().parents[2]
-HERE = Path(__file__).resolve().parent
-RUNNER = "PhoneInteractionProof"
-BUNDLE_ID = "app.thrush.review.interactions"
+import proof
+from proof import ROOT, HERE, run_logged, export_attachments
+import scroll
+import simulator
+
 APPEARANCES = ("dark", "light")
 PICS = ("shell-{}-portrait", "control-{}-armed", "control-{}-shift", "control-{}-option", "control-{}-landscape",
         "shell-{}-landscape", "keyboard-{}-hidden", "word-{}-menu", "line-{}-selected", "history-{}-latest",
         "line-{}-last")
 CLIPS = ("control", "keyboard", "select", "history")
 SWIPES = ("less", "vim", "history", "settings")
-# An interrupted xcodebuild cancels its tests and still writes the result bundle, which keeps
-# the screenshots and clips taken before a hang. Tearing down a hung test took 68 s on a Mac.
-INTERRUPT_GRACE = 120
-
-
-def load_helper(name):
-    path = HERE / (name + ".py")
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def run_logged(args, log, timeout, observe=None):
-    with log.open("w") as output, subprocess.Popen(args, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT) as result:
-        deadline = time.monotonic() + timeout
-        try:
-            while result.poll() is None:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise subprocess.TimeoutExpired(args, timeout)
-                if observe:
-                    observe()
-                try:
-                    result.wait(timeout=min(remaining, 0.25) if observe else remaining)
-                except subprocess.TimeoutExpired:
-                    pass
-        finally:
-            if result.poll() is None:
-                result.send_signal(signal.SIGINT)
-                try:
-                    result.wait(timeout=INTERRUPT_GRACE)
-                except subprocess.TimeoutExpired:
-                    result.kill()
-    if result.returncode:
-        raise RuntimeError(f"{args[0]} exited {result.returncode}. See {log.name}.\n" + log.read_text()[-2800:])
-
-
-def build_test_runner(work, out, source=HERE / "UITests" / (RUNNER + ".swift"), *, mac=False, name=RUNNER):
-    # XCUITest needs a UI-test bundle. Keep the product and its generated project inside
-    # the disposable build directory; the real app is always the normal SwiftPM bundle.
-    project = work / (name + ".xcodeproj")
-    shared = project / "xcshareddata/xcschemes"
-    shared.mkdir(parents=True)
-    (work / (name + ".swift")).symlink_to(source)
-    objects = {}
-
-    def item(key, isa, **values):
-        objects[key] = {"isa": isa, **values}
-
-    item("PROJECT", "PBXProject", mainGroup="GROUP", productRefGroup="PRODUCTS", buildConfigurationList="CFG",
-         targets=["TARGET"], projectDirPath="", projectRoot="", compatibilityVersion="Xcode 14.0",
-         developmentRegion="en", knownRegions=["en", "Base"])
-    item("GROUP", "PBXGroup", children=["SOURCE", "PRODUCTS"], sourceTree="<group>")
-    item("PRODUCTS", "PBXGroup", children=["BUNDLE"], name="Products", sourceTree="<group>")
-    item("SOURCE", "PBXFileReference", lastKnownFileType="sourcecode.swift", path=name + ".swift", sourceTree="<group>")
-    item("BUNDLE", "PBXFileReference", explicitFileType="wrapper.cfbundle", path=name + ".xctest",
-         sourceTree="BUILT_PRODUCTS_DIR")
-    item("TARGET", "PBXNativeTarget", name=name, productName=name, productReference="BUNDLE",
-         productType="com.apple.product-type.bundle.ui-testing", buildConfigurationList="TARGETCFG",
-         buildPhases=["COMPILE", "LINK"], buildRules=[], dependencies=[])
-    item("TEST", "PBXBuildFile", fileRef="SOURCE")
-    for key, kind, files in [("COMPILE", "PBXSourcesBuildPhase", ["TEST"]), ("LINK", "PBXFrameworksBuildPhase", [])]:
-        item(key, kind, buildActionMask="2147483647", files=files, runOnlyForDeploymentPostprocessing="0")
-    platform = dict(SDKROOT="macosx", MACOSX_DEPLOYMENT_TARGET="27.0") if mac else dict(
-        SDKROOT="iphoneos", IPHONEOS_DEPLOYMENT_TARGET="27.2", TARGETED_DEVICE_FAMILY="1")
-    for key, debug, settings in [
-        ("CFG", "DEBUG", dict(**platform, SWIFT_VERSION="5.0", CLANG_ENABLE_MODULES="YES")),
-        ("TARGETCFG", "TARGETDEBUG", dict(PRODUCT_NAME=name, PRODUCT_BUNDLE_IDENTIFIER=BUNDLE_ID,
-                                         GENERATE_INFOPLIST_FILE="YES", CODE_SIGN_IDENTITY="-")),
-    ]:
-        item(key, "XCConfigurationList", buildConfigurations=[debug], defaultConfigurationIsVisible="0",
-             defaultConfigurationName="Debug")
-        item(debug, "XCBuildConfiguration", name="Debug", buildSettings=settings)
-    with (project / "project.pbxproj").open("wb") as file:
-        plistlib.dump(dict(archiveVersion="1", objectVersion="56", classes={}, objects=objects, rootObject="PROJECT"), file)
-    ref = (f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="TARGET" '
-           f'BuildableName="{name}.xctest" BlueprintName="{name}" ReferencedContainer="container:{project.name}"/>')
-    (shared / (name + ".xcscheme")).write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
-<Scheme version="1.7">
-  <BuildAction parallelizeBuildables="NO" buildImplicitDependencies="YES"><BuildActionEntries>
-    <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">{ref}</BuildActionEntry>
-  </BuildActionEntries></BuildAction>
-  <TestAction buildConfiguration="Debug"><Testables><TestableReference skipped="NO">{ref}</TestableReference></Testables></TestAction>
-</Scheme>
-""")
-    derived = work / "DerivedData"
-    run_logged(["xcodebuild", "-project", project, "-scheme", name, "-derivedDataPath", derived,
-                "-destination", "platform=macOS" if mac else "generic/platform=iOS Simulator", "build-for-testing"], out / "runner-build.log", 300)
-    return next((derived / "Build/Products").glob("*.xctestrun"))
-
-
-def export_attachments(result, out, work, clips):
-    """Saves the runner's screenshots and its clips' intervals, and returns every attachment's file and time."""
-    # XCTest retains completed frames and motion intervals when a later gesture fails.
-    exported = work / "attachments"
-    run_logged(["xcrun", "xcresulttool", "export", "attachments", "--path", result,
-                "--output-path", exported], out / "attachments.log", 90)
-    attachments = {}
-    for test in json.loads((exported / "manifest.json").read_text()):
-        for attachment in test["attachments"]:
-            match = re.search(r"thrush-proof__([a-z0-9-]+)__", attachment["suggestedHumanReadableName"])
-            if not match:
-                continue
-            name, path = match[1], exported / Path(attachment["exportedFileName"]).name
-            attachments[name] = path, attachment["timestamp"]
-            if path.suffix == ".png" or name in clips:
-                shutil.copyfile(path, out / (name + (".png" if path.suffix == ".png" else "-motion.json")))
-    return attachments
 
 
 def export_clip(name, video_start, out, work):
@@ -204,9 +93,7 @@ def save_shell_layouts(out, appearance, spans, frame_times):
 
 
 def collect(phone, device, endpoint, plan, out, work, attempt):
-    configuration = plistlib.loads(plan.read_bytes())
-    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
-    plan.write_bytes(plistlib.dumps(configuration))
+    proof.configure(plan, THRUSH_CAPTURE_ENDPOINT=endpoint)
     result = work / "interactions.xcresult"
     spans = []
     previous = None
@@ -241,9 +128,7 @@ def collect(phone, device, endpoint, plan, out, work, attempt):
 
 
 def collect_swipes(phone, device, endpoint, plan, out, work, attempt):
-    configuration = plistlib.loads(plan.read_bytes())
-    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
-    plan.write_bytes(plistlib.dumps(configuration))
+    proof.configure(plan, THRUSH_CAPTURE_ENDPOINT=endpoint)
     result = work / "swipes.xcresult"
     previous = None
 
@@ -266,9 +151,7 @@ def collect_swipes(phone, device, endpoint, plan, out, work, attempt):
 
 
 def collect_links(phone, device, endpoint, plan, out, work, attempt):
-    configuration = plistlib.loads(plan.read_bytes())
-    configuration[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
-    plan.write_bytes(plistlib.dumps(configuration))
+    proof.configure(plan, THRUSH_CAPTURE_ENDPOINT=endpoint)
     result = work / "links.xcresult"
     video_start = run_gestures(phone, device, plan, result, out, attempt, None)
     names = [f"links-{appearance}" for appearance in APPEARANCES]
@@ -278,14 +161,13 @@ def collect_links(phone, device, endpoint, plan, out, work, attempt):
 
 
 def check_images(out):
-    oracle = load_helper("check-demo-capture")
     for appearance in APPEARANCES:
         for orientation in ("portrait", "landscape"):
             if not (out / f"shell-{appearance}-{orientation}-layout.json").exists():
                 raise ValueError(f"Missing settled keyboard and grid measurements for {appearance} {orientation}.")
         for template in PICS:
             path = out / (template.format(appearance) + ".png")
-            capture = oracle.Capture(path, appearance)
+            capture = proof.Capture(path, appearance)
             if capture.count("background") < capture.width * capture.height * 0.04:
                 raise ValueError(f"{path.name} has insufficient terminal background.")
             if template.startswith(("word-", "line-")) and capture.count("selection") < 100:
@@ -294,8 +176,7 @@ def check_images(out):
                 raise ValueError(f"{path.name} lost the green shell checks above the prompt in landscape.")
             if template.startswith("control-"):
                 check_armed(capture, path.name)
-        run_logged([sys.executable, ROOT / "Tests/ThrushProofs/check-demo-capture.py", out / f"shell-{appearance}-portrait.png",
-                    "shell", appearance], out / f"shell-{appearance}-pixels.log", 80)
+        print(proof.check_scene(out / f"shell-{appearance}-portrait.png", "shell", appearance), flush=True)
 
 
 def check_armed(capture, name):
@@ -324,9 +205,7 @@ def check_armed(capture, name):
 
 
 def check_voiceover(phone, device, endpoint, plan, out, work):
-    options = plistlib.loads(plan.read_bytes())
-    options[RUNNER]["EnvironmentVariables"]["THRUSH_CAPTURE_ENDPOINT"] = endpoint
-    plan.write_bytes(plistlib.dumps(options))
+    proof.configure(plan, THRUSH_CAPTURE_ENDPOINT=endpoint)
     result = work / "voiceover.xcresult"
     try:
         run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan, "-destination",
@@ -372,7 +251,6 @@ def main():
                        help="Tap, long-press and open the links an rg search and Claude Code's trust prompt send, "
                             "and the web address gh prints as plain text, in both appearances.")
     options = parser.parse_args()
-    sys.dont_write_bytecode = True
     os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     out = options.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -382,22 +260,20 @@ def main():
         work = Path(scratch)
         source = HERE / "UITests" / ("PaneVoiceOverProof.swift" if options.accessibility_only else
                          "ScrollSwipeProof.swift" if options.swipes_only else
-                         "PhoneLinkProof.swift" if options.links_only else RUNNER + ".swift")
-        plan = build_test_runner(work, out, source=source)
+                         "PhoneLinkProof.swift" if options.links_only else "PhoneInteractionProof.swift")
+        plan = proof.build_test_runner(work, out, source)
         if options.build_runner_only:
             print("Compiled the native iPhone interaction runner.")
             return
 
-        simulator = load_helper("capture-simulator")
         run_logged(["scripts/build-app.sh", "proofs", "simulator"], out / "app-build.log", 480)
         app = ROOT / ".build/proofs/simulator/Thrush.app"
         info = plistlib.loads((app / "Info.plist").read_bytes())
-        simulator.save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
+        proof.save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                                        toolchain=info["ThrushToolchain"]))
         os.environ["THRUSH_CAPTURE_GRID"] = "1"
-        scroll = load_helper("scroll")
         # Swipes scroll real programs, so they run on a shell rather than the scripted peer.
-        peer = scroll.shell(work, out) if options.swipes_only else simulator.peer(out)
+        peer = scroll.shell(work, out) if options.swipes_only else proof.peer(out)
         with peer as endpoint, simulator.disposable_phone(out) as device:
             phone = simulator.Phone(device, endpoint, app, out, work)
             failures = {}
@@ -445,7 +321,7 @@ def main():
                     attempt("VoiceOver reading position", check_voiceover_focus, events)
                 else:
                     failures["accessibility observations"] = "The mounted app did not record its accessibility state."
-            simulator.save_json(out / "checks.json", {"failures": failures})
+            proof.save(out / "checks.json", {"failures": failures})
             if failures:
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
     if options.accessibility_only:

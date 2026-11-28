@@ -133,7 +133,7 @@ jobs:
         run: |
           flags=()
           if [[ "$CAPTURE_LAYOUT_ONLY" == true ]]; then flags+=(--layout-only); fi
-          python3 Tests/ThrushProofs/capture-simulator.py --output "$RUNNER_TEMP/thrush-iphone-proof" \
+          python3 Tests/ThrushProofs/simulator.py --output "$RUNNER_TEMP/thrush-iphone-proof" \
             --scene "$CAPTURE_SCENE" --appearance "${CAPTURE_APPEARANCE:-dark}" \
             --orientation "${CAPTURE_ORIENTATION:-portrait}" --keyboard "${CAPTURE_KEYBOARD:-any}" "${flags[@]}"
       - name: Upload captures and measurements

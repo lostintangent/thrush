@@ -20,8 +20,10 @@ import time
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
-sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[2]
+import proof
+from proof import ROOT
+import simulator
+
 WORKFLOWS = ("shell", "vim", "codex", "lifecycle")
 RECORDINGS = {"shell": "shell-workflow", "vim": "vim-resume", "codex": "codex-session"}
 ORIGIN = re.compile(r"http://127\.0\.0\.1:[0-9]+")
@@ -133,15 +135,6 @@ def loopback_origin(value):
     return f"{scheme}://{url.netloc}"
 
 
-def build_server(output):
-    build = ["swift", "build", "--package-path", str(ROOT), "-c", "release"]
-    with (output / "server-build.log").open("xb") as log:
-        subprocess.run([*build, "--product", "ThrushServer"], stdout=log, stderr=subprocess.STDOUT,
-                       timeout=900, check=True)
-        directory = subprocess.check_output([*build, "--show-bin-path"], stderr=log, text=True, timeout=60).strip()
-    return Path(directory) / "ThrushServer"
-
-
 @contextmanager
 def live_pty(root, output, bash, codex, workflows, endpoint=None):
     """Prepare an isolated fixture shell and use either the local server or a supplied loopback endpoint."""
@@ -182,14 +175,9 @@ fi
             temp.mkdir(mode=0o700)
             source = {"endpoint": endpoint, "source": "external"}
         else:
-            log = output / "pty-server.log"
-            server = build_server(output)
+            server = proof.build_server(output)
             digest = hashlib.sha256(server.read_bytes()).hexdigest()
-            args = [server, "--port", "0", "--data-dir", data, "--shell", shell]
-            process = stack.enter_context(service(args, log, os.environ))
-            listener = wait_for(process, log, lambda: re.search(r"Listening on: (http://127\.0\.0\.1:\d+)/?",
-                                                               log.read_text(errors="replace")), 30)
-            endpoint = listener[1]
+            endpoint = stack.enter_context(proof.server(server, data, shell, output / "pty-server.log"))
             source = json.loads((data / "source.json").read_bytes())
             source["executableSHA256"] = digest
         work.mkdir(mode=0o700)
@@ -245,8 +233,10 @@ def collect_capture(marker, output, platform, target, *, require_keyboard=False)
         while time.monotonic() < deadline:
             remaining = deadline - time.monotonic()
             try:
-                subprocess.run([ROOT / "Tests/ThrushProofs/capture-demo.sh", platform, target, raw], check=True,
-                               stdout=log, stderr=subprocess.STDOUT, timeout=min(75, remaining))
+                if platform == "mac":
+                    proof.capture_window(int(target), raw)
+                else:
+                    simulator.screenshot(target, raw, timeout=min(75, remaining))
                 with raw.open("rb") as stream:
                     header = stream.read(24)
                 if header[:8] != b"\x89PNG\r\n\x1a\n":
@@ -262,7 +252,7 @@ def collect_capture(marker, output, platform, target, *, require_keyboard=False)
                     verify.append("--require-keyboard")
                 subprocess.run(verify, check=True, stdout=log, stderr=subprocess.STDOUT, timeout=15)
                 break
-            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
                 error = str(exc)
                 log.write((error + "\n").encode())
                 log.flush()
@@ -380,7 +370,6 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                 host = None
                 try:
                     if device and trace:
-                        simulator = load(ROOT / "Tests/ThrushProofs/capture-simulator.py")
                         processes.enter_context(simulator.record_screen(device, output / "lifecycle.mov"))
                     host = processes.enter_context(service([*command, *options], output / "app.log",
                                                            os.environ if device else env))
@@ -408,9 +397,8 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
                     if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
                         try:
-                            subprocess.run([ROOT / "Tests/ThrushProofs/capture-demo.sh", "simulator", device,
-                                            output / "pane-at-failure.png"], check=True, timeout=20)
-                        except (OSError, subprocess.SubprocessError) as error:
+                            simulator.screenshot(device, output / "pane-at-failure.png", timeout=20)
+                        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                             print(f"Could not retain the simulator pane image: {error}", file=sys.stderr)
                     raise
                 finally:
@@ -499,7 +487,6 @@ def main():
             toolchain=info["ThrushToolchain"], platform=args.platform, appearance=args.appearance, executableSHA256=digest), indent=2) + "\n")
         device = documents = None
         if args.platform == "simulator":
-            simulator = load(ROOT / "Tests/ThrushProofs/capture-simulator.py")
             device = stack.enter_context(simulator.disposable_phone(out))
             documents = simulator.prepare_workflow_phone(device, app, out)
         may_reboot = device is not None

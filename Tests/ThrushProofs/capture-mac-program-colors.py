@@ -11,21 +11,13 @@ import argparse
 import collections
 import os
 from pathlib import Path
-import plistlib
-import runpy
 import subprocess
 import tempfile
 import urllib.request
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
-SCRIPTS = ROOT / "scripts"
-luminance = runpy.run_path(str(HERE / "check-spinner-contrast.py"))["luminance"]
-spinners = runpy.run_path(str(HERE / "capture-mac-spinners.py"))
-application, save, wait = (spinners[name] for name in ("application", "save", "wait"))
-blink = runpy.run_path(str(HERE / "capture-mac-text-blink.py"))
-WINDOW, window, screenshot = (blink[name] for name in ("WINDOW", "window", "screenshot"))
-Capture = runpy.run_path(str(HERE / "check-demo-capture.py"))["Capture"]
+import proof
+from proof import HERE, Capture, application, luminance, screenshot, wait, window
+
 # The palettes in Tests/ThrushProofs/peers/demo-peer.ts, the one the colors scene opens with by system appearance, and the
 # window's width, compact toolbar height and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
@@ -159,18 +151,10 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
-    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/proofs/mac/Thrush.app"
-    info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
-    save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
-                                 toolchain=info["ThrushToolchain"],
-                                 os=subprocess.check_output(["sw_vers", "-productVersion"], text=True).strip()))
-    peer = runpy.run_path(str(HERE / "capture-simulator.py"))["peer"]
+    bundle = proof.mac_app(out)
     failures = {}
-    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-program-colors-") as scratch, peer(out) as endpoint:
-        source, finder, checker = Path(scratch) / "window.swift", Path(scratch) / "window", Path(scratch) / "check"
-        source.write_text(WINDOW)
-        subprocess.run(["xcrun", "swiftc", source, "-o", finder], check=True, timeout=300)
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-program-colors-") as scratch, proof.peer(out) as endpoint:
+        checker = Path(scratch) / "check"
         subprocess.run(["xcrun", "swiftc", HERE / "check-pane-capture.swift", "-o", checker], check=True, timeout=300)
         for appearance in ("dark", "light"):
             for name, extra in WINDOWS.items():
@@ -178,7 +162,7 @@ def main():
                 args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", appearance, *extra]
                 path = out / (label + ".png")
                 with application(bundle, args, out / (label + ".log")) as process:
-                    window_id = window(finder, process)
+                    window_id = window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
                     error = settle(label, path, window_id, lambda path: check(path, appearance, palette, extra, checker))
                 if error:
@@ -206,7 +190,7 @@ def main():
                 dark_mode(False)
                 args = ["--endpoint", endpoint, "--scene", "colors", "--appearance", "system", *extra]
                 with application(bundle, args, out / f"live-{name}.log") as process:
-                    window_id = window(finder, process)
+                    window_id = window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
                     for index, (change, palette, appearance) in enumerate(LIVE, 1):
                         label = f"live-{name}-{index}-{palette}-{appearance}"

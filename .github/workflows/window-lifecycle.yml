@@ -14,7 +14,7 @@ on:
       - Tests/ThrushProofs/App/**
       - Tests/ThrushProofs/check-window.py
       - Tests/ThrushProofs/cover-window.swift
-      - Tests/ThrushWebSocketCheck/pty/**
+      - Tests/ThrushProofs/proof.py
       - .github/workflows/window-lifecycle.yml
   workflow_dispatch:
     inputs:

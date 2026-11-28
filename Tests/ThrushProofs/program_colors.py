@@ -1,14 +1,12 @@
 """Check program-set colors on the iPhone in both system appearances, full screen and under an inline
 navigation bar. The colors scene picks the canvas the system didn't, so every frame puts program
 colors against the host's chrome."""
-import json
-from pathlib import Path
-import runpy
 import subprocess
 import time
 
-ROOT = Path(__file__).resolve().parents[2]
-luminance = runpy.run_path(str(ROOT / "Tests/ThrushProofs/check-spinner-contrast.py"))["luminance"]
+import proof
+from proof import Capture, edges, luminance
+
 # The palettes in Tests/ThrushProofs/peers/demo-peer.ts, by system appearance.
 PROGRAM = {"dark": ("paper", "F4EFE4"), "light": ("night", "17151F")}
 CANVAS = {"dark": "131D27", "light": "FBFDFE"}
@@ -18,14 +16,9 @@ class StatusBarTrails(ValueError):
     """SpringBoard draws the status bar, so on a starved runner it can show the app's new style seconds late."""
 
 
-def edges(rect):
-    (x, y), (w, h) = rect
-    return x, y, x + w, y + h
-
-
 def check(image, state, appearance, toolbar, checker):
     name, paper = PROGRAM[appearance]
-    pixels = runpy.run_path(str(ROOT / "Tests/ThrushProofs/check-demo-capture.py"))["Capture"](image, appearance)
+    pixels = Capture(image, appearance)
     scale = state["displayScale"]
     window = edges(state["windowPoints"])
     grid = edges(state["gridFrame"])
@@ -105,7 +98,7 @@ def capture(phone, options, checker):
                 pid = phone.launch("colors", appearance, "portrait", "hidden", extra_arguments=extra)
                 state = phone.frame("colors", appearance, "portrait", "hidden", pid, None, layout_only=True)
                 image = phone.out / (prefix + ".png")
-                (phone.out / (prefix + ".json")).write_text(json.dumps(state, indent=2) + "\n")
+                proof.save(phone.out / (prefix + ".json"), state)
                 if toolbar and not state.get("toolbar"):
                     raise ValueError("Missing mounted navigation bar geometry.")
                 settles = time.monotonic() + 20
@@ -124,7 +117,7 @@ def capture(phone, options, checker):
                 print(f"Verified the program's canvas and readable chrome in {image.name}", flush=True)
             except (KeyError, ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
                 failures[prefix] = str(error)
-                (phone.out / (prefix + "-last-state.json")).write_text(json.dumps(phone.state(), indent=2) + "\n")
+                proof.save(phone.out / (prefix + "-last-state.json"), phone.state())
                 print(f"{prefix}: {error}", flush=True)
     if failures:
         raise RuntimeError(f"Program colors proof failed: {failures}")

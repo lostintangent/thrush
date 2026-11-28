@@ -1,23 +1,17 @@
 """Record the single iPhone reconnect-while-typing interaction through the existing UI-test runner."""
 import json
-from pathlib import Path
-import plistlib
-import runpy
 import subprocess
 import sys
 import time
 from urllib.request import Request, urlopen
 
-HERE = Path(__file__).resolve().parent
+import proof
+from proof import HERE
 
 
-def record(phone, appearance, wait_for, save_json):
-    ui = runpy.run_path(str(HERE / "run.py"))
-    plan = ui["build_test_runner"](phone.scratch, phone.out, source=HERE / "UITests/ReconnectTypingProof.swift")
-    config = plistlib.loads(plan.read_bytes())
-    config[ui["RUNNER"]]["EnvironmentVariables"].update(THRUSH_CAPTURE_ENDPOINT=phone.endpoint,
-                                                         THRUSH_CAPTURE_APPEARANCE=appearance)
-    plan.write_bytes(plistlib.dumps(config))
+def record(phone, appearance):
+    plan = proof.build_test_runner(phone.scratch, phone.out, HERE / "UITests/ReconnectTypingProof.swift")
+    proof.configure(plan, THRUSH_CAPTURE_ENDPOINT=phone.endpoint, THRUSH_CAPTURE_APPEARANCE=appearance)
 
     def state():
         with urlopen(phone.endpoint + "/motion/state", timeout=5) as response:
@@ -40,7 +34,7 @@ def record(phone, appearance, wait_for, save_json):
                         and (terminal.get("keyboardLanguage") or "").lower().startswith("en")
                         and terminal.get("keyboardHeight", 0) > 90 and terminal.get("accessoryHeight", 0) >= 44)
 
-            wait_for("the live English keyboard on the running terminal", ready, 120)
+            proof.wait("the live English keyboard on the running terminal", ready, 120)
             initial = phone.state()
             reconnecting = None
             final = None
@@ -49,16 +43,16 @@ def record(phone, appearance, wait_for, save_json):
             def finished():
                 nonlocal reconnecting, final, first_visible, last_visible
                 terminal = phone.state()
-                proof = state()
+                wire = state()
                 if (terminal.get("cursorSpinner") and
-                        proof["interrupted"] and not proof["resumed"]):
+                        wire["interrupted"] and not wire["resumed"]):
                     reconnecting = terminal
                     last_visible = time.monotonic() - recording_started
                     if first_visible is None:
                         first_visible = last_visible
-                if not proof["complete"] and test.poll() is not None:
+                if not wire["complete"] and test.poll() is not None:
                     raise RuntimeError("Native typing stopped before the remote echo. See reconnect-ui.log.")
-                if proof["complete"] and terminal.get("gpuCompleted") and not terminal.get("cursorSpinner"):
+                if wire["complete"] and terminal.get("gpuCompleted") and not terminal.get("cursorSpinner"):
                     final = terminal
                     return True
                 return False
@@ -68,23 +62,23 @@ def record(phone, appearance, wait_for, save_json):
                 recording_started = time.monotonic()
                 with urlopen(Request(phone.endpoint + "/motion/start", method="POST"), timeout=5):
                     pass
-                wait_for("held input echoed exactly once after the resumed replay", finished, 90)
+                proof.wait("held input echoed exactly once after the resumed replay", finished, 90)
             with urlopen(Request(phone.endpoint + "/motion/observed", method="POST"), timeout=5):
                 pass
             if test.wait(45):
                 raise RuntimeError("The native reconnect typing test failed. See reconnect-ui.log.")
-            proof = state()
-            if (proof["attachments"] != 2 or not proof["replayAcknowledged"] or
-                    bytes.fromhex(proof["liveBytesHex"]) != b"git" or bytes.fromhex(proof["heldBytesHex"]) != b" status"):
+            wire = state()
+            if (wire["attachments"] != 2 or not wire["replayAcknowledged"] or
+                    bytes.fromhex(wire["liveBytesHex"]) != b"git" or bytes.fromhex(wire["heldBytesHex"]) != b" status"):
                 raise RuntimeError("Peer bytes or attachment count disagreed with the native proof.")
             if not reconnecting:
                 raise RuntimeError("The cursor spinner did not appear during recording.")
             for observed in [reconnecting, final]:
                 if any(observed.get(key) != initial.get(key) for key in ("pid", "keyboardHeight", "accessoryHeight", "keyboardLanguage")):
                     raise RuntimeError("The native keyboard moved or changed during reconnect.")
-            save_json(phone.out / "reconnect-wire.json", proof)
+            proof.save(phone.out / "reconnect-wire.json", wire)
             views = phone.out / "reconnect-view.json"
-            save_json(views, dict(live=initial, reconnecting=reconnecting, resumed=final,
+            proof.save(views, dict(live=initial, reconnecting=reconnecting, resumed=final,
                                   spinnerIntervalSeconds=[first_visible, last_visible]))
             still = phone.out / "reconnect-typing-held.png"
             with (phone.out / "reconnect-cursor.log").open("w") as log:

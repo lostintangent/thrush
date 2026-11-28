@@ -1,14 +1,7 @@
 """Check the packaged terminal under an inline NavigationStack toolbar in original simulator pixels."""
-from pathlib import Path
-import runpy
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def edges(rect):
-    (x, y), (w, h) = rect
-    return x, y, x + w, y + h
+from proof import Capture, edges
 
 
 def check_copy(image, rect, state, checker, labels):
@@ -44,7 +37,7 @@ def check(image, state, appearance, scene, checker):
             first[3] <= first[1] or first[2] <= first[0]):
         raise ValueError(f"Row one overlaps toolbar chrome or falls outside the grid: {first}, {bar}, {grid}")
     check_copy(image, toolbar["navigationBarFrame"], state, checker, ["Terminal", "Close"])
-    pixels = runpy.run_path(str(ROOT / "Tests/ThrushProofs/check-demo-capture.py"))["Capture"](image, appearance)
+    pixels = Capture(image, appearance)
     if (pixels.width, pixels.height) != (round((window[2] - window[0]) * scale), round((window[3] - window[1]) * scale)):
         raise ValueError("Simulator framebuffer does not match the mounted window.")
     # The inline title leads the bar, with Close on the trailing edge. Sample the

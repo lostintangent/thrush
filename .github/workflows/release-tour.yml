@@ -73,7 +73,7 @@ jobs:
         env:
           SCENE: ${{ matrix.scene }}
           APPEARANCE: ${{ matrix.appearance }}
-        run: python3 Tests/ThrushProofs/capture-simulator.py --output "$RUNNER_TEMP/tour" --scene "$SCENE" --appearance "$APPEARANCE"
+        run: python3 Tests/ThrushProofs/simulator.py --output "$RUNNER_TEMP/tour" --scene "$SCENE" --appearance "$APPEARANCE"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

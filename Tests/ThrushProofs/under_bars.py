@@ -2,22 +2,15 @@
 and landscape, with the keyboard hidden and shown. The canvas must reach every edge of the window
 while the grid stays inside the safe area and above the keyboard, or runs on under the home indicator
 while the keyboard is down, and a host's own `.ignoresSafeArea()` must change nothing, down to the pixel."""
-import json
-from pathlib import Path
-import runpy
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[2]
-Capture = runpy.run_path(str(ROOT / "Tests/ThrushProofs/check-demo-capture.py"))["Capture"]
+import proof
+from proof import Capture, edges
+
 LAYOUTS = (("portrait", "hidden"), ("landscape", "hidden"), ("portrait", "visible"), ("landscape", "visible"))
 VARIANTS = {"pane": (), "host-ignores-safe-area": ("--host-ignores-safe-area",)}
 GEOMETRY = ("windowPoints", "gridFrame", "columns", "rows", "keyboardHeight", "accessoryHeight", "toolbar",
             "cellGridPixels")
-
-
-def edges(rect):
-    (x, y), (w, h) = rect
-    return x, y, x + w, y + h
 
 
 def check(image, state, appearance):
@@ -123,14 +116,14 @@ def capture(phone, options, sim):
                     if image.parent != phone.out:
                         image.replace(phone.out / (label + ".png"))
                         image = phone.out / (label + ".png")
-                    (phone.out / (label + ".json")).write_text(json.dumps(state, indent=2) + "\n")
+                    proof.save(phone.out / (label + ".json"), state)
                     states[variant] = {key: state.get(key) for key in GEOMETRY}
                     check(image, state, appearance)
                     print(f"Verified the canvas under every bar and the grid in the safe area in {image.name}",
                           flush=True)
                 except (KeyError, ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
                     failures[label] = str(error)
-                    (phone.out / (label + "-last-state.json")).write_text(json.dumps(phone.state(), indent=2) + "\n")
+                    proof.save(phone.out / (label + "-last-state.json"), phone.state())
                     print(f"{label}: {error}", flush=True)
             if len(states) == len(VARIANTS):
                 try:

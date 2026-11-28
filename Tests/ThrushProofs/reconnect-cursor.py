@@ -6,12 +6,13 @@ import json
 import math
 import platform
 import re
-import runpy
 import shutil
 import subprocess
 import sys
 import tempfile
 from urllib.request import urlopen
+
+from spinner import measure
 
 
 def decoder(work):
@@ -46,7 +47,6 @@ def sample(ffmpeg, movie, time, image):
 
 
 def check(movie, views, appearance, still, work):
-    measure = runpy.run_path(str(Path(__file__).with_name("spinner.py")))["measure"]
     state = views["reconnecting"]
     start, end = views["spinnerIntervalSeconds"]
     duration = end - start

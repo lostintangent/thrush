@@ -5,30 +5,14 @@ runner, because it changes the Reduce Motion preference."""
 import argparse
 import os
 from pathlib import Path
-import plistlib
 import random
-import runpy
 import subprocess
 import tempfile
 import time
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
-SCRIPTS = ROOT / "scripts"
-spinners = runpy.run_path(str(HERE / "capture-mac-spinners.py"))
-application, prepare_hosted_motion, save, wait = (spinners[name] for name in
-                                                  ("application", "prepare_hosted_motion", "save", "wait"))
-oracle = runpy.run_path(str(HERE / "check-text-blink.py"))
-# Jittered screenshots sample every phase of the 1.2 s cycle instead of aliasing with it.
-BLINKING_FRAMES, STEADY_FRAMES = 30, 8
-WINDOW = """
-import CoreGraphics
-let pid = Int(CommandLine.arguments[1])
-let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-if let window = windows.first(where: {
-    ($0[kCGWindowOwnerPID as String] as? Int) == pid && ($0[kCGWindowLayer as String] as? Int) == 0
-}), let id = window[kCGWindowNumber as String] as? Int { print(id) }
-"""
+import proof
+from proof import ROOT, Capture, screenshot, wait
+import text_blink
 
 
 def benchmark(bundle, out):
@@ -41,18 +25,6 @@ def benchmark(bundle, out):
     subprocess.run([ROOT / "Benchmarks/check-render-report.py", report], check=True, timeout=60)
 
 
-def window(finder, process):
-    def found():
-        if process.poll() is not None:
-            raise RuntimeError(f"Application {process.pid} exited with status {process.returncode}")
-        return subprocess.run([finder, str(process.pid)], text=True, capture_output=True, timeout=10).stdout.strip()
-    return wait("the terminal window", found)
-
-
-def screenshot(window_id, path):
-    subprocess.run(["/usr/sbin/screencapture", "-x", "-o", "-l", window_id, path], check=True, timeout=30)
-
-
 def burst(window_id, folder, appearance, count):
     folder.mkdir(parents=True)
     probe = folder / "probe.png"
@@ -60,7 +32,7 @@ def burst(window_id, folder, appearance, count):
     def drawn():
         screenshot(window_id, probe)
         try:
-            return oracle["Grid"](oracle["Capture"](probe, appearance))
+            return text_blink.Grid(Capture(probe, appearance))
         except ValueError:
             return None
     wait(f"the styles scene in {appearance}", drawn)
@@ -85,34 +57,25 @@ def main():
         parser.error("Use an empty output directory.")
     if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         parser.error("This capture changes Reduce Motion and runs only on a disposable GitHub runner.")
-    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/proofs/mac/Thrush.app"
-    info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
-    save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
-                                 toolchain=info["ThrushToolchain"],
-                                 os=subprocess.check_output(["sw_vers", "-productVersion"], text=True).strip()))
-    prepare_hosted_motion(out)
+    bundle = proof.mac_app(out)
+    proof.prepare_hosted_motion(out)
     benchmark(bundle, out)
-    peer = runpy.run_path(str(HERE / "capture-simulator.py"))["peer"]
     bursts = {}
-    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-text-blink-") as scratch, peer(out) as endpoint:
-        source, finder = Path(scratch) / "window.swift", Path(scratch) / "window"
-        source.write_text(WINDOW)
-        subprocess.run(["xcrun", "swiftc", source, "-o", finder], check=True, timeout=300)
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-text-blink-") as scratch, proof.peer(out) as endpoint:
         for reduced in (False, True):
-            prepare_hosted_motion(out, reduced=reduced)
+            proof.prepare_hosted_motion(out, reduced=reduced)
             for appearance in ("dark", "light"):
                 label = "steady" if reduced else "blinking"
                 args = ["--endpoint", endpoint, "--scene", "styles", "--appearance", appearance]
-                with application(bundle, args, out / f"{appearance}-{label}-host.log") as process:
-                    window_id = window(finder, process)
+                with proof.application(bundle, args, out / f"{appearance}-{label}-host.log") as process:
+                    window_id = proof.window(process)
                     subprocess.run(["open", "-a", bundle], check=True)
                     bursts[appearance, label] = burst(window_id, Path(scratch) / f"{appearance}-{label}", appearance,
-                                                      STEADY_FRAMES if reduced else BLINKING_FRAMES)
+                                                      text_blink.STEADY_FRAMES if reduced else text_blink.BLINKING_FRAMES)
                     if process.poll() is not None:
                         raise RuntimeError(f"The styles scene exited during the {appearance} burst.")
-        prepare_hosted_motion(out)
-        oracle["check_bursts"](bursts, out)
+        proof.prepare_hosted_motion(out)
+        text_blink.check_bursts(bursts, out)
 
 
 if __name__ == "__main__":

@@ -5,16 +5,8 @@ from collections import Counter
 import json
 import math
 from pathlib import Path
-import runpy
 
-demo = runpy.run_path(str(Path(__file__).with_name("check-demo-capture.py")))
-Capture = demo["Capture"]
-keyboard = demo["keyboard"]
-
-
-def require(value, message):
-    if not value:
-        raise ValueError(message)
+from proof import Capture, keyboard, require
 
 
 def different(first, second):

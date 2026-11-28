@@ -1,17 +1,17 @@
-#!/usr/bin/env python3
-"""Check screenshot bursts of the styles scene. Blinking text alternates between fully shown
-and fully hidden, Reduce Motion holds it shown, and concealed text keeps its cells undrawn."""
-import argparse
+"""Burst-capture the styles scene on the iPhone in both appearances, first blinking and then under
+Reduce Motion, and check the bursts. Blinking text alternates between fully shown and fully hidden,
+Reduce Motion holds it shown, and concealed text keeps its cells undrawn."""
 import json
 from pathlib import Path
-import runpy
+import random
 import shutil
-import subprocess
+import time
 
-ROOT = Path(__file__).resolve().parents[2]
-_demo = runpy.run_path(str(ROOT / "Tests/ThrushProofs/check-demo-capture.py"))
-Capture, require = _demo["Capture"], _demo["require"]
+import proof
+from proof import Capture, require
 
+# Jittered screenshots sample every phase of the 1.2 s cycle instead of aliasing with it.
+BLINKING_FRAMES, STEADY_FRAMES = 30, 8
 # The styles scene in Tests/ThrushProofs/peers/demo-peer.ts: one row per style, then a prompt.
 PLAIN, BLINK, CONCEALED, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN, PROMPT = 1, 14, 15, 16, 17, 18, 19
 BLINKING = (BLINK, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN)
@@ -153,13 +153,45 @@ def check_bursts(bursts, out):
     return summary
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("theme", choices=("dark", "light"))
-    parser.add_argument("--blinking", type=Path, nargs="+", required=True)
-    parser.add_argument("--steady", type=Path, nargs="+", required=True)
-    args = parser.parse_args()
-    try:
-        print(json.dumps(check(args.blinking, args.steady, args.theme), default=str, indent=2))
-    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
-        parser.exit(1, f"{error}\n")
+def set_reduce_motion(phone, sim, enabled):
+    sim("spawn", phone.device, "defaults", "write", "com.apple.Accessibility", "ReduceMotionEnabled",
+        "-bool", "true" if enabled else "false")
+    sim("spawn", phone.device, "notifyutil", "-p", "com.apple.accessibility.reduce.motion.status", check=False)
+
+
+def burst(phone, folder, count):
+    folder.mkdir(parents=True)
+    frames = []
+    for index in range(count):
+        path = folder / f"{index:02}.png"
+        phone.screenshot(path)
+        frames.append(path)
+        time.sleep(random.uniform(0.03, 0.29))
+    return frames
+
+
+def capture(phone, sim):
+    bursts = {}
+    for reduced in (False, True):
+        set_reduce_motion(phone, sim, reduced)
+        for appearance in ("dark", "light"):
+            pid = phone.launch("styles", appearance, "portrait", "hidden")
+
+            def ready():
+                state = phone.state()
+                return state if (state.get("pid") == pid and state.get("scene") == "styles" and
+                                 state.get("appearance") == appearance and state.get("gpuCompleted") and
+                                 state.get("generation") and state.get("keyboardHeight", 0) < 90 and
+                                 state.get("reducesMotion") == reduced) else False
+
+            state = proof.wait(f"styles in {appearance}{' with Reduce Motion' if reduced else ''}", ready, 90)
+            time.sleep(0.7)
+            label = "steady" if reduced else "blinking"
+            proof.save(phone.out / f"text-blink-{appearance}-{label}.json", state)
+            bursts[appearance, label] = burst(phone, phone.scratch / f"{appearance}-{label}",
+                                              STEADY_FRAMES if reduced else BLINKING_FRAMES)
+            if phone.state().get("pid") != pid:
+                raise RuntimeError(f"The styles scene exited during the {appearance} burst.")
+    set_reduce_motion(phone, sim, False)
+
+    check_bursts(bursts, phone.out)

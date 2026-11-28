@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import plistlib
 import re
-import runpy
 import signal
 import struct
 import subprocess
@@ -16,11 +15,17 @@ import sys
 import tempfile
 import time
 import uuid
-from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parents[2]
+import proof
+from proof import ROOT, peer, save
+import program_colors
+import reconnect
+import spinner
+import text_blink
+import toolbar
+import under_bars
+
 APP_ID = "app.thrush.proofs"
-ORACLE = ROOT / "Tests/ThrushProofs/check-demo-capture.py"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors", "links"}
@@ -44,14 +49,8 @@ def sim(*args, **kwargs):
 SCREEN = "--display=primary"
 
 
-def wait_for(description, condition, timeout):
-    end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        value = condition()
-        if value:
-            return value
-        time.sleep(0.25)
-    raise TimeoutError(f"Timed out waiting for {description}")
+def screenshot(device, path, timeout=90, check=True):
+    sim("io", device, "screenshot", SCREEN, "--mask=black", str(path), timeout=timeout, check=check)
 
 
 @contextlib.contextmanager
@@ -66,7 +65,7 @@ def record_screen(device, movie):
                 if process.poll() is not None:
                     raise RuntimeError("Simulator video recorder exited: " + log.read_text())
                 return "Recording started" in log.read_text()
-            wait_for("the first real video frame", started, 35)
+            proof.wait("the first real video frame", started, 35)
             yield
         finally:
             if process.poll() is None:
@@ -79,10 +78,6 @@ def record_screen(device, movie):
                 raise RuntimeError("Simulator did not finalize the screen recording.")
             if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
                 raise RuntimeError("Simulator recording failed: " + log.read_text())
-
-
-def save_json(path, value):
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def runtime():
@@ -103,7 +98,7 @@ def disposable_phone(out):
         name = "Thrush capture " + uuid.uuid4().hex[:8]
         print(f"Creating {name} on {chosen['name']}", flush=True)
         device = str(uuid.UUID(sim("create", name, device_type, chosen["identifier"]).stdout.strip())).upper()
-        save_json(out / "device.json", dict(device=device, deviceType=device_type, runtime=chosen["identifier"],
+        save(out / "device.json", dict(device=device, deviceType=device_type, runtime=chosen["identifier"],
                                             version=chosen["version"], build=chosen.get("buildversion")))
         print(f"Booting {device} and waiting for system services", flush=True)
         with (out / "boot.log").open("w") as log:
@@ -132,31 +127,6 @@ def disposable_phone(out):
                 if not original_failure:
                     raise
                 print(f"Simulator deletion: {error}", file=sys.stderr, flush=True)
-
-
-@contextlib.contextmanager
-def peer(out):
-    log = out / "peer.log"
-    with log.open("w") as output:
-        server = subprocess.Popen(["bun", "Tests/ThrushProofs/peers/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
-                                  cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
-        try:
-            def endpoint():
-                if server.poll() is not None:
-                    raise RuntimeError("Demo peer exited: " + log.read_text())
-                match = re.search(r"^Thrush demo peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
-                return match.group(1) if match else None
-            # Bun has taken 80 seconds to listen while a hosted runner pages the newly booted simulator in.
-            address = wait_for("the loopback peer", endpoint, 180)
-            print(f"Loopback peer ready at {address}", flush=True)
-            yield address
-        finally:
-            server.terminate()
-            try:
-                server.wait(10)
-            except subprocess.TimeoutExpired:
-                server.kill()
-                server.wait()
 
 
 def has_matching_installation(device, app):
@@ -248,8 +218,8 @@ class Phone:
 
         print("Waiting for the first native keyboard attachment", flush=True)
         try:
-            state = wait_for("the warm-up keyboard, accessory and first frame", ready, 100)
-            save_json(self.out / "keyboard-warmup.json", state)
+            state = proof.wait("the warm-up keyboard, accessory and first frame", ready, 100)
+            save(self.out / "keyboard-warmup.json", state)
         finally:
             try:
                 sim("terminate", self.device, APP_ID, timeout=45, check=False)
@@ -259,9 +229,7 @@ class Phone:
                 print(f"Simulator termination: {error}", file=sys.stderr, flush=True)
 
     def advance_peer(self, action):
-        with urlopen(Request(self.endpoint + "/" + action, method="POST"), timeout=10) as response:
-            if response.status != 204:
-                raise RuntimeError(f"The demo peer rejected {action}.")
+        proof.advance(self.endpoint, action)
 
     def set_appearance(self, style):
         sim("ui", self.device, "appearance", style)
@@ -291,7 +259,7 @@ class Phone:
             return {}
 
     def screenshot(self, path, timeout=90, check=True):
-        sim("io", self.device, "screenshot", SCREEN, "--mask=black", str(path), timeout=timeout, check=check)
+        screenshot(self.device, path, timeout, check)
 
     def oriented_image(self, raw, orientation):
         # simctl may return a portrait-mounted framebuffer even after UIKit rotated the
@@ -343,7 +311,7 @@ class Phone:
                 return False
             if state != observed:
                 observed, since = state, time.monotonic()
-                save_json(self.out / (name + "-observed.json"), state)
+                save(self.out / (name + "-observed.json"), state)
                 print(f"{name}: {state['columns']} × {state['rows']} cells, "
                       f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
                       flush=True)
@@ -352,7 +320,7 @@ class Phone:
             if layout_only:
                 if time.monotonic() - since < 0.7:
                     return False
-                save_json(self.out / (name + ".json"), state)
+                save(self.out / (name + ".json"), state)
                 return state
             for attempt in (1, 2):
                 candidate.unlink(missing_ok=True)
@@ -367,36 +335,25 @@ class Phone:
                 last_error = "The displayed generation or layout changed during capture."
                 return False
             upright = self.oriented_image(candidate, orientation)
-            if keyboard == "visible":
-                metadata = self.scratch / "keyboard-frame.json"
-                save_json(metadata, state)
-                keys = run(sys.executable, str(ORACLE), str(upright), "keyboard", appearance,
-                           "--metadata", str(metadata), timeout=50, check=False)
-                if keys.returncode:
-                    last_error = (keys.stdout + keys.stderr).strip()
-                    return False
-            if checked:
-                command = [sys.executable, str(ORACLE), str(upright), scene, appearance]
-                if scene == "editor":
-                    metadata = self.scratch / "submitted-frame.json"
-                    save_json(metadata, state)
-                    command += ["--metadata", str(metadata)]
-                if previous:
-                    command += ["--same-grid-as", str(previous)]
-                result = run(*command, check=False, timeout=50)
-                if result.returncode:
-                    last_error = (result.stdout + result.stderr).strip()
-                    return False
-                print(result.stdout.strip(), flush=True)
+            try:
+                if keyboard == "visible":
+                    proof.check_scene(upright, "keyboard", appearance, state)
+                if checked:
+                    print(proof.check_scene(upright, scene, appearance, state if scene == "editor" else None,
+                                            previous), flush=True)
+            except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError,
+                    struct.error) as error:
+                last_error = f"{upright}: {error}"
+                return False
             if upright != candidate:
                 candidate.replace(self.out / (name + "-framebuffer.png"))
             upright.replace(path)
-            save_json(self.out / (name + ".json"), dict(state, framebufferRotationDegrees=90 if upright != candidate else 0))
+            save(self.out / (name + ".json"), dict(state, framebufferRotationDegrees=90 if upright != candidate else 0))
             return state
 
         candidate.unlink(missing_ok=True)
         try:
-            return wait_for(name, capture, 100)
+            return proof.wait(name, capture, 100)
         except TimeoutError as error:
             if candidate.exists():
                 candidate.replace(self.out / (name + "-failed.png"))
@@ -419,7 +376,7 @@ class Phone:
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
                 failures[label] = str(error)
                 print(f"{label}: {error}", file=sys.stderr, flush=True)
-                save_json(self.out / "failures.json", failures)
+                save(self.out / "failures.json", failures)
 
         attempt("render-benchmark", self.benchmark)
         for scene, appearance, orientation in [
@@ -439,18 +396,17 @@ class Phone:
         self.frame(scene, options.appearance, options.orientation, keyboard, pid, scene in PIXEL_CHECKED_SCENES,
                    layout_only=options.layout_only)
 
-    def capture_spinners(self, options, toolbar=False):
-        proof = runpy.run_path(str(ROOT / "Tests/ThrushProofs/spinner.py"))
+    def capture_spinners(self, options, under_toolbar=False):
         checks = {}
         scenes = SPINNER_SCENES if options.scene not in SPINNER_SCENES else [options.scene]
         for scene in scenes:
             keyboard = options.keyboard
             if keyboard == "any":
-                keyboard = "hidden" if toolbar or scene == "spinner-opening" else "visible"
+                keyboard = "hidden" if under_toolbar or scene == "spinner-opening" else "visible"
             if keyboard == "visible":
                 self.warm_keyboard(options.appearance)
             pid = self.launch(scene, options.appearance, options.orientation, keyboard,
-                              extra_arguments=("--toolbar-proof",) if toolbar else ())
+                              extra_arguments=("--toolbar-proof",) if under_toolbar else ())
             first_waits = scene == "spinner-opening"
             def capture(waiting):
                 suffix = "-waiting" if waiting else "-live"
@@ -464,12 +420,11 @@ class Phone:
             (wait_image, waiting), (live_image, live) = (first, second) if first_waits else (second, first)
             row, column = (0, 0) if first_waits else (8, len("~/thrush % "))
             label = "Connecting" if first_waits else "Reconnecting"
-            checks[scene] = proof["measure"](wait_image, waiting, options.appearance, row, column, label)
-            checks[scene].update(proof["compare"](wait_image, waiting, live_image, live, options.appearance))
-            if toolbar:
-                runpy.run_path(str(ROOT / "Tests/ThrushProofs/toolbar.py"))["check"](
-                    wait_image, waiting, options.appearance, scene, PANE_CHECKER)
-            save_json(self.out / "cursor-spinners.json", checks)
+            checks[scene] = spinner.measure(wait_image, waiting, options.appearance, row, column, label)
+            checks[scene].update(spinner.compare(wait_image, waiting, live_image, live, options.appearance))
+            if under_toolbar:
+                toolbar.check(wait_image, waiting, options.appearance, scene, PANE_CHECKER)
+            save(self.out / "cursor-spinners.json", checks)
             print(f"{scene}: {checks[scene]}", flush=True)
 
     def capture_scene(self, scene, appearance, orientation):
@@ -541,7 +496,7 @@ def main():
         raise RuntimeError("Simulator packaging failed: " + (build.stdout + build.stderr)[-1600:])
     with (app / "Info.plist").open("rb") as f:
         info = plistlib.load(f)
-    save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
+    save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
                                         toolchain=info["ThrushToolchain"]))
     if args.scene in {"toolbar-proof", "program-colors"}:
         # A booted simulator has starved a hosted runner past two minutes for this compile, so it comes first.
@@ -559,15 +514,15 @@ def main():
             if args.scene == "render-benchmark":
                 phone.benchmark()
             elif args.scene == "text-blink":
-                runpy.run_path(str(ROOT / "Tests/ThrushProofs/text-blink.py"))["capture"](phone, sim, wait_for, save_json)
+                text_blink.capture(phone, sim)
             elif args.scene == "program-colors":
-                runpy.run_path(str(ROOT / "Tests/ThrushProofs/program-colors.py"))["capture"](phone, args, PANE_CHECKER)
+                program_colors.capture(phone, args, PANE_CHECKER)
             elif args.scene == "under-bars":
-                runpy.run_path(str(ROOT / "Tests/ThrushProofs/under-bars.py"))["capture"](phone, args, sim)
+                under_bars.capture(phone, args, sim)
             elif spin:
-                phone.capture_spinners(args, toolbar=args.scene == "toolbar-proof")
+                phone.capture_spinners(args, under_toolbar=args.scene == "toolbar-proof")
             elif args.scene == "reconnect-typing":
-                runpy.run_path(str(ROOT / "Tests/ThrushProofs/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
+                reconnect.record(phone, args.appearance)
             elif args.scene:
                 phone.capture_named(args.scene, args)
             else:
@@ -576,7 +531,7 @@ def main():
             if phone:
                 state = phone.state()
                 if state:
-                    save_json(out / "last-native-state.json", state)
+                    save(out / "last-native-state.json", state)
             try:
                 logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact",
                            "--predicate", 'process == "ThrushProofs"', timeout=20, check=False)

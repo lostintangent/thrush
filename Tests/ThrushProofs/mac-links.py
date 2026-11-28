@@ -3,12 +3,9 @@
 import argparse
 import os
 from pathlib import Path
-import plistlib
-import sys
 import tempfile
 
-sys.dont_write_bytecode = True
-import run as capture
+import proof
 
 
 def main():
@@ -24,23 +21,21 @@ def main():
     with tempfile.TemporaryDirectory(prefix="thrush-links-mac-") as directory:
         work = Path(directory)
         name = "MacLinkProof"
-        plan = capture.build_test_runner(work, out, capture.HERE / "UITests" / (name + ".swift"), mac=True, name=name)
+        plan = proof.build_test_runner(work, out, proof.HERE / "UITests" / (name + ".swift"), mac=True)
         if args.build_only:
             return
-        capture.run_logged(["scripts/build-app.sh", "proofs", "mac"], out / "app-build.log", 360)
+        proof.run_logged(["scripts/build-app.sh", "proofs", "mac"], out / "app-build.log", 360)
         result = work / "result.xcresult"
-        with capture.load_helper("capture-simulator").peer(out) as endpoint:
-            settings = plistlib.loads(plan.read_bytes())
-            settings[name]["EnvironmentVariables"].update(
-                THRUSH_LINKS_APP=str(capture.ROOT / ".build/proofs/mac/Thrush.app"), THRUSH_CAPTURE_ENDPOINT=endpoint)
-            plan.write_bytes(plistlib.dumps(settings))
+        with proof.peer(out) as endpoint:
+            proof.configure(plan, THRUSH_LINKS_APP=str(proof.ROOT / ".build/proofs/mac/Thrush.app"),
+                            THRUSH_CAPTURE_ENDPOINT=endpoint)
             try:
-                capture.run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan,
-                                    "-destination", "platform=macOS", "-parallel-testing-enabled", "NO",
-                                    "-resultBundlePath", result], out / "links.log", 600)
+                proof.run_logged(["xcodebuild", "test-without-building", "-xctestrun", plan,
+                                  "-destination", "platform=macOS", "-parallel-testing-enabled", "NO",
+                                  "-resultBundlePath", result], out / "links.log", 600)
             finally:
                 if result.exists():
-                    capture.export_attachments(result, out, work, ())
+                    proof.export_attachments(result, out, work, ())
     print("Verified that Mac links open with a ⌘-click, show their menus and name their destinations.")
 
 

@@ -5,49 +5,17 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
-import plistlib
-import runpy
 import signal
 import struct
 import subprocess
 import sys
 import tempfile
 import time
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
-SCRIPTS = ROOT / "scripts"
-
-
-def save(path, data):
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-
-def wait(description, predicate):
-    stop = time.monotonic() + 22
-    while time.monotonic() < stop:
-        result = predicate()
-        if result:
-            return result
-        time.sleep(.15)
-    raise TimeoutError("Timed out waiting for " + description)
-
-
-@contextmanager
-def application(bundle, args, log):
-    info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
-    binary = bundle / "Contents/MacOS" / info["CFBundleExecutable"]
-    with log.open("w") as output, subprocess.Popen([binary, *args], stdout=output, stderr=subprocess.STDOUT) as process:
-        try:
-            yield process
-        finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
+import proof
+from proof import HERE, advance, application, save, wait
+import spinner
 
 
 def read_state(path, process):
@@ -119,44 +87,13 @@ def capture(out, label, path, process, appearance, focus_pid, waiting, helper=No
     for attempt in (1, 2):
         before = wait(label, settled)
         time.sleep(.35)
-        subprocess.run([HERE / "capture-demo.sh", "mac", str(process.pid), image], check=True, timeout=60)
+        proof.capture_window(process.pid, image)
         after = read_state(path, process)
         if all(before.get(key) == after.get(key) for key in fields):
             save(out / (label + ".json"), dict(before, helperRect=helper))
             return image, before
         save(out / f"{label}-transition-{attempt}.json", dict(before=before, after=after))
     raise RuntimeError(f"{label} changed focus, geometry or cursor during both captures.")
-
-
-def prepare_hosted_motion(out, reduced=False):
-    # The disposable runner image can ship with Reduce Motion on. Query AppKit in
-    # fresh processes before and after writing the user's macOS preference.
-    if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
-        raise RuntimeError("Hosted motion preparation requires a disposable GitHub runner.")
-    pref = ["com.apple.universalaccess", "reduceMotion"]
-    probe = ["xcrun", "swift", "-e", "import AppKit; print(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)"]
-    def effective():
-        value = subprocess.check_output(probe, text=True, timeout=30).strip()
-        if value not in ("true", "false"):
-            raise ValueError("Unexpected AppKit motion response: " + value)
-        return value == "true"
-    def preference():
-        result = subprocess.run(["defaults", "read", *pref], text=True, capture_output=True)
-        return result.stdout.strip() if result.returncode == 0 else None
-
-    report = dict(requested=reduced, before=effective(), previousPreference=preference())
-    if report["before"] != reduced:
-        write = subprocess.run(["defaults", "write", *pref, "-bool", str(reduced).lower()], text=True, capture_output=True)
-        report.update(writeStatus=write.returncode, writeOutput=(write.stdout + write.stderr).strip())
-    for _ in range(5):
-        report["after"] = effective()
-        if report["after"] == reduced:
-            break
-        time.sleep(.5)
-    report["currentPreference"] = preference()
-    save(out / ("motion-reduced.json" if reduced else "motion-settings.json"), report)
-    if report["after"] != reduced:
-        raise RuntimeError(f"AppKit reports Reduce Motion {report['after']} after setting the disposable host preference: {report}")
 
 
 def main():
@@ -170,19 +107,12 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("Use an empty output directory.")
-    subprocess.run([SCRIPTS / "build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
-    bundle = ROOT / ".build/proofs/mac/Thrush.app"
-    info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
-    save(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
-                                 toolchain=info["ThrushToolchain"],
-                                 os=subprocess.check_output(["sw_vers", "-productVersion"], text=True).strip()))
+    bundle = proof.mac_app(out)
     if opts.prepare_hosted_motion:
-        prepare_hosted_motion(out)
+        proof.prepare_hosted_motion(out)
     results, errors = {}, {}
-    peer = runpy.run_path(str(HERE / "capture-simulator.py"))["peer"]
-    proof = runpy.run_path(str(HERE / "spinner.py"))
-    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, peer(out) as endpoint:
-        focus = runpy.run_path(str(HERE / "check-window.py"))["build_cover"](Path(scratch))
+    with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-spinner-") as scratch, proof.peer(out) as endpoint:
+        focus = proof.build_cover(Path(scratch))
         for appearance in ("dark", "light"):
             for scene in ("spinner-opening", "spinner-reconnecting"):
                 name = f"{scene}-{appearance}"
@@ -209,8 +139,8 @@ def main():
                         ax_label = "Connecting" if opening else "Reconnecting"
                         for label, before, after in (("active", active_before, active_after), ("inactive", inactive_before, inactive_after)):
                             paused, live = (before, after) if opening else (after, before)
-                            results[name + "-" + label] = proof["measure"](*paused, appearance, row, column, ax_label)
-                            results[name + "-" + label].update(proof["compare"](*paused, *live, appearance))
+                            results[name + "-" + label] = spinner.measure(*paused, appearance, row, column, ax_label)
+                            results[name + "-" + label].update(spinner.compare(*paused, *live, appearance))
                 except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
                     errors[name] = str(error)
                 save(out / "cursor-spinners.json", dict(samples=results, errors=errors))
@@ -263,12 +193,6 @@ def check_new_shell(out, bundle, endpoint, focus, work):
         save(out / "new-shell-toolbar.json", dict(peer=peer, frame=ended["newShellButtonFrame"],
                                                 grid=ended["gridFrame"], buttonTitle="New Shell",
                                                 visibleByPhase=[False, True, False]))
-
-
-def advance(endpoint, action):
-    with urlopen(Request(endpoint + "/" + action, method="POST"), timeout=10) as response:
-        if response.status != 204:
-            raise RuntimeError(f"The demo peer rejected {action}.")
 
 
 if __name__ == "__main__":

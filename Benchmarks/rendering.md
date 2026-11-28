@@ -28,7 +28,7 @@ After the settled prompt, four blinking digits replace part of the first row for
 
 The JSON includes the commit and worktree state from app packaging, the device model, OS, toolchain, load average, core count, thermal and power state and grid dimensions. A simulator run measures a shared Mac's graphics stack. Use the Mac and physical iPhone for device timing baselines. Use five quiet passes to estimate variance before setting timing gates.
 
-For a capture of the running app, use `Tests/ThrushProofs/capture-demo.sh mac "$pid" frame.png` or `Tests/ThrushProofs/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
+For a capture of the running app, use `screencapture -iwo frame.png` and click the Mac window, or `xcrun simctl io "$udid" screenshot --mask=black frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
 
 ## Mac measurement
 

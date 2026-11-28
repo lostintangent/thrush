@@ -4,39 +4,21 @@ import argparse
 import json
 import os
 from pathlib import Path
-import plistlib
 import shlex
 import shutil
 import subprocess
 import tempfile
-import sys
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "Tests/ThrushWebSocketCheck/pty"))
-
-
-def build_cover(scratch):
-    cover = scratch / "Thrush Cover.app"
-    contents = cover / "Contents"
-    (contents / "MacOS").mkdir(parents=True)
-    with (contents / "Info.plist").open("wb") as f:
-        plistlib.dump(dict(CFBundleIdentifier="app.thrush.lifecycle-cover", CFBundleName="Thrush Cover",
-                           CFBundleExecutable="Cover", CFBundlePackageType="APPL"), f)
-    subprocess.run(["xcrun", "swiftc", "-parse-as-library", ROOT / "Tests/ThrushProofs/cover-window.swift",
-                    "-o", contents / "MacOS/Cover"], check=True)
-    subprocess.run(["codesign", "--force", "--sign", "-", cover], check=True)
-    return cover
+import proof
 
 
 def sample_server(pids, host, root, out):
-    from check import wait_for
-
     def ticking():
         pid = pids.read_text().strip() if pids.exists() else ""
         return pid.isdecimal() and subprocess.run(
             ["/usr/bin/pgrep", "-P", pid, "-x", "sleep"], stdout=subprocess.DEVNULL).returncode == 0
 
-    wait_for("the PTY shell's live tick loop", ticking, host)
+    proof.wait("the PTY shell's live tick loop", ticking, 45, host)
     # Only the listener is our direct child. Each shell has a separate supervisor.
     pid = int(subprocess.check_output(["/usr/bin/pgrep", "-P", str(os.getpid()), "-x", "ThrushServer"]))
     sample = root / "server-sample.txt"
@@ -50,9 +32,6 @@ def sample_server(pids, host, root, out):
 
 
 def main():
-    sys.dont_write_bytecode = True
-    from check import server
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--sample-server", action="store_true", help="Save a system stack sample while the local ThrushServer carries the shell’s live ticks.")
@@ -61,24 +40,17 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     if any(out.iterdir()):
         parser.error("The output directory must be empty.")
-    app = ROOT / ".build/proofs/mac/Thrush.app"
-    if not app.is_dir():
-        subprocess.run(["scripts/build-app.sh", "proofs", "mac"], cwd=ROOT, check=True)
-    with (app / "Contents/Info.plist").open("rb") as f:
-        info = plistlib.load(f)
-    (out / "source.json").write_text(json.dumps({"commit": info["ThrushGitCommit"], "dirty": info["ThrushWorktreeDirty"]}) + "\n")
-    build = ["swift", "build", "--package-path", ROOT, "-c", "release"]
-    subprocess.run([*build, "--product", "ThrushServer"], check=True)
-    server_binary = Path(subprocess.check_output([*build, "--show-bin-path"], text=True).strip()) / "ThrushServer"
+    app = proof.mac_app(out)
+    server_binary = proof.build_server(out)
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
-        cover = build_cover(root)
+        cover = proof.build_cover(root)
         pids = out / "shell-pids.txt"
         shell = root / "shell"
         shell.write_text(f'#!/bin/sh\nprintf "%s\\n" "$$" >> {shlex.quote(str(pids))}\nexec /bin/sh -i\n')
         shell.chmod(0o700)
         report = out / "window-lifecycle.json"
-        with server(root, shell, out / "server.log", server_binary) as endpoint:
+        with proof.server(server_binary, root / "data", shell, out / "server.log") as endpoint:
             shutil.copyfile(root / "data" / "source.json", out / "server.json")
             launch = ["/usr/bin/open", "-W", "-n", "-a", app, "--stdout", out / "host.stdout.log",
                       "--stderr", out / "host.log", "--args", "--endpoint", endpoint, "--appearance", "dark",
