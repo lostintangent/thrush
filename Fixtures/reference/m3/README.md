@@ -19,7 +19,7 @@ Both iPhone checkpoints match the editor's grid with the keyboard up on the iPho
 
 For the complete session, apply the palette, PTY output and grid changes in recorded order. For a stand-alone renderer frame, start with a clean terminal at the checkpoint's grid and its recorded host palette. The two `Paint Swift buffer` output chunks come from a real Ctrl-L repaint at 80 × 24. For portrait or landscape, use the `Redraw after resize` output chunks between the corresponding resize and styled checkpoint. These are Vim's responses to the PTY's native size change. The generator separately replays each paint on a fresh target-sized grid and checks every visible row, cell, style, wrap flag and cursor position against the continuous session.
 
-The runtime paints the `struct` keyword at row 1, column 3 with index 81 on dark and 5 on light. The gutter uses 11 on dark and 130 on light. Both status lines use Vim's native bold and reverse flags. In landscape, Vim naturally scrolls line 4 into the first row. The source, visual status-line format and cursor position are shared across appearances.
+The runtime paints the `struct` keyword at row 1, column 3 with index 81 on dark and 5 on light. The gutter uses 11 on dark and 130 on light. Both status lines use Vim's native bold and reverse flags. In landscape, Vim naturally scrolls line 4 into the first row. The source, visual status-line format and cursor position are shared across appearances. The generator checks these colors and flags, the palette replies above, and that both recordings show the same text.
 
 ## Reproduce
 

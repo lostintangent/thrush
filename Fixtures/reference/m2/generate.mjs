@@ -190,6 +190,67 @@ async function verifyStyledPaints(recording, events, cells, lines) {
     chunks = [];
   }
 }
+// The host palette and Vim's replies, Vim's stock syntax groups sampled by token, and the text both
+// appearances share.
+const styledText = {};
+function verifyHighlighting(theme, events, cells, lines) {
+  const [foreground, background, gutter, comment, keyword, identifier, bold] = {
+    dark: ['#e3eaf0', '#131d27', 11, 14, 81, 14, true], light: ['#233442', '#fbfdfe', 130, 4, 5, 6, false],
+  }[theme];
+  const palette = events.slice(0, events.findIndex(e => e.bytes) + 1).find(e => e.palette).palette;
+  assert.deepEqual([palette.foreground.toLowerCase(), palette.background.toLowerCase()], [foreground, background]);
+  const replies = Buffer.concat(events.map(e => Buffer.from(e.reply ?? '', 'base64'))).toString('latin1');
+  for (const [command, color] of [[10, foreground], [11, background]]) {
+    const rgb = [1, 3, 5].map(i => color.slice(i, i + 2).repeat(2)).join('/');
+    assert(replies.includes(`\x1b]${command};rgb:${rgb}\x1b\\`), `${theme} OSC ${command} reply`);
+  }
+
+  const frames = {};
+  for (const {name, checkpoint} of events.filter(e => e.name.startsWith('Styled Swift '))) {
+    assert(checkpoint.isAlternate && !frames[name], name);
+    frames[name] = checkpoint.visible.map(id => {
+      const {text, runs} = lines.values[id];
+      const row = [];
+      for (let i = 0; i < runs.length; i += 2) row.push(...Array(runs[i]).fill(cells.values[runs[i + 1]]));
+      return {text, row: [...row, ...Array(checkpoint.columns - row.length).fill(cells.values[0])]};
+    });
+  }
+  assert.deepEqual(Object.entries(frames).map(([name, rows]) => [name, rows[0].row.length, rows.length]),
+    [['Styled Swift buffer', 80, 24], ['Styled Swift portrait', 45, 18], ['Styled Swift landscape', 71, 11]]);
+
+  const numbered = new Map(), numbers = [];
+  for (const {text, row} of frames['Styled Swift buffer']) {
+    const match = /^ *([0-9]+) (.*)$/.exec(text);
+    if (!match) continue;
+    numbers.push(Number(match[1]));
+    assert.equal(row[text.indexOf(match[1])].foreground, gutter, `${theme} line number`);
+    numbered.set(match[2].trim(), {text, row});
+  }
+  assert.deepEqual(numbers, numbers.map((_, i) => i + 1), `${theme} sequential Swift line numbers`);
+  assert(numbered.has(String.raw`return "\(cwd) \(mark) "`) && numbered.has('let mark = isRoot ? "#" : "$"'));
+  for (const [source, token, color] of [['// Format the current shell prompt.', '//', comment],
+    ['struct Prompt {', 'struct', keyword], ['let width = 24', 'width', identifier]]) {
+    const {text, row} = numbered.get(source);
+    const span = row.slice(text.indexOf(token), text.indexOf(token) + token.length);
+    assert.equal(span.map(cell => cell.text).join(''), token);
+    assert(span.every(cell => cell.foreground === color), `${theme} ${token} foreground`);
+    if (token === 'width') assert(span.every(cell => Boolean(cell.flags & 1) === bold), `${theme} Swift binding weight`);
+  }
+
+  for (const rows of Object.values(frames)) {
+    const status = rows.filter(({text}) => /^ *Prompt\.swift +\d+:\d+ *$/.test(text));
+    assert.equal(status.length, 1, `${theme} Swift file status`);
+    const start = status[0].text.indexOf('Prompt.swift');
+    assert(status[0].row.slice(start, start + 'Prompt.swift'.length).every(cell => cell.flags & 32), `${theme} status reverse`);
+  }
+  const glyphs = Object.values(frames).flat().flatMap(({row}) => row).filter(cell => cell.text.trim());
+  assert(glyphs.some(cell => cell.foreground >= 0 && cell.foreground < 16), `${theme} ANSI syntax colors`);
+  assert(glyphs.some(cell => cell.foreground >= 16 && cell.foreground < 256), `${theme} extended indexed colors`);
+  assert(glyphs.some(cell => cell.flags & 1), `${theme} bold glyphs`);
+
+  styledText[theme] = Object.values(frames).map(rows => rows.map(({text}) => text));
+  if (styledText.dark && styledText.light) assert.deepEqual(styledText.dark, styledText.light, 'Both appearances show the same text');
+}
 
 async function generate(name) {
   const directory = phone ? '../m4/phone/' : workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
@@ -269,7 +330,10 @@ async function generate(name) {
     events.push(event);
   }
   if (name === 'shell-log') assert.equal(fullHistory.size, 0, 'Missing full-history checkpoint');
-  if (name.startsWith('vim-swift-')) await verifyStyledPaints(recording, events, cells, lines);
+  if (name.startsWith('vim-swift-')) {
+    await verifyStyledPaints(recording, events, cells, lines);
+    verifyHighlighting(recording.vimBackground, events, cells, lines);
+  }
   t.dispose();
   // The Vim resume checkpoints come from the reference like every other recording. Only its reattachment
   // frame comes from a server's serializer, which ../m4/README.md records.
