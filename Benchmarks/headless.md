@@ -1,38 +1,38 @@
 # Headless recording measurements
 
-Thrush sustained **1,541.90 MiB/s** at 80 × 24 and resized a grid with 1,000 history rows in **0.888 ms at p95** in the slowest full-history case. The benchmark exercises the emulator directly, from incoming bytes to updated cells and generated replies. [Complete measurements](headless.json)
+Thrush sustained **1,626.23 MiB/s** at 80 × 24 and resized a grid with 1,000 history rows in **0.661 ms at p95** in the slowest full-history case. The benchmark exercises the emulator directly, from incoming bytes to updated cells and generated replies. [Complete measurements](headless.json)
 
 ## Recorded Mac measurements
 
-Five consecutive Release runs used clean revision `b3d9f29` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed nominal. None of the five runs reported contention on the Mac, with one-minute load averages from 4.25 to 5.78. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
+Five consecutive Release runs used clean revision `3d109f2` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed nominal. None of the five runs reported contention on the Mac, with one-minute load averages from 8.32 to 8.87. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
 
-Run 4 had the median 80 × 24 ASCII throughput. The published JSON report and the workload tables use that complete run. Across the five runs, throughput ranged from 1,275.49 to 1,644.12 MiB/s, a spread of 368.63 MiB/s (23.91% of the median).
+Run 3 had the median 80 × 24 ASCII throughput. The published JSON report and the workload tables use that complete run. Across the five runs, throughput ranged from 1,588.94 to 1,633.98 MiB/s, a spread of 45.04 MiB/s (2.77% of the median).
 
 | Run | 80 × 24 ASCII (MiB/s) | One-minute load |
 | --- | ---: | ---: |
-| 1 | 1,644.12 | 4.25 |
-| 2 | 1,275.49 | 4.25 |
-| 3 | 1,398.71 | 5.59 |
-| 4 | 1,541.90 | 5.59 |
-| 5 | 1,566.28 | 5.78 |
+| 1 | 1,588.94 | 8.87 |
+| 2 | 1,625.83 | 8.87 |
+| 3 | 1,626.23 | 8.87 |
+| 4 | 1,629.17 | 8.32 |
+| 5 | 1,633.98 | 8.32 |
 
 The sustained-output test feeds 1,048,640 bytes of printable ASCII and line endings in 4 KiB chunks. After one warmup, the runner measures five passes per grid. Each pass verifies the final rows, wrapping, cursor report and 1,000-row history. All three grids cleared the 100 MiB/s target.
 
 | Grid | Receive (MiB/s) | Chunk p50 (µs) | Chunk p95 (µs) |
 | --- | ---: | ---: | ---: |
-| 80 × 24 | 1,541.90 | 2.292 | 5.208 |
-| 40 × 32 | 1,009.45 | 3.584 | 4.042 |
-| 80 × 14 | 1,575.86 | 2.209 | 5.083 |
+| 80 × 24 | 1,626.23 | 2.167 | 4.875 |
+| 40 × 32 | 1,099.72 | 3.375 | 3.583 |
+| 80 × 14 | 1,649.55 | 2.166 | 4.834 |
 
 Resizing the normal screen can reflow its history even while Vim’s alternate screen is visible. The table includes every resize that began with **1,000 rows in the normal screen’s history**. Across all 29 recorded resize operations, every p95 fell within the 8.333 ms budget for one 120 Hz frame. The timer measures the synchronous resize call. [Resize measurements](headless.json)
 
 | Active screen | Grid change | Resize p95 (ms) |
 | --- | --- | ---: |
-| Normal | 80 × 24 → 40 × 32 | 0.888 |
-| Normal | 40 × 32 → 80 × 14 | 0.306 |
-| Normal | 80 × 14 → 80 × 24 | 0.080 |
-| Alternate | 80 × 24 → 40 × 32 | 0.742 |
-| Alternate | 40 × 32 → 80 × 14 | 0.317 |
+| Normal | 80 × 24 → 40 × 32 | 0.661 |
+| Normal | 40 × 32 → 80 × 14 | 0.298 |
+| Normal | 80 × 14 → 80 × 24 | 0.071 |
+| Alternate | 80 × 24 → 40 × 32 | 0.658 |
+| Alternate | 40 × 32 → 80 × 14 | 0.285 |
 
 ## Recorded interaction measurements
 
@@ -40,18 +40,18 @@ Each recording first passes an independent reference check for cells, attributes
 
 | Recording | Output bytes per replay | Checkpoints | Receive (MiB/s) | Burst drain p95 (µs) |
 | --- | ---: | ---: | ---: | ---: |
-| Shell workflow (`shell-workflow`) | 426 | 7 | 186.79 | 6.875 |
-| Vim detach and resume (`vim-resume`) | 10,578 | 10 | 557.84 | 33.542 |
-| Codex session (`codex-session`) | 18,382 | 11 | 271.09 | 86.166 |
-| Compiler output (`shell-log`) | 104,167 | 14 | 192.17 | 2,933.875 |
-| Vim editing (`vim-edit`) | 8,720 | 8 | 568.62 | 29.583 |
-| Shell and control-sequence cases (`shell-edges`) | 17,563 | 63 | 907.38 | 66.250 |
-| Prompt with a byte order mark (`prompt-bom`) | 15 | 1 | 71.43 | 0.458 |
-| Swift source in Vim (`vim-swift-dark`) | 7,818 | 7 | 324.75 | 40.208 |
-| Swift source in Vim (`vim-swift-light`) | 7,428 | 7 | 316.61 | 30.625 |
-| Hardware keys (`hardware-keys`) | 10 | 2 | 119.24 | 19.833 |
-| Pointer input (`pointer-input`) | 42 | 4 | 184.00 | 3.750 |
-| Clearing the screen in zsh (`zsh-clear`) | 1,095 | 9 | 106.03 | 16.375 |
+| Shell workflow (`shell-workflow`) | 426 | 7 | 196.19 | 5.625 |
+| Vim detach and resume (`vim-resume`) | 10,578 | 10 | 571.01 | 31.792 |
+| Codex session (`codex-session`) | 18,382 | 11 | 271.96 | 88.416 |
+| Compiler output (`shell-log`) | 104,167 | 14 | 201.67 | 2,515.166 |
+| Vim editing (`vim-edit`) | 8,720 | 8 | 583.58 | 26.333 |
+| Shell and control-sequence cases (`shell-edges`) | 17,563 | 63 | 941.40 | 66.709 |
+| Prompt with a byte order mark (`prompt-bom`) | 15 | 1 | 68.31 | 0.458 |
+| Swift source in Vim (`vim-swift-dark`) | 7,818 | 7 | 335.73 | 31.292 |
+| Swift source in Vim (`vim-swift-light`) | 7,428 | 7 | 326.94 | 29.166 |
+| Hardware keys (`hardware-keys`) | 10 | 2 | 120.31 | 25.375 |
+| Pointer input (`pointer-input`) | 42 | 4 | 183.64 | 4.167 |
+| Clearing the screen in zsh (`zsh-clear`) | 1,095 | 9 | 107.16 | 16.666 |
 
 Receive throughput times `Terminal.write` alone over 25 samples and reports the median. Each sample replays the recording on enough fresh terminals to apply at least 8 KiB, so even a 10-byte recording spans more than a thousand clock ticks. The clock stops while the terminals resize or change palette. For the hardware-key and pointer fixtures, the received bytes set terminal modes. The report times key and pointer encoding separately. Burst drain timing includes queue handling, parsing, input encoding, resizes and reply checks. The queue holds at most 16 events and 8 KiB of output at once. It drains in order and finishes empty on every replay. The JSON includes each recording’s peak byte rate, queue occupancy and operation timings. [Recording details](headless.json)
 

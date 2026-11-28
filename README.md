@@ -149,9 +149,9 @@ scripts/build-app.sh sample mac && open .build/sample/mac/Thrush.app
 
 | Measure | Result | Report |
 | --- | --- | --- |
-| Sustained output | 1,542 MiB/s at 80 × 24, against a 100 MiB/s target | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
-| Recorded workflows | Shell 187, resumable Vim 558 and Codex 271 MiB/s, with every checkpoint matching the reference | [Headless](Benchmarks/headless.md#recorded-interaction-measurements) |
-| Resize with full history | Worst p95 0.888 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
+| Sustained output | 1,626 MiB/s at 80 × 24, against a 100 MiB/s target | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
+| Recorded workflows | Shell 196, resumable Vim 571 and Codex 272 MiB/s, with every checkpoint matching the reference | [Headless](Benchmarks/headless.md#recorded-interaction-measurements) |
+| Resize with full history | Worst p95 0.661 ms, against one 120 Hz frame of 8.333 ms | [Headless](Benchmarks/headless.md#recorded-mac-measurements) |
 | Warm full-grid redraw | p95 0.340 ms CPU and 0.947 ms GPU in the Mac app | [Rendering](Benchmarks/rendering.md) |
 | Idle | Zero frames while idle or hidden | [Rendering](Benchmarks/rendering.md) |
 | Reattach | Foreground ready and replay to Up p95 0.721 ms over loopback | [WebSocket lifecycle](Benchmarks/transport.md) |
