@@ -9,100 +9,86 @@ scripts/build-app.sh proofs simulator
 
 The Mac app is `.build/proofs/mac/Thrush.app`. The iPhone app at `.build/proofs/simulator/Thrush.app` installs as `app.thrush.proofs`. Pass `--endpoint` with the http or ws base URL of a server, and the proofs hand it to the sample as its `endpoint` default.
 
+Each proof runs on a disposable hosted runner through one workflow per platform, fails unless its checks pass and uploads its captures and checks as an artifact.
+
 ## Scenes and appearance
 
-For the recorded scenes, start the mock peer with `bun Tests/ThrushProofs/peers/demo-peer.ts`. It listens on port 9138 by default, so stop any shell server there first. Pass `--scene` to open one. The shell scene shows the numbered build log from the design study. The others are the isolated first prompt, the recorded compiler log, the recorded scratch-file Vim session, a styled Swift buffer, a wide-glyph sample with a selection, every text style, including blinking and concealed text, a program that sets its own colors, and the links an `rg` search and Claude Code’s trust prompt send, with the web address `gh browse` prints as plain text. The colors program asks for the terminal’s background, then sets the opposite canvas. The proofs put the scene in the endpoint's path, where the peer reads it.
+The recorded scenes come from the mock peer, `bun Tests/ThrushProofs/peers/demo-peer.ts`, which listens on port 9138.
 
-Pass `--scene shell|prompt|log|vim|editor|glyphs|styles|colors|links` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. The iPhone app uses the system keyboard and its layout guide. Pass `--hide-keyboard` to start with the keyboard dismissed.
+| Scene | Shows |
+| --- | --- |
+| `shell` | The numbered build log from the design study |
+| `prompt` | The first prompt alone |
+| `log` | A recorded compiler log |
+| `vim` | A recorded scratch-file Vim session |
+| `editor` | A styled Swift buffer |
+| `glyphs` | Wide glyphs with a selection |
+| `styles` | Every text style, including blinking and concealed text |
+| `colors` | A program that asks for the terminal's background, then sets the opposite canvas |
+| `links` | The links an `rg` search and Claude Code's trust prompt send, and the web address `gh browse` prints as plain text |
+
+Pass `--scene` and `--appearance system|dark|light` as application arguments. On Mac, `--cycle-appearance` switches the open window to Dark, Light and a custom palette 4 s apart, starting at its first output. On iPhone, `--hide-keyboard` starts with the keyboard dismissed.
 
 ```sh
 open -n .build/proofs/mac/Thrush.app --args --scene editor --appearance light
 xcrun simctl launch --terminate-running-process "$udid" app.thrush.proofs --scene glyphs --appearance dark
 ```
 
-## Capture the running iPhone
+## iPhone proofs
 
-Run the full hosted rendering proof from this checkout with `gh workflow run iphone-proofs.yml --ref main`. It builds the app, starts its loopback peer and boots a disposable iPhone Duo. Its artifact contains the original screen captures, native grid and keyboard measurements, a recording of the live system appearance switch, and the render benchmark.
+`gh workflow run iphone-proofs.yml --ref main` runs the rendering proof on a disposable iPhone Duo with its own loopback peer. It runs the packaged render benchmark, then captures the prompt, shell and editor scenes in both appearances with the keyboard up, and the editor in landscape. Each capture's pixels must pass its scene's checks and the keyboard's. A recorded switch from dark to light must keep the process, grid and selection without preparing rows or rasterizing glyphs.
 
-To capture a single registered scene, pass its name, system appearance, orientation and expected keyboard state. The same command supports scenes supplied by the app that embeds the view.
+Pass `-f proof=` for one of the interaction proofs below, or `-f scene=` with an optional `-f appearance=light` for one scene. A terminal scene also takes `-f orientation=landscape` and `-f keyboard=visible` or `hidden`. Add `-f layout_only=true` to save only the settled columns, rows, keyboard and key row measurements a PTY recording needs.
 
 ```sh
 gh workflow run iphone-proofs.yml --ref main -f scene=editor -f appearance=light -f orientation=landscape -f keyboard=visible
 ```
 
-Run `gh workflow run iphone-proofs.yml --ref main -f scene=render-benchmark` for the packaged simulator render benchmark alone.
+These named scenes run their own checks:
 
-Pass `-f scene=cursor-spinners -f appearance=dark` to the hosted iPhone workflow for the opening and reconnect captures. Repeat with `light` for the other appearance. Each pair brackets a controlled WebSocket handshake or interruption in the same app process. The checker measures spoke contrast at the expected cursor cell and compares every grid pixel outside that cell against the live capture. For the Mac matrix, run `gh workflow run mac-proofs.yml --ref main -f proof=spinners`. It captures each appearance with the window active and inactive. A separate pair of shell attachments verifies that the sample's **New Shell** toolbar item appears on exit and starts another shell in the same view. [Session lifecycle checks](design/lifecycle.md)
+- `render-benchmark` runs the packaged render benchmark alone.
+- `cursor-spinners` captures the opening and reconnecting spinners around a controlled handshake and interruption. Each must reach contrast at the expected cursor cell and leave every other grid pixel as the live capture has it.
+- `toolbar-proof` makes the same captures under the app's own navigation title and Close button, with the spinner and first prompt inside the safe-area grid.
+- `text-blink` bursts screenshots of the styles scene in both appearances, with motion and then with Reduce Motion. Blinking rows must alternate between fully shown and fully hidden while other rows hold still, Reduce Motion must hold the shown text, and concealed text must leave its cells blank.
+- `program-colors` captures the colors scene in both appearances, full screen and under a navigation stack. The program's canvas, never the theme's, must show around the first row, above the grid and beside the home indicator, and the navigation title must reach 4.5:1 against it.
+- `under-bars` mounts the pane under an inline navigation bar in both appearances and orientations, with the keyboard hidden and shown. The canvas must reach every edge while the grid stays in the safe area above the keyboard, or runs under the home indicator while it's down, and a host's `.ignoresSafeArea()` must change no pixel.
+- `reconnect-typing` types `git` with the software keyboard, interrupts the WebSocket and types ` status` during the outage. After the replay the shell must echo `git status` exactly once, across two attachments, while the keyboard holds its place.
 
-Pass `-f scene=text-blink` to check blinking and concealed text in the styles scene. The simulator opens the scene in both appearances, first with motion and then with Reduce Motion, and takes a jittered burst of screenshots each time. `Tests/ThrushProofs/text_blink.py` requires blinking rows to alternate between fully shown and fully hidden while every other row holds still, Reduce Motion frames to match the shown text, and concealed text to leave its cells blank. The artifact keeps a shown, hidden and Reduce Motion still for each appearance. On a disposable Mac runner, `gh workflow run mac-proofs.yml --ref main -f proof=text-blink` runs the packaged Mac render benchmark, then the same captures and checks in a real window.
+### Interactions
 
-Pass `-f scene=toolbar-proof` to check the initial spinner and the first prompt inside the same safe-area grid. The app owns the navigation title and Close button.
-
-Pass `-f scene=program-colors` to capture the colors scene in both appearances, full screen and under the same navigation stack. Each frame must show the program's canvas around the first row, above the grid and beside the home indicator, and none of the theme's. Vision reads the first command and, under the navigation stack, the title and Close. The title must reach 4.5:1 against the canvas. On a disposable Mac runner, `gh workflow run mac-proofs.yml --ref main -f proof=program-colors` makes the same checks under the sample's title bar, a full-size window toolbar with and without its background, and in a split view's detail beside a sidebar. The program's canvas must run beneath the toolbar, the window title and Close must reach 4.5:1, and the sidebar's toolbar buttons must keep the window's appearance. Live takes then switch the program's palette, through the peer's `POST /palette?name=paper` or `night`, and the system appearance under one open window, and each settled frame must pass the same checks. Pass `--toolbar-proof`, `--toolbar-proof split` and `--toolbar-background` to open the same Mac windows.
-
-`gh workflow run mac-proofs.yml --ref main -f proof=appearance-reports` checks that programs follow the window between dark and light. The Mac proofs open `--cycle-appearance` over a real shell that runs a printer, which sets mode 2031 and logs every reply. Choosing Dark again sends nothing, Light reports `CSI ? 997 ; 2 n` and the dark Custom theme reports `CSI ? 997 ; 1 n`, once each. A background the printer sets itself sends nothing. Neovim then runs under the same flips, and its `background` option must follow each one. The artifact keeps a screenshot of each program after each step.
-
-`gh workflow run mac-proofs.yml --ref main -f proof=links` opens the links scene in a packaged Mac window, in both appearances. Holding ⌘ with the pointer resting on Claude Code's "Security guide" must turn it into a pointing hand and draw the link engaged. Output that clears the scene, through the peer's `POST /links?draw=0`, must let the link go, and output that lays it out again under the resting pointer, through `draw=1`, must engage it and draw it the same way. Letting go of ⌘ must bring back the cursor the pointer rested with. A ⌘-click on the link must bring the default browser forward, while a plain click or a ⌘-click dragged off the link must not. A right-click must put Open Link and Copy Link above Copy, Paste and Select All, with nothing to AutoFill, and Copy Link must copy the destination. A right-click away from links must offer no AutoFill either. A ⌘-click on an `rg` file name must show a menu titled with its destination that offers only Copy Path, which copies the path. The web address `gh browse` prints as plain text wraps onto a second row. A right-click there must offer Open Link and Copy Link, Copy Link must copy the whole address, and ⌘ must engage it from that row, and a ⌘-click there must bring the browser forward. The artifact keeps stills at rest, with the tooltip, under ⌘ before and after the output and with each menu open. To run it on your own Mac, use `python3 Tests/ThrushProofs/mac-ui-test.py links --output /tmp/thrush-mac-links`.
-
-Pass `-f scene=reconnect-typing` to record held input with the iPhone software keyboard. The test types `git` in the live shell, interrupts its WebSocket and types ` status` during the outage. After replay the shell should echo the full `git status` command. Compare the bytes before and after replay and check that the keyboard kept its position.
-
-When preparing a recorded workflow for the phone, add `-f layout_only=true` to the named-scene command. Its JSON gives the settled columns, rows, keyboard and key row measurements for the PTY recorder.
-
-## Drive a workflow
-
-`scripts/check-workflows.sh` plays the shell, Vim and Codex recordings to Apple’s WebSocket client at their recorded grids. Its peer waits for each recorded input, reply and resize before sending the following PTY bytes, and Vim also waits for its detach and same-ID reattachment. Once the workflow reaches its original shell prompt, an explicit close ends it. [Inputs, grid sizes and checkpoints](../Fixtures/reference/workflows/README.md)
-
-The proofs app takes the same workflows through real programs in its own window, driven by the [live workflow runner](../Benchmarks/live-workflows.md). Launch it with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. The Mac driver uses AppKit's responder and a private pasteboard. The iPhone driver uses the terminal's UIKit text client, English software keyboard and native view rotation. Both keep the host's normal font and geometry. The app drives actual window or scene layout, checks the remote byte count, reads the live terminal and checks which submitted grid completed on the GPU. Only the controller must be an HTTP listener on loopback. The app connects with the sample's own client ID, a new one for each shell, and the controller follows the latest terminal socket.
-
-| Request | Meaning |
-| --- | --- |
-| `GET /fixture` | Return the complete v1 workflow with its semantic actions, lifecycle events and expected checkpoint names. |
-| `GET /state` | Return `phase`, zero-based `eventIndex`, `name`, cumulative `outputBytes`, `attachments` and current `grid`. A failure includes `error`. |
-| `POST /layout` | The app reports `eventIndex`, `columns` and `rows` after the layout settles. Return 204 once the real socket matches, or 409 while the resize is still in flight. Initial layout uses index −1. |
-| `GET /checkpoint?eventIndex=N` | While checkpoint N is held, return a v1 recording containing its single expected event and the reference's cells and lines for the actual pane geometry. |
-| `POST /ack` | After the comparison and any screenshot, the app sends the checkpoint observation, including `eventIndex`, grid, byte counts, render generations and any UTF-8 copy result. Return 204 to release this boundary. |
-
-The controller holds a phase until the corresponding action or acknowledgement arrives. `attaching` and `playing` require no action. `layout` confirms the initial native grid. `input` uses the recorded responder action and `resize` uses native geometry. `detach` and `resume` change pane visibility. `useHere` and `newShell` activate the available native status button. `checkpoint` checks the reference snapshot and the GPU-completed generation. A controller may add `capture: true` or `false` to that phase to override the default screenshot selection. `close` explicitly ends the shell, `completed` writes the final report and `failed` writes the reason to `workflow-error.txt`.
-
-At a captured checkpoint the app writes `capture-NNN.json` once its frame is verified and settled. The runner writes the PNG and touches `capture-NNN.done`, then the app releases the controller. On the iPhone, each shell, Vim and Codex image must show all eight key row controls and three rows of native letter keys, and each of their checkpoints must hold the Duo's 45 × 18 portrait grid, or 71 × 11 after Vim turns to landscape. On a resumed Vim attachment, the parser starts empty while the last editor frame stays on screen until the serialized replay. The runner compares every RGB pixel inside the grid before detach and after replay, and checks that the block cursor shows in the expected cell in both frames.
-
-On macOS 27 with Xcode 27, this check opens the packaged Mac terminal. VoiceOver navigates the build log line by line and reads `Build complete.` while the displayed text stays unchanged. The test restores the previous VoiceOver setting. The output directory contains the spoken text in `voiceover.log`.
-
-```sh
-python3 Tests/ThrushProofs/mac-ui-test.py voiceover --output /tmp/thrush-mac-voiceover
-```
-
-## Verify window and scene lifetime
-
-A covered, minimized or hidden Mac window keeps its socket. Thrush continues parsing while it draws zero frames, then displays the latest generation on reveal. A foreground iPhone scene keeps its socket during Control Center and system alerts. A background scene, a removed destination or a tab hidden by the app detaches the WebSocket. With an app-supplied transport, the session keeps reading while the view is hidden and the app can run.
-
-On an unlocked Mac desktop, the following check covers the proofs app with a second app, minimizes it, then hides the app. Each interval exceeds the server’s 30-second orphan deadline. The report checks the live shell PID, socket count, incoming output and Metal submissions across each interval. The same proof runs in the **Mac proofs** workflow.
-
-```sh
-python3 Tests/ThrushProofs/check-window.py --output /tmp/thrush-window-proof
-```
-
-## Check the iPhone interactions
-
-Run the UIKit, Metal and recorded workflow tests on a designated iOS 27.2 simulator. Use its identifier from `xcrun simctl list devices available`.
-
-```sh
-scripts/check-ios-ui.sh "$udid"
-```
-
-The command builds the package sources, shader and recordings in an isolated test scheme. It uses one simulator and keeps the Xcode test result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone Duo simulator for every push and pull request.
-
-`gh workflow run iphone-proofs.yml --ref main -f proof=interactions` runs the same native tests and drives the installed Release proofs app with XCUITest on a fresh iPhone Duo simulator. Its artifact contains portrait and landscape screenshots, the modifier chooser with Control, Shift and a held slide to Option armed and with Shift armed in landscape, a still with the keyboard hidden, a word selected on the last row under the home indicator, four short gesture recordings per appearance for the modifier chooser, the keyboard, selection and history, the source revision and the device profile. The simulated Duo's resizable scene doesn't turn with the device, so the proof opens the shell already turned for its landscape stills, and the UIKit tests cover the turn itself. To run the same proof locally on a Mac with Xcode, pass a new or empty output directory.
+`-f proof=interactions` drives the installed proofs app with XCUITest and runs the UIKit tests. In each appearance it captures the shell in portrait and landscape, the modifier chooser with keys armed, the keyboard hidden and a word selected on the last row under the home indicator, and records the chooser, the keyboard, selection and history. Every still must show the terminal, a selection must show the Metal selection, the chooser its armed key and choice, and landscape the shell's checks above the prompt. The simulated Duo's scene doesn't turn with the device, so the proof opens the shell already turned, and the UIKit tests cover the turn. `-f proof=swipes`, `links` or `accessibility` runs one of the scopes below instead, also with the UIKit tests. On a Mac with Xcode, `run.py` runs the same proofs into an empty directory, with `--swipes-only`, `--links-only` or `--accessibility-only` for a scope.
 
 ```sh
 python3 Tests/ThrushProofs/run.py --output /tmp/thrush-iphone-interactions
 ```
 
-Add `--swipes-only` (`-f proof=swipes`) to swipe through `less`, vim and the shell's history on a real Bash in both appearances, then make the same gestures in Settings. Each program reads through a logger that timestamps its input, so the check counts the rows every gesture sent. One synthesized flick can lift about 12% faster than the next, so the app reports UIKit's own measure of each lift: how far the finger moved the content and the velocity UIKit glides on from. The run fails if any glide through `less`, vim or the history lands more than two rows from UIKit's glide for that velocity, or if a program's last row arrives more than a quarter second after UIKit's glide comes to rest. It also fails if a program moves further than a finger that rests before lifting or moves at all once it lifts, if a flick caught by a touch 150 ms after it lifts moves further than the finger did, clicks or opens the keyboard, or if the tap after a glide comes to rest doesn't bring the keyboard back. The flick and that touch play as one XCTest event record, since XCUITest waits for UIScrollView to come to rest before its next action. `swipes-dark.json` and `swipes-light.json` report each gesture's rows beside the finger's travel, the lift velocity and the rows UIScrollView's deceleration glides from it, and the artifact keeps a recording of each segment. The UIKit tests run too, including VoiceOver's three-finger page.
+- `swipes` swipes through `less`, Vim and the shell's history on a real Bash in both appearances, then makes the same gestures in Settings. Each glide must land within two rows of UIKit's own glide for its lift velocity and finish within a quarter second of it. A finger that rests before lifting must stop the program where the finger stopped. A touch that catches a flick 150 ms after it lifts must stop it too, without clicking or raising the keyboard, and a tap after a glide comes to rest must bring the keyboard back. `swipes-dark.json` and `swipes-light.json` report each gesture.
+- `links` taps and presses the links scene's links with the keyboard down in both appearances. A tap on a wrapped file name must show a Copy Path menu titled with its destination, clear of the name's rows, opening upward when the name wraps across the bottom rows, and without raising the keyboard. A long press on a web link must lift it into a menu with Open Link, Copy Link and Share…, and the wrapped `gh browse` address must act as one link from its last row. A tap on a link must bring Safari forward, while a tap beside it raises the keyboard. `PhoneLinkProof.swift` holds every check.
+- `accessibility` runs at the largest Dynamic Type size with Reduce Motion and Reduce Transparency. UIKit must observe all three, and VoiceOver's focus must stay on a terminal line while the socket reconnects. The hosted simulator speaks nothing, so listen on a physical iPhone. VoiceOver must say “Reconnecting” once when the socket drops, with its cursor still on the line, “New shell” once when you return to the tab after the orphan expires, with a prompt that accepts input, and “Shell ended” once when the shell ends, then nothing when that session reopens.
 
-Add `--links-only` (`-f proof=links`) to open the links scene with the keyboard down in both appearances. A tap on the second row of a wrapped `rg` file name must show the link's menu, titled with its destination and offering only Copy Path, clear of both of the name's rows and without raising the keyboard. The name must stay pressed while its menu is up and let go as the menu closes. Output through the peer's `POST /links?draw=2`, where Claude exits and the search runs again, wraps the name across the bottom rows, and a tap there must open the menu upward, clear of those rows too. A long press on the last row of the web address `gh browse` prints as plain text must show a menu titled with the whole address that offers Open Link. A long press on Claude Code's "Security guide" must lift it into the context menu with Open Link, Copy Link and Share… rather than select a word. A tap beside the link on the same row must raise the keyboard, and a tap on the link must bring Safari forward. The artifact keeps a still at rest, with each menu open and with the keyboard up, and a recording of the first three menus. The UIKit tests run too.
+### UIKit tests
 
-Add `--accessibility-only` (`-f proof=accessibility`) to run with the largest Dynamic Type size, Reduce Motion and Reduce Transparency. The check records VoiceOver speech in `voiceover.log` and the focused element in `accessibility-spinner-reconnecting.json`. The hosted iOS 27.2 simulator returned `No speech available` in both Settings and Thrush. On a physical iPhone, read a terminal line, interrupt the socket and listen for “Reconnecting” once. Verify that the reading cursor stays on the same line. Let the orphan expire and return to the tab. Listen for “New shell” once and check that the prompt accepts input. End the shell and listen for “Shell ended” once. Reopening that session should be silent. [Hosted accessibility results](https://github.com/lostintangent/thrush/actions/runs/45707888711)
+`scripts/check-ios-ui.sh "$udid"` runs the UIKit, Metal and recorded workflow tests on one iOS 27.2 simulator from `xcrun simctl list devices available`. It builds the package sources, shader and recordings in an isolated test scheme and keeps the Xcode result under `.build/ios-ui/$udid/Logs/Test`. The **Headless checks** workflow runs it on a fresh iPhone Duo for every push and pull request.
+
+## Mac proofs
+
+`gh workflow run mac-proofs.yml --ref main -f proof=NAME` runs one proof in a packaged window on a disposable Mac. A push to main that could change the window runs `window-lifecycle`.
+
+- `window-lifecycle` covers the window with a second app, minimizes it, then hides the app, each for longer than the server's 30-second orphan deadline. Throughout, the same shell must keep one socket and keep parsing its output while the window submits no frames, and the window must show the latest output when it returns, as the [lifetime rules](design/lifecycle.md) promise. On an unlocked Mac, run `python3 Tests/ThrushProofs/check-window.py --output /tmp/thrush-window-proof`.
+- `voiceover` has VoiceOver navigate the build log line by line. It must read `Build complete.` while the displayed text stays unchanged. The test restores the previous VoiceOver setting and keeps the spoken text in `voiceover.log`.
+- `spinners` makes the cursor spinner checks in each appearance with the window active and inactive. A separate pair of shell attachments must show the sample's **New Shell** toolbar item when the shell exits, and the item must start another shell in the same view.
+- `text-blink` runs the packaged Mac render benchmark, then the iPhone's text blink captures and checks in a real window.
+- `program-colors` makes the iPhone's program color checks under the sample's title bar, a full-size window toolbar with and without its background, and a split view's detail beside a sidebar. The window title and Close must reach 4.5:1, and the sidebar's toolbar buttons must keep the window's appearance. Every check must hold again after the program's palette and the system appearance switch under one open window. `--toolbar-proof`, `--toolbar-proof split` and `--toolbar-background` open these windows.
+- `appearance-reports` cycles a real shell's window through Dark, Light and the dark custom theme under programs that set mode 2031. A printer must receive `CSI ? 997 ; 2 n` for Light and `CSI ? 997 ; 1 n` for the custom theme, once each, and nothing for Dark again or for a background it sets itself. Neovim's `background` option must follow each flip.
+- `links` points at the links scene's links in both appearances. Holding ⌘ over a link must engage it under a pointing hand, including when output clears it and draws it again under the resting pointer, and letting go must restore the pointer. A ⌘-click must open it in the browser, while a plain click or a ⌘-click dragged off it must not. A right-click must put Open Link and Copy Link above Copy, Paste and Select All, with no AutoFill anywhere, and a ⌘-click on a file name must offer only Copy Path. The wrapped `gh browse` address must act as one link from its second row. `MacLinkProof.swift` holds every check.
+
+`python3 Tests/ThrushProofs/mac-ui-test.py links` or `voiceover`, with `--output` and an empty directory, runs either UI test on your own Mac.
+
+## Drive a workflow
+
+The [live workflow runner](../Benchmarks/live-workflows.md) takes the shell, Vim and Codex workflows through real programs in the proofs app's window, and `scripts/check-workflows.sh` plays their [recordings](../Fixtures/reference/workflows/README.md) to Apple’s WebSocket client. The runner launches the app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. The Mac driver types through AppKit's responder and a private pasteboard, and the iPhone driver through the terminal's UIKit text client, the English software keyboard and native rotation, both at the host's normal font and geometry.
+
+The app's `WorkflowDriver.swift` and the runner's `controller.ts` talk over loopback HTTP. The controller holds each step until the app reports a settled layout or acknowledges a checkpoint, and each checkpoint must match the reference's cells and lines for the pane's actual geometry in a frame the GPU completed. On the iPhone, each captured checkpoint must show all eight key row controls and three rows of letter keys, and hold the Duo's 45 × 18 portrait grid, or 71 × 11 after Vim turns to landscape. A resumed Vim attachment keeps its last frame until the replay, so every RGB pixel inside the grid must match before detach and after replay, with the block cursor in the expected cell.
 
 ## Tour a release
 
