@@ -2,15 +2,25 @@
 
 A `TerminalSession` owns a terminal and its history. The app keeps it when a tab moves out of view and observes `hasEnded` to decide what to do when the shell ends. The terminal view keeps the screen and history readable and copyable through interruptions and after exit.
 
+## Staying attached
+
+On Mac the WebSocket keeps its attachment while the view belongs to an open window, including a covered, minimized or hidden one. Drawing stops while nothing is visible and the session keeps parsing. Mac app activation and window occlusion never detach. On iPhone the attachment survives an inactive foreground scene, such as Control Center, Notification Center, the app switcher and system alerts. The WebSocket detaches when the app hides the view with `isActive: false`, SwiftUI removes or hides its destination, or the iPhone scene enters the background. The server keeps a detached shell for its orphan window.
+
+An app-supplied transport keeps reading the same shell while the view is hidden and the app can run. The session keeps applying output and answering terminal queries. When the view returns, it shows the current screen and applies its measured size. The same transport stays open throughout.
+
 ## Opening and reconnecting
 
 A small spinner at the terminal cursor is the only visual indication of opening or reconnecting. Before the first prompt it occupies the initial cursor cell. On a lost WebSocket it uses the last confirmed cursor position. Show the spinner after 200 ms. Its spokes use the cursor color in active and inactive windows, with a contrasting fallback against the cell beneath it. It stays still with Reduce Motion and is labeled “Connecting” or “Reconnecting” for VoiceOver. Announce “Reconnecting” once when an interruption reaches that delay. Keep the grid, selection, keyboard focus and VoiceOver reading position in place.
 
+The WebSocket transport resumes and releases each task the socket factory returns. While the view is active, an ordinary WebSocket failure retries after 250 ms, doubling to a maximum of 4 s. Ready resets the delay.
+
 During an ordinary reconnect, hold committed text, paste and keys in order. IME preedit stays local. After `ready(resumed: true)`, wait for the binary replay to restore the shell’s input modes, then send held input once. The restored shell controls what appears as echo.
+
+Recovery holds at most 256 typed inputs and 64 KiB of UTF-8, charging character keys their source bytes and other keys one byte. An input that exceeds either limit is rejected as a whole. Pointer events refer to the old grid and are dropped during recovery. Displacement, background detach, explicit close or a fresh ready while resuming discards held input. A write with uncertain delivery is never sent again.
 
 ## Another window takes the shell
 
-When another WebSocket attachment takes ownership, keep the last screen and stop automatic retries. A deliberate tap in the terminal requests ownership without sending terminal bytes. A keystroke also requests ownership and is held until the same shell resumes. Further input follows it in order. Scrolling, selection, copying, focus changes and foreground return leave the other window in control.
+When another WebSocket attachment takes ownership, keep the last screen and stop automatic retries. Discard callbacks from the displaced socket. A deliberate tap in the terminal requests ownership without sending terminal bytes. A keystroke also requests ownership, starts a new queue for that attempt and is held until the same shell resumes. Further input follows it in order. Scrolling, selection, copying, focus changes and foreground return leave the other window in control.
 
 ## The server starts a replacement shell
 
@@ -18,11 +28,11 @@ A fresh ready on reattach means the old shell expired. Move its main screen into
 
 ## The shell ends
 
-Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the view stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. The view announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
+Apply the last output before reporting exit. When the shell exits or the app closes it, the session sets `hasEnded` and the view stays available for reading. The app owns any dismissal or action to start another shell. Starting one requires a new `TerminalSession`. Closing with no live socket cancels retries, ends the session locally and reports the missing transport. The server’s orphan deadline then releases the remote PTY. The view announces “Shell ended” once when the shell ends. Reopening a finished tab leaves VoiceOver’s reading position alone.
 
 ## In-band replay
 
-When a WebSocket reader falls behind, the server can send `ready(resumed: true)` on the same socket. Keep accepting input and displaying the current screen until the session applies the next binary message as a replay. Present the restored screen in one frame. The cursor spinner stays off during an in-band replay.
+When a WebSocket reader falls behind, the server can send `ready(resumed: true)` on the same socket. Keep accepting input and displaying the current screen until the session applies the next binary message as a replay. Input sent while waiting uses the current input modes. Apply the replay to a clean terminal at the negotiated size, then apply the latest requested size. Replace the drawing cache and the screen together and present the restored screen in one frame. The cursor spinner stays off during an in-band replay.
 
 - At the live edge, follow the restored cursor. In history, preserve the top logical line and its offset through soft wraps. Match text and neighboring lines across the reset, since row numbers can change. If the line has expired, use its nearest identifiable surviving neighbor, falling back to the oldest retained line.
 - Keep an active selection and its handles only when both endpoints and the intervening text identify the same logical range. Reposition the handles for the new cell geometry. If the range is absent or ambiguous, clear the selection and its edit menu. Copy always reads the displayed generation.

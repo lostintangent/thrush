@@ -31,7 +31,7 @@ TerminalView(session)
 
 The view fits its grid to the safe area and reports each new size to the session. Like a SwiftUI background, its canvas runs under a navigation bar, a Mac toolbar, the home indicator or any other safe area its frame meets, with no `.ignoresSafeArea()`, while its first row starts below the bar. On iPhone with the keyboard down, its rows run on under the home indicator too. It follows the system appearance between its light and dark themes, floats a glass key row of Esc, Ctrl, Tab, the arrows and Hide Keyboard above the iPhone keyboard, with Option and Shift a tap away from Ctrl, and handles focus, selection, copying and scrolling, through history or in full-screen programs like Vim and less. Links a program prints, and the web addresses in its plain text, open with ⌘-click on Mac or a tap on iPhone through SwiftUI’s `openURL`, so an app can send them to its own browser. A program that asks can tell Shift-Enter from Enter, and hears whenever the view gains or loses keyboard focus or its theme turns dark or light. The WebSocket stays attached while the view is shown, including in a Mac window behind other apps, minimized or hidden. It detaches when the view leaves the screen or the iPhone app goes to the background.
 
-A small spinner appears at the cursor while the session opens or reconnects. A lost socket retries after 250 ms, backing off to 4 s. Typing waits until replay restores the same shell. If another window takes the shell, the view keeps its last screen. Tap the terminal or type to take it back. The first keystroke reaches the shell once replay restores its input modes. If the server has already released the shell, the same session opens its replacement at the top of the screen. Scroll up to read the previous shell’s main screen and history. Input held for that shell is discarded. VoiceOver announces a sustained reconnect, a new shell or a shell exit once.
+A small spinner appears at the cursor while the session opens or reconnects, and a lost socket retries on its own. Typing waits until replay restores the same shell. If another window takes the shell, the view keeps its last screen until a tap or a keystroke takes it back. If the server has already released the shell, the same session opens its replacement at the top of the screen, with the previous shell’s main screen and history above it. VoiceOver announces a sustained reconnect, a new shell or a shell exit once. [Session lifecycle](docs/design/lifecycle.md)
 
 An app can choose which tab accepts input and set the appearance. On iPhone, it can also hide the key row above the keyboard. Each argument after the session is optional.
 
@@ -157,11 +157,11 @@ scripts/build-app.sh sample mac && open .build/sample/mac/Thrush.app
 | Reattach | Foreground ready and replay to Up p95 0.872 ms over loopback | [WebSocket lifecycle](Benchmarks/transport.md) |
 | Real shells | Bash, Vim, Codex and shell lifecycle on Mac and iPhone, with 34 checkpoints per platform and end-to-end byte counts | [Live workflows](Benchmarks/live-workflows.md) |
 
-The timings come from one contended M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.
+The timings come from one M1 Max, so they show headroom rather than a timing baseline. [All benchmarks](Benchmarks/README.md) covers each command, what it checks and the real PTY runs.
 
 ## Develop
 
-[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts, budgets and milestones, and [the design docs](docs/design) cover the themes, glass and the session lifecycle.
+[AGENTS.md](AGENTS.md) lists the build, test and check commands. [The plan](docs/plan.md) is the source of truth for requirements, contracts and budgets, and [the design docs](docs/design) cover the themes, glass and the session lifecycle.
 
 ## License
 

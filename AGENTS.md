@@ -1,6 +1,6 @@
 # Thrush
 
-Thrush is a general-purpose Swift terminal for macOS and iOS apps. [docs/plan.md](docs/plan.md) is the source of truth for requirements, the ontology, contracts, budgets and milestones. When work changes a decision the plan records, update the plan in the same change.
+Thrush is a general-purpose Swift terminal for macOS and iOS apps. [docs/plan.md](docs/plan.md) is the source of truth for requirements, the ontology, contracts and budgets. When work changes a decision the plan records, update the plan in the same change.
 
 ## Principles
 
@@ -28,7 +28,7 @@ The product is Thrush. The folder, the GitHub repo and anything path-like are lo
 
 ## Commands
 
-Run from the repository root. Use the full Xcode toolchain for Swift Testing macros and the SwiftSyntax modules in the core import check. This setting applies to the current shell.
+Run from the repository root. Use the full Xcode toolchain for the Swift Testing macros. This setting applies to the current shell.
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
