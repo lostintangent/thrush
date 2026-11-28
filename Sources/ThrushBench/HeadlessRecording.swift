@@ -13,6 +13,12 @@ struct ResizeTiming: Encodable {
     let withinDisplayInterval: Bool
 }
 
+struct Operation: Encodable {
+    let name: String
+    let bytesPerCall: Int?
+    let timing: Timing
+}
+
 struct HeadlessRecording: Encodable {
     static let displayIntervalNanoseconds: UInt64 = 1_000_000_000 / 120
 
@@ -225,6 +231,19 @@ struct HeadlessRecording: Encodable {
         }
         return spans
     }
+}
+
+func peakBytesInOneSecond(_ samples: [(time: Int, bytes: Int)]) -> Int {
+    var earliest = 0, bytes = 0, peak = 0
+    for sample in samples {
+        bytes += sample.bytes
+        while sample.time - samples[earliest].time >= 1_000_000 {
+            bytes -= samples[earliest].bytes
+            earliest += 1
+        }
+        peak = max(peak, bytes)
+    }
+    return peak
 }
 
 /// All recording events arrive in one burst. Pull a bounded batch, drain it in

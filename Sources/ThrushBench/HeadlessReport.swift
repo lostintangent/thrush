@@ -1,6 +1,17 @@
 import Foundation
 import ThrushFixtures
 
+struct Timing: Encodable {
+    let p50Nanoseconds: UInt64
+    let p95Nanoseconds: UInt64
+
+    init(_ samples: [UInt64]) {
+        let sorted = samples.sorted()
+        p50Nanoseconds = sorted[(sorted.count * 50 - 1) / 100]
+        p95Nanoseconds = sorted[(sorted.count * 95 - 1) / 100]
+    }
+}
+
 struct HeadlessReport: Encodable {
     let schemaVersion = 1
     let buildConfiguration = "release"

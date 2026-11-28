@@ -52,7 +52,7 @@ permissions:
   contents: read
 
 jobs:
-  first-bytes:
+  checks:
     if: github.event_name != 'workflow_dispatch'
     runs-on: xcode-27
     env:

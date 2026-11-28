@@ -6,7 +6,7 @@ Thrush sustained **1,541.90 MiB/s** at 80 × 24 and resized a grid with 1,000 hi
 
 Five consecutive Release runs used clean revision `b3d9f29` on a 10-core Apple M1 Max with macOS 27.2.1 and Swift 6.4.2. The Mac was on AC power with low-power mode off. Thermal state stayed nominal. None of the five runs reported contention on the Mac, with one-minute load averages from 4.25 to 5.78. The timings measure elapsed time in the emulator at the listed grid sizes. [Run environment](headless.json)
 
-Run 4 had the median 80 × 24 ASCII throughput. The two published JSON reports and the workload tables use that complete run. Across the five runs, throughput ranged from 1,275.49 to 1,644.12 MiB/s, a spread of 368.63 MiB/s (23.91% of the median).
+Run 4 had the median 80 × 24 ASCII throughput. The published JSON report and the workload tables use that complete run. Across the five runs, throughput ranged from 1,275.49 to 1,644.12 MiB/s, a spread of 368.63 MiB/s (23.91% of the median).
 
 | Run | 80 × 24 ASCII (MiB/s) | One-minute load |
 | --- | ---: | ---: |
@@ -63,16 +63,16 @@ The table and generated JSON give p50 and p95 over 25 passes after one warmup. T
 
 ## Run the benchmark
 
-From the package root, run `swift run -c release ThrushBench`, then `python3 scripts/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json` and `.build/benchmarks/first-bytes.json`. With `--output trial.json`, the two files are `trial-headless.json` and `trial.json`. [First-bytes measurements](first-bytes.md)
+From the package root, run `swift run -c release ThrushBench`, then `python3 scripts/check-benchmark-report.py` to verify the report against the recordings. The runner writes `.build/benchmarks/headless.json`, or the path given with `--output`.
 
-To repeat the five-run selection, build the Release executable once and keep each pair of reports in its own directory.
+To record a result, build the Release executable once and collect five consecutive runs.
 
 ```sh
 swift build -c release --product ThrushBench
 bin_dir=$(swift build -c release --show-bin-path)
 for run in 1 2 3 4 5; do
-  "$bin_dir/ThrushBench" --output ".build/benchmarks/run-$run/first-bytes.json"
+  "$bin_dir/ThrushBench" --output ".build/benchmarks/run-$run/headless.json"
 done
 ```
 
-Sort the five 80 × 24 ASCII receive rates and use both reports from the middle run. Verify its headless report with `python3 scripts/check-benchmark-report.py .build/benchmarks/run-N/headless.json`, substituting the selected run number for `N`.
+Each report records the load average and sets `environment.contended` when the one-minute load exceeds the active core count. Rerun the series if any run is contended. Sort the five 80 × 24 ASCII receive rates and use the middle run. Verify it with `python3 scripts/check-benchmark-report.py .build/benchmarks/run-N/headless.json`, substituting the selected run number for `N`.
