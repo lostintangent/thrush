@@ -50,7 +50,7 @@ For real WebSocket and PTY checks, run `scripts/check-pty.sh`. Start the standal
 
 Some apps build for Mac with only Command Line Tools, so Thrush must build without Xcode. CI checks this, and you can run the same build in a fresh shell with `DEVELOPER_DIR=/Library/Developer/CommandLineTools swift build -c release --target Thrush --scratch-path .build/command-line-tools`. The separate scratch path keeps it from rebuilding the Xcode toolchain's products.
 
-The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client. To run the peer separately, use `bun scripts/loopback.ts --serve` and pass the printed base URL to the client.
+The loopback check uses Bun’s built-in WebSocket server and Apple’s URLSession WebSocket client.
 
 `scripts/check-wasm.sh` builds the WebAssembly package with the swift.org Swift 6.4.2 toolchain and its Wasm SDK, then checks it against native ThrushCore and under Bun and Node. [Wasm/build.sh](Wasm/build.sh) lists what the build needs.
 

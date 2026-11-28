@@ -1,5 +1,4 @@
-// bun scripts/loopback.ts --serve replays the fixture for a host running on this Mac.
-// scripts/check-loopback.sh also starts a platform client and verifies the complete wire exchange.
+// scripts/check-loopback.sh runs this peer with the platform check client and verifies the complete wire exchange.
 import assert from "node:assert/strict";
 import type { ServerWebSocket } from "bun";
 import fixture from "../Fixtures/first-bytes.json";
@@ -10,11 +9,8 @@ type Session = {
     complete: boolean;
 };
 
+if (process.argv.length !== 3) throw new Error("Usage: bun scripts/loopback.ts PATH_TO_CHECK_EXECUTABLE");
 const command = process.argv[2];
-if (process.argv.length !== 3) {
-    throw new Error("Usage: bun scripts/loopback.ts --serve | PATH_TO_CHECK_EXECUTABLE");
-}
-const standalone = command === "--serve";
 const backgroundQuery = "\x1b]11;?\x07";
 const expectedInput = fixture.events.flatMap(event => {
     const messages = [];
@@ -26,11 +22,6 @@ const finished = Promise.withResolvers<void>();
 let attachmentCount = 0;
 let fixturesAccepted = 0;
 let closesAccepted = 0;
-
-function fail(reason: unknown) {
-    if (standalone) console.error(reason);
-    else finished.reject(reason);
-}
 
 async function replay(socket: ServerWebSocket<Session>) {
     const start = performance.now();
@@ -51,21 +42,18 @@ const server = Bun.serve({
             const items = url.searchParams;
             assert.deepEqual([...items.keys()].sort(), ["clientId", "cols", "rows", "service"]);
             assert.equal(items.get("service"), "terminal");
-            const minimumGrid = !standalone && attachmentCount === 1;
+            const minimumGrid = attachmentCount === 1;
             assert.equal(items.get("cols"), String(minimumGrid ? 2 : fixture.columns));
             assert.equal(items.get("rows"), String(minimumGrid ? 2 : fixture.rows));
-            assert(items.get("clientId"));
-            if (!standalone) {
-                assert.equal(items.get("clientId"), "thrush + check");
-                assert(attachmentCount < 2, "Unexpected extra attachment");
-                if (attachmentCount === 1) assert.equal(fixturesAccepted, 1);
-            }
+            assert.equal(items.get("clientId"), "thrush + check");
+            assert(attachmentCount < 2, "Unexpected extra attachment");
+            if (minimumGrid) assert.equal(fixturesAccepted, 1);
             if (!server.upgrade(request, { data: { minimumGrid, received: 0, complete: false } })) {
                 throw new Error("Expected a WebSocket upgrade");
             }
             attachmentCount++;
         } catch (error) {
-            fail(error);
+            finished.reject(error);
             return new Response("Unexpected terminal attachment", { status: 400 });
         }
     },
@@ -74,7 +62,7 @@ const server = Bun.serve({
         open(socket) {
             socket.sendText(JSON.stringify({ type: "ready", resumed: false }));
             if (socket.data.minimumGrid) socket.sendBinary(new TextEncoder().encode("AB" + backgroundQuery));
-            else void replay(socket).catch(fail);
+            else void replay(socket).catch(finished.reject);
         },
         message(socket, message) {
             try {
@@ -117,31 +105,27 @@ const server = Bun.serve({
                     socket.sendText(JSON.stringify({ type: "exit" }));
                 }
             } catch (error) {
-                fail(error);
+                finished.reject(error);
                 socket.close(1002, "unexpected frame");
             }
         },
         close(socket) {
-            if (!socket.data.complete) fail(new Error("Client disconnected before its last expected frame"));
+            if (!socket.data.complete) finished.reject(new Error("Client disconnected before its last expected frame"));
         },
     },
 });
 
-if (standalone) {
-    console.log("Listening at " + server.url.origin);
-} else {
-    const client = Bun.spawn([command, server.url.origin], { stdout: "inherit", stderr: "inherit" });
-    const timeout = setTimeout(() => fail(new Error("Timed out waiting for the loopback exchange")), 15_000);
-    try {
-        // Both sides must finish: client exit alone does not prove its last write reached the peer.
-        await Promise.all([finished.promise, client.exited.then(code => assert.equal(code, 0, "Swift client failed"))]);
-        assert.equal(fixturesAccepted, 1);
-        assert.equal(closesAccepted, 1);
-        console.log("Loopback passed: " + fixture.events.length + " output chunks, " + expectedInput.length
-            + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, live palette replies, deduplicated resize and explicit close.");
-    } finally {
-        clearTimeout(timeout);
-        client.kill();
-        await server.stop(true);
-    }
+const client = Bun.spawn([command, server.url.origin], { stdout: "inherit", stderr: "inherit" });
+const timeout = setTimeout(() => finished.reject(new Error("Timed out waiting for the loopback exchange")), 15_000);
+try {
+    // Both sides must finish: client exit alone does not prove its last write reached the peer.
+    await Promise.all([finished.promise, client.exited.then(code => assert.equal(code, 0, "Swift client failed"))]);
+    assert.equal(fixturesAccepted, 1);
+    assert.equal(closesAccepted, 1);
+    console.log("Loopback passed: " + fixture.events.length + " output chunks, " + expectedInput.length
+        + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, live palette replies, deduplicated resize and explicit close.");
+} finally {
+    clearTimeout(timeout);
+    client.kill();
+    await server.stop(true);
 }
