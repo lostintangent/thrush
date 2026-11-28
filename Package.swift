@@ -25,7 +25,8 @@ let package = Package(
             exclude: ["reference"],
             resources: [.copy("first-bytes.json"), .copy("recordings"), .copy("reference/m4/phone/vim-resume.json")]
         ),
-        .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"]),
+        .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"],
+                          path: "Benchmarks/ThrushBench"),
         .executableTarget(name: "ThrushConformance", dependencies: ["ThrushCore"]),
         .testTarget(
             name: "ThrushConformanceTests",

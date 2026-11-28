@@ -5,7 +5,7 @@ Each workload runs at 80×24 in 4 KiB chunks while macOS `sample` records it for
 code counts toward the function it was inlined into. The Comparison profile workflow runs this on a
 hosted Mac.
 
-Usage: python3 scripts/comparison/profile.py [--output .build/benchmarks/comparison-profile.json]
+Usage: python3 Benchmarks/comparison/profile.py [--output .build/benchmarks/comparison-profile.json]
 """
 
 import argparse

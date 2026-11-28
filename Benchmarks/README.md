@@ -4,7 +4,7 @@ Every benchmark checks what it measured. Recording benchmarks compare each check
 
 | Report | Command | What it measures |
 | --- | --- | --- |
-| [Comparison](comparison.md) | `python3 scripts/comparison/run.py` | Nine 1 MiB recorded and synthetic workloads through ThrushCore, libghostty-vt 1.0.2 and @xterm/headless 6.0.0 at two grids, with screen checks and allocations, plus a profile from a hosted Mac |
+| [Comparison](comparison.md) | `python3 Benchmarks/comparison/run.py` | Nine 1 MiB recorded and synthetic workloads through ThrushCore, libghostty-vt 1.0.2 and @xterm/headless 6.0.0 at two grids, with screen checks and allocations, plus a profile from a hosted Mac |
 | [Headless recordings](headless.md) | `swift run -c release ThrushBench` | Sustained ASCII, recorded shell, Vim and Codex output, bounded queues and resize |
 | [Mac rendering](rendering.md#first-mac-measurement) | `.build/proofs/mac/Thrush.app/Contents/MacOS/ThrushProofs --benchmark .build/benchmarks/render.json` | Shader compile, first content, warm redraws, theme switches and idle frames in the packaged Mac app |
 | [iPhone simulator rendering](rendering.md#first-iphone-simulator-measurement) | `scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json` | The same Release workload and an actual UIKit background transition |

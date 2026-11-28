@@ -19,7 +19,7 @@ jobs:
       - name: Allow sampling
         run: sudo DevToolsSecurity -enable
       - name: Sample ThrushCore on every comparison workload
-        run: python3 scripts/comparison/profile.py --output "$RUNNER_TEMP/comparison-profile.json"
+        run: python3 Benchmarks/comparison/profile.py --output "$RUNNER_TEMP/comparison-profile.json"
       - name: Save the profile
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

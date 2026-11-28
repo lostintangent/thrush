@@ -6,7 +6,7 @@ the cores in a shuffled order so load on a shared machine lands on all of them a
 reports its final screen, and the report lists every core whose visible text, cursor, active
 screen or history differs from @xterm/headless under Node.
 
-Usage: python3 scripts/comparison/run.py [--rounds 5]
+Usage: python3 Benchmarks/comparison/run.py [--rounds 5]
 """
 
 import argparse

@@ -4,7 +4,7 @@ import ThrushCore
 
 /// Feeds one comparison workload to ThrushCore and prints pass times and the final screen as one JSON line.
 ///
-/// `scripts/comparison/run.py` runs the same workload through each measured core and compares the results.
+/// `Benchmarks/comparison/run.py` runs the same workload through each measured core and compares the results.
 /// When the allocation counter library is inserted, each pass also reports how many allocations it made.
 struct WorkloadRun: Encodable {
     struct Pass: Encodable {
