@@ -1,4 +1,6 @@
-// scripts/check-loopback.sh runs the platform client against this loopback-only R4 peer.
+// The WebSocket check, scripts/check-websocket.sh, runs the platform client against this peer. It serves fourteen
+// attachments through fresh shells, detach and return, takeover, reclaim, orphan expiry, recovery, in-band replay,
+// explicit close and exit.
 import assert from "node:assert/strict";
 import type { ServerWebSocket } from "bun";
 

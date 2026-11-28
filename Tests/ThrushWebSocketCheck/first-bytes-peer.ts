@@ -1,4 +1,4 @@
-// scripts/check-loopback.sh runs this peer with the platform check client and verifies the complete wire exchange.
+// The WebSocket check, scripts/check-websocket.sh, runs this peer with the platform check client and verifies the complete wire exchange.
 import assert from "node:assert/strict";
 import type { ServerWebSocket } from "bun";
 import fixture from "../../Fixtures/recordings/first-bytes.json";
@@ -113,13 +113,13 @@ const server = Bun.serve({
 });
 
 const client = Bun.spawn([command, server.url.origin], { stdout: "inherit", stderr: "inherit" });
-const timeout = setTimeout(() => finished.reject(new Error("Timed out waiting for the loopback exchange")), 15_000);
+const timeout = setTimeout(() => finished.reject(new Error("Timed out waiting for the first-bytes exchange")), 15_000);
 try {
     // Both sides must finish: client exit alone does not prove its last write reached the peer.
     await Promise.all([finished.promise, client.exited.then(code => assert.equal(code, 0, "Swift client failed"))]);
     assert.equal(fixturesAccepted, 1);
     assert.equal(closesAccepted, 1);
-    console.log("Loopback passed: " + output.length + " output chunks, " + expectedInput.length
+    console.log("First-bytes peer verified " + output.length + " output chunks, " + expectedInput.length
         + " ordered binary writes, fresh ready, resize, exit, minimum-width reattach, live palette replies, deduplicated resize and explicit close.");
 } finally {
     clearTimeout(timeout);

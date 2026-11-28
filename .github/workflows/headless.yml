@@ -78,8 +78,8 @@ jobs:
           bun-version: 1.4.5
       - name: Check conformance against the pinned reference
         run: scripts/check-conformance.sh
-      - name: Verify the loopback exchange
-        run: scripts/check-loopback.sh
+      - name: Run the WebSocket check
+        run: scripts/check-websocket.sh
       - name: Verify recorded shell, Vim and Codex workflows over WebSocket
         run: scripts/check-workflows.sh
       - name: Verify the Release benchmarks
