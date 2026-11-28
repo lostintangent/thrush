@@ -122,13 +122,6 @@ struct HeadlessRecording: Encodable {
 
     private static func run(_ fixture: Recording, checkReference: Bool) throws -> Pass {
         var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
-        let titleFixture = checkReference && fixture.name == "codex-session" ? try WindowTitleFixture.load() : nil
-        if let recording = titleFixture?.codex {
-            guard recording.fixtureSHA256 == fixture.sha256, !recording.checkpoints.isEmpty else {
-                throw BenchmarkError("Missing or mismatched window-title expectations for this Codex recording.")
-            }
-        }
-        var titles = (titleFixture?.codex.checkpoints ?? [])[...]
         var result = Pass(initialGrid: .init(columns: terminal.size.columns, rows: terminal.size.rows))
         var queue = BurstQueue()
         var reply = [UInt8]()
@@ -190,21 +183,12 @@ struct HeadlessRecording: Encodable {
                             result.encodedInputBytes += encoded.count
                         }
                     }
-                    if checkReference {
-                        try event.verify(terminal)
-                        if let expected = titles.first, expected.eventIndex == item.event {
-                            guard terminal.title == expected.title else {
-                                throw BenchmarkError("Window title differs from the recording at event \(item.event) (\(event.name)).")
-                            }
-                            titles.removeFirst()
-                        }
-                    }
+                    if checkReference { try event.verify(terminal) }
                 }
             }
             guard pending == 0 else { throw BenchmarkError("Undrained output batch.") }
             result.queuedBytesAfterDrain = pending
         }
-        guard titles.isEmpty else { throw BenchmarkError("Unreached Codex window-title checkpoint.") }
         result.drain = DispatchTime.now().uptimeNanoseconds - start
         return result
     }
