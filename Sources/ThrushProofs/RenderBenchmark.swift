@@ -20,18 +20,12 @@ enum RenderBenchmark {
 
     struct Sample: Encodable {
         let operation: String
-        let generation: UInt64
-        let receivedAt: Double
-        let submittedAt: Double
-        var presentedTime: Double?
-        let cpuPreparationSeconds: Double
-        let shaderCompileSeconds: Double?
-        let firstFrameSeconds: Double?
-        let gpuSeconds: Double?
-        let glyphUploads: Int
-        let rowsPrepared: Int
+        var frame: FrameMeasurement
 
-        var receiptToPresentation: Double? { presentedTime.map { $0 - receivedAt } }
+        var receiptToPresentation: Double? {
+            guard let presented = frame.presentedTime, let received = frame.receivedAt else { return nil }
+            return presented - received
+        }
     }
 
     private struct Workload: Encodable {
@@ -67,15 +61,11 @@ enum RenderBenchmark {
 
     private struct ThemeSwitch: Encodable {
         let theme: String
-        let generation: UInt64
-        let submittedAt: Double
-        var presentedTime: Double?
-        let rowsPrepared: Int
-        let glyphUploads: Int
+        var frame: FrameMeasurement
     }
 
     private struct Report: Encodable {
-        let schemaVersion = 5
+        let schemaVersion = 6
         let recordedAt: Date
         let workloadSHA256: String
         let environment: RenderEnvironment
@@ -102,8 +92,8 @@ enum RenderBenchmark {
         let operations = ["cold", "cursor", "oneRow", "scroll", "full"]
         return operations.map { operation in
             let matching = samples.filter { $0.operation == operation }
-            let cpu = matching.map { $0.cpuPreparationSeconds * 1_000 }
-            let gpu = matching.compactMap(\.gpuSeconds).map { $0 * 1_000 }
+            let cpu = matching.map { $0.frame.cpuPreparationSeconds * 1_000 }
+            let gpu = matching.compactMap(\.frame.gpuSeconds).map { $0 * 1_000 }
             let latency = matching.compactMap(\.receiptToPresentation)
             return Workload(operation: operation, frames: matching.count,
                             unpresented: matching.count - latency.count,
@@ -111,8 +101,8 @@ enum RenderBenchmark {
                             cpuP95Milliseconds: quantile(cpu, 0.95),
                             gpuP95Milliseconds: quantile(gpu, 0.95),
                             receiptToPresentationP95Milliseconds: quantile(latency.map { $0 * 1_000 }, 0.95),
-                            glyphUploads: matching.map(\.glyphUploads).reduce(0, +),
-                            maximumRowsPrepared: matching.map(\.rowsPrepared).max() ?? 0,
+                            glyphUploads: matching.map(\.frame.glyphUploads).reduce(0, +),
+                            maximumRowsPrepared: matching.map(\.frame.rowsPrepared).max() ?? 0,
                             overTwoDisplayIntervals: latency.filter { $0 > 2 * interval }.count)
         }
     }
@@ -159,9 +149,7 @@ enum RenderBenchmark {
                 throw Failure("Changing appearance displaced the selection or resized the grid.")
             }
             let name = theme == .dark ? "Dark" : theme == .light ? "Light" : "Custom"
-            switches.append(.init(theme: name, generation: frame.generation, submittedAt: frame.submittedAt,
-                                  presentedTime: nil, rowsPrepared: frame.rowsPrepared,
-                                  glyphUploads: frame.glyphUploads))
+            switches.append(.init(theme: name, frame: frame))
         }
         try await collector.observeMutation {
             view.theme = originalTheme
@@ -193,8 +181,8 @@ enum RenderBenchmark {
 
         let synchronizedOutput = try await SynchronizedRenderCheck.run(on: view, continuing: collector.terminal, frames: frames)
         var samples = collector.samples.filter { $0.operation != "restore" }
-        for i in samples.indices { samples[i].presentedTime = try frames.presentationTime(for: samples[i].submittedAt) }
-        for i in switches.indices { switches[i].presentedTime = try frames.presentationTime(for: switches[i].submittedAt) }
+        for i in samples.indices { samples[i].frame = try frames.presented(samples[i].frame) }
+        for i in switches.indices { switches[i].frame = try frames.presented(switches[i].frame) }
         let workloads = summarize(samples, interval: interval)
         let report = Report(recordedAt: Date(), workloadSHA256: workloadSHA256,
                             environment: environment, columns: size.columns, rows: size.rows,
@@ -207,14 +195,14 @@ enum RenderBenchmark {
         encoder.dateEncodingStrategy = .iso8601
         try FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try (encoder.encode(report) + Data([0x0A])).write(to: reportURL, options: .atomic)
-        print("ThrushBench render   \(size.columns) × \(size.rows)   \(environment.hardwareModel)   \(environment.commit.prefix(12))")
+        print("Render   \(size.columns) × \(size.rows)   \(environment.hardwareModel)   \(environment.commit.prefix(12))")
         print("Load \(environment.loadAverage)   \(environment.coreCount) cores   contended \(environment.contended)   thermal \(environment.thermalState)")
         print("Operation   frames   CPU p95 ms   GPU p95 ms   receipt → presentation p95 ms   uploads   max rows")
         func milliseconds(_ value: Double?) -> String { value.map { String(format: "%.3f", $0) } ?? "unavailable" }
         for work in workloads {
             print("\(work.operation)   \(work.frames)   \(milliseconds(work.cpuP95Milliseconds))   \(milliseconds(work.gpuP95Milliseconds))   \(milliseconds(work.receiptToPresentationP95Milliseconds))   \(work.glyphUploads)   \(work.maximumRowsPrepared)")
         }
-        if let compile = samples.first?.shaderCompileSeconds, let first = samples.first?.firstFrameSeconds {
+        if let compile = samples.first?.frame.shaderCompileSeconds, let first = samples.first?.frame.firstFrameSeconds {
             print(String(format: "Runtime shader compile %.3f ms   first content submission %.3f ms", compile * 1_000, first * 1_000))
         }
         print("Additional submissions   settled \(foregroundIdle.additionalSubmissions)   inactive \(inactive.additionalSubmissions)   background \(background.additionalSubmissions)")
@@ -231,11 +219,11 @@ enum RenderBenchmark {
               textBlink.rowsPrepared == 0, textBlink.glyphUploads == 0,
               textBlink.reducedMotion.additionalSubmissions == 0, textBlink.steady.additionalSubmissions == 0,
               background.additionalSubmissions == 0,
-              switches.allSatisfy({ $0.rowsPrepared == 0 && $0.glyphUploads == 0 }),
-              samples[0].glyphUploads > 0, samples[0].rowsPrepared == size.rows,
-              samples.dropFirst().allSatisfy({ $0.glyphUploads == 0 }),
-              samples.filter({ ["oneRow", "cursor"].contains($0.operation) }).allSatisfy({ $0.rowsPrepared <= 1 }),
-              samples.filter({ $0.operation == "full" }).allSatisfy({ $0.rowsPrepared == size.rows })
+              switches.allSatisfy({ $0.frame.rowsPrepared == 0 && $0.frame.glyphUploads == 0 }),
+              samples[0].frame.glyphUploads > 0, samples[0].frame.rowsPrepared == size.rows,
+              samples.dropFirst().allSatisfy({ $0.frame.glyphUploads == 0 }),
+              samples.filter({ ["oneRow", "cursor"].contains($0.operation) }).allSatisfy({ $0.frame.rowsPrepared <= 1 }),
+              samples.filter({ $0.operation == "full" }).allSatisfy({ $0.frame.rowsPrepared == size.rows })
         else { throw Failure("Draw cache, atlas warmup, blink pacing or settled frame checkpoint failed. See \(reportURL.path).") }
         #endif
     }
@@ -323,12 +311,7 @@ enum RenderBenchmark {
             view.display(terminal, receivedAt: receipt)
             let frame = try await frames.frame(for: operation, generation: expected, after: receipt,
                                                receivedAt: receipt, initialSubmissions: initialSubmissions)
-            samples.append(Sample(operation: operation, generation: expected, receivedAt: receipt,
-                                  submittedAt: frame.submittedAt, presentedTime: nil,
-                                  cpuPreparationSeconds: frame.cpuPreparationSeconds,
-                                  shaderCompileSeconds: frame.shaderCompileSeconds, firstFrameSeconds: frame.firstFrameSeconds,
-                                  gpuSeconds: frame.gpuSeconds,
-                                  glyphUploads: frame.glyphUploads, rowsPrepared: frame.rowsPrepared))
+            samples.append(Sample(operation: operation, frame: frame))
         }
     }
 }

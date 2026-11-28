@@ -10,8 +10,7 @@ from pathlib import Path
 def check(path):
     report = json.loads(Path(path).read_bytes())
     columns, rows = report["columns"], report["rows"]
-    version = report["schemaVersion"]
-    assert columns >= 24 and rows >= 2 and version in (1, 2, 3, 4, 5)
+    assert columns >= 24 and rows >= 2 and report["schemaVersion"] == 6
     environment = report["environment"]
     assert environment["commit"] != "unknown" and environment["toolchain"] != "unknown"
     assert environment["hardwareModel"] != "unknown"
@@ -23,46 +22,47 @@ def check(path):
     assert report["workloadSHA256"] == hashlib.sha256(tape.encode()).hexdigest()
     samples = report["samples"]
     assert [s["operation"] for s in samples] == ["cold"] + ["cursor", "oneRow", "scroll", "full"] * 10
-    if version >= 2:
-        assert 0 < samples[0]["shaderCompileSeconds"] <= samples[0]["firstFrameSeconds"]
-        assert all("shaderCompileSeconds" not in s and "firstFrameSeconds" not in s for s in samples[1:])
-    assert samples[0]["glyphUploads"] > 0 and samples[0]["rowsPrepared"] == rows
-    assert all(s["glyphUploads"] == 0 for s in samples[1:])
-    assert all(s["rowsPrepared"] <= 1 for s in samples if s["operation"] in ("oneRow", "cursor"))
-    assert all(s["rowsPrepared"] == rows for s in samples if s["operation"] == "full")
-    assert all(a["generation"] < b["generation"] for a, b in zip(samples, samples[1:]))
-    for sample in samples:
-        assert sample["receivedAt"] <= sample["submittedAt"]
-        assert sample["cpuPreparationSeconds"] >= 0
-        if "presentedTime" in sample:
-            assert sample["presentedTime"] >= sample["submittedAt"]
+    frames = [s["frame"] for s in samples]
+    assert 0 < frames[0]["shaderCompileSeconds"] <= frames[0]["firstFrameSeconds"]
+    assert all("shaderCompileSeconds" not in f and "firstFrameSeconds" not in f for f in frames[1:])
+    assert frames[0]["glyphUploads"] > 0 and frames[0]["rowsPrepared"] == rows
+    assert all(f["glyphUploads"] == 0 for f in frames[1:])
+    assert all(s["frame"]["rowsPrepared"] <= 1 for s in samples if s["operation"] in ("oneRow", "cursor"))
+    assert all(s["frame"]["rowsPrepared"] == rows for s in samples if s["operation"] == "full")
+    assert all(a["generation"] < b["generation"] for a, b in zip(frames, frames[1:]))
+    for frame in frames:
+        check_frame(frame)
+        assert "receivedAt" in frame
     for workload in report["workloads"]:
-        frames = [s for s in samples if s["operation"] == workload["operation"]]
-        assert len(frames) == workload["frames"]
-        presented = [s for s in frames if "presentedTime" in s]
-        assert len(presented) + workload["unpresented"] == len(frames)
+        matching = [s["frame"] for s in samples if s["operation"] == workload["operation"]]
+        assert len(matching) == workload["frames"]
+        presented = [f for f in matching if "presentedTime" in f]
+        assert len(presented) + workload["unpresented"] == len(matching)
         if presented:
-            latency = sorted((s["presentedTime"] - s["receivedAt"]) * 1000 for s in presented)
+            latency = sorted((f["presentedTime"] - f["receivedAt"]) * 1000 for f in presented)
             p95 = latency[math.ceil(0.95 * len(latency)) - 1]
             assert math.isclose(p95, workload["receiptToPresentationP95Milliseconds"])
     switches = report["themeSwitches"]
-    themes = {"Light", "Dark", "Custom"} if version >= 5 else {"Slate Light", "Slate Dark", "Custom"}
-    assert {s["theme"] for s in switches} == themes
-    assert all(s["generation"] == samples[-1]["generation"] and s["rowsPrepared"] == 0
-               and s["glyphUploads"] == 0 for s in switches)
+    assert {s["theme"] for s in switches} == {"Light", "Dark", "Custom"}
+    for switch in switches:
+        check_frame(switch["frame"])
+        assert switch["frame"]["generation"] == frames[-1]["generation"]
+        assert switch["frame"]["rowsPrepared"] == 0 and switch["frame"]["glyphUploads"] == 0
     for state in ["foregroundIdle", "inactiveRenderer", "background"]:
         assert report[state]["seconds"] >= 1 and report[state]["additionalSubmissions"] == 0, state
     assert report["displayIntervalSeconds"] > 0
-    if version >= 3:
-        check_synchronized_output(report["synchronizedOutput"])
-    blinking = ""
-    if version >= 4:
-        blink = report["textBlink"]
-        check_text_blink(blink)
-        blinking = f', {blink["submissions"]} blink frames in {blink["seconds"]:.1f} s'
-    drawn = sum("presentedTime" in s for s in samples)
-    print(f'{environment["destination"]}, {columns} × {rows}, {drawn}/{len(samples)} '
-          f'confirmed presentations{blinking}, zero settled, inactive and background submissions')
+    check_synchronized_output(report["synchronizedOutput"])
+    blink = report["textBlink"]
+    check_text_blink(blink)
+    drawn = sum("presentedTime" in f for f in frames)
+    print(f'{environment["destination"]}, {columns} × {rows}, {drawn}/{len(samples)} confirmed presentations, '
+          f'{blink["submissions"]} blink frames in {blink["seconds"]:.1f} s, '
+          'zero settled, inactive and background submissions')
+
+
+def check_frame(frame):
+    assert frame["gpuCompleted"] and frame["cpuPreparationSeconds"] >= 0
+    assert frame.get("receivedAt", frame["submittedAt"]) <= frame["submittedAt"] <= frame.get("presentedTime", math.inf)
 
 
 def check_text_blink(blink):
@@ -81,16 +81,14 @@ def check_synchronized_output(sync):
                begin + rewrite + "last partial", rewrite + "complete" + end,
                begin + rewrite + "unfinished", rewrite + "watchdog"]
     assert sync["workloadSHA256"] == hashlib.sha256("".join(packets).encode()).hexdigest()
-    close, watchdog = sync["close"], sync["watchdog"]
+    close, watchdog = sync["close"]["frame"], sync["watchdog"]["frame"]
     held = sync["heldGenerations"]
     assert len(held) == 3 and held[0] < held[1] < held[2] < close["generation"] < watchdog["generation"]
     assert 0.09 <= close["receivedAt"] - sync["holdOpenedAt"] < 1
     assert sync["submissionsDuringHold"] == 0
-    for release in (close, watchdog):
-        assert release["submissions"] == 1 and release["generation"] == release["expectedGeneration"]
-        assert release["receivedAt"] <= release["submittedAt"]
-        if "presentedTime" in release:
-            assert release["presentedTime"] >= release["submittedAt"]
+    for release in (sync["close"], sync["watchdog"]):
+        assert release["submissions"] == 1 and release["frame"]["generation"] == release["expectedGeneration"]
+        check_frame(release["frame"])
     assert close["submittedAt"] <= sync["truncatedOpenedAt"] < watchdog["receivedAt"]
     delay = watchdog["submittedAt"] - sync["truncatedOpenedAt"]
     assert delay >= 1 and math.isclose(delay, sync["watchdogToSubmissionSeconds"])

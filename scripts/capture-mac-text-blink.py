@@ -37,7 +37,7 @@ def benchmark(bundle, out):
     (out / "render.log").write_text(result.stdout + result.stderr)
     if result.returncode:
         raise RuntimeError("Mac render benchmark failed: " + (result.stdout + result.stderr)[-1800:])
-    subprocess.run([SCRIPTS / "check-render-report.py", report], check=True, timeout=60)
+    subprocess.run([ROOT / "Benchmarks/check-render-report.py", report], check=True, timeout=60)
 
 
 def window(finder, process):

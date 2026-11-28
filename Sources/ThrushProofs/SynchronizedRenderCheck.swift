@@ -8,10 +8,7 @@ import Thrush
 enum SynchronizedRenderCheck {
     struct Release: Encodable {
         let expectedGeneration: UInt64
-        let generation: UInt64
-        let receivedAt: Double
-        let submittedAt: Double
-        var presentedTime: Double?
+        var frame: FrameMeasurement
         let submissions: Int
     }
 
@@ -51,9 +48,7 @@ enum SynchronizedRenderCheck {
         func collect(_ update: Update, since count: Int) async throws -> Release {
             let frame = try await frames.frame(for: "synchronized output", generation: update.generation,
                                                after: update.receipt, receivedAt: update.receipt, initialSubmissions: count)
-            return Release(expectedGeneration: update.generation, generation: frame.generation,
-                           receivedAt: update.receipt, submittedAt: frame.submittedAt, presentedTime: nil,
-                           submissions: view.submissionCount - count)
+            return Release(expectedGeneration: update.generation, frame: frame, submissions: view.submissionCount - count)
         }
 
         // A completed normal frame separates the foreground return from the first measured group.
@@ -81,9 +76,9 @@ enum SynchronizedRenderCheck {
         try await Task.sleep(for: .seconds(1))
         let idle = RenderBenchmark.IdleObservation(seconds: CACurrentMediaTime() - idleStart,
                                                   additionalSubmissions: view.submissionCount - idleCount)
-        close.presentedTime = try frames.presentationTime(for: close.submittedAt)
-        watchdog.presentedTime = try frames.presentationTime(for: watchdog.submittedAt)
-        let watchdogDelay = watchdog.submittedAt - truncated.receipt
+        close.frame = try frames.presented(close.frame)
+        watchdog.frame = try frames.presented(watchdog.frame)
+        let watchdogDelay = watchdog.frame.submittedAt - truncated.receipt
         let result = Result(workloadSHA256: hash.finalize().map { String(format: "%02x", $0) }.joined(),
                             holdOpenedAt: first.receipt, heldGenerations: [first.generation, second.generation, third.generation],
                             submissionsDuringHold: partials, close: close, truncatedOpenedAt: truncated.receipt,

@@ -147,7 +147,7 @@ final class InteractionBenchmark {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try encoder.encode(report).write(to: reportURL, options: .atomic)
-        print("ThrushBench interactions   \(grid.columns) × \(grid.rows)   \(samples.count) echoed keys")
+        print("Interactions   \(grid.columns) × \(grid.rows)   \(samples.count) echoed keys")
         print(String(format: "Anchored replay   %d history rows   %.3f ms p95",
                      report.anchoredReplay.historyRows, report.anchoredReplay.p95Milliseconds))
         print("Report \(reportURL.path)")

@@ -21,12 +21,12 @@ private func frame(_ submission: Double, receivedAt: Double? = nil, presentedTim
     view.onFrameCompleted?(frame(receipt + 0.001))
     let measured = try await observations.frame(for: "cold", generation: 7, after: receipt, receivedAt: receipt, initialSubmissions: 0)
     #expect(measured.receivedAt == receipt && measured.gpuSeconds == 0.002)
-    #expect(try observations.presentationTime(for: measured.submittedAt) == nil)
+    #expect(try observations.presented(measured).presentedTime == nil)
 
     let actual = receipt + 0.025
     view.onFrame?(frame(receipt, receivedAt: receipt, presentedTime: actual))
-    #expect(try observations.presentationTime(for: measured.submittedAt) == actual)
-    #expect(try observations.presentationTime(for: receipt + 0.001) == nil)
+    #expect(try observations.presented(measured).presentedTime == actual)
+    #expect(try observations.presented(frame(receipt + 0.001)).presentedTime == nil)
 }
 
 @Test @MainActor func rendererRequiresSuccessfulGPUCompletionEvenWhenAPresentationIsDelivered() async throws {
@@ -47,5 +47,5 @@ private func frame(_ submission: Double, receivedAt: Double? = nil, presentedTim
     view.onFrame?(frame(later, receivedAt: later, presentedTime: later + 0.015))
     view.onFrameCompleted?(frame(later, receivedAt: later))
     let measured = try await observations.frame(for: "full", generation: 7, after: later, receivedAt: later, initialSubmissions: 0)
-    #expect(try observations.presentationTime(for: measured.submittedAt) == later + 0.015)
+    #expect(try observations.presented(measured).presentedTime == later + 0.015)
 }

@@ -2,7 +2,7 @@ import MetalKit
 import ThrushCore
 
 /// Timing from the monotonic media clock used by CAMetalDrawable.presentedTime.
-package struct FrameMeasurement: Sendable {
+package struct FrameMeasurement: Sendable, Encodable {
     package let generation: UInt64
     package internal(set) var gpuCompleted = false
     package let cpuPreparationSeconds: Double

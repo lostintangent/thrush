@@ -37,12 +37,13 @@ final class RenderFrameObservations {
         completions.filter { $0.submittedAt >= start }
     }
 
-    func presentationTime(for submission: Double) throws -> Double? {
-        guard let time = presentations[submission]?.presentedTime else { return nil }
-        guard time.isFinite, time >= submission else {
-            throw RenderBenchmark.Failure("Invalid drawable presentation time for submission \(submission).")
+    /// The frame as last reported, with its drawable presentation time once one arrived.
+    func presented(_ frame: FrameMeasurement) throws -> FrameMeasurement {
+        guard let presented = presentations[frame.submittedAt], let time = presented.presentedTime else { return frame }
+        guard time.isFinite, time >= frame.submittedAt else {
+            throw RenderBenchmark.Failure("Invalid drawable presentation time for submission \(frame.submittedAt).")
         }
-        return time
+        return presented
     }
 
     func frame(for operation: String, generation: UInt64, after start: Double, receivedAt receipt: Double? = nil,
