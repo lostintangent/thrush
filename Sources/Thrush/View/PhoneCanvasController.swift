@@ -9,7 +9,6 @@ import UIKit
     private var releasing = false
     private var keyboardWasVisible = false
     private var keyboardEnd: CGRect?
-    private var sourceWidth: CGFloat?
     private var lastBounds: CGSize?
     private var settleDuration: TimeInterval = 0
     private var settleTask: Task<Void, Never>?
@@ -48,7 +47,6 @@ import UIKit
               !keyboardMatchesGuide() else { return }
         coordinatorFinished = true
         keyboardWasVisible = true
-        sourceWidth = nil
         lastBounds = nil
         settleDuration = max(UIView.inheritedAnimationDuration, CATransaction.animationDuration())
         canvas.beginHold(sourceHeight: source.height)
@@ -116,13 +114,16 @@ import UIKit
             coordinatorFinished = false
             keyboardWasVisible = (canvas.terminal.holdsGridGeometry && keyboardWasVisible) || canvas.guideShowsKeyboard
             keyboardEnd = nil
-            sourceWidth = canvas.bounds.width
             lastBounds = nil
             settleDuration = coordinator.transitionDuration
             canvas.beginHold()
             let registered = coordinator.animate(alongsideTransition: nil) { [weak self, weak coordinator] _ in
                 guard let self, let coordinator, rotation === coordinator else { return }
                 coordinatorFinished = true
+                // Until the turn ends, UIKit reports the keyboard without keycaps, with the key row's
+                // source height or with the source orientation's keycaps. A frame reported after the
+                // turn is the one the keyboard settles on.
+                keyboardEnd = nil
                 checkGeometry()
             }
             if !registered {
@@ -158,13 +159,8 @@ import UIKit
 
     private func checkGeometry() {
         guard canvas.terminal.holdsGridGeometry, !keyboardMoving, releaseTask == nil else { return }
-        // The keyboard may reach its destination before UIKit completes the rotation.
-        if keyboardWasVisible && (keyboardMatchesGuide() || guideFollowsTurn()) {
-            finishHold()
-            return
-        }
         guard coordinatorFinished else { return }
-        if !keyboardWasVisible {
+        if !keyboardWasVisible || keyboardMatchesGuide() {
             finishHold()
             return
         }
@@ -199,15 +195,6 @@ import UIKit
             && abs(guide.minY - expected.minY) <= 1 && abs(guide.maxY - expected.maxY) <= 1
     }
 
-    /// After the window turns, UIKit moves the keyboard guide from the source orientation's
-    /// keyboard to the destination's. The keyboard can confirm that frame only after the
-    /// rotation ends, and in Dark it first reports a keyboard without keycaps. When the key
-    /// row changes height with the turn, the guide first passes through the canvas's bottom edge.
-    private func guideFollowsTurn() -> Bool {
-        guard let sourceWidth else { return false }
-        return abs(canvas.bounds.width - sourceWidth) > 1 && guideSpansCanvas && canvas.guideShowsKeyboard
-    }
-
     private var guideSpansCanvas: Bool { abs(canvas.keyboardLayoutGuide.layoutFrame.width - canvas.bounds.width) <= 1 }
 
     func finishHold() {
@@ -215,7 +202,6 @@ import UIKit
         settleTask = nil
         rotation = nil
         coordinatorFinished = false
-        sourceWidth = nil
         // Keep the anchored source frame until the terminal delivers a frame at the
         // destination size, then commit the new layout together with that frame.
         canvas.layoutIfNeeded()
@@ -243,7 +229,6 @@ import UIKit
         releaseTask = nil
         rotation = nil
         coordinatorFinished = false
-        sourceWidth = nil
         releasing = true
         canvas.endHold()
         releasing = false
