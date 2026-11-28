@@ -30,19 +30,3 @@ The M1 Max completed five measured passes on `559d507`. The one-minute load aver
 | Recovery ready and replay to held Up | 0.454 ms | 0.905 ms |
 | In-band replay to deferred resize | 0.291 ms | 0.345 ms |
 | Final ready, output and exit to socket close | 0.680 ms | 0.941 ms |
-
-## App transport
-
-Run `swift run -c release ThrushBench --app-transport` to time the session with an app-supplied `TerminalTransport` from its first read through EOF. The checker verifies the first-bytes fixture’s final rows, reply bytes and received/applied counts. One warmup and five measured passes produce `.build/benchmarks/app-transport.json`.
-
-## Measure a replay
-
-The serializer workload measures the time to encode each recorded checkpoint. A fresh terminal consumes the bytes and checks every visible and historical cell against the recording. The independent reference then receives the same bytes and the following program output. The fixture checks count the two fixed-grid resize losses described in the [terminal protocol](../docs/protocol.md#replay).
-
-```sh
-bun install --cwd Fixtures/reference --frozen-lockfile
-swift build -c release --product ThrushBench
-bun Fixtures/reference/check-serialization.mjs "$(swift build -c release --show-bin-path)/ThrushBench"
-```
-
-The command prints the checkpoint count, total encoded bytes and median encoding time for each recording.

@@ -18,7 +18,7 @@ func outputURL(arguments: [String]) throws -> URL {
         return URL(filePath: ".build/benchmarks/first-bytes.json")
     }
     guard arguments.count == 2, arguments[0] == "--output", !arguments[1].isEmpty else {
-        throw BenchmarkError("Usage: ThrushBench [--output PATH], ThrushBench --websocket [--output PATH], ThrushBench --app-transport [--output PATH], or ThrushBench --render MAC_APP [--output PATH]")
+        throw BenchmarkError("Usage: ThrushBench [--output PATH] or ThrushBench --workload FILE COLUMNS ROWS CHUNK WARMUPS PASSES HISTORY")
     }
     return URL(filePath: arguments[1])
 }
@@ -71,18 +71,6 @@ func run() throws {
     throw BenchmarkError("Run the benchmark with swift run -c release ThrushBench.")
     #else
     let arguments = Array(CommandLine.arguments.dropFirst())
-    if arguments.first == "--render" || arguments.first == "--interactions" {
-        try runPackagedRenderer(arguments: arguments)
-        return
-    }
-    if arguments.first == "--serialize-replay" {
-        try serializeCheckpoints(arguments: arguments)
-        return
-    }
-    if arguments.first == "--websocket" || arguments.first == "--app-transport" {
-        try runTransportBenchmark(arguments: arguments)
-        return
-    }
     if arguments.first == "--workload" {
         try WorkloadRun.run(arguments: arguments)
         return

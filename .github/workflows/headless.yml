@@ -89,8 +89,6 @@ jobs:
       - name: Verify the Release benchmarks
         run: |
           swift run -c release ThrushBench
-          swift run -c release ThrushBench --app-transport
-          bun Fixtures/reference/check-serialization.mjs "$(swift build -c release --show-bin-path)/ThrushBench"
           python3 scripts/check-benchmark-report.py
 
   iphone-tests:
