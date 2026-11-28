@@ -44,15 +44,6 @@ The generator feeds the output bytes into a reference terminal in recorded order
 
 To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture.py` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
 
-## Erasing through the cursor
-
-The `shell-edges` checkpoints “Erase the line through the cursor” and “Erase the display through the cursor” record independent cells, wrap flags and cursor positions from `@xterm/headless` 6.0.0. Two right-margin cases in its ED handler need a separate expectation.
-
-- In a fresh 3-column, 3-row normal screen, write `ABCDEFGHI` and then `CSI 1 J`. The cursor is waiting to wrap at zero-based column 3 on row 2. The reference clears the bottom row and tries to clear the wrap flag of a nonexistent next row. It throws a `TypeError` before it erases `ABC` and `DEF`. Moving to the last visible column with `CSI 3;3 H` before the erase produces the same exception. Thrush completes the visible erase in both cases. All three rows are blank with their wrap flags clear, the cursor stays in place, and subsequent output is processed normally.
-- In the same grid, write `ABCDEFGHIJKLMNOPQRSTU`, then `CSI 1;3 H` and `CSI 1 J`. Four rows have entered history, and the cursor is on the first visible row at its last column. The reference clears the wrap flag of absolute buffer row 1 (`DEF`) and leaves the next visible row (`PQR`) wrapped. Its lookup uses the viewport row number without adding the history offset. Thrush preserves the history rows and their wrap flags, blanks the first visible row, clears the wrap flag of `PQR` and leaves `STU` wrapped. The cursor stays at row 0, column 2.
-
-The focused row-editing tests check these two cases separately from ordinary ED1 and EL1, including a complete erase in the alternate screen and a partial erase of a wide character. [Shell row-editing tests](../../../Tests/ThrushCoreTests/ShellRowEditingTests.swift)
-
 ## Recording format
 
 Each version-1 JSON file contains its initial grid, ordered events, and two tables of reference cells and rows. An event can supply a grid size, base64 PTY output, semantic input with its expected wire bytes, replies, or a checkpoint. Apply a resize, consume the PTY output and compare any reply before inspecting the checkpoint. Key and paste events go to the encoder. The captured PTY supplies the echo. A nonempty `observedReply` in a capture is the exact automatic reply the live reference wrote to the PTY, with its own `replyOffsetMicroseconds`. The regenerated `reply` is checked against that observation. Each generated real recording records the SHA-256 of its capture file.

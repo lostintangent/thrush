@@ -42,7 +42,7 @@ bun Fixtures/reference/m2/generate.mjs
 scripts/check-workflows.sh
 ```
 
-To record new shell bytes, run the first command with the captured Bash version. The second rebuilds the Vim resume recording from the existing M2 scratch-file session and its recorded replay. Add `--check` to verify the checked-in recording instead.
+To record new shell bytes, run the first command with the captured Bash version. The second rebuilds the Vim resume recording from the `vim-edit` capture and its recorded replay. Add `--check` to verify the checked-in recording instead.
 
 ```sh
 python3 Fixtures/reference/m4/shell-workflow.py --bash /opt/homebrew/bin/bash
