@@ -1,8 +1,8 @@
 // Replays. A client that falls behind or reconnects gets ThrushCore's replay in place of the output it
-// missed, so a replay has to rebuild everything the live terminal holds. For every recorded program, this
-// takes ThrushCore's replay after every write and resize, resumes a terminal from it in ThrushCore and in
-// the reference, and holds each to a live terminal of its own kind: right after the replay, after every
-// later step, and at the end.
+// missed, so a replay has to rebuild everything the live terminal holds. For every recorded program, and
+// the resizes docs/protocol.md lists as beyond a replay, this takes ThrushCore's replay after every write
+// and resize, resumes a terminal from it in ThrushCore and in the reference, and holds each to a live
+// terminal of its own kind: right after the replay, after every later step, and at the end.
 //
 //   bun Fixtures/reference/conformance/replays.mjs --thrush .build/release/ThrushConformance [--check]
 //     [--reference <directory>] [--options <file.json>]
@@ -17,6 +17,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { headless, installed, options as pinned } from '../headless.mjs';
 import { collect, create, perform, state } from './xterm.mjs';
+import { functionCases } from './functions.mjs';
 import { programCases } from './programs.mjs';
 import { Thrush, encodeCase } from './thrush.mjs';
 
@@ -65,14 +66,16 @@ const probe = [
 // ThrushCore resumes every program in turn while the reference follows, and a second process describes
 // differences so they don't wait behind it.
 const thrush = new Thrush(resolve(options.thrush)), describer = new Thrush(resolve(options.thrush));
-const started = performance.now(), cases = [...programCases(resolve(here, '..'))];
+const started = performance.now();
+const beyondReplay = ['resize · narrower after cutting a wide glyph', 'resize · on the alternate screen'];
+const cases = [...programCases(resolve(here, '..')), ...functionCases.filter(testCase => beyondReplay.includes(testCase.name))];
 const results = cases.map(testCase =>
   thrush.request({ replays: encodeCase(testCase), probe: probe.map(part => part.toString('base64')) }));
 const found = {};
 let points = 0;
 for (const [index, testCase] of cases.entries()) {
   const result = await results[index];
-  assert(!result.crashed, `ThrushCore crashed replaying ${testCase.program}: ${result.crashed}`);
+  assert(!result.crashed, `ThrushCore crashed replaying ${testCase.program ?? testCase.name}: ${result.crashed}`);
   points += result.replays.length;
   const sides = {
     thrush: grouped(Object.fromEntries(result.replays.filter(replay => replay.divergence)
@@ -80,11 +83,11 @@ for (const [index, testCase] of cases.entries()) {
     reference: grouped(await referenceDivergences(testCase, result.replays)),
   };
   const divergent = Object.fromEntries(Object.entries(sides).filter(([, groups]) => groups.length));
-  if (Object.keys(divergent).length) found[testCase.program] = divergent;
+  if (Object.keys(divergent).length) found[testCase.program ?? testCase.name] = divergent;
 }
 thrush.close();
 describer.close();
-log(`Resumed ${points} replays of ${cases.length} programs in ThrushCore and the reference in ${seconds(performance.now() - started)}`);
+log(`Resumed ${points} replays of ${cases.length} cases in ThrushCore and the reference in ${seconds(performance.now() - started)}`);
 
 // A gap's reason is written by hand, and its divergences are regenerated so a change on either side shows.
 const listed = existsSync(gapsFile) ? JSON.parse(readFileSync(gapsFile, 'utf8')) : {};

@@ -19,5 +19,91 @@
         ]
       }
     ]
+  },
+  "resize · narrower after cutting a wide glyph": {
+    "reason": "Narrowing past a wide glyph leaves its first half in the last column. VT output can't print half a glyph, so the replay leaves that cell blank. A narrower grid then reflows the glyph whole with a plain second half, and a replay can only print a glyph whose halves share its style.",
+    "thrush": [
+      {
+        "after steps": "1",
+        "at": "replay",
+        "differences": [
+          "active.visible[7][18]: live \"界\" width 2 {bg=1}, resumed blank"
+        ]
+      },
+      {
+        "after steps": "3",
+        "at": "replay",
+        "differences": [
+          "active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 1 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 2 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 3 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 4 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 5 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 6 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank",
+          "probe 7 active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank"
+        ]
+      },
+      {
+        "after steps": "4 6",
+        "at": "replay",
+        "differences": [
+          "active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 1 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 2 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 3 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 4 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 5 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 6 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}",
+          "probe 7 active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}"
+        ]
+      }
+    ],
+    "reference": [
+      {
+        "after steps": "1",
+        "at": "replay",
+        "differences": [
+          "active.visible[7][18]: live \"界\" width 2 {bg=1}, resumed blank"
+        ]
+      },
+      {
+        "after steps": "3",
+        "at": "replay",
+        "differences": [
+          "active.visible[6][18]: live \"界\" width 2 {bg=1}, resumed blank"
+        ]
+      },
+      {
+        "after steps": "4 6",
+        "at": "replay",
+        "differences": [
+          "active.visible[6][9]: live empty width 0, resumed empty width 0 {bg=1}"
+        ]
+      }
+    ]
+  },
+  "resize · on the alternate screen": {
+    "reason": "The alternate screen keeps the columns a shrink hides, and widening shows them again. A replay rebuilds only the columns the grid shows, so the resumed terminal has blanks there until the program redraws.",
+    "thrush": [
+      {
+        "after steps": "1",
+        "at": "step 3",
+        "differences": [
+          "active.visible[1][10]: live \"t\", resumed blank",
+          "active.visible[2][10]: live \"n\", resumed blank"
+        ]
+      }
+    ],
+    "reference": [
+      {
+        "after steps": "1",
+        "at": "step 3",
+        "differences": [
+          "active.visible[1][10]: live \"t\", resumed blank",
+          "active.visible[2][10]: live \"n\", resumed blank"
+        ]
+      }
+    ]
   }
 }
