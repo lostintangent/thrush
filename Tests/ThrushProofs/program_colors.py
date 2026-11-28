@@ -7,7 +7,7 @@ import time
 import proof
 from proof import Capture, edges, luminance
 
-# The palettes in Tests/ThrushProofs/peers/demo-peer.ts, by system appearance.
+# The palettes in Tests/ThrushProofs/peers/scene-peer.ts, by system appearance.
 PROGRAM = {"dark": ("paper", "F4EFE4"), "light": ("night", "17151F")}
 CANVAS = {"dark": "131D27", "light": "FBFDFE"}
 
@@ -65,7 +65,7 @@ def check(image, state, appearance, toolbar, checker):
     read(((grid[0], top), (grid[2] - grid[0], bottom - top)), ["palette " + name])
     # Past the first command, the row is bare canvas out to the grid's trailing edge.
     band(grid[0] + 0.7 * (grid[2] - grid[0]), top + 1, grid[2] - 1, bottom - 1, "beside the first row")
-    # The demo draws the canvas beneath the vertical status bar, so its clock must follow the canvas.
+    # The app draws the canvas beneath the vertical status bar, so its clock must follow the canvas.
     # The clock sits below the camera in the trailing inset, 72 to 104 points down the Duo's display.
     legible(grid[2] + 4, window[1] + 72, window[2] - 12, window[1] + 104, "status bar clock", StatusBarTrails)
     if toolbar:

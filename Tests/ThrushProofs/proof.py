@@ -57,16 +57,16 @@ def edges(rect):
 
 @contextmanager
 def peer(out):
-    """Serves the scripted scenes in peers/demo-peer.ts on a loopback port and yields its address."""
+    """Serves the scripted scenes in peers/scene-peer.ts on a loopback port and yields its address."""
     log = out / "peer.log"
     with log.open("w") as output:
-        server = subprocess.Popen(["bun", "Tests/ThrushProofs/peers/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
+        server = subprocess.Popen(["bun", "Tests/ThrushProofs/peers/scene-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
                                   cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
         try:
             def endpoint():
                 if server.poll() is not None:
-                    raise RuntimeError("Demo peer exited: " + log.read_text())
-                match = re.search(r"^Thrush demo peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
+                    raise RuntimeError("Scene peer exited: " + log.read_text())
+                match = re.search(r"^Thrush scene peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
                 return match.group(1) if match else None
             # Bun has taken 80 seconds to listen while a hosted runner pages the newly booted simulator in.
             address = wait("the loopback peer", endpoint, 180)
@@ -85,7 +85,7 @@ def advance(endpoint, action):
     """Moves the peer's scene to its next step."""
     with urlopen(Request(endpoint + "/" + action, method="POST"), timeout=10) as response:
         if response.status != 204:
-            raise RuntimeError(f"The demo peer rejected {action}.")
+            raise RuntimeError(f"The scene peer rejected {action}.")
 
 
 def mac_app(out, **source):

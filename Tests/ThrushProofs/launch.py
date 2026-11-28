@@ -313,7 +313,7 @@ def verify_duo_grids(name, checkpoints):
 
 
 def verify_vim_replay(driver, output):
-    # The resumed pane must draw every grid pixel it drew before detach, including Vim's steady block cursor.
+    # The resumed view must draw every grid pixel it drew before detach, including Vim's steady block cursor.
     events = recorded_events("vim")
     index = {event["name"]: i for i, event in enumerate(events)}
     pair = []
@@ -397,9 +397,9 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
                     if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
                         try:
-                            simulator.screenshot(device, output / "pane-at-failure.png", timeout=20)
+                            simulator.screenshot(device, output / "view-at-failure.png", timeout=20)
                         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-                            print(f"Could not retain the simulator pane image: {error}", file=sys.stderr)
+                            print(f"Could not retain the simulator view image: {error}", file=sys.stderr)
                     raise
                 finally:
                     if device and host is not None and host.poll() is None:

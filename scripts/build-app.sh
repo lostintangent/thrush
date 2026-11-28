@@ -6,8 +6,8 @@ usage="Usage: scripts/build-app.sh sample|proofs mac|simulator"
 kind=${1:-}
 platform=${2:-}
 case "$kind" in
-    # The sample shares scripts/check-swiftui-example.sh's build, so wrapping it after that check costs only packaging.
-    sample) package=(--package-path examples/swiftui --explicit-target-dependency-import-check error); product=SwiftUIExample ;;
+    # The sample shares scripts/check-sample.sh's build, so wrapping it after that check costs only packaging.
+    sample) package=(--package-path examples/swiftui --explicit-target-dependency-import-check error); product=Sample ;;
     proofs) package=(); product=ThrushProofs ;;
     *) echo "$usage" >&2; exit 2 ;;
 esac
@@ -31,7 +31,7 @@ app="$stage/Thrush.app"
 sdk_path=$(xcrun --sdk "$sdk" --show-sdk-path)
 sdk_version=$(xcrun --sdk "$sdk" --show-sdk-version)
 scratch="$out/swiftpm"
-if [[ "$kind" == sample ]]; then scratch="$PWD/.build/swiftui-example/$sdk"; fi
+if [[ "$kind" == sample ]]; then scratch="$PWD/.build/sample/swiftpm/$sdk"; fi
 build=(xcrun swift build -c release ${package[@]+"${package[@]}"} --scratch-path "$scratch" --sdk "$sdk_path" --triple "$triple"
        --product "$product")
 "${build[@]}"

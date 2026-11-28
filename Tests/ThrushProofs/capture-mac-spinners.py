@@ -175,7 +175,7 @@ def check_new_shell(out, bundle, endpoint, focus, work):
         if min(w, h) <= 0 or y < 0 or y + h > grid_top + 1:
             raise ValueError("The New Shell toolbar button is not above the terminal grid.")
         checker = work / "check-toolbar-label"
-        subprocess.run(["xcrun", "swiftc", HERE / "check-pane-capture.swift", "-o", checker], check=True, timeout=120)
+        subprocess.run(["xcrun", "swiftc", HERE / "check-visible-text.swift", "-o", checker], check=True, timeout=120)
         # ScreenCaptureKit and screencapture can return different image scales.
         _, (window_w, _) = ended["windowFrame"]
         with image.open("rb") as png:

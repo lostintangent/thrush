@@ -1,4 +1,4 @@
-// Observe the bytes delivered to the native pane with the independent reference emulator.
+// Observe the bytes delivered to the native view with the independent reference emulator.
 import assert from 'node:assert/strict';
 import { headless } from '../headless.mjs';
 import { Pool, pack } from '../conformance/state.mjs';

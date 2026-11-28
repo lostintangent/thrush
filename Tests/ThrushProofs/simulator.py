@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a named demo scene, or run the complete iPhone rendering proof on a disposable simulator."""
+"""Capture a named scene, or run the complete iPhone rendering proof on a disposable simulator."""
 import argparse
 import contextlib
 import filecmp
@@ -29,7 +29,7 @@ APP_ID = "app.thrush.proofs"
 PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
 SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
 TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors", "links"}
-PANE_CHECKER = ROOT / ".build/proofs/check-pane-capture"
+TEXT_CHECKER = ROOT / ".build/proofs/check-visible-text"
 PHONE = "iPhone Duo"
 
 
@@ -423,7 +423,7 @@ class Phone:
             checks[scene] = spinner.measure(wait_image, waiting, options.appearance, row, column, label)
             checks[scene].update(spinner.compare(wait_image, waiting, live_image, live, options.appearance))
             if under_toolbar:
-                toolbar.check(wait_image, waiting, options.appearance, scene, PANE_CHECKER)
+                toolbar.check(wait_image, waiting, options.appearance, scene, TEXT_CHECKER)
             save(self.out / "cursor-spinners.json", checks)
             print(f"{scene}: {checks[scene]}", flush=True)
 
@@ -472,7 +472,7 @@ def prepare_workflow_phone(device, app, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
-    parser.add_argument("--scene", default="", help="A demo scene, 'cursor-spinners' for opening and reconnecting, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the pane beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
+    parser.add_argument("--scene", default="", help="A scene, 'cursor-spinners' for opening and reconnecting, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the view beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
     parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
     parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
     parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
@@ -500,8 +500,8 @@ def main():
                                         toolchain=info["ThrushToolchain"]))
     if args.scene in {"toolbar-proof", "program-colors"}:
         # A booted simulator has starved a hosted runner past two minutes for this compile, so it comes first.
-        PANE_CHECKER.parent.mkdir(parents=True, exist_ok=True)
-        run("xcrun", "swiftc", "Tests/ThrushProofs/check-pane-capture.swift", "-o", PANE_CHECKER, timeout=300)
+        TEXT_CHECKER.parent.mkdir(parents=True, exist_ok=True)
+        run("xcrun", "swiftc", "Tests/ThrushProofs/check-visible-text.swift", "-o", TEXT_CHECKER, timeout=300)
     spin = args.scene in SPINNER_SCENES or args.scene in {"cursor-spinners", "toolbar-proof"}
     with peer(out) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
         phone = None
@@ -516,7 +516,7 @@ def main():
             elif args.scene == "text-blink":
                 text_blink.capture(phone, sim)
             elif args.scene == "program-colors":
-                program_colors.capture(phone, args, PANE_CHECKER)
+                program_colors.capture(phone, args, TEXT_CHECKER)
             elif args.scene == "under-bars":
                 under_bars.capture(phone, args, sim)
             elif spin:

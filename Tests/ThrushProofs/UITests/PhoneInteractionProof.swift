@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-/// Drives the installed demo through its UIKit accessibility tree and real screen coordinates.
+/// Drives the installed proofs app through its UIKit accessibility tree and real screen coordinates.
 /// The runner saves the app's framebuffer at each reviewed state and the intervals of motion.
 @MainActor
 final class PhoneInteractionProof: XCTestCase {

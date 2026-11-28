@@ -1,6 +1,6 @@
 name: Mac proofs
 on:
-  # The pane keeps its WebSocket in a covered, minimized or hidden Mac window. Every change that
+  # The view keeps its WebSocket in a covered, minimized or hidden Mac window. Every change that
   # could break that promise runs the window lifecycle proof.
   push:
     branches: [main]

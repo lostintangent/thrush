@@ -1,4 +1,4 @@
-// Exercise the running pane's native actions against one real shell, then two fresh successors.
+// Exercise the running view's native actions against one real shell, then two fresh successors.
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import type { LiveRun, Recording } from "./run";
@@ -8,7 +8,7 @@ const steps = {
     identify: { name: "Identify the first shell", text: "TAG=acorn; echo START:$$" },
     runIdentify: { name: "Run the shell identity command", enter: true },
     first: { name: "First shell identity", checkpoint: true },
-    background: { name: "Background the pane" },
+    background: { name: "Background the view" },
     foreground: { name: "Return to the running shell" },
     resumed: { name: "Foreground restored the original screen", checkpoint: true },
     verify: { name: "Read the retained shell variable", text: "echo FORE:$TAG:$$" },
@@ -184,9 +184,9 @@ export async function runLifecycle(run: LiveRun) {
     try {
         await within(owner.output, "the second owner’s output");
         await run.until(() => run.closures.some(item => item.attachment === 2 && item.side === "upstream" && item.code === 4000),
-                        "server displaced the native pane with close code 4000");
+                        "server displaced the native view with close code 4000");
         await delay(350);
-        assert.equal(run.attachments, 2, "The displaced pane reconnected without its user");
+        assert.equal(run.attachments, 2, "The displaced view reconnected without its user");
         const before = run.inputBytes;
         run.phase("reclaim", index("reclaim"));
         await waitReady(3, true);

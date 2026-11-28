@@ -10,7 +10,7 @@ on:
       - Sources/ThrushCore/**
       - examples/swiftui/**
       - scripts/build-app.sh
-      - scripts/check-swiftui-example.sh
+      - scripts/check-sample.sh
       - .github/workflows/command-line-tools.yml
   pull_request:
     paths:
@@ -19,7 +19,7 @@ on:
       - Sources/ThrushCore/**
       - examples/swiftui/**
       - scripts/build-app.sh
-      - scripts/check-swiftui-example.sh
+      - scripts/check-sample.sh
       - .github/workflows/command-line-tools.yml
 
 # A newer push supersedes a running build.
@@ -42,6 +42,6 @@ jobs:
       - name: Show the toolchain
         run: swift --version
       - name: Link the public Thrush product in an external Mac app
-        run: scripts/check-swiftui-example.sh mac
+        run: scripts/check-sample.sh mac
       - name: Wrap the sample as a Mac app
         run: scripts/build-app.sh sample mac

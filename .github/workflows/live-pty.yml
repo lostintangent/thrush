@@ -79,7 +79,7 @@ jobs:
           # Codex runs its code-mode host from beside its own executable, and warns on screen without it.
           mv "codex-release/codex-code-mode-host-$target" codex-code-mode-host
           test "$(./codex-cli --version)" = "codex-cli 0.166.0"
-      - name: Drive the running pane over the disposable PTY
+      - name: Drive the running view over the disposable PTY
         run: |
           flags=()
           if [[ "$LIVE_WORKFLOW" != all ]]; then flags+=(--workflow "$LIVE_WORKFLOW"); fi

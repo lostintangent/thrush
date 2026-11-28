@@ -18,7 +18,7 @@ import urllib.request
 import proof
 from proof import HERE, Capture, application, capture, luminance, wait, window
 
-# The palettes in Tests/ThrushProofs/peers/demo-peer.ts, the one the colors scene opens with by system appearance, and the
+# The palettes in Tests/ThrushProofs/peers/scene-peer.ts, the one the colors scene opens with by system appearance, and the
 # window's width, compact toolbar height and split view sidebar in points.
 PALETTES = {"paper": "F4EFE4", "night": "17151F"}
 PROGRAM = {"dark": "paper", "light": "night"}
@@ -155,7 +155,7 @@ def main():
     failures = {}
     with tempfile.TemporaryDirectory(dir=out.parent, prefix="thrush-program-colors-") as scratch, proof.peer(out) as endpoint:
         checker = Path(scratch) / "check"
-        subprocess.run(["xcrun", "swiftc", HERE / "check-pane-capture.swift", "-o", checker], check=True, timeout=300)
+        subprocess.run(["xcrun", "swiftc", HERE / "check-visible-text.swift", "-o", checker], check=True, timeout=300)
         for appearance in ("dark", "light"):
             for name, extra in WINDOWS.items():
                 label, palette = f"{name}-{appearance}", PROGRAM[appearance]
@@ -172,12 +172,12 @@ def main():
                     print(f"Verified the program's canvas and readable chrome in {path.name}", flush=True)
             label = f"colors-toolbar-host-ignores-safe-area-{appearance}"
             if not ({label, f"colors-toolbar-{appearance}"} & failures.keys()):
-                pane, host = (Capture(out / f"colors-toolbar-{name}.png", appearance)
+                view, host = (Capture(out / f"colors-toolbar-{name}.png", appearance)
                               for name in (appearance, "host-ignores-safe-area-" + appearance))
                 # After the toolbar changes appearance, its glass rim can settle two levels apart between launches.
-                moved = (pane.width, pane.height) != (host.width, host.height) or any(
+                moved = (view.width, view.height) != (host.width, host.height) or any(
                     max(abs(a - b) for a, b in zip(Capture.rgb(p), Capture.rgb(h))) > 2
-                    for p, h in zip(pane.pixels, host.pixels) if p != h)
+                    for p, h in zip(view.pixels, host.pixels) if p != h)
                 if moved:
                     failures[label] = "The host's .ignoresSafeArea() changed the window's pixels."
                 else:

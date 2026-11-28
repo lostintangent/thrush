@@ -13,7 +13,7 @@ Each proof runs on a disposable hosted runner through one workflow per platform,
 
 ## Scenes and appearance
 
-The recorded scenes come from the mock peer, `bun Tests/ThrushProofs/peers/demo-peer.ts`, which listens on port 9138.
+The recorded scenes come from the scene peer, `bun Tests/ThrushProofs/peers/scene-peer.ts`, which listens on port 9138.
 
 | Scene | Shows |
 | --- | --- |
@@ -51,7 +51,7 @@ These named scenes run their own checks:
 - `toolbar-proof` makes the same captures under the app's own navigation title and Close button, with the spinner and first prompt inside the safe-area grid.
 - `text-blink` bursts screenshots of the styles scene in both appearances, with motion and then with Reduce Motion. Blinking rows must alternate between fully shown and fully hidden while other rows hold still, Reduce Motion must hold the shown text, and concealed text must leave its cells blank.
 - `program-colors` captures the colors scene in both appearances, full screen and under a navigation stack. The program's canvas, never the theme's, must show around the first row, above the grid and beside the home indicator, and the navigation title must reach 4.5:1 against it.
-- `under-bars` mounts the pane under an inline navigation bar in both appearances and orientations, with the keyboard hidden and shown. The canvas must reach every edge while the grid stays in the safe area above the keyboard, or runs under the home indicator while it's down, and a host's `.ignoresSafeArea()` must change no pixel.
+- `under-bars` mounts the view under an inline navigation bar in both appearances and orientations, with the keyboard hidden and shown. The canvas must reach every edge while the grid stays in the safe area above the keyboard, or runs under the home indicator while it's down, and a host's `.ignoresSafeArea()` must change no pixel.
 - `reconnect-typing` types `git` with the software keyboard, interrupts the WebSocket and types ` status` during the outage. After the replay the shell must echo `git status` exactly once, across two attachments, while the keyboard holds its place.
 
 ### Interactions
@@ -88,7 +88,7 @@ python3 Tests/ThrushProofs/run.py --output /tmp/thrush-iphone-interactions
 
 The [live workflow runner](../Benchmarks/live-workflows.md) takes the shell, Vim and Codex workflows through real programs in the proofs app's window, and `scripts/check-workflows.sh` plays their [recordings](../Fixtures/reference/workflows/README.md) to Apple’s WebSocket client. The runner launches the app with `--endpoint TERMINAL_ORIGIN --workflow-driver CONTROL_ORIGIN --workflow-output DIRECTORY`. The Mac driver types through AppKit's responder and a private pasteboard, and the iPhone driver through the terminal's UIKit text client, the English software keyboard and native rotation, both at the host's normal font and geometry.
 
-The app's `WorkflowDriver.swift` and the runner's `controller.ts` talk over loopback HTTP. The controller holds each step until the app reports a settled layout or acknowledges a checkpoint, and each checkpoint must match the reference's cells and lines for the pane's actual geometry in a frame the GPU completed. On the iPhone, each captured checkpoint must show all eight key row controls and three rows of letter keys, and hold the Duo's 45 × 18 portrait grid, or 71 × 11 after Vim turns to landscape. A resumed Vim attachment keeps its last frame until the replay, so every RGB pixel inside the grid must match before detach and after replay, with the block cursor in the expected cell.
+The app's `WorkflowDriver.swift` and the runner's `controller.ts` talk over loopback HTTP. The controller holds each step until the app reports a settled layout or acknowledges a checkpoint, and each checkpoint must match the reference's cells and lines for the view's actual geometry in a frame the GPU completed. On the iPhone, each captured checkpoint must show all eight key row controls and three rows of letter keys, and hold the Duo's 45 × 18 portrait grid, or 71 × 11 after Vim turns to landscape. A resumed Vim attachment keeps its last frame until the replay, so every RGB pixel inside the grid must match before detach and after replay, with the block cursor in the expected cell.
 
 ## Tour a release
 

@@ -20,7 +20,7 @@ func enlarged(_ region: CGImage, by factor: Int) -> CGImage {
     return context.makeImage() ?? region
 }
 
-let usage = "Usage: check-pane-capture IMAGE [--crop X Y WIDTH HEIGHT] [--exact-line] EXPECTED_VISIBLE_STRINGS…"
+let usage = "Usage: check-visible-text IMAGE [--crop X Y WIDTH HEIGHT] [--exact-line] EXPECTED_VISIBLE_STRINGS…"
 var arguments = CommandLine.arguments.dropFirst()
 guard let path = arguments.popFirst() else { fail(usage) }
 let url = URL(fileURLWithPath: path)

@@ -58,7 +58,7 @@ TerminalView(model.tab.session)
     }
 ```
 
-Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/swiftui/Sources/SwiftUIExample/ShellWindow.swift)
+Pass a different `TerminalSession` to the same `TerminalView` and it shows that session’s screen and history. A newly created session starts with a fresh screen. The tab model’s `newShell()` does this by changing `model.tab.session`. SwiftUI keeps the view’s identity, so no `.id` modifier is needed. To end a session explicitly, call `try await session.close()`. [Complete SwiftUI example](examples/swiftui/Sources/Sample/ShellWindow.swift)
 
 ### WebSocket transport
 
@@ -91,7 +91,7 @@ let session = TerminalSession(openTransport: { size in
 TerminalView(session)
 ```
 
-The factory opens a shell at the view’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the view hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/swiftui/Sources/SwiftUIExample/ShellTab.swift)
+The factory opens a shell at the view’s measured grid size. A local PTY implements the same four transport methods. Return `nil` from `read()` after the last output bytes. Make `close()` release the transport’s resources and wake pending I/O. While the app can run, the session keeps reading and answering terminal queries with the view hidden. Showing it again displays the current screen. EOF or a transport error ends the session with its final screen intact. A new session calls the factory to open its own shell. [External app example](examples/swiftui/Sources/Sample/ShellTab.swift)
 
 ## Keep terminals on a JavaScript server
 
@@ -129,7 +129,7 @@ The package carries ThrushCore as a 333 KB WebAssembly module and starts it sync
 
 ## Try the sample app
 
-The sample in `examples/swiftui` is one SwiftUI app for Mac and iPhone whose only dependency is the `Thrush` library product. `SwiftUIExample.swift` opens the window, `ShellWindow.swift` shows a `TerminalView` and offers **New Shell** once the shell ends, and `ShellTab.swift` opens each session's WebSocket.
+The sample in `examples/swiftui` is one SwiftUI app for Mac and iPhone whose only dependency is the `Thrush` library product. `Sample.swift` opens the window, `ShellWindow.swift` shows a `TerminalView` and offers **New Shell** once the shell ends, and `ShellTab.swift` opens each session's WebSocket.
 
 From the repository root, start the local server. It prints its loopback URL and opens a real shell when the app connects.
 

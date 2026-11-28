@@ -15,7 +15,7 @@ export function recoveryFixture(shell: Recording): Recording {
     assert(checkpoint);
     const steps = [text("Start the build producer", driver), enter("Run the build"), { name: "Build armed", checkpoint },
         { name: "Silent build tail restored", checkpoint }, text("Send build confirmation", token),
-        enter("Confirm the build"), { name: "Same-pane confirmation received", checkpoint }];
+        enter("Confirm the build"), { name: "Same-view confirmation received", checkpoint }];
     return { ...shell, name: "live-recovery", events: steps.map((event, offsetMicroseconds) => ({ ...event, offsetMicroseconds })) };
 }
 

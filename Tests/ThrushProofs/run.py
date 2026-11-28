@@ -243,7 +243,7 @@ def main():
     parser.add_argument("--build-runner-only", action="store_true", help="Compile the gesture runner without booting a simulator.")
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--accessibility-only", action="store_true",
-                       help="Exercise VoiceOver and accessible pane controls on a fresh iPhone at the largest text size.")
+                       help="Exercise VoiceOver and the view's accessible controls on a fresh iPhone at the largest text size.")
     scope.add_argument("--swipes-only", action="store_true",
                        help="Swipe through less, vim and the shell's history on a real shell in both appearances, and check "
                             "that a program glides as far as the history and stops under a resting or catching finger.")
@@ -258,7 +258,7 @@ def main():
         parser.error("Use an empty output directory.")
     with tempfile.TemporaryDirectory(prefix="thrush-iphone-interactions-") as scratch:
         work = Path(scratch)
-        source = HERE / "UITests" / ("PaneVoiceOverProof.swift" if options.accessibility_only else
+        source = HERE / "UITests" / ("PhoneVoiceOverProof.swift" if options.accessibility_only else
                          "ScrollSwipeProof.swift" if options.swipes_only else
                          "PhoneLinkProof.swift" if options.links_only else "PhoneInteractionProof.swift")
         plan = proof.build_test_runner(work, out, source)
@@ -325,7 +325,7 @@ def main():
             if failures:
                 raise RuntimeError("Failed interaction checks: " + ", ".join(failures))
     if options.accessibility_only:
-        print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone pane.")
+        print("Verified VoiceOver, Dynamic Type, Reduce Motion and Reduce Transparency on the mounted iPhone view.")
     elif options.swipes_only:
         print("Verified that swipes glide through less and vim as far as through the shell's history and stop under a finger.")
     elif options.links_only:

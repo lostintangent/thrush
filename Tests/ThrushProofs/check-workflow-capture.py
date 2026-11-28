@@ -79,7 +79,7 @@ def check(image, state, require_keyboard=False):
 
     xs, ys, sx, sy = grid_edges(image, state)
     rows, columns = state["rows"], state["columns"]
-    # The pane's own controls, such as Latest while reading history, cover these cells.
+    # The view's own controls, such as Latest while reading history, cover these cells.
     overlays = [(x * sx, y * sy, (x + w) * sx, (y + h) * sy) for x, y, w, h in state.get("overlays", [])]
     mask = state["inkMask"]
     require(len(mask) == rows and all(len(line) == columns and set(line) <= {"0", "1"} for line in mask),
@@ -138,7 +138,7 @@ def check(image, state, require_keyboard=False):
         if row_missing > max(2, row_want * 0.23) or row_extra > max(2, row_want * 0.20):
             row_errors.append(f"row {row}: {row_missing} missing, {row_extra} unexpected of {row_want} expected")
 
-    require(covered <= rows * columns * 0.10, f"Pane controls cover {covered} of {rows * columns} cells")
+    require(covered <= rows * columns * 0.10, f"The view's controls cover {covered} of {rows * columns} cells")
     require(canvas >= rows * columns * 0.20, "Expected terminal background is absent from the grid")
     count = max(0, selected_end - selected_start + 1) if selection is not None else 0
     require(selection_missing <= max(1, count * 0.04) and selection_extra <= 1,
@@ -147,7 +147,7 @@ def check(image, state, require_keyboard=False):
             f"Glyph occupancy differs: {missing} missing, {extra} unexpected, {want} expected; " + "; ".join(row_errors[:4]))
     result = f"{want - missing}/{want} glyph cells, {extra} unexpected, {count - selection_missing}/{count} selected cells"
     if covered:
-        result += f", {covered} cells under pane controls"
+        result += f", {covered} cells under the view's controls"
     return result
 
 

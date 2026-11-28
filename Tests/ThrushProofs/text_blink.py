@@ -12,7 +12,7 @@ from proof import Capture, require
 
 # Jittered screenshots sample every phase of the 1.2 s cycle instead of aliasing with it.
 BLINKING_FRAMES, STEADY_FRAMES = 30, 8
-# The styles scene in Tests/ThrushProofs/peers/demo-peer.ts: one row per style, then a prompt.
+# The styles scene in Tests/ThrushProofs/peers/scene-peer.ts: one row per style, then a prompt.
 PLAIN, BLINK, CONCEALED, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN, PROMPT = 1, 14, 15, 16, 17, 18, 19
 BLINKING = (BLINK, BLINK_INVERSE, BLINK_UNDERLINE, BLINK_GREEN)
 SAMPLE, PROMPT_COLUMNS = 16, 11

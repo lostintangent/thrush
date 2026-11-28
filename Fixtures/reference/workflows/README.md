@@ -2,7 +2,7 @@
 
 The three recordings drive the standalone peer through the same WebSocket protocol as the native app. Each PTY read keeps its original byte boundary. Checkpoints carry the pinned xterm viewport, attributes, cursor, modes and scrollback. Replaying the committed files is offline. [Reference setup](../shell-and-vim/README.md)
 
-The [native workflow runner](../../../Benchmarks/live-workflows.md) checks the bytes the native pane received against the reference with `live.mjs`, which reads the reference's screen and builds each expected checkpoint.
+The [native workflow runner](../../../Benchmarks/live-workflows.md) checks the bytes the native view received against the reference with `live.mjs`, which reads the reference's screen and builds each expected checkpoint.
 
 | Recording | Starting grid | Interactions and checkpoints |
 | --- | --- | --- |

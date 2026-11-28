@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct SwiftUIExample: App {
+struct Sample: App {
     var body: some Scene {
         WindowGroup { ShellWindow() }
             .defaultSize(width: 720, height: 494)

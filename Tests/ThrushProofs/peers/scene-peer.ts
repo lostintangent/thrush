@@ -328,7 +328,7 @@ const server = Bun.serve({
                 return;
             }
             // Recordings supply their own editor output. A fresh prompt accepts a small set
-            // of demo commands; other text only receives a remote echo.
+            // of scene commands; other text only receives a remote echo.
             if ((state.scene === "editor" || state.scene === "colors") && !state.appearance) {
                 state.appearance = reportedAppearance(message);
                 if (state.appearance) await draw(socket);
@@ -357,4 +357,4 @@ const server = Bun.serve({
         close(socket) { sockets.delete(socket); },
     },
 });
-console.log("Thrush demo peer listening at " + server.url.origin);
+console.log("Thrush scene peer listening at " + server.url.origin);

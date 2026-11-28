@@ -1,4 +1,4 @@
-"""Check the public pane under an inline navigation bar on the iPhone, in both appearances, in portrait
+"""Check the public view under an inline navigation bar on the iPhone, in both appearances, in portrait
 and landscape, with the keyboard hidden and shown. The canvas must reach every edge of the window
 while the grid stays inside the safe area and above the keyboard, or runs on under the home indicator
 while the keyboard is down, and a host's own `.ignoresSafeArea()` must change nothing, down to the pixel."""
@@ -8,7 +8,7 @@ import proof
 from proof import Capture, edges
 
 LAYOUTS = (("portrait", "hidden"), ("landscape", "hidden"), ("portrait", "visible"), ("landscape", "visible"))
-VARIANTS = {"pane": (), "host-ignores-safe-area": ("--host-ignores-safe-area",)}
+VARIANTS = {"view": (), "host-ignores-safe-area": ("--host-ignores-safe-area",)}
 GEOMETRY = ("windowPoints", "gridFrame", "columns", "rows", "keyboardHeight", "accessoryHeight", "toolbar",
             "cellGridPixels")
 
@@ -54,7 +54,7 @@ def check(image, state, appearance):
         if not samples or sum(value in background for value in samples) < 0.95 * len(samples):
             raise ValueError(f"The canvas is missing {where}: x={x0}…{x1}, y={y0}…{y1}.")
 
-    # Between the leading title and the trailing Close button, the bar shows the pane's canvas.
+    # Between the leading title and the trailing Close button, the bar shows the view's canvas.
     width, middle = bar[2] - bar[0], (bar[1] + bar[3]) / 2
     canvas(bar[0] + 0.4 * width, middle - 1, bar[0] + 0.55 * width, middle + 1, "beneath the navigation bar")
     if not shown:
@@ -77,7 +77,7 @@ def compare(first, second, appearance, scale):
         return
     # Two system layers composite on their own clocks across launches: the home indicator fades
     # its adaptive tint in and out, and glass and the display mask resample their edges by a
-    # few levels. Everything the pane and its host draw must still match.
+    # few levels. Everything the view and its host draw must still match.
     indicator_top, indicator_left, indicator_right = a.height - round(16 * scale), a.width // 4, a.width * 3 // 4
     changed = []
     for i in range(len(a.pixels)):
@@ -127,9 +127,9 @@ def capture(phone, options, sim):
                     print(f"{label}: {error}", flush=True)
             if len(states) == len(VARIANTS):
                 try:
-                    pane, host = states.values()
-                    if pane != host:
-                        raise ValueError(f"The host's modifier changed the native layout: {pane} versus {host}")
+                    view, host = states.values()
+                    if view != host:
+                        raise ValueError(f"The host's modifier changed the native layout: {view} versus {host}")
                     names = [phone.out / f"{layout}-{variant}.png" for variant in VARIANTS]
                     compare(*names, appearance, state["displayScale"])
                     print(f"The host's .ignoresSafeArea() changes no pixel in {layout}", flush=True)
@@ -138,4 +138,4 @@ def capture(phone, options, sim):
                     print(f"{layout}: {error}", flush=True)
     sim("status_bar", phone.device, "clear", check=False)
     if failures:
-        raise RuntimeError(f"Pane under bars proof failed: {failures}")
+        raise RuntimeError(f"The under-bars proof failed: {failures}")

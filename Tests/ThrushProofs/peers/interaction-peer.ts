@@ -65,7 +65,7 @@ try {
     }
     while (!(await Bun.file(report).exists())) {
         if (failure) throw Error(failure);
-        if (child && child.exitCode !== null) throw Error("Demo exited before writing the interaction report");
+        if (child && child.exitCode !== null) throw Error("The app exited before writing the interaction report");
         if (Date.now() > deadline) throw Error("Timed out waiting for the native interaction report");
         await Bun.sleep(100);
     }

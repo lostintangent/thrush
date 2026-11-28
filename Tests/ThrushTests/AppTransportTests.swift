@@ -263,7 +263,7 @@ func failedTransportOperationKeepsFinalOutputAndNeverRetries(_ operation: Failin
     await transport.emit("\u{1b}[?2031h")
     try #require(try await actor.nextEvent() == .output)
 
-    // An app transport keeps reading while its pane is hidden, so its shell stays current.
+    // An app transport keeps reading while its view is hidden, so its shell stays current.
     await actor.hide()
     await actor.setPalette(light.palette, cursor: light.cursor)
     await actor.setPalette(light.palette, cursor: light.cursor)

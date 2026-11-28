@@ -1,4 +1,4 @@
-// One disposable upstream and one native pane per invocation. Both listeners bind only loopback.
+// One disposable upstream and one native view per invocation. Both listeners bind only loopback.
 import assert from "node:assert/strict";
 import { readFile, writeFile, stat, rename } from "node:fs/promises";
 import { resolve } from "node:path";

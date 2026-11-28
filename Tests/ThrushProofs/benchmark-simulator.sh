@@ -1,5 +1,5 @@
 #!/bin/bash
-# The selected simulator must already be booted. Only its demo process is controlled.
+# The selected simulator must already be booted. Only its proofs app process is controlled.
 set -euo pipefail
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 [[ $# == 3 || ( ${4:-} == --installed && $# -le 5 ) ]] || {

@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-@MainActor final class PaneVoiceOverProof: XCTestCase {
+@MainActor final class PhoneVoiceOverProof: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "app.thrush.proofs")
     private let reader = XCUIDevice.shared.voiceOverService
     private var disableAtEnd = false
