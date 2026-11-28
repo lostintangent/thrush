@@ -57,7 +57,7 @@ struct LinkFinder {
                 rows.append(row)
             }
             let line = Line(columns: columns, revisions: rows.map(\.generation))
-            let matches = read[line] ?? lines[line] ?? scan(rows, columns: columns)
+            let matches = read[line] ?? lines[line] ?? scan(rows, from: start, in: transcript)
             read[line] = matches
             for match in matches {
                 let runs = match.runs.compactMap { run in
@@ -72,13 +72,15 @@ struct LinkFinder {
         return found
     }
 
-    private mutating func scan(_ rows: [Terminal.Row], columns: Int) -> [Match] {
+    /// Reads `rows`, which start at row `first` of `transcript`.
+    private mutating func scan(_ rows: [Terminal.Row], from first: Int, in transcript: Terminal.Snapshot) -> [Match] {
+        let columns = transcript.size.columns
         // Each cell's first scalar and its place. A blank cell reads as a space, and a wide cell's second
         // column is skipped.
         var scalars: [Unicode.Scalar] = []
         var places: [(row: Int, column: Int, width: Int)] = []
         for (index, row) in rows.enumerated() {
-            let end = index == rows.count - 1 ? row.trimmedLength : columns
+            let end = transcript.textEnd(in: first + index)
             var column = 0
             while column < end {
                 let cell = row[column]

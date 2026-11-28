@@ -24,10 +24,9 @@ final class PhoneAccessibleText {
         var occurrences: [UInt64: Int] = [:]
         if let snapshot = terminal.snapshot {
             var start = 0
-            while start < snapshot.rows.count {
-                var end = start
-                while end + 1 < snapshot.rows.count && snapshot.rows[end + 1].isWrapped { end += 1 }
-                let text = terminal.spokenLineText(row: start)
+            while start < snapshot.rows.count, let line = terminal.viewport.line(row: start) {
+                let end = min(line.headRow, snapshot.rows.count - 1)
+                let text = terminal.text(in: line, spoken: true)
                 if !text.isEmpty {
                     let generation = snapshot.rows[start].generation
                     let id = LineID(generation: generation, occurrence: occurrences[generation, default: 0])

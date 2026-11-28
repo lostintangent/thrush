@@ -17,9 +17,7 @@ extension TerminalMetalView {
     }
 
     func spokenLineText(row: Int) -> String {
-        var reader = viewport
-        reader.selectLine(row: row)
-        return reader.selection.map { reader.text(in: $0, spoken: true) } ?? ""
+        viewport.line(row: row).map { viewport.text(in: $0, spoken: true) } ?? ""
     }
 
     func selectLine(row: Int) {

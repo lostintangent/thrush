@@ -37,28 +37,20 @@ struct Viewport {
             return
         }
         let oldTop = top
-        let resized = old.size != next.size
-        let discarded = max(0, next.history.evictedRows - old.history.evictedRows)
         source = next
-        if offset > 0 {
-            let anchored: Int
-            if resized {
-                let anchor = LineAnchor(position: .init(row: oldTop, column: 0), in: old)
-                anchored = anchor.resolve(in: next)?.row ?? 0
-            } else {
-                anchored = max(0, oldTop - discarded)
+        if old.size != next.size {
+            guard offset > 0 || absoluteSelection != nil else { return }
+            let before = Lines(old), after = Lines(next, numberedLike: before)
+            func find(_ position: Position) -> Position? { after.position(of: position, from: before, nearest: true) }
+            if offset > 0 { scroll(next.history.count - (find(.init(row: oldTop, column: 0))?.row ?? 0)) }
+            if let range = absoluteSelection {
+                absoluteSelection = find(range.anchor).flatMap { a in find(range.head).map { .init(anchor: a, head: $0) } }
             }
-            scroll(next.history.count - anchored)
+            return
         }
-        guard let range = absoluteSelection else { return }
-        if resized {
-            guard let a = LineAnchor(position: range.anchor, in: old).resolve(in: next),
-                  let b = LineAnchor(position: range.head, in: old).resolve(in: next) else {
-                absoluteSelection = nil
-                return
-            }
-            absoluteSelection = .init(anchor: a, head: b)
-        } else if discarded > 0 {
+        let discarded = max(0, next.history.evictedRows - old.history.evictedRows)
+        if offset > 0 { scroll(next.history.count - max(0, oldTop - discarded)) }
+        if let range = absoluteSelection, discarded > 0 {
             let shifted = range.shifted(by: -discarded)
             absoluteSelection = min(shifted.headRow, shifted.anchorRow) >= 0 ? shifted : nil
         }
@@ -82,8 +74,8 @@ struct Viewport {
             return
         }
 
-        let before = ReplayLines(old)
-        let after = ReplayLines(next)
+        let before = Lines(old), after = Lines(next, numberedLike: before)
+        func find(_ position: Position) -> Position? { after.position(of: position, from: before, nearest: false) }
         let oldTop = top
         let wasReading = offset > 0
         let previousRange = absoluteSelection
@@ -93,26 +85,12 @@ struct Viewport {
         absoluteSelection = nil
 
         if wasReading {
-            let line = before.lineAtRow[oldTop]
-            let first: Int
-            if let target = after.match(line, from: before) {
-                let column = old.cellOffset(of: .init(row: oldTop, column: 0), in: before.lines[line].rows)
-                first = next.position(at: column, in: after.lines[target].rows)?.row ?? after.lines[target].rows.lowerBound
-            } else {
-                first = after.nearestSurvivingRow(to: line, from: before) ?? 0
-            }
+            let first = find(.init(row: oldTop, column: 0))?.row
+                ?? after.nearestSurvivingRow(to: before.lineAtRow[oldTop], from: before) ?? 0
             scroll(next.history.count - first)
         }
 
-        guard let previousRange, let previousText else { return }
-        func endpoint(_ position: Position) -> Position? {
-            guard before.lineAtRow.indices.contains(position.row), (0..<old.size.columns).contains(position.column) else { return nil }
-            let line = before.lineAtRow[position.row]
-            guard let target = after.match(line, from: before) else { return nil }
-            let column = old.cellOffset(of: position, in: before.lines[line].rows)
-            return next.position(at: column, in: after.lines[target].rows)
-        }
-        guard let a = endpoint(previousRange.anchor), let b = endpoint(previousRange.head),
+        guard let previousRange, let previousText, let a = find(previousRange.anchor), let b = find(previousRange.head),
               (previousRange.anchor <= previousRange.head) == (a <= b) else { return }
         let candidate = Selection(anchor: a, head: b)
         if text(in: candidate.shifted(by: -top)).utf8.elementsEqual(previousText.utf8) {
@@ -120,42 +98,62 @@ struct Viewport {
         }
     }
 
-    private struct ReplayLines {
+    /// A snapshot's logical lines, each known by its text and its neighbours' text. Resize and replay
+    /// rebuild every row, so both find a line again by its text and as many of its neighbours as agree.
+    /// Resize takes the nearest of the best-agreeing lines. Replay takes one only when the most specific
+    /// agreement names it alone in both snapshots, since a repeated line can't prove which copy a person
+    /// was reading.
+    private final class Lines {
         struct Line {
             let rows: ClosedRange<Int>
-            let bytes: [UInt8]
+            let text: Int
         }
 
         struct Context: Hashable {
-            let before: [UInt8]?
-            let text: [UInt8]
-            let after: [UInt8]?
+            let before: Int?
+            let text: Int
+            let after: Int?
         }
 
-        var lines: [Line] = []
-        var lineAtRow: [Int] = []
-        // A negative value means that this sequence occurs more than once.
-        private var occurrences: [Context: Int] = [:]
+        let source: Terminal.Snapshot
+        private(set) var lines: [Line] = []
+        private(set) var lineAtRow: [Int] = []
+        /// A number for each distinct text, so lines compare as numbers. Lines matched against these
+        /// carry on the same numbering.
+        private var numbers: [String: Int]
+        /// The line each context names, or -1 when it names more than one. Only replay asks.
+        private lazy var occurrences: [Context: Int] = {
+            var named: [Context: Int] = [:]
+            named.reserveCapacity(lines.count * 4)
+            for index in lines.indices {
+                for context in contexts(at: index) {
+                    if named.updateValue(index, forKey: context) != nil { named[context] = -1 }
+                }
+            }
+            return named
+        }()
 
-        init(_ source: Terminal.Snapshot) {
+        init(_ source: Terminal.Snapshot, numberedLike other: Lines? = nil) {
+            self.source = source
+            numbers = other?.numbers ?? [:]
+            numbers.reserveCapacity(numbers.count + source.count)
+            lineAtRow.reserveCapacity(source.count)
             var start = 0
             while start < source.count {
                 let rows = source.logicalRows(containing: start)
+                let line = source.text(of: rows)
+                let text = numbers[line] ?? numbers.count
+                numbers[line] = text
                 lineAtRow.append(contentsOf: repeatElement(lines.count, count: rows.count))
-                lines.append(Line(rows: rows, bytes: Array(source.lineText(rows).utf8)))
+                lines.append(Line(rows: rows, text: text))
                 start = rows.upperBound + 1
-            }
-            for index in lines.indices {
-                for context in contexts(at: index) {
-                    occurrences[context] = occurrences[context] == nil ? index : -1
-                }
             }
         }
 
         private func contexts(at index: Int) -> [Context] {
-            let text = lines[index].bytes
-            let before = index > 0 ? lines[index - 1].bytes : nil
-            let after = index + 1 < lines.count ? lines[index + 1].bytes : nil
+            let text = lines[index].text
+            let before = index > 0 ? lines[index - 1].text : nil
+            let after = index + 1 < lines.count ? lines[index + 1].text : nil
             var result = [Context(before: nil, text: text, after: nil)]
             if let before { result.append(Context(before: before, text: text, after: nil)) }
             if let after { result.append(Context(before: nil, text: text, after: after)) }
@@ -163,32 +161,49 @@ struct Viewport {
             return result
         }
 
-        /// Both snapshots must identify a single occurrence. If two equally specific
-        /// neighbors point to different copies, neither one proves the old identity.
-        func match(_ index: Int, from old: Self) -> Int? {
-            var best = -1
-            var matched: Int?
-            for context in old.contexts(at: index) {
-                guard old.occurrences[context] == index, let target = occurrences[context], target >= 0 else { continue }
-                let score = (context.before == nil ? 0 : 1) + (context.after == nil ? 0 : 1)
-                if score > best {
-                    best = score
-                    matched = target
-                } else if score == best && matched != target {
-                    matched = nil
+        /// The line here that is line `index` of `old`.
+        func match(_ index: Int, from old: Lines, nearest: Bool) -> Int? {
+            guard nearest else {
+                var best = -1, matched: Int?
+                for context in old.contexts(at: index) where old.occurrences[context] == index {
+                    guard let target = occurrences[context], target >= 0 else { continue }
+                    let score = (context.before == nil ? 0 : 1) + (context.after == nil ? 0 : 1)
+                    if score > best { (best, matched) = (score, target) } else if score == best && matched != target { matched = nil }
                 }
+                return matched
             }
-            return matched
+            func agree(_ line: Int, _ oldLine: Int) -> Int {
+                lines.indices.contains(line) && old.lines.indices.contains(oldLine) && lines[line].text == old.lines[oldLine].text ? 1 : 0
+            }
+            let start = old.lines[index].rows.lowerBound
+            var best: (line: Int, score: Int, distance: Int)?
+            for (line, candidate) in lines.enumerated() where candidate.text == old.lines[index].text {
+                let score = agree(line - 1, index - 1) + agree(line + 1, index + 1)
+                let distance = abs(candidate.rows.lowerBound - start)
+                if best.map({ (score, -distance) > ($0.score, -$0.distance) }) ?? true { best = (line, score, distance) }
+            }
+            return best?.line
         }
 
-        func nearestSurvivingRow(to index: Int, from old: Self) -> Int? {
+        /// Where `position` in `old` is here: as far along its matched line, or at that line's last cell
+        /// if the line no longer reaches so far.
+        func position(of position: Position, from old: Lines, nearest: Bool) -> Position? {
+            let row = min(max(0, position.row), old.lineAtRow.count - 1)
+            let line = old.lineAtRow[row]
+            guard let target = match(line, from: old, nearest: nearest) else { return nil }
+            let offset = old.source.cellOffset(of: .init(row: row, column: max(0, position.column)), in: old.lines[line].rows)
+            let rows = lines[target].rows
+            return source.position(at: offset, in: rows) ?? .init(row: rows.upperBound, column: source.size.columns - 1)
+        }
+
+        func nearestSurvivingRow(to index: Int, from old: Lines) -> Int? {
             for distance in 1..<old.lines.count {
                 let following = index + distance
-                if following < old.lines.count, let target = match(following, from: old) {
+                if following < old.lines.count, let target = match(following, from: old, nearest: false) {
                     return lines[target].rows.lowerBound
                 }
                 let preceding = index - distance
-                if preceding >= 0, let target = match(preceding, from: old) {
+                if preceding >= 0, let target = match(preceding, from: old, nearest: false) {
                     return lines[target].rows.upperBound
                 }
             }
@@ -222,12 +237,16 @@ struct Viewport {
         return result
     }
 
+    /// The logical line through `row`, from its first cell to the end of its text.
+    func line(row: Int) -> Selection? {
+        guard let source else { return nil }
+        let rows = source.logicalRows(containing: min(max(top + row, 0), source.count - 1))
+        return Selection(anchorRow: rows.lowerBound, anchorColumn: 0, headRow: rows.upperBound,
+                         headColumn: max(0, source.textEnd(in: rows.upperBound) - 1)).shifted(by: -top)
+    }
+
     mutating func selectLine(row: Int) {
-        guard let source else { return }
-        let absolute = min(max(top + row, 0), source.count - 1)
-        let lines = source.logicalRows(containing: absolute)
-        absoluteSelection = .init(anchorRow: lines.lowerBound, anchorColumn: 0, headRow: lines.upperBound,
-                                  headColumn: max(0, source.textEnd(in: lines.upperBound) - 1))
+        selection = line(row: row)
     }
 
     mutating func selectWord(row: Int, column: Int) {
@@ -262,47 +281,6 @@ struct Viewport {
     private static func wordGroup(_ text: String) -> Int {
         guard let c = text.first, !c.isWhitespace else { return 0 }
         return "()[]{}'\"\u{60},;:".contains(c) ? Int(c.unicodeScalars.first!.value) + 2 : 1
-    }
-
-    /// During resize every physical row is rebuilt. Re-find the logical line and the selected
-    /// column in its new wraps. Matching its neighbours distinguishes repeated prompt/log lines.
-    private struct LineAnchor {
-        let text: String, preceding: String?, following: String?
-        let oldStart: Int, cellOffset: Int
-
-        init(position: Position, in source: Terminal.Snapshot) {
-            let row = min(max(0, position.row), source.count - 1)
-            let lines = source.logicalRows(containing: row)
-            text = source.lineText(lines)
-            oldStart = lines.lowerBound
-            preceding = oldStart > 0 ? source.lineText(source.logicalRows(containing: oldStart - 1)) : nil
-            following = lines.upperBound + 1 < source.count
-                ? source.lineText(source.logicalRows(containing: lines.upperBound + 1)) : nil
-            cellOffset = source.cellOffset(of: .init(row: row, column: max(0, position.column)), in: lines)
-        }
-
-        func resolve(in source: Terminal.Snapshot) -> Position? {
-            var best: (rows: ClosedRange<Int>, neighbours: Int, distance: Int)?
-            var start = 0
-            while start < source.count {
-                let rows = source.logicalRows(containing: start)
-                if source.lineText(rows) == text {
-                    var score = 0
-                    if let preceding, start > 0,
-                       source.lineText(source.logicalRows(containing: start - 1)) == preceding { score += 1 }
-                    if let following, rows.upperBound + 1 < source.count,
-                       source.lineText(source.logicalRows(containing: rows.upperBound + 1)) == following { score += 1 }
-                    let distance = abs(start - oldStart)
-                    if best == nil || score > best!.neighbours || (score == best!.neighbours && distance < best!.distance) {
-                        best = (rows, score, distance)
-                    }
-                }
-                start = rows.upperBound + 1
-            }
-            guard let rows = best?.rows else { return nil }
-            return source.position(at: cellOffset, in: rows)
-                ?? .init(row: rows.upperBound, column: source.size.columns - 1)
-        }
     }
 }
 
@@ -348,31 +326,4 @@ private extension Terminal.Snapshot {
         }
         return nil
     }
-
-    func logicalRows(containing row: Int) -> ClosedRange<Int> {
-        var first = row, last = row
-        while first > 0 && rowAt(first).isWrapped { first -= 1 }
-        while last + 1 < count && rowAt(last + 1).isWrapped { last += 1 }
-        return first...last
-    }
-
-    func textEnd(in row: Int) -> Int {
-        let line = rowAt(row)
-        guard row + 1 < count, rowAt(row + 1).isWrapped else { return line.trimmedLength }
-        // A wide glyph that could not fit in the final column left an unused wrap cell behind.
-        if line.trimmedLength < size.columns && rowAt(row + 1)[0].width == 2 { return size.columns - 1 }
-        return size.columns
-    }
-
-    func lineText(_ rows: ClosedRange<Int>) -> String {
-        var text = ""
-        for y in rows {
-            let row = rowAt(y)
-            text.append(row.text)
-            text.append(String(repeating: " ", count: max(0, textEnd(in: y) - row.trimmedLength)))
-        }
-        return text
-    }
-
-    func rowAt(_ index: Int) -> Terminal.Row { row(atAbsoluteIndex: index) }
 }

@@ -287,6 +287,19 @@ private func replayScreen(_ lines: [String], columns: Int = 12, rows: Int = 3) -
     #expect(view.visibleLinks().map(\.link.uri) == ["https://e.ex/f", "https://f.ex/é"])
 }
 
+@MainActor @Test func aURLReadsOnPastTheCellAWideCharacterLeftWhenItWrappedEarly() throws {
+    let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 200))
+    let window = mountTestView(view)
+    defer { withExtendedLifetime(window) {} }
+    var terminal = Terminal(size: .init(columns: 20, rows: 3))
+    _ = terminal.write("https://x.y/abcdefg界/end ok".utf8)
+    view.display(terminal)
+
+    let links = view.visibleLinks()
+    #expect(links.map(\.link.uri) == ["https://x.y/abcdefg界/end"])
+    #expect(links.first?.runs.map(\.columns) == [0..<19, 0..<6])
+}
+
 @MainActor @Test func aFoundURLReadsWholeAcrossTheViewportsEdgeAndKeepsItsNumberWhileItsLineDoes() throws {
     let view = TerminalMetalView(frame: .init(x: 0, y: 0, width: 360, height: 200))
     let window = mountTestView(view)
