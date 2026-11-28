@@ -99,6 +99,7 @@ Each technique sits behind one name in one place, and none is spelled in `write`
 | Each family's functions are performed by their own small function | `perform`'s family switch | scroll +10.3%, region +6.1%, ascii +5.1% |
 | C0's `perform` stays small enough to inline into `write`, with tabs kept out of line | `Terminal.tab` | scroll +8.9%, region +3.4%, ascii +2% in cycles |
 | Hot helpers are always inlined | `TextScanner`, `Parser`, `Parameters` and `GraphicsRendition` | wide +39.5%, cursor +29%, sgr +20.8%, codex +10.9% |
+| The cursor and margins are read without copying the screen, because their accessors are always inlined | `Screen.row`, `column` and `scrollRegion` | prompt-bom +11% and a one-byte write +10% in instructions |
 
 **Storage**, described in the next section
 
