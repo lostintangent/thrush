@@ -7,13 +7,35 @@ permissions:
   contents: read
 
 jobs:
-  interactions:
-    uses: ./.github/workflows/iphone-interactions.yml
-
-  iphone-links:
-    uses: ./.github/workflows/iphone-interactions.yml
+  iphone:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - proof: rendering
+          - proof: interactions
+          - proof: links
+          - { scene: cursor-spinners, appearance: dark }
+          - { scene: cursor-spinners, appearance: light }
+          - { scene: toolbar-proof, appearance: dark }
+          - { scene: toolbar-proof, appearance: light }
+          - scene: program-colors
+          - scene: text-blink
+          - scene: under-bars
+    uses: ./.github/workflows/iphone-proofs.yml
     with:
-      links_only: true
+      proof: ${{ matrix.proof || 'rendering' }}
+      scene: ${{ matrix.scene || '' }}
+      appearance: ${{ matrix.appearance || '' }}
+
+  mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        proof: [spinners, text-blink, program-colors, appearance-reports, links]
+    uses: ./.github/workflows/mac-proofs.yml
+    with:
+      proof: ${{ matrix.proof }}
 
   live:
     strategy:
@@ -25,80 +47,3 @@ jobs:
     with:
       platform: ${{ matrix.platform }}
       appearance: ${{ matrix.appearance }}
-
-  mac:
-    uses: ./.github/workflows/window-lifecycle.yml
-    with:
-      spinner_matrix: true
-      program_colors: true
-
-  mac-appearance:
-    uses: ./.github/workflows/window-lifecycle.yml
-    with:
-      appearance_reports: true
-
-  # Every window lifecycle call in a run shares one concurrency group, which keeps only one call
-  # pending, so the third call waits for the other two rather than displacing one.
-  mac-links:
-    needs: [mac, mac-appearance]
-    if: ${{ !cancelled() }}
-    uses: ./.github/workflows/window-lifecycle.yml
-    with:
-      links: true
-
-  iphone-scenes:
-    name: iPhone ${{ matrix.artifact }}
-    runs-on: xcode-27
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { scene: cursor-spinners, appearance: dark, artifact: spinners-dark }
-          - { scene: cursor-spinners, appearance: light, artifact: spinners-light }
-          - { scene: toolbar-proof, appearance: dark, artifact: toolbar-dark }
-          - { scene: toolbar-proof, appearance: light, artifact: toolbar-light }
-          - { scene: program-colors, appearance: dark, artifact: colors }
-          - { scene: under-bars, appearance: dark, artifact: under-bars }
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.5
-      - name: Capture the packaged iPhone app
-        env:
-          SCENE: ${{ matrix.scene }}
-          APPEARANCE: ${{ matrix.appearance }}
-        run: python3 Tests/ThrushProofs/simulator.py --output "$RUNNER_TEMP/tour" --scene "$SCENE" --appearance "$APPEARANCE"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: tour-iphone-${{ matrix.artifact }}
-          path: ${{ runner.temp }}/tour/*.png
-
-  sheets:
-    needs: [interactions, iphone-links, live, mac, mac-appearance, mac-links, iphone-scenes]
-    if: ${{ !cancelled() }}
-    runs-on: xcode-27
-    timeout-minutes: 15
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          path: ${{ runner.temp }}/captures
-      - name: Lay out the contact sheets
-        run: |
-          xcrun swift Tests/ThrushProofs/release-tour.swift "$RUNNER_TEMP/captures" "$RUNNER_TEMP/release-tour" \
-            "Commit ${GITHUB_SHA::7}, run $GITHUB_RUN_ID."
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: thrush-release-tour
-          path: ${{ runner.temp }}/release-tour/

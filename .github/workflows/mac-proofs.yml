@@ -1,0 +1,71 @@
+name: Mac proofs
+on:
+  # The pane keeps its WebSocket in a covered, minimized or hidden Mac window. Every change that
+  # could break that promise runs the window lifecycle proof.
+  push:
+    branches: [main]
+    paths:
+      - Package.swift
+      - Sources/Thrush/**
+      - Sources/ThrushCore/**
+      - Sources/ThrushServer/**
+      - examples/swiftui/**
+      - scripts/build-app.sh
+      - Tests/ThrushProofs/App/**
+      - Tests/ThrushProofs/check-window.py
+      - Tests/ThrushProofs/cover-window.swift
+      - Tests/ThrushProofs/proof.py
+      - .github/workflows/mac-proofs.yml
+  workflow_dispatch:
+    inputs:
+      proof:
+        description: The proof to run in the packaged Mac window on a disposable runner
+        type: choice
+        options: [window-lifecycle, voiceover, spinners, text-blink, program-colors, appearance-reports, links]
+        default: window-lifecycle
+  workflow_call:
+    inputs:
+      proof: { type: string, default: window-lifecycle }
+permissions:
+  contents: read
+# Every push to main runs to completion, and a newer push waits rather than cancelling it.
+# Each dispatched or called proof runs on its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || format('{0}-{1}', github.run_id, inputs.proof) }}
+  cancel-in-progress: false
+jobs:
+  proof:
+    name: Mac ${{ inputs.proof || 'window-lifecycle' }}
+    runs-on: xcode-27
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      PROOF: ${{ inputs.proof || 'window-lifecycle' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Run the proof
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          out="$RUNNER_TEMP/proof"
+          case "$PROOF" in
+            window-lifecycle) python3 Tests/ThrushProofs/check-window.py --sample-server --output "$out" ;;
+            voiceover | links) python3 Tests/ThrushProofs/mac-ui-test.py "$PROOF" --output "$out" ;;
+            spinners) python3 Tests/ThrushProofs/capture-mac-spinners.py --prepare-hosted-motion --output "$out" ;;
+            text-blink | program-colors) python3 "Tests/ThrushProofs/capture-mac-$PROOF.py" --output "$out" ;;
+            appearance-reports)
+              brew install neovim
+              python3 Tests/ThrushProofs/capture-mac-appearance-reports.py --output "$out" ;;
+            *) echo "::error::Unknown Mac proof $PROOF"; exit 1 ;;
+          esac
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: thrush-mac-${{ env.PROOF }}
+          path: ${{ runner.temp }}/proof/

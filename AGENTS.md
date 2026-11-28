@@ -23,7 +23,7 @@ The product is Thrush. The folder, the GitHub repo and anything path-like are lo
 
 - Work on `main` in small commits. Stage only the paths you own, because teammates share this working tree.
 - Before committing, run the build, the tests and the core import check below.
-- A change to what the iPhone view draws or how it lays out doesn't land until the full iPhone proof passes on its branch, unless the lead agrees a failure is already on `main`. Pushes skip that proof, so run it with `gh workflow run headless.yml --ref <branch>`.
+- A change to what the iPhone view draws or how it lays out doesn't land until the full iPhone proof passes on its branch, unless the lead agrees a failure is already on `main`. Pushes skip that proof, so run it with `gh workflow run iphone-proofs.yml --ref <branch>`.
 - Commit messages use the imperative mood and end with the Copilot trailers.
 
 ## Commands

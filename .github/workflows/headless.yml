@@ -12,36 +12,11 @@ on:
       - "**.md"
       - "**.png"
       - "Wasm/**"
-  workflow_dispatch:
-    inputs:
-      scene:
-        description: Named demo scene (leave empty for the full iPhone proof)
-        type: string
-        required: false
-      appearance:
-        description: System appearance for a named scene
-        type: choice
-        options: [dark, light]
-        default: dark
-      orientation:
-        description: Native scene orientation for a named capture
-        type: choice
-        options: [portrait, landscape]
-        default: portrait
-      keyboard:
-        description: Expected software keyboard for a named capture
-        type: choice
-        options: [any, visible, hidden]
-        default: any
-      layout_only:
-        description: Measure a named scene's settled keyboard and grid
-        type: boolean
-        default: false
 
 # Every push to main runs to completion, and a newer push waits rather than cancelling it.
-# A newer pull request push supersedes the running check. Each dispatched capture keeps its own group.
+# A newer pull request push supersedes the running check.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -49,7 +24,6 @@ permissions:
 
 jobs:
   checks:
-    if: github.event_name != 'workflow_dispatch'
     runs-on: xcode-27
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -89,7 +63,6 @@ jobs:
 
   iphone-tests:
     name: iPhone UIKit tests
-    if: github.event_name != 'workflow_dispatch'
     runs-on: xcode-27
     timeout-minutes: 25
     env:
@@ -108,43 +81,3 @@ jobs:
           udid=$(xcrun simctl create "Thrush tests" "iPhone Duo" "$runtime")
           xcrun simctl bootstatus "$udid" -b
           scripts/check-ios-ui.sh "$udid"
-
-  iphone-proof:
-    name: iPhone simulator proof
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: xcode-27
-    timeout-minutes: 30
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.5
-      - name: Capture the packaged iPhone app
-        env:
-          CAPTURE_SCENE: ${{ inputs.scene }}
-          CAPTURE_APPEARANCE: ${{ inputs.appearance }}
-          CAPTURE_ORIENTATION: ${{ inputs.orientation }}
-          CAPTURE_KEYBOARD: ${{ inputs.keyboard }}
-          CAPTURE_LAYOUT_ONLY: ${{ inputs.layout_only }}
-        run: |
-          flags=()
-          if [[ "$CAPTURE_LAYOUT_ONLY" == true ]]; then flags+=(--layout-only); fi
-          python3 Tests/ThrushProofs/simulator.py --output "$RUNNER_TEMP/thrush-iphone-proof" \
-            --scene "$CAPTURE_SCENE" --appearance "${CAPTURE_APPEARANCE:-dark}" \
-            --orientation "${CAPTURE_ORIENTATION:-portrait}" --keyboard "${CAPTURE_KEYBOARD:-any}" "${flags[@]}"
-      - name: Upload captures and measurements
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: thrush-iphone-proof-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/thrush-iphone-proof/*.png
-            ${{ runner.temp }}/thrush-iphone-proof/*.mov
-            ${{ runner.temp }}/thrush-iphone-proof/*.json
-            ${{ runner.temp }}/thrush-iphone-proof/*.log
-          compression-level: 0
-          retention-days: 7

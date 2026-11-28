@@ -1,0 +1,88 @@
+name: iPhone proofs
+
+on:
+  workflow_dispatch:
+    inputs:
+      proof:
+        description: The rendering proof, the interaction proof or one of its swipes, links and accessibility scopes
+        type: choice
+        options: [rendering, interactions, swipes, links, accessibility]
+        default: rendering
+      scene:
+        description: A registered scene for the rendering proof to capture alone
+        type: string
+        default: ""
+      appearance:
+        description: dark or light, for a scene that takes one (dark when empty)
+        type: string
+        default: ""
+      orientation:
+        description: Native orientation for a scene
+        type: choice
+        options: [portrait, landscape]
+        default: portrait
+      keyboard:
+        description: Expected software keyboard for a scene
+        type: choice
+        options: [any, visible, hidden]
+        default: any
+      layout_only:
+        description: Measure a scene's settled keyboard and grid
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      proof: { type: string, default: rendering }
+      scene: { type: string, default: "" }
+      appearance: { type: string, default: "" }
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    name: iPhone ${{ inputs.scene || inputs.proof }}
+    runs-on: xcode-27
+    timeout-minutes: 50
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Run the proof on a fresh iPhone Duo simulator
+        env:
+          PROOF: ${{ inputs.proof }}
+          SCENE: ${{ inputs.scene }}
+          APPEARANCE: ${{ inputs.appearance }}
+          ORIENTATION: ${{ inputs.orientation }}
+          KEYBOARD: ${{ inputs.keyboard }}
+          LAYOUT_ONLY: ${{ inputs.layout_only }}
+        run: |
+          out="$RUNNER_TEMP/proof"
+          case "$PROOF" in
+            rendering)
+              flags=(--scene "$SCENE" --appearance "${APPEARANCE:-dark}" --orientation "${ORIENTATION:-portrait}" --keyboard "${KEYBOARD:-any}")
+              if [[ "$LAYOUT_ONLY" == true ]]; then flags+=(--layout-only); fi
+              python3 Tests/ThrushProofs/simulator.py --output "$out" "${flags[@]}" ;;
+            interactions) python3 Tests/ThrushProofs/run.py --output "$out" ;;
+            swipes | links | accessibility) python3 Tests/ThrushProofs/run.py --output "$out" "--$PROOF-only" ;;
+            *) echo "::error::Unknown iPhone proof $PROOF"; exit 1 ;;
+          esac
+      - name: Upload captures and checks
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: thrush-iphone-${{ inputs.scene || inputs.proof }}${{ inputs.appearance && format('-{0}', inputs.appearance) || '' }}
+          path: |
+            ${{ runner.temp }}/proof/*.png
+            ${{ runner.temp }}/proof/*.mp4
+            ${{ runner.temp }}/proof/*.mov
+            ${{ runner.temp }}/proof/*.json
+            ${{ runner.temp }}/proof/*.jsonl
+            ${{ runner.temp }}/proof/*.log
+          compression-level: 0
+          retention-days: 7
