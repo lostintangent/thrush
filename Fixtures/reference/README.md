@@ -32,15 +32,3 @@ The three interactive workflow recordings include a soft-wrapped shell copy, an 
 ## Conformance
 
 The conformance harness replays every control function, these recordings, more real programs and seeded random streams through the reference and ThrushCore, and compares their complete state. [Conformance harness](conformance/README.md)
-
-## Window title
-
-The title oracle samples the reference's window title after each supplied chunk. On the frozen Codex recording it records the first event, every change between PTY reads and the final event. The capture sets `workspace`, updates it while streaming the response, and clears it with an empty OSC 0. The oracle records the SHA-256 of the complete recording so its event indices can be checked against those exact bytes.
-
-The focused cases exercise OSC 0 and 2, BEL, split ST, UTF-8, cancellation, an icon-name update and disabled title-stack operations. RIS preserves the existing title. Two cases use complete 16 × 4 replay frames from a server's scrollback serializer. Its explicit OSC 2 prefix restores a nonempty title and clears stale state for an empty title. The two server inputs and their exact binary frames are in `window-title.capture.json`, which also records the serializer source by SHA-256. The oracle feeds those frames to a reference terminal to obtain the expected titles.
-
-From the repository root, verify the generated JSON byte for byte. Omit `--check` to write it.
-
-```sh
-bun Fixtures/reference/window-title.mjs --check
-```

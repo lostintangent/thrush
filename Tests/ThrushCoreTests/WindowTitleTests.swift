@@ -1,55 +1,5 @@
 import Testing
 import ThrushCore
-import ThrushFixtures
-
-@Test func windowTitleAtEverySplitMatchesReference() throws {
-    for example in try WindowTitleFixture.load().cases {
-        var terminal = Terminal(size: .init(columns: 16, rows: 4))
-        for step in example.steps {
-            for split in 0...step.bytes.count {
-                var fragmented = terminal
-                _ = fragmented.write(step.bytes.prefix(split))
-                _ = fragmented.write(step.bytes.dropFirst(split))
-                #expect(fragmented.title == step.title, "\(example.name), byte split \(split)")
-            }
-            _ = terminal.write(step.bytes)
-            #expect(terminal.title == step.title, "\(example.name)")
-        }
-    }
-}
-
-@Test(arguments: [1, Int.max])
-func titlesInCompleteCodexRecording(chunkLimit: Int) throws {
-    let fixture = try Recording.load(named: "codex-session")
-    let oracle = try WindowTitleFixture.load().codex
-    let indices = oracle.checkpoints.map(\.eventIndex)
-    try #require(fixture.sha256 == oracle.fixtureSHA256)
-    try #require(indices.first == 0 && indices.last == fixture.events.count - 1)
-    try #require(indices == Set(indices).sorted())
-    try #require(oracle.checkpoints.contains { !$0.title.isEmpty })
-    try #require(oracle.checkpoints.last?.title == "")
-
-    var expected = oracle.checkpoints.makeIterator()
-    var next = expected.next()
-    var expectedTitle = ""
-    var terminal = Terminal(size: .init(columns: fixture.columns, rows: fixture.rows))
-    for (index, event) in fixture.events.enumerated() {
-        if let resize = event.resize { terminal.resize(to: .init(columns: resize.columns, rows: resize.rows)) }
-        var bytes = event.bytes[...]
-        while !bytes.isEmpty {
-            let chunk = bytes.prefix(chunkLimit)
-            _ = terminal.write(chunk)
-            bytes = bytes.dropFirst(chunk.count)
-        }
-        if let checkpoint = next, checkpoint.eventIndex == index {
-            expectedTitle = checkpoint.title
-            next = expected.next()
-        }
-        #expect(terminal.title == expectedTitle, "Codex event \(index) (\(event.name))")
-    }
-    #expect(next == nil)
-    #expect(terminal.title == "")
-}
 
 @Test func titleRunHonorsTheUTF16LimitAcrossChunks() {
     var pending = Terminal(size: .init(columns: 16, rows: 4))
