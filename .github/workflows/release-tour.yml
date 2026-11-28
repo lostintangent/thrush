@@ -73,7 +73,7 @@ jobs:
         env:
           SCENE: ${{ matrix.scene }}
           APPEARANCE: ${{ matrix.appearance }}
-        run: python3 scripts/capture-simulator.py --output "$RUNNER_TEMP/tour" --scene "$SCENE" --appearance "$APPEARANCE"
+        run: python3 Tests/ThrushProofs/capture-simulator.py --output "$RUNNER_TEMP/tour" --scene "$SCENE" --appearance "$APPEARANCE"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -96,7 +96,7 @@ jobs:
           path: ${{ runner.temp }}/captures
       - name: Lay out the contact sheets
         run: |
-          xcrun swift scripts/release-tour.swift "$RUNNER_TEMP/captures" "$RUNNER_TEMP/release-tour" \
+          xcrun swift Tests/ThrushProofs/release-tour.swift "$RUNNER_TEMP/captures" "$RUNNER_TEMP/release-tour" \
             "Commit ${GITHUB_SHA::7}, run $GITHUB_RUN_ID."
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

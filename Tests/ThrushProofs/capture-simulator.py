@@ -1,0 +1,593 @@
+#!/usr/bin/env python3
+"""Capture a named demo scene, or run the complete iPhone rendering proof on a disposable simulator."""
+import argparse
+import contextlib
+import filecmp
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import runpy
+import signal
+import struct
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+from urllib.request import Request, urlopen
+
+ROOT = Path(__file__).resolve().parents[2]
+APP_ID = "app.thrush.proofs"
+ORACLE = ROOT / "Tests/ThrushProofs/check-demo-capture.py"
+PIXEL_CHECKED_SCENES = {"glyphs", "shell", "editor", "prompt"}
+SPINNER_SCENES = ("spinner-opening", "spinner-reconnecting")
+TERMINAL_SCENES = PIXEL_CHECKED_SCENES | {"log", "vim", "styles", "colors", "links"}
+PANE_CHECKER = ROOT / ".build/proofs/check-pane-capture"
+PHONE = "iPhone Duo"
+
+
+def run(*command, timeout=90, check=True):
+    result = subprocess.run(command, text=True, capture_output=True, timeout=timeout, cwd=ROOT)
+    if check and result.returncode:
+        raise RuntimeError(f"{Path(command[0]).name} {command[1]} failed ({result.returncode}): "
+                           + (result.stdout + result.stderr)[-2000:])
+    return result
+
+
+def sim(*args, **kwargs):
+    return run("xcrun", "simctl", *args, **kwargs)
+
+
+# A foldable iPhone has two built-in displays, and the app opens on the primary one.
+SCREEN = "--display=primary"
+
+
+def wait_for(description, condition, timeout):
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        value = condition()
+        if value:
+            return value
+        time.sleep(0.25)
+    raise TimeoutError(f"Timed out waiting for {description}")
+
+
+@contextlib.contextmanager
+def record_screen(device, movie):
+    log = movie.parent / "recording.log"
+    with log.open("w") as output:
+        process = subprocess.Popen(["xcrun", "simctl", "io", device, "recordVideo", SCREEN, "--codec=h264",
+                                    "--mask=black", "--force", str(movie)],
+                                   stdout=output, stderr=subprocess.STDOUT)
+        try:
+            def started():
+                if process.poll() is not None:
+                    raise RuntimeError("Simulator video recorder exited: " + log.read_text())
+                return "Recording started" in log.read_text()
+            wait_for("the first real video frame", started, 35)
+            yield
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+            try:
+                process.wait(30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise RuntimeError("Simulator did not finalize the screen recording.")
+            if process.returncode not in (0, -signal.SIGINT, 128 + signal.SIGINT) or not movie.exists() or not movie.stat().st_size:
+                raise RuntimeError("Simulator recording failed: " + log.read_text())
+
+
+def save_json(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+
+
+def runtime():
+    runtimes = json.loads(sim("list", "runtimes", "--json").stdout)["runtimes"]
+    available = [r for r in runtimes if r["isAvailable"] and r["name"].startswith("iOS 27.")
+                 and any(t["name"] == PHONE for t in r["supportedDeviceTypes"])]
+    if not available:
+        raise RuntimeError(f"An installed iOS 27 runtime supporting {PHONE} is required.")
+    return max(available, key=lambda r: tuple(map(int, r["version"].split("."))))
+
+
+@contextlib.contextmanager
+def disposable_phone(out):
+    device = None
+    try:
+        chosen = runtime()
+        device_type = next(t["identifier"] for t in chosen["supportedDeviceTypes"] if t["name"] == PHONE)
+        name = "Thrush capture " + uuid.uuid4().hex[:8]
+        print(f"Creating {name} on {chosen['name']}", flush=True)
+        device = str(uuid.UUID(sim("create", name, device_type, chosen["identifier"]).stdout.strip())).upper()
+        save_json(out / "device.json", dict(device=device, deviceType=device_type, runtime=chosen["identifier"],
+                                            version=chosen["version"], build=chosen.get("buildversion")))
+        print(f"Booting {device} and waiting for system services", flush=True)
+        with (out / "boot.log").open("w") as log:
+            subprocess.run(["xcrun", "simctl", "bootstatus", device, "-b"], stdout=log, stderr=subprocess.STDOUT,
+                           timeout=300, check=True)
+        print(f"Boot finished for {device}", flush=True)
+        yield device
+    except BaseException:
+        try:
+            inventory = sim("list", "devices", "--json", timeout=15, check=False)
+            (out / "simulator-inventory.log").write_text(inventory.stdout + inventory.stderr)
+        except (OSError, subprocess.SubprocessError) as error:
+            (out / "simulator-inventory.log").write_text(str(error) + "\n")
+        raise
+    finally:
+        original_failure = sys.exc_info()[0] is not None
+        if device:
+            print(f"Cleaning up {device}", flush=True)
+            try:
+                sim("shutdown", device, timeout=45, check=False)
+            except (OSError, subprocess.SubprocessError) as error:
+                print(f"Simulator shutdown: {error}", file=sys.stderr, flush=True)
+            try:
+                sim("delete", device, timeout=45)
+            except (OSError, subprocess.SubprocessError, RuntimeError) as error:
+                if not original_failure:
+                    raise
+                print(f"Simulator deletion: {error}", file=sys.stderr, flush=True)
+
+
+@contextlib.contextmanager
+def peer(out):
+    log = out / "peer.log"
+    with log.open("w") as output:
+        server = subprocess.Popen(["bun", "Tests/ThrushProofs/peers/demo-peer.ts"], stdout=output, stderr=subprocess.STDOUT,
+                                  cwd=ROOT, env=dict(os.environ, THRUSH_HOST="127.0.0.1", THRUSH_PORT="0"))
+        try:
+            def endpoint():
+                if server.poll() is not None:
+                    raise RuntimeError("Demo peer exited: " + log.read_text())
+                match = re.search(r"^Thrush demo peer listening at (http://127\.0\.0\.1:\d+)$", log.read_text(), re.M)
+                return match.group(1) if match else None
+            # Bun has taken 80 seconds to listen while a hosted runner pages the newly booted simulator in.
+            address = wait_for("the loopback peer", endpoint, 180)
+            print(f"Loopback peer ready at {address}", flush=True)
+            yield address
+        finally:
+            server.terminate()
+            try:
+                server.wait(10)
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server.wait()
+
+
+def has_matching_installation(device, app):
+    try:
+        result = sim("get_app_container", device, APP_ID, "app", timeout=30, check=False)
+        if result.returncode:
+            return False
+        installed = Path(result.stdout.strip())
+        expected = plistlib.loads((app / "Info.plist").read_bytes())
+        actual = plistlib.loads((installed / "Info.plist").read_bytes())
+        provenance = ("CFBundleIdentifier", "CFBundleExecutable", "ThrushGitCommit", "ThrushWorktreeDirty", "ThrushToolchain")
+        return (all(actual.get(key) == expected[key] for key in provenance)
+                and filecmp.cmp(installed / actual["CFBundleExecutable"],
+                                app / expected["CFBundleExecutable"], shallow=False))
+    except (OSError, KeyError, ValueError, plistlib.InvalidFileException, subprocess.TimeoutExpired):
+        return False
+
+
+def install_and_locate_app(device, app):
+    for attempt in (1, 2):
+        print(f"Installing on {device} (attempt {attempt})", flush=True)
+        try:
+            sim("install", device, str(app), timeout=180)
+            break
+        except subprocess.TimeoutExpired:
+            # The host client may time out while MobileInstallation finishes its work.
+            if has_matching_installation(device, app):
+                print("Verified the installed bundle after the client timed out", flush=True)
+                break
+            if attempt == 2:
+                raise
+    for attempt in (1, 2):
+        print(f"Locating {APP_ID} data on {device} (attempt {attempt})", flush=True)
+        try:
+            result = sim("get_app_container", device, APP_ID, "data", timeout=90)
+            data = Path(result.stdout.strip())
+            if not data.is_absolute() or not data.is_dir():
+                raise RuntimeError(f"Missing Simulator data container for {APP_ID} on {device}: {data}")
+            documents = data / "Documents"
+            documents.mkdir(exist_ok=True)
+            return documents
+        except subprocess.TimeoutExpired:
+            if attempt == 2:
+                raise
+
+
+class Phone:
+    def __init__(self, device, endpoint, app, out, scratch):
+        self.device, self.endpoint, self.app, self.out, self.scratch = device, endpoint, app, out, scratch
+        self.state_path = install_and_locate_app(device, app) / "capture-state.json"
+
+    def launch(self, scene, appearance, orientation, keyboard, *, extra_arguments=()):
+        if appearance is not None:
+            self.set_appearance(appearance)
+        args = ["--endpoint", self.endpoint, "--scene", scene, "--capture-state", *extra_arguments]
+        if orientation == "landscape":
+            args.append("--capture-landscape")
+        if keyboard == "hidden":
+            args.append("--hide-keyboard")
+        elif keyboard == "visible":
+            args.append("--keyboard")
+        result = sim("launch", "--terminate-running-process", self.device, APP_ID, *args, timeout=100)
+        match = re.search(rf"^{re.escape(APP_ID)}: (\d+)$", result.stdout, re.M)
+        if not match:
+            raise RuntimeError("Missing simulator application PID: " + result.stdout)
+        return int(match.group(1))
+
+    def warm_keyboard(self, appearance):
+        # A fresh runtime can cover its first keyboard with the system QuickPath
+        # introduction. Give that first attachment its own process before recording.
+        # It also waits for a drawn frame. A fresh simulator can take seconds to compile
+        # Thrush's shaders, and a warm-up that quits first can leave the next launch
+        # showing only the canvas until they compile.
+        pid = self.launch("prompt", appearance, "portrait", "visible")
+        observed = None
+        since = time.monotonic()
+
+        def ready():
+            nonlocal observed, since
+            state = self.state()
+            if (state.get("pid") != pid or not state.get("gpuCompleted") or state.get("keyboardHeight", 0) <= 90
+                    or state.get("accessoryHeight", 0) < 44):
+                observed = None
+                return False
+            geometry = (state["keyboardHeight"], state["accessoryHeight"], state["gridFrame"])
+            if observed != geometry:
+                observed, since = geometry, time.monotonic()
+            return state if time.monotonic() - since >= 0.7 else False
+
+        print("Waiting for the first native keyboard attachment", flush=True)
+        try:
+            state = wait_for("the warm-up keyboard, accessory and first frame", ready, 100)
+            save_json(self.out / "keyboard-warmup.json", state)
+        finally:
+            try:
+                sim("terminate", self.device, APP_ID, timeout=45, check=False)
+            except subprocess.TimeoutExpired as error:
+                # A loaded runner's simctl can hang here after the app has done its work,
+                # and the launches that follow replace a warm-up app that is still running.
+                print(f"Simulator termination: {error}", file=sys.stderr, flush=True)
+
+    def advance_peer(self, action):
+        with urlopen(Request(self.endpoint + "/" + action, method="POST"), timeout=10) as response:
+            if response.status != 204:
+                raise RuntimeError(f"The demo peer rejected {action}.")
+
+    def set_appearance(self, style):
+        sim("ui", self.device, "appearance", style)
+        style_now = sim("ui", self.device, "appearance").stdout.strip()
+        if not re.search(rf"\b{style}\s*$", style_now, re.IGNORECASE):
+            raise RuntimeError(f"Requested system appearance {style}, simulator reported {style_now!r}")
+
+    def pin_status_bar(self):
+        # Pin the status bar so captures from separate runs and builds can match pixel for pixel. A full battery that
+        # isn't charging draws quietly, as in Apple's own screenshots, where a charged one adds a green ring and bolt.
+        for attempt in (1, 2):
+            try:
+                sim("status_bar", self.device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode",
+                    "active", "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--batteryState",
+                    "discharging", "--batteryLevel", "100")
+                return
+            except subprocess.TimeoutExpired:
+                # A starved runner can stall the client while SpringBoard applies the override.
+                print(f"Status bar override timed out (attempt {attempt})", file=sys.stderr, flush=True)
+                if attempt == 2:
+                    raise
+
+    def state(self):
+        try:
+            return json.loads(self.state_path.read_text())
+        except FileNotFoundError:
+            return {}
+
+    def screenshot(self, path, timeout=90, check=True):
+        sim("io", self.device, "screenshot", SCREEN, "--mask=black", str(path), timeout=timeout, check=check)
+
+    def oriented_image(self, raw, orientation):
+        # simctl may return a portrait-mounted framebuffer even after UIKit rotated the
+        # window scene left. Preserve that raw capture alongside its upright presentation.
+        with raw.open("rb") as f:
+            header = f.read(24)
+        if header[:8] != b"\x89PNG\r\n\x1a\n":
+            raise ValueError("simctl did not return a PNG framebuffer.")
+        width, height = struct.unpack(">II", header[16:24])
+        if orientation == "landscape" and width < height:
+            upright = self.scratch / "landscape.png"
+            run("/usr/bin/sips", "-r", "90", str(raw), "--out", str(upright))
+            return upright
+        return raw
+
+    def frame(self, scene, appearance, orientation, keyboard, pid, checked, previous=None, layout_only=False, spinner=None, suffix=""):
+        name = f"{scene}-{appearance}-{orientation}{suffix}"
+        path = self.out / (name + ".png")
+        last_error = "The scene has not reported a GPU-completed draw."
+        candidate = self.scratch / "frame.png"
+        print(f"Waiting for {name}", flush=True)
+        observed = None
+        since = time.monotonic()
+
+        def matches(state):
+            ready = (state.get("pid") == pid and state.get("scene") == scene and
+                     state.get("appearance") == appearance and state.get("orientation") == orientation)
+            if not ready or (scene in TERMINAL_SCENES and (not state.get("gpuCompleted") or not state["generation"])):
+                return False
+            if spinner is not None:
+                if bool(state.get("cursorSpinner")) != spinner or not state.get("cursorCellFrame"):
+                    return False
+                if (not spinner or scene != "spinner-opening") and not state.get("gpuCompleted"):
+                    return False
+            if keyboard == "visible":
+                if scene == "spinner-reconnecting" and not (state.get("keyboardLanguage") or "").lower().startswith("en"):
+                    return False
+                return state["keyboardHeight"] > 90 and state["accessoryHeight"] >= 44
+            if keyboard == "hidden":
+                return state["keyboardHeight"] < 90
+            return True
+
+        def capture():
+            nonlocal last_error, observed, since
+            state = self.state()
+            if not matches(state):
+                observed = None
+                last_error = f"Requested {scene}, {appearance}, {orientation}, keyboard {keyboard}, PID {pid}; received {state}"
+                return False
+            if state != observed:
+                observed, since = state, time.monotonic()
+                save_json(self.out / (name + "-observed.json"), state)
+                print(f"{name}: {state['columns']} × {state['rows']} cells, "
+                      f"{state['keyboardHeight']:g} pt keyboard guide, {state['accessoryHeight']:g} pt accessory",
+                      flush=True)
+            if spinner is not None and time.monotonic() - since < 0.4:
+                return False
+            if layout_only:
+                if time.monotonic() - since < 0.7:
+                    return False
+                save_json(self.out / (name + ".json"), state)
+                return state
+            for attempt in (1, 2):
+                candidate.unlink(missing_ok=True)
+                try:
+                    self.screenshot(candidate, timeout=75)
+                    break
+                except (RuntimeError, subprocess.TimeoutExpired) as error:
+                    print(f"{name} screenshot attempt {attempt}: {error}", file=sys.stderr, flush=True)
+                    if attempt == 2:
+                        raise
+            if self.state() != state:
+                last_error = "The displayed generation or layout changed during capture."
+                return False
+            upright = self.oriented_image(candidate, orientation)
+            if keyboard == "visible":
+                metadata = self.scratch / "keyboard-frame.json"
+                save_json(metadata, state)
+                keys = run(sys.executable, str(ORACLE), str(upright), "keyboard", appearance,
+                           "--metadata", str(metadata), timeout=50, check=False)
+                if keys.returncode:
+                    last_error = (keys.stdout + keys.stderr).strip()
+                    return False
+            if checked:
+                command = [sys.executable, str(ORACLE), str(upright), scene, appearance]
+                if scene == "editor":
+                    metadata = self.scratch / "submitted-frame.json"
+                    save_json(metadata, state)
+                    command += ["--metadata", str(metadata)]
+                if previous:
+                    command += ["--same-grid-as", str(previous)]
+                result = run(*command, check=False, timeout=50)
+                if result.returncode:
+                    last_error = (result.stdout + result.stderr).strip()
+                    return False
+                print(result.stdout.strip(), flush=True)
+            if upright != candidate:
+                candidate.replace(self.out / (name + "-framebuffer.png"))
+            upright.replace(path)
+            save_json(self.out / (name + ".json"), dict(state, framebufferRotationDegrees=90 if upright != candidate else 0))
+            return state
+
+        candidate.unlink(missing_ok=True)
+        try:
+            return wait_for(name, capture, 100)
+        except TimeoutError as error:
+            if candidate.exists():
+                candidate.replace(self.out / (name + "-failed.png"))
+            elif not layout_only and observed is None:
+                try:
+                    self.screenshot(self.out / (name + "-failed.png"), timeout=15, check=False)
+                except subprocess.TimeoutExpired:
+                    pass
+            raise RuntimeError(f"{name}: {last_error}") from error
+
+    def record_switch(self, name="appearance-switch"):
+        return record_screen(self.device, self.out / (name + ".mov"))
+
+    def suite(self):
+        failures = {}
+
+        def attempt(label, action, *arguments):
+            try:
+                action(*arguments)
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+                failures[label] = str(error)
+                print(f"{label}: {error}", file=sys.stderr, flush=True)
+                save_json(self.out / "failures.json", failures)
+
+        attempt("render-benchmark", self.benchmark)
+        for scene, appearance, orientation in [
+            ("prompt", "dark", "portrait"), ("shell", "dark", "portrait"), ("editor", "dark", "portrait"),
+            ("editor", "dark", "landscape"), ("prompt", "light", "portrait"), ("shell", "light", "portrait"),
+            ("editor", "light", "portrait"),
+            ("editor", "light", "landscape"),
+        ]:
+            attempt(f"{scene}-{appearance}-{orientation}", self.capture_scene, scene, appearance, orientation)
+        attempt("appearance-switch", self.capture_switch)
+        if failures:
+            raise RuntimeError("iPhone checks failed: " + ", ".join(failures))
+
+    def capture_named(self, scene, options):
+        keyboard = options.keyboard
+        pid = self.launch(scene, options.appearance, options.orientation, keyboard)
+        self.frame(scene, options.appearance, options.orientation, keyboard, pid, scene in PIXEL_CHECKED_SCENES,
+                   layout_only=options.layout_only)
+
+    def capture_spinners(self, options, toolbar=False):
+        proof = runpy.run_path(str(ROOT / "Tests/ThrushProofs/spinner.py"))
+        checks = {}
+        scenes = SPINNER_SCENES if options.scene not in SPINNER_SCENES else [options.scene]
+        for scene in scenes:
+            keyboard = options.keyboard
+            if keyboard == "any":
+                keyboard = "hidden" if toolbar or scene == "spinner-opening" else "visible"
+            if keyboard == "visible":
+                self.warm_keyboard(options.appearance)
+            pid = self.launch(scene, options.appearance, options.orientation, keyboard,
+                              extra_arguments=("--toolbar-proof",) if toolbar else ())
+            first_waits = scene == "spinner-opening"
+            def capture(waiting):
+                suffix = "-waiting" if waiting else "-live"
+                native = self.frame(scene, options.appearance, options.orientation, keyboard, pid, False,
+                                    spinner=waiting, suffix=suffix)
+                image = self.out / f"{scene}-{options.appearance}-{options.orientation}{suffix}.png"
+                return image, native
+            first = capture(first_waits)
+            self.advance_peer("release-opening" if first_waits else "interrupt-reconnecting")
+            second = capture(not first_waits)
+            (wait_image, waiting), (live_image, live) = (first, second) if first_waits else (second, first)
+            row, column = (0, 0) if first_waits else (8, len("~/thrush % "))
+            label = "Connecting" if first_waits else "Reconnecting"
+            checks[scene] = proof["measure"](wait_image, waiting, options.appearance, row, column, label)
+            checks[scene].update(proof["compare"](wait_image, waiting, live_image, live, options.appearance))
+            if toolbar:
+                runpy.run_path(str(ROOT / "Tests/ThrushProofs/toolbar.py"))["check"](
+                    wait_image, waiting, options.appearance, scene, PANE_CHECKER)
+            save_json(self.out / "cursor-spinners.json", checks)
+            print(f"{scene}: {checks[scene]}", flush=True)
+
+    def capture_scene(self, scene, appearance, orientation):
+        pid = self.launch(scene, appearance, orientation, "visible")
+        self.frame(scene, appearance, orientation, "visible", pid, True)
+
+    def capture_switch(self):
+        pid = self.launch("glyphs", "dark", "portrait", "visible")
+        dark = self.frame("glyphs", "dark", "portrait", "visible", pid, True)
+        with self.record_switch():
+            self.set_appearance("light")
+            light = self.frame("glyphs", "light", "portrait", "visible", pid, True,
+                               self.out / "glyphs-dark-portrait.png")
+        for key in ("pid", "generation", "columns", "rows", "selection"):
+            if dark[key] != light[key]:
+                raise RuntimeError(f"System appearance changed {key}: {dark[key]} → {light[key]}")
+        if light["rowsPrepared"] or light["glyphUploads"]:
+            raise RuntimeError("Appearance change rebuilt rows or rasterized new glyphs.")
+
+    def benchmark(self):
+        report = self.out / "render.json"
+        result = run("Tests/ThrushProofs/benchmark-simulator.sh", self.device, str(self.app), str(report), "--installed",
+                     str(self.state_path.parent), timeout=270, check=False)
+        (self.out / "benchmark.log").write_text(result.stdout + result.stderr)
+        if result.returncode:
+            raise RuntimeError("Simulator benchmark failed: " + (result.stdout + result.stderr)[-1800:])
+        environment = json.loads(report.read_text())["environment"]
+        source = json.loads((self.out / "source.json").read_text())
+        if environment["commit"] != source["commit"]:
+            raise RuntimeError("Benchmark and captured app report different source revisions.")
+        print(result.stdout.strip(), flush=True)
+
+
+def prepare_workflow_phone(device, app, output):
+    # The first system keyboard can display a QuickPath introduction instead of its keys.
+    # Let it attach to a throwaway prompt before the recorded terminal opens.
+    warmup = output / "keyboard-warmup"
+    warmup.mkdir()
+    with peer(warmup) as endpoint, tempfile.TemporaryDirectory(dir=warmup) as scratch:
+        phone = Phone(device, endpoint, app, warmup, Path(scratch))
+        phone.warm_keyboard(None)
+        return phone.state_path.parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True, help="An empty directory for captures, metadata, logs and video.")
+    parser.add_argument("--scene", default="", help="A demo scene, 'cursor-spinners' for opening and reconnecting, 'text-blink' for blinking and concealed text, 'program-colors' for colors a program sets, 'under-bars' for the pane beneath a navigation bar, or 'render-benchmark'. Leave empty for the full rendering proof.")
+    parser.add_argument("--layout-only", action="store_true", help="Save a stable named-scene layout without screenshot IO.")
+    parser.add_argument("--appearance", choices=("dark", "light"), default="dark")
+    parser.add_argument("--orientation", choices=("portrait", "landscape"), default="portrait")
+    parser.add_argument("--keyboard", choices=("visible", "hidden", "any"), default="any")
+    args = parser.parse_args()
+    if args.scene and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,64}", args.scene):
+        parser.error("A scene name must contain only letters, digits, underscores or hyphens.")
+    if args.layout_only and not args.scene:
+        parser.error("--layout-only requires a named scene and provides native metadata only.")
+    if args.scene in {"render-benchmark", "cursor-spinners", *SPINNER_SCENES, "reconnect-typing", "toolbar-proof", "text-blink", "program-colors", "under-bars"} and args.layout_only:
+        parser.error("The named workload produces its own evidence.")
+    os.environ.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
+    out = args.output.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    if any(out.iterdir()):
+        parser.error("The output directory must be empty.")
+    app = ROOT / ".build/proofs/simulator/Thrush.app"
+    build = run("scripts/build-app.sh", "proofs", "simulator", timeout=400, check=False)
+    (out / "build.log").write_text(build.stdout + build.stderr)
+    if build.returncode:
+        raise RuntimeError("Simulator packaging failed: " + (build.stdout + build.stderr)[-1600:])
+    with (app / "Info.plist").open("rb") as f:
+        info = plistlib.load(f)
+    save_json(out / "source.json", dict(commit=info["ThrushGitCommit"], dirty=info["ThrushWorktreeDirty"],
+                                        toolchain=info["ThrushToolchain"]))
+    if args.scene in {"toolbar-proof", "program-colors"}:
+        # A booted simulator has starved a hosted runner past two minutes for this compile, so it comes first.
+        PANE_CHECKER.parent.mkdir(parents=True, exist_ok=True)
+        run("xcrun", "swiftc", "Tests/ThrushProofs/check-pane-capture.swift", "-o", PANE_CHECKER, timeout=300)
+    spin = args.scene in SPINNER_SCENES or args.scene in {"cursor-spinners", "toolbar-proof"}
+    with peer(out) as endpoint, disposable_phone(out) as device, tempfile.TemporaryDirectory(dir=out) as work:
+        phone = None
+        try:
+            phone = Phone(device, endpoint, app, out, Path(work))
+            phone.pin_status_bar()
+            opens_keyboard = not args.scene or args.keyboard == "visible" or args.scene == "reconnect-typing"
+            if not args.layout_only and not spin and args.scene not in {"render-benchmark", "program-colors", "under-bars"} and opens_keyboard:
+                phone.warm_keyboard(args.appearance if args.scene else "dark")
+            if args.scene == "render-benchmark":
+                phone.benchmark()
+            elif args.scene == "text-blink":
+                runpy.run_path(str(ROOT / "Tests/ThrushProofs/text-blink.py"))["capture"](phone, sim, wait_for, save_json)
+            elif args.scene == "program-colors":
+                runpy.run_path(str(ROOT / "Tests/ThrushProofs/program-colors.py"))["capture"](phone, args, PANE_CHECKER)
+            elif args.scene == "under-bars":
+                runpy.run_path(str(ROOT / "Tests/ThrushProofs/under-bars.py"))["capture"](phone, args, sim)
+            elif spin:
+                phone.capture_spinners(args, toolbar=args.scene == "toolbar-proof")
+            elif args.scene == "reconnect-typing":
+                runpy.run_path(str(ROOT / "Tests/ThrushProofs/reconnect.py"))["record"](phone, args.appearance, wait_for, save_json)
+            elif args.scene:
+                phone.capture_named(args.scene, args)
+            else:
+                phone.suite()
+        except Exception:
+            if phone:
+                state = phone.state()
+                if state:
+                    save_json(out / "last-native-state.json", state)
+            try:
+                logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact",
+                           "--predicate", 'process == "ThrushProofs"', timeout=20, check=False)
+                (out / "app.log").write_text((logs.stdout + logs.stderr)[-100_000:])
+            except subprocess.TimeoutExpired:
+                pass
+            raise
+
+
+if __name__ == "__main__":
+    def interrupted(signum, _frame):
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, interrupted)
+    main()

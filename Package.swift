@@ -12,8 +12,9 @@ let package = Package(
         .target(name: "Thrush", dependencies: ["ThrushCore"]),
         // The proofs mount the sample app's window, which they compile from examples/swiftui through Sample.
         .executableTarget(name: "ThrushProofs", dependencies: ["Thrush", "ThrushFixtures"],
-                          exclude: ["Sample/SwiftUIExample.swift"]),
-        .testTarget(name: "ThrushProofsTests", dependencies: ["ThrushProofs", "Thrush", "ThrushCore"]),
+                          path: "Tests/ThrushProofs/App", exclude: ["Sample/SwiftUIExample.swift"]),
+        .testTarget(name: "ThrushProofsTests", dependencies: ["ThrushProofs", "Thrush", "ThrushCore"],
+                    path: "Tests/ThrushProofs/AppTests"),
         .testTarget(name: "ThrushTests", dependencies: ["Thrush", "ThrushCore", "ThrushFixtures"]),
         .executableTarget(name: "ThrushServer", dependencies: ["ThrushCore"]),
         .target(

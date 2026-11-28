@@ -85,7 +85,7 @@ jobs:
           if [[ "$LIVE_WORKFLOW" != all ]]; then flags+=(--workflow "$LIVE_WORKFLOW"); fi
           if [[ "$TRACE_LIFECYCLE_FRAMES" == true ]]; then flags+=(--trace-lifecycle-frames); fi
           if [[ -x "$RUNNER_TEMP/codex-cli" ]]; then flags+=(--codex-bin "$RUNNER_TEMP/codex-cli"); fi
-          python3 -B scripts/live-workflow/launch.py \
+          python3 -B Tests/ThrushProofs/launch.py \
             --platform "$LIVE_PLATFORM" --appearance "$LIVE_APPEARANCE" \
             --bash "$(brew --prefix)/bin/bash" --output "$RUNNER_TEMP/thrush-live" "${flags[@]}"
       - name: Upload native checkpoints and server observations

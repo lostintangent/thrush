@@ -13,7 +13,7 @@ The simulator uses the same Release workload. Supply the UDID of a booted iPhone
 
 ```sh
 scripts/build-app.sh proofs simulator
-scripts/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json
+Tests/ThrushProofs/benchmark-simulator.sh "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/render-simulator.json
 ```
 
 The first update draws every row with indexed cyan, default text, single-column digits, a CJK ideograph and a color emoji. The six-cell prefix is `A翼🐦Z`. Ten rounds follow. Each moves the cursor, replaces text on one row, scrolls a line into the bottom of the viewport and repaints the full grid. Every warm round uses the same glyphs and styles. The script verifies the input stream's SHA-256 independently from the emulator and checks the dirty rows, glyph uploads and monotonic screen generations.
@@ -28,7 +28,7 @@ After the settled prompt, four blinking digits replace part of the first row for
 
 The JSON includes the commit and worktree state from app packaging, the device model, OS, toolchain, load average, core count, thermal and power state and grid dimensions. A simulator run measures a shared Mac's graphics stack. Use the Mac and physical iPhone for device timing baselines. Use five quiet passes to estimate variance before setting timing gates.
 
-For a capture of the running app, use `scripts/capture-demo.sh mac "$pid" frame.png` or `scripts/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
+For a capture of the running app, use `Tests/ThrushProofs/capture-demo.sh mac "$pid" frame.png` or `Tests/ThrushProofs/capture-demo.sh simulator "$udid" frame.png`. These commands capture the actual window or device framebuffer with its native chrome.
 
 ## Mac measurement
 
@@ -82,10 +82,10 @@ Build the Release app, then run the same input sequence through its native text 
 
 ```sh
 scripts/build-app.sh proofs mac
-bun scripts/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json
+bun Tests/ThrushProofs/peers/interaction-peer.ts .build/proofs/mac/Thrush.app .build/benchmarks/interactions.json
 
 scripts/build-app.sh proofs simulator
-bun scripts/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
+bun Tests/ThrushProofs/peers/interaction-peer.ts --simulator "$udid" .build/proofs/simulator/Thrush.app .build/benchmarks/interactions-iphone.json
 ```
 
 The peer expects 22 binary input frames. It checks one committed Japanese glyph after two marked-text updates, one bracketed paste and 20 printable keys. Each echo has a distinct terminal generation. The app also selects and copies a wide glyph across a soft wrap, reads a history row, and activates Latest.

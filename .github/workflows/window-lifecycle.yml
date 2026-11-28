@@ -8,11 +8,12 @@ on:
       - Package.swift
       - Sources/Thrush/**
       - Sources/ThrushCore/**
-      - Sources/ThrushProofs/**
       - Sources/ThrushServer/**
       - examples/swiftui/**
       - scripts/build-app.sh
-      - scripts/pty/**
+      - Tests/ThrushProofs/App/**
+      - Tests/ThrushProofs/check-window.py
+      - Tests/ThrushProofs/cover-window.swift
       - Tests/ThrushWebSocketCheck/pty/**
       - .github/workflows/window-lifecycle.yml
   workflow_dispatch:
@@ -71,19 +72,19 @@ jobs:
           bun-version: 1.4.5
       - name: Cover, minimize and hide the packaged terminal beyond the shell orphan deadline
         if: ${{ !inputs.voiceover && !inputs.spinner_matrix && !inputs.text_blink && !inputs.program_colors && !inputs.appearance_reports && !inputs.links }}
-        run: python3 scripts/pty/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
+        run: python3 Tests/ThrushProofs/check-window.py --sample-server --output "$RUNNER_TEMP/window-lifecycle"
       - name: Read a named terminal row with macOS VoiceOver
         if: inputs.voiceover
-        run: python3 scripts/interaction-capture/mac-voiceover.py --run-on-this-mac --output "$RUNNER_TEMP/window-lifecycle"
+        run: python3 Tests/ThrushProofs/mac-voiceover.py --run-on-this-mac --output "$RUNNER_TEMP/window-lifecycle"
       - name: Check active and inactive Mac cursor spinners against the live grid
         if: inputs.spinner_matrix
-        run: python3 scripts/capture-mac-spinners.py --prepare-hosted-motion --output "$RUNNER_TEMP/mac-spinners"
+        run: python3 Tests/ThrushProofs/capture-mac-spinners.py --prepare-hosted-motion --output "$RUNNER_TEMP/mac-spinners"
       - name: Measure and capture blinking text in both appearances
         if: ${{ !cancelled() && inputs.text_blink }}
-        run: python3 scripts/capture-mac-text-blink.py --output "$RUNNER_TEMP/mac-text-blink"
+        run: python3 Tests/ThrushProofs/capture-mac-text-blink.py --output "$RUNNER_TEMP/mac-text-blink"
       - name: Capture program colors under the title bar and a window toolbar
         if: ${{ !cancelled() && inputs.program_colors }}
-        run: python3 scripts/capture-mac-program-colors.py --output "$RUNNER_TEMP/mac-program-colors"
+        run: python3 Tests/ThrushProofs/capture-mac-program-colors.py --output "$RUNNER_TEMP/mac-program-colors"
       - name: Install Neovim to follow appearance reports
         if: inputs.appearance_reports
         run: brew install neovim
@@ -92,10 +93,10 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
       - name: Report the Mac window's dark and light flips to programs on a real shell
         if: inputs.appearance_reports
-        run: python3 scripts/capture-mac-appearance-reports.py --output "$RUNNER_TEMP/mac-appearance-reports"
+        run: python3 Tests/ThrushProofs/capture-mac-appearance-reports.py --output "$RUNNER_TEMP/mac-appearance-reports"
       - name: Open links with ⌘-clicks, tooltips and menus in the packaged Mac window
         if: ${{ !cancelled() && inputs.links }}
-        run: python3 scripts/interaction-capture/mac-links.py --output "$RUNNER_TEMP/mac-links"
+        run: python3 Tests/ThrushProofs/mac-links.py --output "$RUNNER_TEMP/mac-links"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && (inputs.voiceover || !(inputs.spinner_matrix || inputs.text_blink || inputs.program_colors || inputs.appearance_reports || inputs.links))
         with:
