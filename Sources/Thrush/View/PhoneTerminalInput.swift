@@ -94,9 +94,9 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         self.paper = paper
         if fontChanged { font = .monospacedSystemFont(ofSize: pointSize, weight: .regular) }
         if inkChanged {
-            textColor = UIColor(terminalColor: ink)
+            textColor = UIColor(terminal: ink)
             markedTextStyle = [
-                .foregroundColor: UIColor(terminalColor: ink),
+                .foregroundColor: UIColor(terminal: ink),
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
             ]
         }
@@ -113,8 +113,8 @@ final class PhoneTerminalInput: UITextView, UITextViewDelegate, UITextPasteDeleg
         let rect = CGRect(x: x, y: cursorRect.minY, width: width,
                           height: max(cursorRect.height, ceil(font.lineHeight)))
         if frame != rect { frame = rect }
-        backgroundColor = marked ? UIColor(terminalColor: paper) : .clear
-        tintColor = marked ? UIColor(terminalColor: ink) : .clear
+        backgroundColor = marked ? UIColor(terminal: paper) : .clear
+        tintColor = marked ? UIColor(terminal: ink) : .clear
     }
 
     /// UITextInput implementations can call one another. Observe the complete edit after returning
@@ -354,13 +354,6 @@ extension TerminalMetalView {
     /// The standard edit command uses the system pasteboard. A packaged benchmark can use its own.
     package func paste(from pasteboard: UIPasteboard) {
         if let text = pasteboard.string { phoneInput.pasteText(text) }
-    }
-}
-
-extension UIColor {
-    convenience init(terminalColor rgb: Terminal.RGB) {
-        self.init(red: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255,
-                  blue: CGFloat(rgb.blue) / 255, alpha: 1)
     }
 }
 #endif

@@ -73,18 +73,14 @@ private final class LatestButton: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let theme = fallback else { super.draw(dirtyRect); return }
-        func color(_ value: Terminal.RGB) -> NSColor {
-            NSColor(srgbRed: CGFloat(value.red) / 255, green: CGFloat(value.green) / 255,
-                    blue: CGFloat(value.blue) / 255, alpha: 1)
-        }
         let capsule = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
                                    xRadius: bounds.height / 2, yRadius: bounds.height / 2)
-        color(isHighlighted ? theme.selection : theme.opaqueBacking).setFill()
+        NSColor(terminal: isHighlighted ? theme.selection : theme.opaqueBacking).setFill()
         capsule.fill()
-        color(theme.palette.ansi[8]).setStroke()
+        NSColor(terminal: theme.palette.ansi[8]).setStroke()
         capsule.lineWidth = 1
         capsule.stroke()
-        let ink = color(isHighlighted ? theme.selectionInk : theme.palette.foreground)
+        let ink = NSColor(terminal: isHighlighted ? theme.selectionInk : theme.palette.foreground)
         let label = NSAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .semibold),
                                                                      .foregroundColor: ink])
         let labelSize = label.size()

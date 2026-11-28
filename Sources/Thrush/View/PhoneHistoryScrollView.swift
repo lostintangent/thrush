@@ -217,9 +217,9 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
         config.imagePadding = 5
         config.preferredSymbolConfigurationForImage = .init(textStyle: .footnote, scale: .small)
         if reduced {
-            config.baseBackgroundColor = UIColor(terminalColor: theme.opaqueBacking)
-            config.baseForegroundColor = UIColor(terminalColor: theme.palette.foreground)
-            config.background.strokeColor = UIColor(terminalColor: theme.palette[index: 8])
+            config.baseBackgroundColor = UIColor(terminal: theme.opaqueBacking)
+            config.baseForegroundColor = UIColor(terminal: theme.palette.foreground)
+            config.background.strokeColor = UIColor(terminal: theme.palette[index: 8])
             config.background.strokeWidth = 1 / max(1, traitCollection.displayScale)
         } else {
             config.baseForegroundColor = .label
@@ -661,7 +661,7 @@ final class PhoneHistoryScrollView: UIView, UIScrollViewDelegate, UIGestureRecog
     private func linkPreview(_ number: UInt32) -> UITargetedPreview? {
         guard let found = linkCells(number) else { return nil }
         let (rects, bounds) = found
-        let background = UIColor(terminalColor: terminal.color(.background))
+        let background = UIColor(terminal: terminal.color(.background))
         let preview = UIView(frame: CGRect(origin: .zero, size: bounds.size))
         preview.backgroundColor = background
         var lines: [NSValue] = []

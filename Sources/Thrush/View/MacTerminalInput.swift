@@ -880,13 +880,6 @@ private final class MacHistoryScrollView: NSScrollView {
     }
 }
 
-private extension NSColor {
-    convenience init(terminal color: Terminal.RGB) {
-        self.init(srgbRed: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
-                  blue: CGFloat(color.blue) / 255, alpha: 1)
-    }
-}
-
 private func bounded(_ range: NSRange, to length: Int) -> NSRange? {
     guard range.location >= 0, range.location <= length, range.length >= 0 else { return nil }
     return NSRange(location: range.location, length: min(length - range.location, range.length))

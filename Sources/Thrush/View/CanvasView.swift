@@ -492,18 +492,6 @@ typealias PlatformView = UIView
 
 }
 
-private extension Terminal.RGB {
-    var cgColor: CGColor {
-        CGColor(srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1)
-    }
-}
-
-#if os(macOS)
-private extension NSAppearance {
-    var isDark: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
-}
-#endif
-
 #if os(iOS)
 extension TerminalMetalView {
     package var canvasGeometryInWindow: (frame: CGRect, safeArea: CGRect, firstCell: CGRect)? {

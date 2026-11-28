@@ -271,7 +271,7 @@ final class KeyRow: UIView {
     func apply(_ theme: TerminalTheme, force: Bool = false) {
         guard force || self.theme != theme else { return }
         self.theme = theme
-        let ink = UIColor(terminalColor: theme.palette.foreground)
+        let ink = UIColor(terminal: theme.palette.foreground)
         tintColor = ink
         // Dividers are the key ink at 30%, so they keep their contrast on whatever the glass shows.
         for divider in dividers { divider.backgroundColor = ink.withAlphaComponent(0.3) }
@@ -298,7 +298,7 @@ final class KeyRow: UIView {
             effect.isInteractive = true
             glass.effect = effect
         }
-        glass.backgroundColor = opaque ? UIColor(terminalColor: theme.opaqueBacking) : nil
+        glass.backgroundColor = opaque ? UIColor(terminal: theme.opaqueBacking) : nil
     }
 
     /// A key's title, filled with the selection color while it's armed or chosen.
@@ -314,8 +314,8 @@ final class KeyRow: UIView {
         config.cornerStyle = .capsule
         let inset: CGFloat = compact ? 4 : 8
         config.background.backgroundInsets = .init(top: inset, leading: 2, bottom: inset, trailing: 2)
-        config.baseForegroundColor = UIColor(terminalColor: filled ? theme.selectionInk : theme.palette.foreground)
-        config.background.backgroundColor = filled ? UIColor(terminalColor: theme.selection) : .clear
+        config.baseForegroundColor = UIColor(terminal: filled ? theme.selectionInk : theme.palette.foreground)
+        config.background.backgroundColor = filled ? UIColor(terminal: theme.selection) : .clear
         return config
     }
 

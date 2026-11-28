@@ -399,7 +399,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
 
     private func resolveTheme() {
         #if os(macOS)
-        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let isDark = effectiveAppearance.isDark
         #else
         let isDark = traitCollection.userInterfaceStyle == .dark
         #endif
@@ -424,8 +424,9 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
     }
 
     private func applyClearColor() {
-        let c = color(.background).vector
-        (layer as? CAMetalLayer)?.backgroundColor = CGColor(srgbRed: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
+        let background = color(.background)
+        (layer as? CAMetalLayer)?.backgroundColor = background.cgColor
+        let c = background.vector
         clearColor = MTLClearColor(red: Double(c.x), green: Double(c.y), blue: Double(c.z), alpha: 1)
     }
 
@@ -673,13 +674,10 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
             return
         }
         let rect = CGRect(x: cell.midX - side / 2, y: cell.midY - side / 2, width: side, height: side)
-        let color = spinnerInk
-        let ink = CGColor(srgbRed: CGFloat(color.red) / 255, green: CGFloat(color.green) / 255,
-                          blue: CGFloat(color.blue) / 255, alpha: 1)
         #if os(macOS)
-        spinner.ink = ink
+        spinner.ink = spinnerInk.cgColor
         #else
-        spinner.color = UIColor(cgColor: ink)
+        spinner.color = UIColor(terminal: spinnerInk)
         #endif
         spinner.place(in: rect)
         spinner.isHidden = false

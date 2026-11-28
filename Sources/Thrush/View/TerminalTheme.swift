@@ -1,5 +1,10 @@
 import Foundation
 import ThrushCore
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 /// The terminal's palette and the colors used to draw its cursor and selection.
 /// To customize the built-in themes, edit a copy of `dark` or `light` and pass it to the terminal view.
@@ -52,7 +57,29 @@ extension Terminal.RGB {
     var vector: SIMD4<Float> {
         SIMD4(Float(red) / 255, Float(green) / 255, Float(blue) / 255, 1)
     }
+
+    var cgColor: CGColor {
+        CGColor(srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1)
+    }
 }
+
+#if os(macOS)
+extension NSColor {
+    convenience init(terminal color: Terminal.RGB) {
+        self.init(cgColor: color.cgColor)!
+    }
+}
+
+extension NSAppearance {
+    var isDark: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+}
+#else
+extension UIColor {
+    convenience init(terminal color: Terminal.RGB) {
+        self.init(cgColor: color.cgColor)
+    }
+}
+#endif
 
 /// The first 256 entries hold indexed terminal colors. A direct RGB token bypasses this table.
 enum Paint {
