@@ -10,6 +10,17 @@
       }
     ]
   },
+  "codex-session program": {
+    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Synchronized Codex repaint pending",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
+        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
+      }
+    ]
+  },
   "copilot program": {
     "reason": "Copilot asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Copilot could push flags and tell Shift-Enter from Enter.",
     "differences": [
@@ -554,28 +565,6 @@
       }
     ]
   },
-  "m4/codex-session program": {
-    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
-    "differences": [
-      {
-        "checkpoint": "Synchronized Codex repaint pending",
-        "path": "replies",
-        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
-        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
-      }
-    ]
-  },
-  "m4/phone/codex-session program": {
-    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
-    "differences": [
-      {
-        "checkpoint": "Synchronized Codex repaint pending",
-        "path": "replies",
-        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
-        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
-      }
-    ]
-  },
   "neovim program": {
     "reason": "Neovim asks which modes, underline styles, keyboard flags and capabilities the terminal knows, as in DECRQM ?2031, DECRQSS m · after a rendition, kitty keyboard query and XTGETTCAP Ms. The reference doesn't know mode 2031 or the kitty keyboard protocol, always reports the default rendition and answers no capability names. Thrush answers 2, since it sends dark and light appearance reports, reports the curly underline Neovim set, answers keyboard flags 0 and answers Ms, so Neovim could turn on appearance reports, push keyboard flags and copy its yanks to the pasteboard.",
     "differences": [
@@ -640,6 +629,17 @@
         "path": "links[1]",
         "reference": "\";\"",
         "thrush": "\";https://a.example\""
+      }
+    ]
+  },
+  "phone/codex-session program": {
+    "reason": "Codex asks for the keyboard flags before it pushes any, as in kitty keyboard query. The reference doesn't know the kitty keyboard protocol, so it doesn't answer. Thrush answers 0, so Codex could push flags and tell Shift-Enter from Enter.",
+    "differences": [
+      {
+        "checkpoint": "Synchronized Codex repaint pending",
+        "path": "replies",
+        "reference": "ESC[O ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\",
+        "thrush": "ESC[O ESC[?5u ESC[?1;2c ESC[2;1R ESC]10;rgb:ffff/ffff/ffff ESC\\ ESC]11;rgb:0000/0000/0000 ESC\\"
       }
     ]
   },

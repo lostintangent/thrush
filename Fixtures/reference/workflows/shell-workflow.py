@@ -16,7 +16,7 @@ from capture import PROMPT, Session
 
 
 def capture(bash):
-    build = ROOT.parent / "m2/build-log.py"
+    build = ROOT.parent / "shell-and-vim/build-log.py"
     with tempfile.TemporaryDirectory(prefix="thrush-shell-workflow-") as work:
         directory = Path(work)
         shutil.copyfile(build, directory / "build")

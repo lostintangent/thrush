@@ -1,6 +1,6 @@
 # Recorded shell, Vim and Codex workflows
 
-The three recordings drive the standalone peer through the same WebSocket protocol as the native app. Each PTY read keeps its original byte boundary. Checkpoints carry the pinned xterm viewport, attributes, cursor, modes and scrollback. Replaying the committed files is offline. [Reference setup](../m2/README.md)
+The three recordings drive the standalone peer through the same WebSocket protocol as the native app. Each PTY read keeps its original byte boundary. Checkpoints carry the pinned xterm viewport, attributes, cursor, modes and scrollback. Replaying the committed files is offline. [Reference setup](../shell-and-vim/README.md)
 
 | Recording | Starting grid | Interactions and checkpoints |
 | --- | --- | --- |
@@ -38,15 +38,15 @@ Codex uses synchronized output while drawing its interface. The core continues p
 Regenerate the reference checkpoints from the committed source recordings. A single name selects one recording.
 
 ```sh
-bun Fixtures/reference/m2/generate.mjs
+bun Fixtures/reference/generate.mjs
 scripts/check-workflows.sh
 ```
 
 To record new shell bytes, run the first command with the captured Bash version. The second rebuilds the Vim resume recording from the `vim-edit` capture and its recorded replay. Add `--check` to verify the checked-in recording instead.
 
 ```sh
-python3 Fixtures/reference/m4/shell-workflow.py --bash /opt/homebrew/bin/bash
-bun Fixtures/reference/m4/vim-resume.mjs
+python3 Fixtures/reference/workflows/shell-workflow.py --bash /opt/homebrew/bin/bash
+bun Fixtures/reference/workflows/vim-resume.mjs
 ```
 
 `codex-capture.py --help` describes the separate live recording procedure. A new recording uses the specified Codex binary and login and makes a new model request. The text, timing and PTY chunks can differ between live runs.
@@ -56,7 +56,7 @@ bun Fixtures/reference/m4/vim-resume.mjs
 The Codex transcript pager enables X11 button, drag and all-motion tracking and requests SGR coordinates. The pointer recording exercises those modes through the reference's mouse service at 240 × 8, including legacy binary coordinates above ASCII, the 223-column limit, SGR release and wheel events, modifiers and the return to local selection. Its expected frames come from the reference terminal's binary and text streams. Regenerate from the repository root.
 
 ```sh
-bun Fixtures/reference/m2/generate.mjs pointer-input
+bun Fixtures/reference/generate.mjs pointer-input
 ```
 
 ## iPhone recordings

@@ -8,7 +8,7 @@ func serializedCheckpointsRestoreTheRecordedScreen(_ name: String) throws {
 }
 
 @Test func serializedHandsetVimRestoresBothBuffers() throws {
-    try checkSerialization(Recording.load(named: "vim-resume", subdirectory: nil))
+    try checkSerialization(Recording.load(named: "vim-resume", subdirectory: "recordings/phone"))
 }
 
 private func checkSerialization(_ fixture: Recording) throws {

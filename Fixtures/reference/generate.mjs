@@ -1,12 +1,12 @@
-// Rebuild reference states from the recorded PTY events. See README.md.
+// Rebuild reference states from the recorded PTY events. See shell-and-vim/README.md.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { applyPalette, reference as pinned, source, terminal, write } from '../reference.mjs';
-import { Pool as StatePool, pack } from '../conformance/state.mjs';
-import { state } from '../conformance/xterm.mjs';
-import { pointerInput, encodePointer } from '../m4/pointer.mjs';
-import { hardwareKeys } from '../m4/hardware-keys.mjs';
+import { applyPalette, reference as pinned, source, terminal, write } from './reference.mjs';
+import { Pool as StatePool, pack } from './conformance/state.mjs';
+import { state } from './conformance/xterm.mjs';
+import { pointerInput, encodePointer } from './workflows/pointer.mjs';
+import { hardwareKeys } from './workflows/hardware-keys.mjs';
 
 const { evaluateKeyboardEvent } = await source('common/input/Keyboard');
 const { bracketTextForPaste, prepareTextForTerminal } = await source('browser/Clipboard');
@@ -98,7 +98,7 @@ async function shellEdges() {
   output('Erase the line through the cursor', utf8('\x1b[2J\x1b[Habove\r\nabcdef\x1b[2;3H\x1b[44m\x1b[1K\x1b[0m'));
   output('Erase the display through the cursor', utf8('\x1b[3;1Huvwxyz\x1b[3;3H\x1b[41m\x1b[1J\x1b[0m'));
   // Replay the recorded Readline session on a clean viewport at its actual PTY size.
-  const capture = await readFile(new URL('bash-display.capture.json', import.meta.url));
+  const capture = await readFile(new URL('shell-and-vim/bash-display.capture.json', import.meta.url));
   const display = JSON.parse(capture);
   resize(display.columns, display.rows);
   output('Clear viewport for Bash', utf8('\x1b[2J\x1b[H'));
@@ -190,7 +190,7 @@ function encodedInput(t, action, flags = 0) {
 // Palette, stored cell styles, wrap flags and cursor come from the pinned emulator.
 async function verifyStyledPaints(recording, events, cells, lines) {
   for (const [file, field] of [['Prompt.swift','sourceSHA256'], ['styled.vim','vimrcSHA256']]) {
-    const bytes = await readFile(new URL('../m3/' + file, import.meta.url));
+    const bytes = await readFile(new URL('styled-vim/' + file, import.meta.url));
     assert.equal(sha256(bytes), recording[field], file + ' differs from the captured input');
   }
   assert.equal(recording.vimBackground, recording.name.slice('vim-swift-'.length));
@@ -280,9 +280,10 @@ function verifyHighlighting(theme, events, cells, lines) {
   if (styledText.dark && styledText.light) assert.deepEqual(styledText.dark, styledText.light, 'Both appearances show the same text');
 }
 
-async function generate(name) {
-  const directory = phone ? '../m4/phone/' : workflows.includes(name) ? '../m4/' : name.startsWith('vim-swift-') ? '../m3/' : '';
-  const capture = name === 'zsh-clear' ? '../conformance/programs/zsh-clear.capture.json' : directory + name + '.capture.json';
+async function generate(path) {
+  const name = path.replace(/^phone\//, '');
+  const directory = workflows.includes(name) ? 'workflows/' : name.startsWith('vim-swift-') ? 'styled-vim/' : 'shell-and-vim/';
+  const capture = name === 'zsh-clear' ? 'conformance/programs/zsh-clear.capture.json' : directory + path + '.capture.json';
   const captureBytes = ['first-bytes','shell-edges','prompt-bom','hardware-keys','pointer-input'].includes(name) ? null
     : await readFile(new URL(capture, import.meta.url));
   const recording = captureBytes ? JSON.parse(captureBytes) : name === 'prompt-bom'
@@ -365,7 +366,7 @@ async function generate(name) {
   }
   t.dispose();
   // The Vim resume checkpoints come from the reference like every other recording. Only its reattachment
-  // frame comes from a server's serializer, which ../m4/README.md records.
+  // frame comes from a server's serializer, which workflows/README.md records.
   const overlay = recording.overlay;
   const vimReplay = name === 'vim-resume' ? {sourceCaptureSHA256:overlay.sourceCaptureSHA256,
     serializedSHA256:overlay.serializedSHA256} : undefined;
@@ -377,18 +378,16 @@ async function generate(name) {
   const data = JSON.stringify(header).slice(0,-1)
     + ',\n"cells":[\n' + linesOf(cellList) + '\n],\n"lines":[\n' + linesOf(rowList)
     + '\n],\n"events":[\n' + linesOf(eventList) + '\n]}\n';
-  const outputDirectory = phone ? '../m4/phone/' : '../../recordings/';
-  await writeFile(new URL(outputDirectory+name+'.json',import.meta.url),data);
-  console.log(name, events.length, sha256(data));
+  await writeFile(new URL('../recordings/'+path+'.json',import.meta.url),data);
+  console.log(path, events.length, sha256(data));
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
-const all = ['first-bytes', 'shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows];
-const phone = process.argv[2] === '--phone';
-const available = phone ? ['vim-resume', 'codex-session'] : all;
-const requested = process.argv.slice(phone ? 3 : 2);
-for (const name of requested.length ? requested : available) {
-  assert(available.includes(name), 'Unknown recording: ' + name);
-  await generate(name);
+const all = ['first-bytes', 'shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows,
+  'phone/vim-resume', 'phone/codex-session'];
+const requested = process.argv.slice(2);
+for (const path of requested.length ? requested : all) {
+  assert(all.includes(path), 'Unknown recording: ' + path);
+  await generate(path);
 }
 
 // Validate the benchmark's sustained, directly generated ASCII workload.

@@ -88,11 +88,11 @@ def configure_workspace(work, home, env, codex, responses):
     bin_dir = home / "bin"
     bin_dir.mkdir()
     (home / "inputrc").write_text("set editing-mode emacs\nset enable-bracketed-paste on\n")
-    vim = load(ROOT / "Fixtures/reference/m2/capture-shell-and-vim.py")
+    vim = load(ROOT / "Fixtures/reference/shell-and-vim/capture-shell-and-vim.py")
     executable(bin_dir / "vim", vim.VIM)
     (home / "vimrc").write_text(vim.VIMRC)
     (work / "scratch.txt").write_text("first line\nsecond line\n")
-    shutil.copyfile(ROOT / "Fixtures/reference/m2/build-log.py", work / "build")
+    shutil.copyfile(ROOT / "Fixtures/reference/shell-and-vim/build-log.py", work / "build")
     (work / "build").chmod(0o700)
     subprocess.run(["/usr/bin/git", "init", "-q", work], env=env, check=True)
     if responses:
@@ -175,7 +175,7 @@ fi
     with ExitStack() as stack:
         responses = None
         if "codex" in workflows:
-            provider = load(ROOT / "Fixtures/reference/m4/songbird_stream.py")
+            provider = load(ROOT / "Fixtures/reference/workflows/songbird_stream.py")
             responses = stack.enter_context(provider.local_responses(provider.QUESTION, provider.MODEL))
         if endpoint:
             home.mkdir(mode=0o700, parents=True)

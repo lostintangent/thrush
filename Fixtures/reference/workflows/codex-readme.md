@@ -25,7 +25,7 @@ The raw stream contains 155 synchronized updates (DEC private mode 2026). Of tho
 With the [pinned reference](../README.md) installed, the generator uses `@xterm/headless`, the color-report handler and ThemeService from `@xterm/xterm`, and Unicode 11. It checks every recorded automatic reply while rebuilding the reference cells and checkpoints.
 
 ```sh
-bun Fixtures/reference/m2/generate.mjs codex-session
+bun Fixtures/reference/generate.mjs codex-session
 ```
 
 ## Record another live session
@@ -33,7 +33,7 @@ bun Fixtures/reference/m2/generate.mjs codex-session
 Run the following only to collect a fresh provider response. It uses an authorized Codex login and a native CLI with the exact recorded version. The fresh response, read boundaries and timings can vary. The existing capture provides deterministic replay.
 
 ```sh
-python3 Fixtures/reference/m4/codex-capture.py --codex-bin /path/to/native/codex --output /tmp/codex-session.capture.json
+python3 Fixtures/reference/workflows/codex-capture.py --codex-bin /path/to/native/codex --output /tmp/codex-session.capture.json
 ```
 
 The recorder keeps the fresh session only after observing the answer, both transcript positions and the shell's return, verifying replies, and redacting the exit identifier. The output path above leaves the checked-in recording available for comparison.

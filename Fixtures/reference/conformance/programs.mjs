@@ -6,8 +6,8 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const fixtures = ['m2/shell-log', 'm2/vim-edit', 'm3/vim-swift-dark', 'm3/vim-swift-light', 'm4/codex-session',
-  'm4/shell-workflow', 'm4/phone/codex-session', 'm4/phone/vim-edit'];
+const fixtures = ['shell-and-vim/shell-log', 'shell-and-vim/vim-edit', 'styled-vim/vim-swift-dark', 'styled-vim/vim-swift-light',
+  'workflows/codex-session', 'workflows/shell-workflow', 'workflows/phone/codex-session', 'workflows/phone/vim-edit'];
 
 /** Every capture, as { path, capture }. */
 export function captures(reference) {
@@ -19,9 +19,12 @@ export function captures(reference) {
     .map(path => ({ path: relative(reference, path), capture: JSON.parse(readFileSync(path, 'utf8')) }));
 }
 
-/** A capture as a case. Each recorded checkpoint keeps its name, and checkpoints repeat-named get a suffix. */
+/**
+ * A capture as a case, named without the folder its family shares, as in `phone/codex-session`. Each
+ * recorded checkpoint keeps its name, and checkpoints repeat-named get a suffix.
+ */
 export function programCase({ path, capture }) {
-  const program = path.replace(/\.capture\.json$/, '').replace(/^conformance\/programs\//, '');
+  const program = path.replace(/\.capture\.json$/, '').replace(/^(conformance\/)?[^/]+\//, '');
   const steps = [];
   const names = new Map();
   let palette;

@@ -42,7 +42,7 @@ swift run -c release ThrushBench
 python3 Benchmarks/check-benchmark-report.py
 ```
 
-The SwiftUI example in `examples/swiftui` builds the README integration using only the `Thrush` library product. The Release benchmark writes `.build/benchmarks/headless.json`. See [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/m2/README.md).
+The SwiftUI example in `examples/swiftui` builds the README integration using only the `Thrush` library product. The Release benchmark writes `.build/benchmarks/headless.json`. See [headless profiling and measurements](Benchmarks/headless.md) and [the shell and Vim fixture reference](Fixtures/reference/shell-and-vim/README.md).
 
 To measure ThrushCore against libghostty-vt and @xterm/headless on the same workloads, run `python3 Benchmarks/comparison/run.py`. It downloads and builds the pinned libghostty-vt with Zig on first use, checks that every core ends on the same screen, and writes `.build/benchmarks/comparison.json`. To see where ThrushCore spends its time on those workloads, run the Comparison profile workflow, which samples it on a hosted Mac with `Benchmarks/comparison/profile.py`. See [the comparison report](Benchmarks/comparison.md).
 

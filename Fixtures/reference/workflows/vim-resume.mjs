@@ -2,7 +2,7 @@
 // restored alternate grid. A fresh client terminal then receives a server's serialized replay at the same
 // size, followed by the rest of the live output.
 //
-//   bun Fixtures/reference/m4/vim-resume.mjs [<vim-edit capture> <vim-resume capture>] [--replay <file>] [--check]
+//   bun Fixtures/reference/workflows/vim-resume.mjs [<vim-edit capture> <vim-resume capture>] [--replay <file>] [--check]
 //
 // The serialized replay is part of the recording. It defaults to the bytes already in the resume capture,
 // whose serializer README.md records, and --replay supplies another server's bytes. The reference checks
@@ -22,7 +22,7 @@ const { positionals, values } = parseArgs({allowPositionals:true,
 assert(positionals.length <= 2, 'Expected optional Vim source and resume capture paths.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const directory = fileURLToPath(new URL('.', import.meta.url));
-const wideSource = resolve(directory, '../m2/vim-edit.capture.json');
+const wideSource = resolve(directory, '../shell-and-vim/vim-edit.capture.json');
 const wideDestination = resolve(directory, 'vim-resume.capture.json');
 const sourcePath = resolve(positionals[0] ?? wideSource);
 const destination = resolve(positionals[1] ?? wideDestination);
@@ -124,7 +124,7 @@ const result = {...recording,name:'vim-resume',
     scriptedDetachMicroseconds:gap,serializedBytes:replay.length,serializedSHA256:sha(replay),
     cursor,
     savedFile:{name:'scratch.txt',text:savedText,sha256:sha(Buffer.from(savedText)),
-      verifiedBy:'Fixtures/reference/m2/capture-shell-and-vim.py checks the saved PTY scratch file before recording vim-edit.'}}};
+      verifiedBy:'Fixtures/reference/shell-and-vim/capture-shell-and-vim.py checks the saved PTY scratch file before recording vim-edit.'}}};
 delete result.events;
 const data = JSON.stringify(result).slice(0,-1) + ',\n"events":[\n'
   + events.map(event => JSON.stringify(event)).join(',\n') + '\n]}\n';

@@ -9,23 +9,23 @@ Codex CLI 0.166.0 runs in a fresh home and trusted Git workspace, with the relea
 Rebuild the saved reference checkpoints from the phone sources at the repository root, with the [pinned reference](../../README.md) installed.
 
 ```sh
-bun Fixtures/reference/m2/generate.mjs --phone
+bun Fixtures/reference/generate.mjs phone/vim-resume phone/codex-session
 ```
 
 To record fresh PTY timings, pass the measured starting columns and rows to both recorders. Repeat `--resize COLSxROWS` for each Vim orientation stop in order. The last stop uses the original portrait dimensions. Preserve all three steps, including the initial portrait confirmation at the existing size. The separate output paths keep both original wide sources available. A fresh Vim recording needs its own server replay: the bytes your server's serializer produces for the restored grid at `Vim before detach`, passed as `--replay`.
 
 ```sh
-python3 -B Fixtures/reference/m2/capture-shell-and-vim.py --only vim-edit \
+python3 -B Fixtures/reference/shell-and-vim/capture-shell-and-vim.py --only vim-edit \
   --columns "$portrait_cols" --rows "$portrait_rows" \
   --resize "${portrait_cols}x${portrait_rows}" --resize "${landscape_cols}x${landscape_rows}" \
-  --resize "${portrait_cols}x${portrait_rows}" --destination Fixtures/reference/m4/phone
+  --resize "${portrait_cols}x${portrait_rows}" --destination Fixtures/reference/workflows/phone
 
-bun Fixtures/reference/m4/vim-resume.mjs --replay "$server_replay" \
-  Fixtures/reference/m4/phone/vim-edit.capture.json Fixtures/reference/m4/phone/vim-resume.capture.json
+bun Fixtures/reference/workflows/vim-resume.mjs --replay "$server_replay" \
+  Fixtures/reference/workflows/phone/vim-edit.capture.json Fixtures/reference/workflows/phone/vim-resume.capture.json
 
-python3 -B Fixtures/reference/m4/codex-capture.py \
+python3 -B Fixtures/reference/workflows/codex-capture.py \
   --codex-bin "$codex_binary" --columns "$portrait_cols" --rows "$portrait_rows" \
-  --local-response --output Fixtures/reference/m4/phone/codex-session.capture.json
+  --local-response --output Fixtures/reference/workflows/phone/codex-session.capture.json
 ```
 
 ## Run the same answer in a disposable hosted PTY
@@ -33,7 +33,7 @@ python3 -B Fixtures/reference/m4/codex-capture.py \
 Start the local provider on the PTY host. Its first line gives the endpoint as `THRUSH_RESPONSES_URL=http://127.0.0.1:<port>/v1`. It serves the recorded songbird question and its short title. SIGINT or SIGTERM closes the listener.
 
 ```sh
-python3 -B Fixtures/reference/m4/songbird_stream.py --port 0
+python3 -B Fixtures/reference/workflows/songbird_stream.py --port 0
 ```
 
 In the disposable Codex home's `config.toml`, supply the printed URL and the local provider. Start the native binary in the disposable trusted workspace with `--no-daemon -s read-only -a never`.

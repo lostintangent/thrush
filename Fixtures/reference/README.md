@@ -12,13 +12,13 @@ bun install --cwd Fixtures/reference --frozen-lockfile
 
 Run `bun Fixtures/reference/generate-widths.mjs` to regenerate the core's Unicode 11 cell-width data. The generator queries the pinned provider for each code point and groups the observed zero- and double-width intervals. Thrush looks up these observations with its own Swift code.
 
-Every recorder runs its program through one PTY session in [capture.py](capture.py), which records each read, key and window change in order. As the program runs, [replies.mjs](replies.mjs) answers its queries the way the reference does, so the recording follows the replies a terminal sends.
+Every recorder runs its program through one PTY session in [capture.py](capture.py), which records each read, key and window change in order. As the program runs, [replies.mjs](replies.mjs) answers its queries the way the reference does, so the recording follows the replies a terminal sends. [generate.mjs](generate.mjs) replays each capture through the reference and writes its recording to `Fixtures/recordings`, with the expected screen at every checkpoint. With no arguments it rebuilds every recording, and names such as `vim-edit` or `phone/vim-resume` select some.
 
-The numbered compiler log and the interactive Vim session retain their actual PTY bytes and resize events. Their generator replays them through the pinned reference. [Shell and Vim recordings](m2/README.md)
+The numbered compiler log and the interactive Vim session retain their actual PTY bytes and resize events. [Shell and Vim recordings](shell-and-vim/README.md)
 
-Two further captures open the same Swift source in Vim against the dark and light themes. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](m3/README.md)
+Two further captures open the same Swift source in Vim against the dark and light themes. The PTY records Vim’s choice of background, the resulting syntax colors and the native repaints at three grid sizes. [Styled Swift recordings](styled-vim/README.md)
 
-The three interactive workflow recordings include a soft-wrapped shell copy, an actual server-serialized Vim screen and a streamed Codex response. [Shell, Vim and Codex workflows](m4/README.md)
+The three interactive workflow recordings include a soft-wrapped shell copy, an actual server-serialized Vim screen and a streamed Codex response. [Shell, Vim and Codex workflows](workflows/README.md)
 
 ## Conformance
 

@@ -28,8 +28,8 @@ The last part of `shell-edges` replays `bash-display.capture.json`. It was recor
 Bash runs `printf 'name\tvalue'` and `printf 'progress...\r\033[2KDone'`. After each command, a silent `read -rsn1` waits for one input byte so xterm can record the line and cursor before Bash prints the next prompt. The recording’s `captureSHA256` identifies this raw Bash recording. Regenerate the four checkpoints offline from the committed bytes with the command below. Run the Python command first only to collect a new live recording.
 
 ```sh
-python3 Fixtures/reference/m2/capture-display.py --bash /opt/homebrew/bin/bash
-bun Fixtures/reference/m2/generate.mjs shell-edges
+python3 Fixtures/reference/shell-and-vim/capture-display.py --bash /opt/homebrew/bin/bash
+bun Fixtures/reference/generate.mjs shell-edges
 ```
 
 ## Reproduce the reference files
@@ -37,13 +37,13 @@ bun Fixtures/reference/m2/generate.mjs shell-edges
 With the [pinned reference](../README.md) installed, run the generator against the checked-in PTY recordings from the repository root.
 
 ```sh
-bun Fixtures/reference/m2/generate.mjs
-shasum -a 256 Fixtures/recordings/*.json
+bun Fixtures/reference/generate.mjs
+git diff --exit-code Fixtures/recordings
 ```
 
 The generator feeds the output bytes into a reference terminal in recorded order. It obtains replies via `onData`, encodes special keys with the browser package's keyboard evaluator, and uses its paste conversion and bracket helpers. In each real recording, the resulting input and automatic reply bytes must match their separate capture fields, including reads that produced no reply. The recorded programs never heard a focus report, so that check leaves focus reports out. It also verifies the benchmark's 1,048,640-byte ASCII stream at all three grid sizes in 4 KiB writes.
 
-To record a new local shell and Vim session, run `python3 Fixtures/reference/m2/capture-shell-and-vim.py` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
+To record a new local shell and Vim session, run `python3 Fixtures/reference/shell-and-vim/capture-shell-and-vim.py` and then regenerate the references. New recordings reflect the machine's PTY read boundaries, timing and Vim version. Regenerating from the checked-in captures produces identical bytes and hashes. Both steps use local temporary files and processes. The Swift test suite reads the bundled JSON directly.
 
 ## Recording format
 

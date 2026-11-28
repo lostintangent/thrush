@@ -21,7 +21,7 @@ let package = Package(
             dependencies: ["ThrushCore"],
             path: "Fixtures",
             exclude: ["reference"],
-            resources: [.copy("recordings"), .copy("reference/m4/phone/vim-resume.json")]
+            resources: [.copy("recordings")]
         ),
         .executableTarget(name: "ThrushBench", dependencies: ["ThrushCore", "ThrushFixtures"],
                           path: "Benchmarks/ThrushBench"),
