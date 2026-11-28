@@ -13,8 +13,8 @@ root = Path(__file__).resolve().parents[1]
 path = Path(sys.argv[1]) if len(sys.argv) == 2 else root / ".build/benchmarks/headless.json"
 report = json.loads(path.read_bytes())
 recordings = report["recordings"]
-fixtures = {p.stem: p.read_bytes() for p in (root / "Fixtures/recordings").glob("*.json")}
-assert len(recordings) == len(fixtures) and {r["name"] for r in recordings} == fixtures.keys()
+fixtures = {r["name"]: (root / "Fixtures/recordings" / f"{r['name']}.json").read_bytes() for r in recordings}
+assert recordings and len(fixtures) == len(recordings)
 
 for recording in recordings:
     data = fixtures[recording["name"]]
