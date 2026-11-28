@@ -28,24 +28,10 @@ def wait_for(description, check, process, seconds=45):
     raise TimeoutError(description)
 
 
-def local_endpoint(value):
-    match = re.fullmatch(r"(?:http|ws)(s?)://(127\.0\.0\.1|localhost|\[::1\])(?::([0-9]{1,5}))?(?:/socket|/)?", value)
-    if not match or (match[3] and not 0 < int(match[3]) <= 65535):
-        raise argparse.ArgumentTypeError("Expected a disposable loopback origin such as http://127.0.0.1:3129")
-    port = f":{int(match[3])}" if match[3] else ""
-    return f"http{match[1]}://{match[2]}{port}"
-
-
 @contextmanager
-def server(root, shell, log, executable, endpoint=None):
-    data = root / "data"
-    if endpoint:
-        (data / "work").mkdir(parents=True)
-        (data / "source.json").write_text(json.dumps({"server": "external", "endpoint": endpoint}) + "\n")
-        yield endpoint
-        return
+def server(root, shell, log, executable):
     with log.open("w") as output, subprocess.Popen(
-        [executable, "--port", "0", "--data-dir", data, "--shell", shell],
+        [executable, "--port", "0", "--data-dir", root / "data", "--shell", shell],
         stdout=output, stderr=subprocess.STDOUT,
         start_new_session=True,
     ) as process:
