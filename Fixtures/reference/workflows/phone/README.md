@@ -6,10 +6,10 @@ Both recordings run at the iPhone Duo's grids with the keyboard up. Codex runs a
 
 Codex CLI 0.166.0 runs in a fresh home and trusted Git workspace, with the release's `codex-code-mode-host` beside it so the status line carries no warning. Its loopback Responses endpoint streams the twelve numbered lines from the published live session. The CLI draws the prompt, working indicator, partial answer and both transcript pages inside the narrow PTY. The source records every PTY read, independent terminal reply, user action and relative timestamp. The exit resume ID receives the same length-preserving replacement used for the original capture. The wide recording retains the live provider turn. [Original Codex recording](../codex-readme.md)
 
-Rebuild the saved reference checkpoints from the phone sources at the repository root, with the [pinned reference](../../README.md) installed.
+Rebuild the Vim recording's saved reference checkpoints at the repository root, with the [pinned reference](../../README.md) installed. The Codex capture has no recording, because its conformance case replays the capture itself.
 
 ```sh
-bun Fixtures/reference/generate.mjs phone/vim-resume phone/codex-session
+bun Fixtures/reference/generate.mjs phone/vim-resume
 ```
 
 To record fresh PTY timings, pass the measured starting columns and rows to both recorders. Repeat `--resize COLSxROWS` for each Vim orientation stop in order. The last stop uses the original portrait dimensions. Preserve all three steps, including the initial portrait confirmation at the existing size. The separate output paths keep both original wide sources available. A fresh Vim recording needs its own server replay: the bytes your server's serializer produces for the restored grid at `Vim before detach`, passed as `--replay`.

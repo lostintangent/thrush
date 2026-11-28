@@ -383,7 +383,7 @@ async function generate(path) {
 }
 const workflows = ['shell-workflow', 'vim-resume', 'codex-session'];
 const all = ['first-bytes', 'shell-log', 'vim-edit', 'shell-edges', 'prompt-bom', 'vim-swift-dark', 'vim-swift-light', 'hardware-keys','pointer-input', 'zsh-clear', ...workflows,
-  'phone/vim-resume', 'phone/codex-session'];
+  'phone/vim-resume'];
 const requested = process.argv.slice(2);
 for (const path of requested.length ? requested : all) {
   assert(all.includes(path), 'Unknown recording: ' + path);
