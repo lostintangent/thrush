@@ -4,12 +4,12 @@ import ThrushCore
 /// Timing from the monotonic media clock used by CAMetalDrawable.presentedTime.
 package struct FrameMeasurement: Sendable {
     package let generation: UInt64
-    package let gpuCompleted: Bool
+    package internal(set) var gpuCompleted = false
     package let cpuPreparationSeconds: Double
     package let shaderCompileSeconds: Double?
     package let firstFrameSeconds: Double?
-    package let gpuSeconds: Double?
-    package let presentedTime: Double?
+    package internal(set) var gpuSeconds: Double?
+    package internal(set) var presentedTime: Double?
     package let receivedAt: Double?
     package let submittedAt: Double
     package let glyphUploads: Int
@@ -19,42 +19,21 @@ package struct FrameMeasurement: Sendable {
 /// Collects one frame's timing until its GPU work and its presentation are both known, then reports the measurement.
 @MainActor
 private final class FrameTiming {
-    let cpu: Double, submitted: Double
-    let shaderCompile: Double?, firstFrame: Double?
-    let received: Double?
-    let generation: UInt64
-    let uploads: Int, rows: Int
+    var frame: FrameMeasurement
     let report: (FrameMeasurement) -> Void
-    var gpu: Double?
-    var presented: Double?
     var completed = false
-    var gpuCompleted = false
     var presentationKnown = false
     var delivered = false
 
-    init(cpu: Double, shaderCompile: Double?, firstFrame: Double?, submitted: Double, received: Double?, generation: UInt64, uploads: Int, rows: Int,
-         report: @escaping (FrameMeasurement) -> Void) {
-        self.shaderCompile = shaderCompile
-        self.firstFrame = firstFrame
-        self.cpu = cpu
-        self.submitted = submitted
-        self.received = received
-        self.generation = generation
-        self.uploads = uploads
-        self.rows = rows
+    init(_ frame: FrameMeasurement, report: @escaping (FrameMeasurement) -> Void) {
+        self.frame = frame
         self.report = report
-    }
-
-    var measurement: FrameMeasurement {
-        .init(generation: generation, gpuCompleted: gpuCompleted, cpuPreparationSeconds: cpu, shaderCompileSeconds: shaderCompile,
-              firstFrameSeconds: firstFrame, gpuSeconds: gpu, presentedTime: presented, receivedAt: received,
-              submittedAt: submitted, glyphUploads: uploads, rowsPrepared: rows)
     }
 
     func resolve() {
         guard completed, presentationKnown, !delivered else { return }
         delivered = true
-        report(measurement)
+        report(frame)
     }
 }
 
@@ -930,10 +909,11 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
             let reportCompletion = onFrameCompleted
             let observesPresentation = report != nil || finalRevision != nil
             let timing: FrameTiming? = (observesPresentation || reportCompletion != nil) ?
-                FrameTiming(cpu: submitted - started, shaderCompile: first ? firstCompilation : nil,
-                             firstFrame: first ? submitted - firstContentStart : nil, submitted: submitted, received: received,
-                             generation: snapshot?.generation ?? 0, uploads: frame.glyphUploads,
-                             rows: frame.rowsPrepared) { [weak self] frame in
+                FrameTiming(.init(generation: snapshot?.generation ?? 0, cpuPreparationSeconds: submitted - started,
+                                  shaderCompileSeconds: first ? firstCompilation : nil,
+                                  firstFrameSeconds: first ? submitted - firstContentStart : nil, receivedAt: received,
+                                  submittedAt: submitted, glyphUploads: frame.glyphUploads,
+                                  rowsPrepared: frame.rowsPrepared)) { [weak self] frame in
                     report?(frame)
                     if let self, let finalRevision, self.finalFrameRevision == finalRevision {
                         if frame.gpuCompleted { self.finishFinalFrame() }
@@ -948,7 +928,7 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
                 drawable.addPresentedHandler { output in
                     let time = output.presentedTime
                     Task { @MainActor in
-                        timing.presented = time > 0 ? time : nil
+                        timing.frame.presentedTime = time > 0 ? time : nil
                         timing.presentationKnown = true
                         timing.resolve()
                     }
@@ -961,10 +941,10 @@ package final class TerminalMetalView: MTKView, MTKViewDelegate {
                 let ready = command.gpuEndTime > 0 ? command.gpuEndTime : CACurrentMediaTime()
                 Task { @MainActor in
                     if let timing {
-                        timing.gpu = gpu > 0 ? gpu : nil
-                        timing.gpuCompleted = completed
+                        timing.frame.gpuSeconds = gpu > 0 ? gpu : nil
+                        timing.frame.gpuCompleted = completed
                         timing.completed = true
-                        reportCompletion?(timing.measurement)
+                        reportCompletion?(timing.frame)
                         if !completed { timing.presentationKnown = true }
                         timing.resolve()
                     }
