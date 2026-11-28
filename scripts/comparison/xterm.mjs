@@ -7,9 +7,7 @@ const [workload, ...numbers] = process.argv.slice(2);
 const [columns, rows, chunk, warmups, passes, history] = numbers.map(Number);
 const bytes = new Uint8Array(readFileSync(workload));
 const chunks = [];
-for (let offset = 0; offset < bytes.length; offset += chunk || bytes.length) {
-  chunks.push(bytes.subarray(offset, offset + (chunk || bytes.length)));
-}
+for (let offset = 0; offset < bytes.length; offset += chunk) chunks.push(bytes.subarray(offset, offset + chunk));
 
 function makeTerminal() {
   return headless(columns, rows, { scrollback: history, logLevel: 'off' });
@@ -31,12 +29,10 @@ let terminal;
 for (let i = 0; i < passes; i++) {
   terminal?.dispose();
   terminal = makeTerminal();
-  const cpu = process.cpuUsage();
   const start = process.hrtime.bigint();
   feed(terminal);
   const wall = Number(process.hrtime.bigint() - start);
-  const used = process.cpuUsage(cpu);
-  results.push({ wall, cpu: (used.user + used.system) * 1000 });
+  results.push({ wall });
 }
 const buffer = terminal.buffer.active;
 const state = {

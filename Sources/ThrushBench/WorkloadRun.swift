@@ -9,7 +9,6 @@ import ThrushCore
 struct WorkloadRun: Encodable {
     struct Pass: Encodable {
         let wall: UInt64
-        let cpu: UInt64
         let allocations: UInt64?
     }
 
@@ -37,12 +36,8 @@ struct WorkloadRun: Encodable {
 
         func feed(_ terminal: inout Terminal) {
             let span = bytes.span
-            let step = chunk > 0 ? chunk : span.count
-            var offset = 0
-            while offset < span.count {
-                let end = min(offset + step, span.count)
-                _ = terminal.write(span.extracting(offset..<end))
-                offset = end
+            for offset in stride(from: 0, to: span.count, by: chunk) {
+                _ = terminal.write(span.extracting(offset..<min(offset + chunk, span.count)))
             }
         }
 
@@ -55,13 +50,11 @@ struct WorkloadRun: Encodable {
         for _ in 0..<passes {
             terminal = Terminal(size: size)
             let allocated = allocations?()
-            let cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID)
             let start = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
             feed(&terminal)
             let wall = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - start
-            let used = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpu
             let made = allocations.map { $0() - allocated! }
-            measured.append(Pass(wall: wall, cpu: used, allocations: made))
+            measured.append(Pass(wall: wall, allocations: made))
         }
         let snapshot = terminal.snapshot()
         let state = State(cursor: [snapshot.cursorRow, snapshot.cursorColumn], history: snapshot.history.count,

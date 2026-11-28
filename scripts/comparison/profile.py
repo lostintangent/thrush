@@ -20,13 +20,13 @@ from pathlib import Path
 sys.dont_write_bytecode = True  # A clean checkout stays clean, so the report's revision is exact.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import workloads  # noqa: E402
-from run import HISTORY, ROOT, environment, log  # noqa: E402
+from run import CHUNK, HISTORY, ROOT, environment, log  # noqa: E402
 
 SECONDS = 3
 
 
 def profile(binary, workload, out):
-    process = subprocess.Popen([binary, "--workload", workload["path"], "80", "24", "4096", "1", "1000000",
+    process = subprocess.Popen([binary, "--workload", workload["path"], "80", "24", str(CHUNK), "1", "1000000",
                                 str(HISTORY)], stdout=subprocess.DEVNULL)
     time.sleep(1)
     report = out / f"profile-{workload['name']}.txt"
@@ -68,7 +68,7 @@ def main():
         "schemaVersion": 1,
         "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "environment": environment(),
-        "method": {"columns": 80, "rows": 24, "chunkBytes": 4096, "historyRows": HISTORY, "seconds": SECONDS},
+        "method": {"columns": 80, "rows": 24, "chunkBytes": CHUNK, "historyRows": HISTORY, "seconds": SECONDS},
         "workloads": [{key: value for key, value in workload.items() if key != "path"} for workload in inputs],
         "profile": {},
     }

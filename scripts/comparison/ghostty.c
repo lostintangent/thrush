@@ -27,7 +27,6 @@ static GhosttyTerminal make_terminal(uint16_t columns, uint16_t rows, size_t his
 }
 
 static void feed(GhosttyTerminal terminal, const uint8_t *bytes, size_t length, size_t chunk) {
-  if (chunk == 0) chunk = length;
   for (size_t offset = 0; offset < length; offset += chunk) {
     size_t count = length - offset < chunk ? length - offset : chunk;
     ghostty_terminal_vt_write(terminal, bytes + offset, count);
@@ -113,13 +112,11 @@ int main(int argc, char **argv) {
     if (last) ghostty_terminal_free(last);
     last = make_terminal(columns, rows, history);
     uint64_t allocated = allocations ? allocations() : 0;
-    uint64_t cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID);
     uint64_t start = mach_absolute_time();
     feed(last, bytes, length, chunk);
     uint64_t wall = (mach_absolute_time() - start) * timebase.numer / timebase.denom;
-    cpu = clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) - cpu;
     printf(i ? ",{" : "{");
-    printf("\"wall\":%llu,\"cpu\":%llu", (unsigned long long)wall, (unsigned long long)cpu);
+    printf("\"wall\":%llu", (unsigned long long)wall);
     if (allocations) printf(",\"allocations\":%llu", (unsigned long long)(allocations() - allocated));
     printf("}");
   }

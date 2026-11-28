@@ -33,7 +33,9 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 HISTORY = 1000
 GRIDS = [(80, 24), (240, 60)]
-CHUNKS = [4096, 0]
+CHUNK = 4096
+WARMUPS = 3
+PASSES = 3
 CORES = ["thrush", "ghostty", "xterm-node", "xterm-bun"]
 REFERENCE = ROOT / "Fixtures" / "reference"
 
@@ -130,8 +132,8 @@ def build(tools):
     return commands, out
 
 
-def run_core(command, workload, grid, chunk, warmups, passes, allocations=None):
-    arguments = [*command, workload, str(grid[0]), str(grid[1]), str(chunk), str(warmups), str(passes), str(HISTORY)]
+def run_core(command, workload, grid, warmups, passes, allocations=None):
+    arguments = [*command, workload, str(grid[0]), str(grid[1]), str(CHUNK), str(warmups), str(passes), str(HISTORY)]
     env = {**os.environ, "DYLD_INSERT_LIBRARIES": str(allocations)} if allocations else None
     result = subprocess.run(arguments, capture_output=True, text=True, env=env)
     if result.returncode != 0:
@@ -186,20 +188,19 @@ def environment():
     }
 
 
-def measure(commands, inputs, rounds, warmups, passes, seed):
-    """Runs every core once per workload and condition in each round, in a freshly shuffled order."""
+def measure(commands, inputs, rounds):
+    """Runs every core once per workload and grid in each round, in a freshly shuffled order."""
     samples, states, runtimes = {}, {}, {}
-    order = random.Random(seed)
-    conditions = [(grid, chunk) for grid in GRIDS for chunk in CHUNKS]
+    order = random.Random(1)
     for round_index in range(rounds):
         started = time.monotonic()
         for workload in inputs:
-            for grid, chunk in conditions:
-                key = (workload["name"], grid, chunk)
+            for grid in GRIDS:
+                key = (workload["name"], grid)
                 cores = CORES[:]
                 order.shuffle(cores)
                 for core in cores:
-                    result = run_core(commands[core], workload["path"], grid, chunk, warmups, passes)
+                    result = run_core(commands[core], workload["path"], grid, WARMUPS, PASSES)
                     samples.setdefault(key, {}).setdefault(core, []).append(result["passes"])
                     states.setdefault(key, {})[core] = result["state"]
                     if "runtime" in result:
@@ -213,10 +214,9 @@ def count_allocations(commands, inputs, library):
     counts = {}
     for workload in inputs:
         for grid in GRIDS:
-            for chunk in CHUNKS:
-                for core in ("thrush", "ghostty"):
-                    result = run_core(commands[core], workload["path"], grid, chunk, 1, 1, library)
-                    counts[(workload["name"], grid, chunk, core)] = result["passes"][0]["allocations"]
+            for core in ("thrush", "ghostty"):
+                result = run_core(commands[core], workload["path"], grid, 1, 1, library)
+                counts[(workload["name"], grid, core)] = result["passes"][0]["allocations"]
     return counts
 
 
@@ -224,46 +224,42 @@ def summarize(inputs, samples, states, allocations):
     results = []
     for workload in inputs:
         for grid in GRIDS:
-            for chunk in CHUNKS:
-                key = (workload["name"], grid, chunk)
-                cores, rounds = {}, {}
-                for core, runs in samples[key].items():
-                    wall = [sample["wall"] for passes in runs for sample in passes]
-                    cpu = [sample["cpu"] for passes in runs for sample in passes]
-                    median = statistics.median(wall)
-                    rounds[core] = [statistics.median(sample["wall"] for sample in passes) for passes in runs]
-                    cores[core] = {"medianWallNanoseconds": round(median), "minimumWallNanoseconds": min(wall),
-                                   "roundMedianWallNanoseconds": [round(value) for value in rounds[core]],
-                                   "medianCPUNanoseconds": round(statistics.median(cpu)), "samples": len(wall),
-                                   "mibPerSecond": workload["bytes"] / (1 << 20) / (median / 1e9),
-                                   "history": states[key][core]["history"]}
-                    if (workload["name"], grid, chunk, core) in allocations:
-                        cores[core]["allocations"] = allocations[(workload["name"], grid, chunk, core)]
-                xterm = min(("xterm-node", "xterm-bun"), key=lambda core: cores[core]["medianWallNanoseconds"])
+            key = (workload["name"], grid)
+            cores, rounds = {}, {}
+            for core, runs in samples[key].items():
+                wall = [sample["wall"] for passes in runs for sample in passes]
+                median = statistics.median(wall)
+                rounds[core] = [statistics.median(sample["wall"] for sample in passes) for passes in runs]
+                cores[core] = {"medianWallNanoseconds": round(median),
+                               "roundMedianWallNanoseconds": [round(value) for value in rounds[core]],
+                               "samples": len(wall), "mibPerSecond": workload["bytes"] / (1 << 20) / (median / 1e9),
+                               "history": states[key][core]["history"]}
+                if (*key, core) in allocations:
+                    cores[core]["allocations"] = allocations[(*key, core)]
+            xterm = min(("xterm-node", "xterm-bun"), key=lambda core: cores[core]["medianWallNanoseconds"])
 
-                def speedup(core):
-                    # Each round runs the cores back to back, so pairing within a round cancels that round's load.
-                    paired = [other / mine for other, mine in zip(rounds[core], rounds["thrush"])]
-                    return {"median": statistics.median(paired), "roundRange": [min(paired), max(paired)]}
+            def speedup(core):
+                # Each round runs the cores back to back, so pairing within a round cancels that round's load.
+                paired = [other / mine for other, mine in zip(rounds[core], rounds["thrush"])]
+                return {"median": statistics.median(paired), "roundRange": [min(paired), max(paired)]}
 
-                results.append({
-                    "workload": workload["name"], "columns": grid[0], "rows": grid[1], "chunkBytes": chunk,
-                    "cores": cores, "fastestXterm": xterm,
-                    "speedup": {"ghostty": speedup("ghostty"), "xterm": speedup(xterm)},
-                    "differences": compare(states[key], grid[0]),
-                })
+            results.append({
+                "workload": workload["name"], "columns": grid[0], "rows": grid[1],
+                "cores": cores, "fastestXterm": xterm,
+                "speedup": {"ghostty": speedup("ghostty"), "xterm": speedup(xterm)},
+                "differences": compare(states[key], grid[0]),
+            })
     return results
 
 
 def table(results):
-    lines = ["| Workload | Grid | Chunk | Thrush MiB/s | libghostty-vt MiB/s | xterm MiB/s | vs libghostty-vt | vs xterm | Screens |",
-             "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |"]
+    lines = ["| Workload | Grid | Thrush MiB/s | libghostty-vt MiB/s | xterm MiB/s | vs libghostty-vt | vs xterm | Screens |",
+             "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |"]
     for result in results:
         cores = result["cores"]
-        chunk = f"{result['chunkBytes'] // 1024} KiB" if result["chunkBytes"] else "whole"
         xterm = result["fastestXterm"].removeprefix("xterm-")
         screens = "match" if not result["differences"] else "differ: " + ", ".join(sorted(result["differences"]))
-        lines.append(f"| {result['workload']} | {result['columns']}×{result['rows']} | {chunk} "
+        lines.append(f"| {result['workload']} | {result['columns']}×{result['rows']} "
                      f"| {cores['thrush']['mibPerSecond']:.0f} | {cores['ghostty']['mibPerSecond']:.0f} "
                      f"| {cores[result['fastestXterm']]['mibPerSecond']:.0f} ({xterm}) "
                      f"| {result['speedup']['ghostty']['median']:.2f}× | {result['speedup']['xterm']['median']:.2f}× | {screens} |")
@@ -272,25 +268,20 @@ def table(results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--tools", type=Path, default=ROOT / ".build" / "comparison" / "tools",
-                        help="cache for Zig and the libghostty-vt build")
     parser.add_argument("--rounds", type=int, default=5)
-    parser.add_argument("--warmups", type=int, default=3)
-    parser.add_argument("--passes", type=int, default=3)
-    parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--workloads", help="comma-separated subset of workloads")
     parser.add_argument("--output", type=Path, default=ROOT / ".build" / "benchmarks" / "comparison.json")
     options = parser.parse_args()
 
-    options.tools.mkdir(parents=True, exist_ok=True)
-    commands, out = build(options.tools.resolve())
+    tools = ROOT / ".build" / "comparison" / "tools"
+    tools.mkdir(parents=True, exist_ok=True)
+    commands, out = build(tools)
     inputs = workloads.write(out / "workloads")
     if options.workloads:
         selected = options.workloads.split(",")
         inputs = [workload for workload in inputs if workload["name"] in selected]
     before = environment()
-    samples, states, runtimes = measure(commands, inputs, options.rounds, options.warmups, options.passes,
-                                        options.seed)
+    samples, states, runtimes = measure(commands, inputs, options.rounds)
     log("Counting allocations")
     allocations = count_allocations(commands, inputs, out / "allocations.dylib")
     results = summarize(inputs, samples, states, allocations)
@@ -299,8 +290,8 @@ def main():
         "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "environment": before,
         "environmentAfter": environment(),
-        "method": {"rounds": options.rounds, "warmupsPerRun": options.warmups, "passesPerRun": options.passes,
-                   "historyRows": HISTORY, "seed": options.seed,
+        "method": {"rounds": options.rounds, "warmupsPerRun": WARMUPS, "passesPerRun": PASSES,
+                   "chunkBytes": CHUNK, "historyRows": HISTORY,
                    "timing": "rates use the median wall time of all measured passes, "
                              "and ratios use the median of each round's paired ratio"},
         "cores": {
