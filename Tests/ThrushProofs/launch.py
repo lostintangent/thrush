@@ -423,6 +423,8 @@ def run_workflow(name, upstream, work, env, app_executable, output, appearance, 
                         print(f"Could not retain controller observations: {error}", file=sys.stderr)
                     if host is not None and host.poll() is not None:
                         retain_crash_reports(output, launched)
+                        if device:
+                            simulator.keep_app_log(device, output / "system.log")
                     if device and name == "lifecycle" and ("app toolbar" in str(failure) or "Final framebuffer" in str(failure)):
                         try:
                             simulator.screenshot(device, output / "view-at-failure.png", timeout=20)

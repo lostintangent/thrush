@@ -53,6 +53,19 @@ def screenshot(device, path, timeout=90, check=True):
     sim("io", device, "screenshot", SCREEN, "--mask=black", str(path), timeout=timeout, check=check)
 
 
+def keep_app_log(device, path):
+    """Keep the app's recent log, with what the system logged about ending it when no crash report says why."""
+    # The driver's HTTP polling would otherwise fill the log with network lines.
+    predicate = ('(process == "ThrushProofs" AND NOT subsystem IN {"com.apple.network", "com.apple.CFNetwork", '
+                 f'"com.apple.securityd"}}) OR eventMessage CONTAINS "{APP_ID}"')
+    try:
+        logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact", "--predicate", predicate,
+                   timeout=20, check=False)
+        path.write_text((logs.stdout + logs.stderr)[-100_000:])
+    except subprocess.TimeoutExpired:
+        pass
+
+
 @contextlib.contextmanager
 def record_screen(device, movie):
     log = movie.parent / "recording.log"
@@ -532,12 +545,7 @@ def main():
                 state = phone.state()
                 if state:
                     save(out / "last-native-state.json", state)
-            try:
-                logs = sim("spawn", device, "log", "show", "--last", "3m", "--style", "compact",
-                           "--predicate", 'process == "ThrushProofs"', timeout=20, check=False)
-                (out / "app.log").write_text((logs.stdout + logs.stderr)[-100_000:])
-            except subprocess.TimeoutExpired:
-                pass
+            keep_app_log(device, out / "app.log")
             raise
 
 
